@@ -1,0 +1,83 @@
+# ─────────────────────────────────────────────
+# Secretos y entorno  (NUNCA subir valores reales)
+# ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# ─────────────────────────────────────────────
+# Material del cliente  (bajo NDA — jamás al repo)
+# Ni video, ni SOP, ni capturas, ni transcripciones.
+# ─────────────────────────────────────────────
+client_data/
+cliente/
+**/client_*/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wav
+*.srt
+*.vtt
+
+# ─────────────────────────────────────────────
+# Datos y modelos pesados  (se documentan, no se versionan)
+# ─────────────────────────────────────────────
+data/raw/
+data/datasets/
+data/processed/
+data/synthetic/
+models/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.gguf
+*.bin
+
+# ─────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ─────────────────────────────────────────────
+# Jupyter
+# ─────────────────────────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# ─────────────────────────────────────────────
+# Docker / logs / temporales
+# ─────────────────────────────────────────────
+*.log
+logs/
+tmp/
+.cache/
+docker-compose.override.yml
+
+# ─────────────────────────────────────────────
+# Sistema operativo / editores
+# ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
