@@ -31,6 +31,8 @@ data/raw/
 data/datasets/
 data/processed/
 data/synthetic/
+# Carpetas data/ que generan los notebooks de entregables (p. ej. Avance1.51.ipynb)
+docs/entregables/**/data/
 models/
 checkpoints/
 *.pt
