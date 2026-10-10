@@ -7,6 +7,8 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 | ADR | Título | Estado | Fecha |
 |---|---|---|---|
 | [ADR-001](ADR-001-herencia.md) | Herencia del código: qué se conserva y qué se reescribe | Propuesto | _[completar]_ |
+| [ADR-009](ADR-009-tarea-ml.md) | Mantener `has_errors` como tarea de ML académica | Aprobado por el equipo; falta el asesor | 2026-10-10 |
+| [ADR-010](ADR-010-segmentacion-pasos-llm.md) | Segmentar la narración en pasos con un LLM local que elige segmentos, más corrección del experto | Propuesto | 2026-10-10 |
 
 ### Previstos (aún sin archivo)
 
@@ -21,7 +23,6 @@ Identificados en el [plan](../plan/plan.md#adrs). Cada uno se redacta con la pla
 | ADR-006 | LLM: variante de Gemma 4 que quepa, servida localmente | Equipo | Pendiente |
 | ADR-007 | Frontend en Angular, desde cero | Equipo + patrocinador | Pendiente |
 | ADR-008 | SOP y revisión humana opcionales; HITL de tres bucles fuera del MVP | Patrocinador (escrito) | Pendiente |
-| ADR-009 | Tarea de ML académica: `has_errors` sobre CaptainCook4D | Asesor | Decidido por el equipo (10 oct), falta el asesor; ver [estado](../plan/estado.md) |
 
 ## Cómo crear un ADR
 

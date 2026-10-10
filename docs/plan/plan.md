@@ -64,12 +64,15 @@ portabilidad (contenedores, pesos abiertos, variables de entorno) · Colab T4 de
 | ADR-006 | LLM: variante de Gemma 4 que quepa, servida localmente | Equipo | S2 | Pendiente |
 | ADR-007 | Frontend en Angular, igual que el POC, desde cero | Equipo + patrocinador | S1 | Pendiente |
 | ADR-008 | SOP y revisión humana como opcionales; HITL de tres bucles fuera del MVP | Patrocinador (escrito) | Reunión del viernes | Pendiente |
-| ADR-009 | Tarea de ML académica: `has_errors` (CaptainCook4D) | Asesor | Esta semana | Decidido (equipo), falta asesor |
+| ADR-009 | Tarea de ML académica: `has_errors` (CaptainCook4D) | Asesor | Esta semana | Aprobado (equipo), falta asesor |
+| ADR-010 | Segmentación en pasos: LLM local que elige segmentos + corrección del experto; heurística de respaldo | Equipo + patrocinador | Reunión del viernes | Propuesto |
 
-> **ADR-009 (10 oct).** Se evaluó cambiar a un *clasificador de inicio de paso* con CrossTask: las
-> anotaciones de pasos están disponibles, pero los subtítulos ya no (403) y los videos ya no están en
-> YouTube. Decisión: los avances siguen con `has_errors` (continuidad con el avance 1). La segmentación
-> del producto es heurística y el clasificador se entrenará con videos propios. Ver [estado.md](estado.md).
+> **ADR-009 y ADR-010 (10 oct).** Se probó un *clasificador de inicio de paso* con tres fuentes
+> públicas (CrossTask; HT-Step + ASR submuestreada de HowTo100M; HT-Step + `.vtt` completos). Ninguna
+> sirve: las etiquetas públicas marcan la acción visual, no el anuncio del narrador. Los avances siguen
+> con `has_errors`. En el producto, los pasos los propone un **LLM local que elige segmentos numerados**
+> (los tiempos salen del índice), con heurística de respaldo y corrección del experto (HITL). Ver
+> [ADR-009](../adr/ADR-009-tarea-ml.md), [ADR-010](../adr/ADR-010-segmentacion-pasos-llm.md) y [estado.md](estado.md).
 
 ---
 
@@ -132,7 +135,7 @@ Obligatorias: ~8.5 semanas-persona contra ~9 disponibles.
 | Fase | Objetivo | Funcionalidades | Est. | Criterio de cierre |
 |---|---|---|---|---|
 | **F0** Arranque | Proyecto nuevo y constancia de partir de cero | Correo al patrocinador; ADR-001–004; estructura, README, `.env.example`, Docker Compose (API + Postgres), issues | 0.5 | `docker compose up` levanta API y base vacías; ADR-001 enviado |
-| **F1** Columna de voz | Un video recorre ingesta → índice con persistencia | Carga por partes, etiquetas, faster-whisper, limpieza, segmentación heurística, índice, búsqueda, Pantalla 1 | 2.5 | Regresión con video de referencia; reinicio sin reprocesar |
+| **F1** Columna de voz | Un video recorre ingesta → índice con persistencia | Carga por partes, etiquetas, faster-whisper, limpieza, segmentación en pasos (heurística → LLM, ADR-010), índice, búsqueda, Pantalla 1 | 2.5 | Regresión con video de referencia; reinicio sin reprocesar |
 | **F2** Medición | Números generados por código | Conjunto sellado, `evaluate.py`, WER, F1 de fronteras, Recall@k, MRR, error de timestamp | 1 | Métricas del baseline guardadas con su commit |
 | **F3** Búsqueda híbrida y chat | Segundo exacto, siguiente paso y citas | Texto completo + vectores + RRF, umbral de abstención, chat RAG, Pantalla 2 | 1.5 | Recall@5 > baseline; 100 % de respuestas con cita válida · **checkpoint: columna estable** |
 | **F4** Modelo académico | Tarea de ML de los avances 2–5 integrada | Características, baseline, 6 modelos, ensambles, integración | 0.5 extra | Mejor que la heurística en el conjunto sellado |
@@ -193,7 +196,7 @@ Ingesta (partes 25 MB + etiquetas)
 | Pantalla 1 · Carga y análisis (Angular) | Subir, etiquetar, ver pasos, reproducir desde el segundo |
 | Pantalla 2 · Chat (Angular) | Pregunta, aclaración, respuesta con mm:ss y fragmentos al lado |
 | API FastAPI | `/videos`, `/pasos`, `/search`, `/chat` (si sobra tiempo: `/sop`, roles, bitácora) |
-| Pipeline offline | ffmpeg → faster-whisper → limpieza → segmentación → embeddings + texto completo |
+| Pipeline offline | ffmpeg → faster-whisper (tiempo por palabra) → segmentos de habla por pausas → pasos (LLM elige segmentos; heurística de respaldo) → embeddings + texto completo |
 | Orquestador | Aclarador (menús) · Buscador (híbrido + umbral) · Redactor (solo lo recuperado, con citas) |
 | PostgreSQL + pgvector | Videos, etiquetas, segmentos, pasos, vectores; tablas de SOP/usuarios previstas |
 | Almacenamiento de medios | Volumen aprobado fuera del repo; el repo guarda identificadores |
@@ -256,7 +259,7 @@ Ingesta (partes 25 MB + etiquetas)
 
 1. Repositorio, ADRs y conjunto de evaluación anotado
 2. Ingesta persistente y transcripción con timestamps
-3. Segmentación en pasos (heurística → modelo)
+3. Segmentación en pasos (heurística → LLM que elige segmentos; el experto corrige)
 4. Índice híbrido y búsqueda al segundo exacto (Pantalla 1)
 5. Métricas y regresión → **checkpoint de columna estable**
 6. Chat RAG con citas, siguiente paso y abstención (Pantalla 2)

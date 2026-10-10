@@ -35,16 +35,22 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
 
 ## Decisiones del 10 oct
 
-1. **Se evaluó cambiar la tarea de ML** a un *clasificador de inicio de paso* (detectar dónde empieza
-   cada paso en la narración de un video), porque es más útil para el producto.
-2. **Se intentó con CrossTask.** Las anotaciones de pasos se descargaron (2,750 videos), pero los
-   subtítulos ya no están disponibles (el servidor responde 403) y los videos ya no están en YouTube.
-   Sin narración, el clasificador no se puede entrenar.
-3. **Decisión (ADR-009):**
-   - **Materia:** se sigue con `has_errors` en CaptainCook4D, en continuidad con el avance 1.
-   - **Producto:** la segmentación en pasos será heurística (palabras de transición como "primero",
-     "ahora", "después", más pausas). El clasificador de inicio de paso se entrenará después con
-     videos propios del equipo, en español, y se validará con ellos.
+1. **Se evaluó cambiar la tarea de ML** a un *clasificador de inicio de paso* (detectar en qué frase
+   de la narración empieza cada paso), porque es lo que el producto necesita. Se probaron tres fuentes:
+   - **CrossTask:** los subtítulos ya no se pueden descargar (403) y los videos ya no están en YouTube.
+   - **HT-Step + ASR de HowTo100M** (16,636 videos): la transcripción está submuestreada
+     (~60 palabras/min); ~74 % de los positivos se explicarían por azar.
+   - **HT-Step + subtítulos `.vtt` completos** (130 videos, 137 palabras/min): la etiqueta casi no se
+     distingue del azar. **Causa:** HT-Step marca cuándo empieza la acción en pantalla, no cuándo lo
+     anuncia el narrador.
+2. **Decisión (ADR-009):** los avances 2–5 siguen con **`has_errors`** sobre CaptainCook4D. El código
+   de la exploración queda en la rama `avance2-inicio-paso`.
+3. **Decisión propuesta (ADR-010):** en el producto, un **LLM local** propone dónde empieza cada paso
+   eligiendo entre segmentos numerados (los tiempos salen del índice; el LLM nunca escribe tiempos),
+   con la heurística de palabras clave y pausas como respaldo. El **experto corrige** en la Pantalla 1
+   y cada corrección se guarda: sirve como ejemplo para el LLM y, más adelante, como etiqueta para un
+   clasificador ligero. Así se implementa sobre la voz el aprendizaje por corrección que piden el brief
+   y el NDA.
 4. **Avance 2:** solo pasos ejecutados; todo se ajusta con entrenamiento, y validación y prueba se
    aplican sin mirar sus etiquetas.
 
@@ -73,10 +79,11 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
 
 ## Resumen en dos frases
 
-> El avance 2 sigue con `has_errors` sobre CaptainCook4D, en continuidad con el avance 1. Evaluamos
-> cambiar a un clasificador de inicio de paso, que le serviría más al producto, pero el dataset que lo
-> hacía posible (CrossTask) ya no publica los subtítulos; ese clasificador lo entrenaremos después con
-> videos propios.
+> El avance 2 sigue con `has_errors` sobre CaptainCook4D, en continuidad con el avance 1. Probamos un
+> clasificador de inicio de paso con tres datasets públicos y ninguno sirve, porque sus etiquetas marcan
+> la acción visual y no lo que dice el narrador; en el producto, los pasos los propondrá un LLM local y
+> el experto los corregirá.
 
-**Pregunta para el asesor:** ¿Aceptaría que, a partir del avance 3, cambiemos la tarea al clasificador
-de inicio de paso si para entonces tenemos datos, dado que es lo que el producto necesita?
+**Para el asesor:** se documentó la exploración en ADR-009. Pregunta: ¿le parece bien mantener
+`has_errors` en los avances 3–5, o prefiere que el modelo académico se conecte al producto (por ejemplo,
+entrenando el clasificador con etiquetas generadas por el LLM y validadas a mano)?

@@ -28,7 +28,8 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 2. **Costo cero.** Sin servicios de pago ni APIs con tokens. Pesos abiertos servidos localmente.
 3. **Secretos solo en `.env` (no versionado).** `.env.example` lleva nombres y valores de ejemplo.
    No relajes el `.gitignore`; solo agrega reglas.
-4. **El LLM nunca escribe un timestamp.** Todo minuto/segundo sale del índice. Toda respuesta y todo
+4. **El LLM nunca escribe un timestamp.** Todo minuto/segundo sale del índice (para segmentar, el LLM
+   elige números de segmento, no tiempos). Toda respuesta y todo
    paso citan su segundo; sin evidencia suficiente, la respuesta es "no encontré".
 5. **Alcance cerrado.** No implementes lo diferido (sección 4) sin un ADR aprobado. Si una tarea
    parece requerirlo, detente y pregunta.
@@ -44,7 +45,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Contenedores | Docker Compose, versiones fijadas, configuración por variables de entorno |
 | Transcripción | faster-whisper (timestamps por palabra, VAD) |
 | Embeddings | MiniLM multilingüe |
-| LLM | Modelo abierto local vía Ollama (familia Gemma 4 si cabe en el hardware) |
+| LLM | Modelo abierto local vía Ollama (familia Gemma 4 si cabe en el hardware). Usos: chat RAG y segmentación en pasos ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)) |
 | ML académico | pandas, scikit-learn, LightGBM |
 | Frontend | Angular (componentes standalone, sin librerías de estado); entra en la semana 3 |
 | Calidad | pytest, ruff, GitHub Actions |
@@ -120,10 +121,11 @@ Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versi�
 - No modificar `Avance1.51.ipynb`; `tests/test_features_avance1.py` vigila que el paquete reproduzca
   sus resultados (se salta si no hay datos descargados).
 - Metodología: CRISP-ML(Q). Cada decisión de procesamiento se justifica en el notebook.
-- **Tarea de ML de los avances 2–5 (ADR-009, decidido 10 oct):** `has_errors` sobre CaptainCook4D.
-  El clasificador de inicio de paso NO es tarea académica: se descartó porque los subtítulos de
-  CrossTask ya no están disponibles. En el producto, la segmentación en pasos es heurística hasta
-  tener videos propios anotados. Ver `docs/plan/estado.md`.
+- **Tarea de ML de los avances 2–5 ([ADR-009](docs/adr/ADR-009-tarea-ml.md)):** `has_errors` sobre
+  CaptainCook4D. El clasificador de inicio de paso NO es tarea académica: se probó el 10 oct con
+  CrossTask, HT-Step + ASR de HowTo100M y HT-Step + `.vtt` completos, y las etiquetas públicas no
+  siguen a la narración (marcan la acción visual). El código de esa exploración vive en la rama
+  `avance2-inicio-paso`; no lo traigas a esta rama sin un ADR nuevo.
 
 ## 8. Convenciones
 
