@@ -33,6 +33,8 @@ ml = [
     "numpy==2.4.6",
     "scipy==1.17.1",
     "scikit-learn==1.9.1",
+    # Lectura de data/interim/htstep/*.parquet (26.0.0 salió el 9 oct 2026; se fija la anterior).
+    "pyarrow==25.0.1",
 ]
 notebooks = [
     "matplotlib==3.11.2",

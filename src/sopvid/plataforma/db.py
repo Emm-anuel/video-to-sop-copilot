@@ -18,7 +18,11 @@ class Base(DeclarativeBase):
 
 @lru_cache
 def get_engine() -> Engine:
-    return create_engine(get_settings().sqlalchemy_url, pool_pre_ping=True)
+    # Sin connect_timeout, libpq espera indefinidamente si el puerto no responde (en Windows,
+    # con Docker detenido, la conexión no se rechaza: se queda colgada).
+    return create_engine(
+        get_settings().sqlalchemy_url, pool_pre_ping=True, connect_args={"connect_timeout": 5}
+    )
 
 
 @lru_cache
