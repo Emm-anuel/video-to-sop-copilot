@@ -21,13 +21,17 @@ cliente/
 *.avi
 *.mkv
 *.wav
+*.mp3
+*.m4a
 *.srt
 *.vtt
+media/
 
 # ─────────────────────────────────────────────
 # Datos y modelos pesados  (se documentan, no se versionan)
 # ─────────────────────────────────────────────
 data/raw/
+data/interim/
 data/datasets/
 data/processed/
 data/synthetic/
@@ -74,6 +78,7 @@ logs/
 tmp/
 .cache/
 docker-compose.override.yml
+pgdata/
 
 # ─────────────────────────────────────────────
 # Sistema operativo / editores
