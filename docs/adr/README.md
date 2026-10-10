@@ -8,6 +8,21 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 |---|---|---|---|
 | [ADR-001](ADR-001-herencia.md) | Herencia del código: qué se conserva y qué se reescribe | Propuesto | _[completar]_ |
 
+### Previstos (aún sin archivo)
+
+Identificados en el [plan](../plan/plan.md#adrs). Cada uno se redacta con la plantilla antes de implementarse o cuando se tenga la aprobación correspondiente.
+
+| ADR | Decisión | Aprueba | Estado |
+|---|---|---|---|
+| ADR-002 | Voz como fuente principal; V-JEPA 2 y fotogramas diferidos | Patrocinador (escrito) | Pendiente |
+| ADR-003 | Grafo multi-video diferido; un video = lista ordenada de pasos | Patrocinador (escrito) | Pendiente |
+| ADR-004 | Alcance ajustado por capacidad del equipo | Asesor + patrocinador | Pendiente |
+| ADR-005 | PostgreSQL + pgvector en lugar del disco temporal de Colab | Equipo | Pendiente (implementado en F0) |
+| ADR-006 | LLM: variante de Gemma 4 que quepa, servida localmente | Equipo | Pendiente |
+| ADR-007 | Frontend en Angular, desde cero | Equipo + patrocinador | Pendiente |
+| ADR-008 | SOP y revisión humana opcionales; HITL de tres bucles fuera del MVP | Patrocinador (escrito) | Pendiente |
+| ADR-009 | Tarea de ML académica: `has_errors` sobre CaptainCook4D | Asesor | Decidido por el equipo (10 oct), falta el asesor; ver [estado](../plan/estado.md) |
+
 ## Cómo crear un ADR
 
 1. Copia [0000-plantilla.md](0000-plantilla.md) como `ADR-NNN-slug.md` con el siguiente número libre.

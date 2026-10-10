@@ -62,3 +62,18 @@ Resumen operativo de [data/README.md](data/README.md). En caso de duda, **no sub
 - **Secretos:** solo `.env.example` se versiona, con valores de ejemplo. `.env`, llaves, tokens y credenciales nunca se suben. Si un secreto llega a un commit, avisa al equipo de inmediato y rótalo: borrarlo del historial no basta.
 - **No relajes el `.gitignore`.** Si necesitas versionar algo que hoy está ignorado, se discute en el PR.
 - Antes de cada commit, revisa `git status` y `git diff --staged`, sobre todo en notebooks (las salidas pueden incluir datos).
+
+## 5. Notebooks y entregables académicos
+
+- **Ubicación:** el entregable oficial va en `docs/entregables/Semana N/AvanceN.51.ipynb`; la exploración libre, en `notebooks/`.
+- **Un entregable ya entregado no se modifica** (p. ej. `Semana 3/Avance1.51.ipynb`). Si hay que corregir algo, se corrige en el paquete y se documenta en el siguiente avance.
+- **El código vive en `src/sopvid/features/`**, con tests en `tests/test_features_*.py`. Los notebooks lo importan; no copian funciones de otro notebook.
+- **Regla anti-fuga:** todo lo que aprende de los datos (medianas, codificadores, escaladores, selección, PCA) se ajusta solo con entrenamiento, dentro de un `Pipeline` de scikit-learn. La validación cruzada se agrupa por grabación (`GroupKFold`). Las etiquetas de validación y prueba no se miran.
+- **Antes de entregar,** el notebook debe correr de principio a fin:
+
+  ```powershell
+  jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"
+  ```
+
+  Revisa además que las salidas no muestren rutas locales (p. ej. `C:\Users\...`) ni datos del cliente.
+- **Dependencias nuevas:** van con versión exacta en `pyproject.toml`, en el extra que corresponda (`ml`, `notebooks` o `dev`), no en el núcleo, para que la imagen de la API no crezca.

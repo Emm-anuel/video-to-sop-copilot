@@ -42,13 +42,13 @@ Dominio de IA predominante: **Visión Computacional**.
 
 ## 4. Estructura del repositorio
 
-Paquete Python instalable `sopvid` (src layout). Estado: **fase F0**, con la API y una base vacía funcionando. Los frentes de percepción, lenguaje y features están reservados.
+Paquete Python instalable `sopvid` (src layout). Estado al 10 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`) y `features/` implementado para los avances académicos 1 y 2. Los frentes de percepción y lenguaje siguen reservados.
 
 ```
 ├── README.md
 ├── CONTRIBUTING.md             # ramas, PRs, commits y reglas de datos/NDA
 ├── .env.example                # variables con valores de EJEMPLO (sin secretos)
-├── pyproject.toml              # paquete sopvid, dependencias fijadas, ruff y pytest
+├── pyproject.toml              # paquete sopvid, dependencias fijadas (extras ml, notebooks, dev), ruff y pytest
 ├── Dockerfile                  # imagen de la API (Python 3.11)
 ├── docker-compose.yml          # API + PostgreSQL 16 con pgvector
 ├── Makefile                    # up, down, logs, migrate, test, lint, format
@@ -61,15 +61,16 @@ Paquete Python instalable `sopvid` (src layout). Estado: **fase F0**, con la API
 │   │   └── api/                # FastAPI: main.py, health.py (GET /health)
 │   ├── percepcion/             # ingesta, transcripción y segmentación en pasos (reservado)
 │   ├── lenguaje/               # búsqueda híbrida, chat RAG y SOP (reservado)
-│   └── features/               # limpieza e ingeniería de características (reservado)
+│   └── features/               # datos de CaptainCook4D, preprocesamiento (avance 1) e ingeniería de características (avance 2)
 ├── migrations/                 # Alembic; 0001 habilita la extensión vector
-├── tests/                      # /health y conexión a la base
+├── tests/                      # /health, conexión a la base y sopvid.features
 ├── frontend/                   # Angular (entra en la semana 3 del roadmap)
 ├── notebooks/                  # exploración libre
 ├── data/                       # data card y reglas de datos (README.md); datos ignorados por Git
 └── docs/
     ├── adr/                    # Architecture Decision Records (índice + plantilla)
-    └── entregables/            # Semana N/AvanceN.51.ipynb (importan sopvid)
+    ├── entregables/            # Semana N/AvanceN.51.ipynb (importan sopvid)
+    └── plan/                   # plan vigente (plan.md) y estado del proyecto (estado.md)
 ```
 
 ## 5. Cómo levantar el proyecto
@@ -104,7 +105,15 @@ alembic upgrade head
 pytest
 ```
 
-Para los notebooks de `docs/entregables/`, selecciona el kernel del `.venv`. `sopvid` encuentra el `.env` de la raíz aunque el notebook corra en una subcarpeta.
+Para los notebooks de `docs/entregables/`, selecciona el kernel del `.venv`. `sopvid` encuentra el `.env` de la raíz aunque el notebook corra en una subcarpeta. Las anotaciones públicas de CaptainCook4D se descargan solas a `DATA_DIR` (por defecto `data/raw/captaincook4d`, ignorada por Git) la primera vez que se ejecuta un avance.
+
+Para comprobar que un entregable corre de principio a fin:
+
+```powershell
+jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana 4/Avance2.51.ipynb"
+```
+
+Los tests de `tests/test_features_avance1.py` comparan contra los resultados del avance 1 y se saltan si los datos no están descargados (por ejemplo, en CI).
 
 ### Targets del Makefile y su equivalente en PowerShell
 
@@ -130,8 +139,11 @@ Objetivo de reproducibilidad: clonar y ejecutar un solo script debe reproducir l
 
 | Semana | Entregable | Ubicación |
 |---|---|---|
-| 1 | Planteamiento del proyecto + ADR-001 | `docs/entregables/`, `docs/adr/` |
+| 1 | Planteamiento del proyecto + ADR-001 | `docs/entregables/Semana 1/`, `docs/adr/` |
 | 2 | Avance 0. Propuesta y firma de convenios | `docs/entregables/` |
+| 3 | Avance 1. Análisis exploratorio (CaptainCook4D) · entregado | `docs/entregables/Semana 3/Avance1.51.ipynb` |
+| 4 | Avance 2. Ingeniería de características · 11 oct | `docs/entregables/Semana 4/Avance2.51.ipynb` |
+| 5–7 | Avances 3–5 (baseline, modelos, ensambles) · 18 oct, 25 oct y 1 nov | `docs/entregables/Semana N/` |
 | 8 | Avance 6. Producto de difusión | `docs/entregables/` |
 | 9 | Avance 7. Resumen ejecutivo | `docs/entregables/` |
 
@@ -140,7 +152,8 @@ Objetivo de reproducibilidad: clonar y ejecutar un solo script debe reproducir l
 - Rama principal protegida; una rama por tarea; nunca push directo a ramas protegidas.
 - Todo cambio entra por Pull Request revisado por un integrante distinto al autor, con CI en verde.
 - Commits convencionales: `tipo(alcance): descripción corta`.
-- **Sin secretos en el repo**: solo los nombres de las variables de entorno en `.env.example`, sin valores. Nada de contraseñas, tokens ni llaves.
+- **Sin secretos en el repo**: `.env.example` solo lleva nombres de variables y valores de ejemplo para desarrollo local. Nada de contraseñas reales, tokens ni llaves.
+- Los entregables ya entregados en `docs/entregables/` no se modifican.
 - Nada de binarios pesados, modelos grandes ni video en el repo.
 
 ## 9. Propiedad intelectual
