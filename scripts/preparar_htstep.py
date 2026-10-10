@@ -15,7 +15,8 @@ Uso:
 
 Salida (data/interim/htstep/, ignorado por git):
     asr_htstep.parquet    una fila por frase: vid, start_second, text
-    pasos_htstep.parquet  una fila por paso anotado: vid, activity, subset, duration, step_id, start, end, partial
+    pasos_htstep.parquet  una fila por paso anotado: vid, activity, subset, duration, step_id,
+                          start, end, partial
 Después de correrlo, el archivo de 9 GB se puede borrar.
 """
 
