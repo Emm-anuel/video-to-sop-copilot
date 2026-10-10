@@ -21,9 +21,14 @@ def _find_env_file() -> Path | None:
     return None
 
 
+_ENV_FILE = _find_env_file()
+# Raíz del proyecto: donde vive `.env`; sin `.env` (p. ej. en CI), el directorio actual.
+PROJECT_ROOT = _ENV_FILE.parent if _ENV_FILE else Path.cwd()
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=_find_env_file(),
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -39,6 +44,14 @@ class Settings(BaseSettings):
     postgres_password: SecretStr | None = None
     # Si se define (y no está vacía), tiene prioridad sobre las POSTGRES_*.
     database_url: str | None = None
+
+    # Anotaciones públicas de CaptainCook4D (avances académicos). Nunca se versionan.
+    data_dir: Path = Path("data/raw/captaincook4d")
+
+    @property
+    def data_path(self) -> Path:
+        """`data_dir` absoluto; si es relativo, se resuelve contra la raíz del proyecto."""
+        return self.data_dir if self.data_dir.is_absolute() else PROJECT_ROOT / self.data_dir
 
     @property
     def sqlalchemy_url(self) -> URL:
