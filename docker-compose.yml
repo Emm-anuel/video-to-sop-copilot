@@ -1,0 +1,52 @@
+# Fase F0: API + PostgreSQL 16 con pgvector (base vacía).
+# Uso: copiar .env.example a .env y luego `docker compose up -d --build`.
+name: sopvid
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.7-pg16-bookworm
+    # Sin política de reinicio: no arranca sola al prender Docker, para no
+    # chocar con otros Postgres locales que usen el mismo puerto.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copia .env.example a .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Copia .env.example a .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copia .env.example a .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build: .
+    image: sopvid-api:0.1.0
+    env_file: .env
+    environment:
+      # Dentro de la red de compose la base es el servicio "db" en su puerto interno.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      # Anula una DATABASE_URL local (localhost) que viniera en .env.
+      DATABASE_URL: ""
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata:

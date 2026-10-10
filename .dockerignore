@@ -1,0 +1,26 @@
+# Solo entra a la imagen lo necesario para correr la API.
+.git
+.github
+.env
+.env.*
+data/
+docs/
+notebooks/
+frontend/
+tests/
+media/
+pgdata/
+**/__pycache__
+*.py[cod]
+*.egg-info
+.venv
+venv
+.pytest_cache
+.ruff_cache
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wav
+*.mp3
+*.m4a
