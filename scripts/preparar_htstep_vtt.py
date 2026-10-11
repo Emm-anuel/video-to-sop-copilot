@@ -61,11 +61,11 @@ def parsear_vtt(texto: str) -> list[tuple[float, str]]:
     ultima = ""
     for b in bloques:
         lineas = b.strip("\n").split("\n")
-        m = next((CUE.search(l) for l in lineas if CUE.search(l)), None)
+        m = next((CUE.search(linea) for linea in lineas if CUE.search(linea)), None)
         if not m:
             continue
         ini, fin = _seg(*m.groups()[:3]), _seg(*m.groups()[3:])
-        cuerpo = [l for l in lineas if not CUE.search(l)]
+        cuerpo = [linea for linea in lineas if not CUE.search(linea)]
         if not cuerpo or fin - ini < 0.02:
             continue
         nueva = cuerpo[-1]
@@ -93,7 +93,11 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     ann = json.loads(bajar(HTSTEP_URL, RAW / "htstep_annotations.json").read_text(encoding="utf-8"))
     meta_path = bajar(META_URL, RAW / "tornado_metadata.jsonl")
-    meta = [json.loads(l) for l in meta_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    meta = [
+        json.loads(linea)
+        for linea in meta_path.read_text(encoding="utf-8").splitlines()
+        if linea.strip()
+    ]
     comunes = [m for m in meta if m.get("subtitle_url") and m["video_id"] in ann]
     print(f"videos en ambas fuentes: {len(comunes)}")
 
@@ -101,9 +105,13 @@ def main() -> None:
     for i, m in enumerate(comunes, 1):
         vid = m["video_id"]
         try:
-            vtt = bajar(m["subtitle_url"], VTT_DIR / f"{vid}.vtt").read_text(encoding="utf-8", errors="ignore")
+            vtt = bajar(m["subtitle_url"], VTT_DIR / f"{vid}.vtt").read_text(
+                encoding="utf-8", errors="ignore"
+            )
             pal = parsear_vtt(vtt)
-            filas += [{"vid": vid, "idx_palabra": j, "t": t, "palabra": w} for j, (t, w) in enumerate(pal)]
+            filas += [
+                {"vid": vid, "idx_palabra": j, "t": t, "palabra": w} for j, (t, w) in enumerate(pal)
+            ]
             if not pal:
                 fallas.append((vid, "sin palabras"))
         except Exception as e:  # noqa: BLE001
@@ -113,14 +121,26 @@ def main() -> None:
 
     palabras = pd.DataFrame(filas)
     vids = set(palabras.vid) if len(palabras) else set()
-    pasos = pd.DataFrame(
-        [
-            {"vid": v, "activity": ann[v]["activity"], "subset": ann[v]["subset"],
-             "duration": ann[v]["duration"], "step_id": a["id"], "start": a["segment"][0],
-             "end": a["segment"][1], "partial": a["partial"]}
-            for v in sorted(vids) for a in ann[v]["annotations"]
-        ]
-    ).sort_values(["vid", "start"]).reset_index(drop=True)
+    pasos = (
+        pd.DataFrame(
+            [
+                {
+                    "vid": v,
+                    "activity": ann[v]["activity"],
+                    "subset": ann[v]["subset"],
+                    "duration": ann[v]["duration"],
+                    "step_id": a["id"],
+                    "start": a["segment"][0],
+                    "end": a["segment"][1],
+                    "partial": a["partial"],
+                }
+                for v in sorted(vids)
+                for a in ann[v]["annotations"]
+            ]
+        )
+        .sort_values(["vid", "start"])
+        .reset_index(drop=True)
+    )
 
     palabras.to_parquet(OUT / "palabras.parquet", index=False)
     pasos.to_parquet(OUT / "pasos.parquet", index=False)
@@ -128,13 +148,15 @@ def main() -> None:
     dur = pasos.drop_duplicates("vid").set_index("vid").duration
     wpm = palabras.groupby("vid").size() / (dur / 60)
     print("Resumen")
-    print(f"  videos con palabras: {len(vids)} | palabras: {len(palabras):,} | pasos: {len(pasos):,}")
+    print(
+        f"  videos con palabras: {len(vids)} | palabras: {len(palabras):,} | pasos: {len(pasos):,}"
+    )
     print(f"  palabras por minuto (mediana): {wpm.median():.0f}  (habla normal: 120-160)")
     print(f"  subsets: {pasos.drop_duplicates('vid').subset.value_counts().to_dict()}")
     if fallas:
         print(f"  fallas ({len(fallas)}): {fallas[:10]}")
     ej = palabras[palabras.vid == palabras.vid.iloc[0]].head(25)
-    print("  ejemplo:", " ".join(f"{w}@{t:.1f}" for t, w in zip(ej.t, ej.palabra)))
+    print("  ejemplo:", " ".join(f"{w}@{t:.1f}" for t, w in zip(ej.t, ej.palabra, strict=False)))
     print(f"  guardado en {OUT}")
 
 
