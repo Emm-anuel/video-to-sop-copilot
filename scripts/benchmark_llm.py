@@ -39,6 +39,7 @@ from typing import Any
 import httpx
 
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
+from sopvid.percepcion.segmentacion import ESQUEMA_PASOS, construir_mensajes, f1_fronteras
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
 
 FIXTURE = PROJECT_ROOT / "tests/fixtures/transcripciones/cambio_cuchilla.json"
@@ -67,17 +68,6 @@ HECHOS_RESUMEN = {
     "bitacora": r"bitacora",
 }
 
-# (b) Esquema: solo números de segmento y títulos; los tiempos salen del índice (ADR-010).
-ESQUEMA_PASOS = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {"segmento_id": {"type": "integer"}, "titulo": {"type": "string"}},
-        "required": ["segmento_id", "titulo"],
-        "additionalProperties": False,
-    },
-}
-
 # (c) Fragmentos recuperados (ids del fixture), pregunta y fragmento que la responde.
 FRAGMENTOS_RAG = [6, 8, 25, 38, 39, 42, 49, 58]
 PREGUNTA_RAG = "¿A qué torque se aprieta la tuerca de la cuchilla nueva y con qué herramienta?"
@@ -104,8 +94,8 @@ def cargar_fixture() -> dict[str, Any]:
 def tareas(fx: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Mensajes, esquema y evaluador de cada tarea."""
     texto = " ".join(s["texto"] for s in fx["segmentos"])
-    numerados = "\n".join(f"[{s['id']}] {s['texto']}" for s in fx["segmentos"])
-    etiquetas = "; ".join(f"{k}={v}" for k, v in fx["etiquetas"].items())
+    # (b) usa el prompt del benchmark original de ADR-006: sin la regla de aclaraciones.
+    segmentar_msgs = construir_mensajes(fx["segmentos"], fx["etiquetas"], regla_aclaraciones=False)
     por_id = {s["id"]: s for s in fx["segmentos"]}
     fragmentos = "\n".join(f"[id {i}] {por_id[i]['texto']}" for i in FRAGMENTOS_RAG)
 
@@ -123,17 +113,8 @@ def tareas(fx: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "evaluar": evaluar_resumen,
         },
         "b_segmentar": {
-            "sistema": SISTEMA,
-            "usuario": (
-                f"Etiquetas del video: {etiquetas}.\n\n"
-                f"Segmentos de la transcripción, numerados y en orden:\n{numerados}\n\n"
-                "Identifica en qué segmento empieza cada paso del procedimiento. Un paso suele "
-                "abarcar varios segmentos: no marques cada segmento como paso, y la introducción o "
-                "los comentarios no inician pasos. Responde SOLO con "
-                'una lista JSON de objetos {"segmento_id": número del segmento donde empieza el '
-                'paso, "titulo": nombre corto del paso en español}, en orden. Usa solo números de '
-                "segmento de la lista; no escribas tiempos."
-            ),
+            "sistema": segmentar_msgs[0]["content"],
+            "usuario": segmentar_msgs[1]["content"],
             "esquema": ESQUEMA_PASOS,
             "evaluar": lambda salida: evaluar_segmentacion(salida, fx),
         },
@@ -167,30 +148,6 @@ def evaluar_resumen(salida: str) -> dict[str, Any]:
         "hechos_presentes": len(presentes),
         "hechos_total": len(HECHOS_RESUMEN),
         "hechos_faltantes": [h for h in HECHOS_RESUMEN if h not in presentes],
-    }
-
-
-def f1_fronteras(predichos: list[int], reales: list[int], tolerancia: int = 1) -> dict[str, Any]:
-    """F1 de fronteras con emparejamiento uno a uno a ±`tolerancia` segmentos."""
-    libres = sorted(set(reales))
-    aciertos = []
-    for p in sorted(set(predichos)):
-        cercanos = [r for r in libres if abs(r - p) <= tolerancia]
-        if cercanos:
-            r = min(cercanos, key=lambda x: (abs(x - p), x))
-            libres.remove(r)
-            aciertos.append((p, r))
-    tp = len(aciertos)
-    precision = tp / len(set(predichos)) if predichos else 0.0
-    recall = tp / len(set(reales)) if reales else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    emparejados = {p for p, _ in aciertos}
-    return {
-        "precision": round(precision, 3),
-        "recall": round(recall, 3),
-        "f1": round(f1, 3),
-        "falsos_positivos": [p for p in sorted(set(predichos)) if p not in emparejados],
-        "no_detectados": libres,
     }
 
 

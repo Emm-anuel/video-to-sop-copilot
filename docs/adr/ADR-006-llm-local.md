@@ -155,9 +155,33 @@ velocidad (27 → 33 tok/s) pero sigue por debajo de los Gemma y su carga en fr�
 2. Con la GPU de 24 GB confirmada: correr el benchmark con `gemma4:26b-a4b-it-qat` y `gemma4:12b-it-qat`
    y cerrar la decisión de producción.
 3. Revisar la elección de modelo con los resultados de la Fase 4 (tres transcripciones) y, en F2,
-   con videos propios anotados a mano.
+   con videos propios anotados a mano. Fase 4 hecha: ver
+   [ADR-010](ADR-010-segmentacion-pasos-llm.md#prototipo-y-resultados-preliminares-11-oct-2026);
+   `LLM_MODEL` no cambia hasta resolver lo pendiente con el patrocinador.
 4. ~~Medir `qwen3.5:9b` con FA encendido~~: hecho; no cabe completo (32/33 capas). Se mantiene como
    comparación de calidad en la Fase 4, no como modelo de desarrollo.
+
+## Pendiente con el patrocinador
+
+Resultados de segmentación en pasos de la Fase 4 (3 transcripciones inventadas, 30 pasos, prompt
+v1, FA encendido; indicativo, n=3). Detalle en ADR-010.
+
+| Modelo | Capas en GPU (8 GB) | F1 ±1 segmento | F1 ±2 s | Pasos de más / omitidos | s por transcripción |
+|---|---|---|---|---|---|
+| `gemma4:e4b-it-q4_K_M` (desarrollo) | 43/43 | 0.741 | 0.691 | 21 / 0 | 5.2 |
+| `gemma4:12b-it-qat` | 37/49 | 0.763 | 0.763 | 17 / 1 | 49.8 |
+| `qwen3.5:9b-q4_K_M` | 32/33 | 0.947 | 0.842 | 0 / 3 | 6.2 |
+| Heurística (respaldo) | — | 0.667 | 0.456 | 8 / 11 | < 0.01 |
+
+- **En 8 GB, `gemma4:e4b` sobre-segmenta**: sirve como borrador para la corrección del experto, no
+  como segmentación final.
+- **`qwen3.5:9b` segmenta mejor, pero no es Gemma 4**: el NDA (cl. 1) nombra a Gemma 4 como base;
+  usarlo requiere aprobación escrita del patrocinador.
+- **`gemma4:12b-it-qat` no cabe en 8 GB** (37/49 capas, 6,247 MiB), tarda ~50 s por transcripción
+  y apenas mejora a `e4b`.
+- **Propuesta:** con la GPU de 24 GB, probar `gemma4:26b-a4b-it-qat` (el modelo del brief) con
+  `scripts/benchmark_llm.py` y `scripts/evaluar_segmentacion.py`, y decidir entre ese modelo y pedir
+  la excepción para `qwen3.5`. `LLM_MODEL` sigue en `gemma4:e4b-it-q4_K_M` mientras tanto.
 
 ## Referencias
 

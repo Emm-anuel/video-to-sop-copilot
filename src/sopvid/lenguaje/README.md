@@ -9,5 +9,6 @@ Frente de **lenguaje**: a partir de los pasos indexados, encuentra, conversa y r
 | SOP | Redacta el procedimiento con cada paso ligado a su evidencia | LLM local vía Ollama |
 
 **Estado:** `llm.py` es el cliente del LLM local (Ollama, `/api/chat` con JSON Schema); cómo
-levantarlo en [docs/dev/llm.md](../../../docs/dev/llm.md). Búsqueda, chat y SOP siguen reservados. La
+levantarlo en [docs/dev/llm.md](../../../docs/dev/llm.md). La segmentación en pasos que lo usa
+vive en `sopvid.percepcion.segmentacion`. Búsqueda, chat y SOP siguen reservados. La
 extensión `vector` ya queda habilitada en la base desde la primera migración.
