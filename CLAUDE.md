@@ -45,7 +45,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Contenedores | Docker Compose, versiones fijadas, configuración por variables de entorno |
 | Transcripción | faster-whisper (timestamps por palabra, VAD) |
 | Embeddings | MiniLM multilingüe |
-| LLM | Modelo abierto local vía Ollama (familia Gemma 4 si cabe en el hardware). Usos: chat RAG y segmentación en pasos ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)) |
+| LLM | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. Desarrollo (GPU de 8 GB): `gemma4:e4b-it-q4_K_M` con flash attention; producción pendiente de la GPU de 24 GB ([ADR-006](docs/adr/ADR-006-llm-local.md)). Usos: segmentación en pasos ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)) y chat RAG |
 | ML académico | pandas, scikit-learn, LightGBM |
 | Frontend | Angular (componentes standalone, sin librerías de estado); entra en la semana 3 |
 | Calidad | pytest, ruff, GitHub Actions |
@@ -69,28 +69,39 @@ src/sopvid/            paquete instalable (src layout)
   lenguaje/            búsqueda híbrida, chat RAG, SOP
   features/            limpieza e ingeniería de características (avances y pipeline)
 migrations/            Alembic
+scripts/               benchmark del LLM, evaluación de segmentación, preparación de datos
 tests/                 pytest
+  fixtures/            solo datos inventados por el equipo o públicos (nunca del cliente)
 frontend/              Angular (reservado)
 notebooks/             exploración libre
 data/                  solo README y .gitkeep en git; el contenido se ignora
 docs/
   adr/                 Architecture Decision Records (ADR-NNN-titulo.md)
+    datos/             resultados crudos que respaldan los ADR (benchmarks, evaluaciones)
+  dev/                 guías de desarrollo (p. ej. llm.md: levantar Ollama y verificar la GPU)
   plan/plan.md         plan vigente, roadmap, riesgos, preguntas
   entregables/Semana N/  entregables académicos oficiales
   arquitectura/, literatura/
 ```
 
-> Estado al 10 oct 2026: andamiaje F0 en `main` (API con `GET /health`, Postgres + pgvector vía Alembic,
-> tests, CI en verde); `docker compose up` verificado localmente. `features/` implementado para los
-> avances 1 y 2 (`data.py`, `preprocessing.py`, `engineering.py`), aún sin commit, igual que el
-> notebook del avance 2. `percepcion/` y `lenguaje/` siguen vacíos.
+> Estado al 11 oct 2026:
+> - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
+>   `features/` para los avances 1 y 2 con sus notebooks.
+> - **En la rama `feat/llm-spike` (sin fusionar):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
+>   en Docker, estado del LLM en `/health`, ADR-006 con su benchmark y el prototipo de segmentación
+>   (`percepcion/segmentacion.py`, ADR-010).
+> - **Sin código todavía:** ingesta y transcripción (`percepcion/`); búsqueda, chat y SOP (`lenguaje/`).
+> - **Pendiente con el patrocinador:** en 8 GB `gemma4:e4b` sobre-segmenta, `qwen3.5:9b` segmenta mejor pero
+>   no es Gemma 4 (NDA cl. 1); falta probar `gemma4:26b-a4b` con la GPU de 24 GB (ver ADR-006 y ADR-010).
 
 ## 6. Comandos
 
 | Acción | Make | PowerShell (Windows) |
 |---|---|---|
 | Levantar API + Postgres | `make up` | `docker compose up -d --build` |
+| Levantar con el LLM (requiere GPU NVIDIA) | — | `docker compose --profile llm up -d --build` |
 | Detener (conserva datos) | `make down` | `docker compose down` |
+| Detener también el LLM (conserva modelos) | — | `docker compose --profile llm down` |
 | Logs | `make logs` | `docker compose logs -f` |
 | Migrar | `make migrate` | `docker compose exec api alembic upgrade head` |
 | Tests (base arriba y migrada) | `make test` | `pytest` |
@@ -98,8 +109,11 @@ docs/
 | Formatear | `make format` | `ruff check --fix . ; ruff format .` |
 | Paquete para notebooks | — | `python -m venv .venv ; .venv\Scripts\activate ; pip install -e .[dev]` |
 | Ejecutar un entregable | — | `jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"` |
+| Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
 
-Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok"}`.
+Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok"}`; sin el
+profile `llm`, `"llm":"no_disponible"` y la API sigue sana. Detalles del LLM en `docs/dev/llm.md`.
+Desde el host usa `http://127.0.0.1:11434` para Ollama: en Windows, `localhost` pierde ~2 s por conexión.
 Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versión exacta.
 
 ## 7. Notebooks y entregables académicos
@@ -125,7 +139,10 @@ Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versi�
   CaptainCook4D. El clasificador de inicio de paso NO es tarea académica: se probó el 10 oct con
   CrossTask, HT-Step + ASR de HowTo100M y HT-Step + `.vtt` completos, y las etiquetas públicas no
   siguen a la narración (marcan la acción visual). El código de esa exploración vive en la rama
-  `avance2-inicio-paso`; no lo traigas a esta rama sin un ADR nuevo.
+  `avance2-inicio-paso`; no traigas más de él sin un ADR nuevo. Excepción: `features/pasos.py` y
+  `scripts/preparar_htstep*.py` ya están en `main` y se conservan para reutilizarlos al detectar
+  inicios de paso (`scripts/evaluar_segmentacion.py` usa `pasos.label_phrases` para el F1 en tiempo).
+  No los borres.
 
 ## 8. Convenciones
 
