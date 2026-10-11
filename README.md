@@ -50,7 +50,7 @@ Paquete Python instalable `sopvid` (src layout). Estado al 10 oct 2026: **fase F
 ├── .env.example                # variables con valores de EJEMPLO (sin secretos)
 ├── pyproject.toml              # paquete sopvid, dependencias fijadas (extras ml, notebooks, dev), ruff y pytest
 ├── Dockerfile                  # imagen de la API (Python 3.11)
-├── docker-compose.yml          # API + PostgreSQL 16 con pgvector
+├── docker-compose.yml          # API + PostgreSQL 16 con pgvector; Ollama con el profile "llm"
 ├── Makefile                    # up, down, logs, migrate, test, lint, format
 ├── alembic.ini
 ├── .github/workflows/ci.yml    # ruff + pytest con Postgres en cada push y PR
@@ -85,8 +85,11 @@ cd video-to-sop-copilot
 cp .env.example .env                     # PowerShell: Copy-Item .env.example .env
 docker compose up -d --build             # levanta Postgres y la API (la API espera a que la base esté sana)
 docker compose exec api alembic upgrade head   # migraciones (habilita pgvector)
-curl http://localhost:8000/health        # {"status":"ok","db":"ok"}
+curl http://localhost:8000/health        # {"status":"ok","db":"ok","llm":"no_disponible"}
 ```
+
+LLM local opcional (Ollama con GPU NVIDIA): `docker compose --profile llm up -d`; con él arriba,
+`/health` informa `"llm":"ok"`. Detalles en [docs/dev/llm.md](docs/dev/llm.md).
 
 En PowerShell, la comprobación equivalente es `Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en <http://localhost:8000/docs>.
 

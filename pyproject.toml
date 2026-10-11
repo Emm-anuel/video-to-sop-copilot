@@ -23,6 +23,8 @@ dependencies = [
     "psycopg[binary]==3.3.6",
     "pydantic==2.14.0",
     "pydantic-settings==2.15.0",
+    # Cliente del LLM local (Ollama) y TestClient de FastAPI.
+    "httpx==0.28.1",
 ]
 
 [project.optional-dependencies]
@@ -45,7 +47,6 @@ notebooks = [
 dev = [
     "sopvid[ml,notebooks]",
     "pytest==9.1.1",
-    "httpx==0.28.1",
     "ruff==0.17.0",
 ]
 
