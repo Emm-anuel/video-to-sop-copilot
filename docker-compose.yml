@@ -60,8 +60,9 @@ services:
     environment:
       # Flash attention apagado y caché KV en f16 hasta medirlos en el benchmark (ADR-006).
       # Hay que fijarlo: desde 0.40 Ollama arranca llama-server con --flash-attn auto.
-      OLLAMA_FLASH_ATTENTION: "0"
-      OLLAMA_KV_CACHE_TYPE: f16
+      # Para una variante: `OLLAMA_FLASH_ATTENTION=1 docker compose --profile llm up -d ollama`.
+      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-0}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-f16}
       # El modelo sigue en la GPU 30 min tras la última petición (por defecto, 5 min) para no
       # pagar la carga en frío a cada rato; mientras tanto ocupa su VRAM.
       OLLAMA_KEEP_ALIVE: 30m

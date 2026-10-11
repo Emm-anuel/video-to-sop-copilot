@@ -61,7 +61,7 @@ portabilidad (contenedores, pesos abiertos, variables de entorno) · Colab T4 de
 | ADR-003 | Grafo multi-video diferido; un video = lista ordenada de pasos | Patrocinador (escrito) | Reunión del viernes | Pendiente |
 | ADR-004 | Alcance ajustado por capacidad del equipo | Asesor + patrocinador | Esta semana | Pendiente |
 | ADR-005 | PostgreSQL + pgvector en lugar del disco temporal de Colab | Equipo | S1 | Pendiente |
-| ADR-006 | LLM: variante de Gemma 4 que quepa, servida localmente | Equipo | S2 | Pendiente |
+| [ADR-006](../adr/ADR-006-llm-local.md) | LLM: variante de Gemma 4 que quepa, servida localmente | Equipo | S2 | Propuesto |
 | ADR-007 | Frontend en Angular, igual que el POC, desde cero | Equipo + patrocinador | S1 | Pendiente |
 | ADR-008 | SOP y revisión humana como opcionales; HITL de tres bucles fuera del MVP | Patrocinador (escrito) | Reunión del viernes | Pendiente |
 | ADR-009 | Tarea de ML académica: `has_errors` (CaptainCook4D) | Asesor | Esta semana | Aprobado (equipo), falta asesor |

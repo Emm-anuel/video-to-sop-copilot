@@ -142,6 +142,27 @@ Si Docker no ve la GPU, instala Ollama para Windows (misma versión que el compo
 `ollama pull <LLM_MODEL>` y define `LLM_BASE_URL_API=http://host.docker.internal:11434` en `.env`.
 No levantes el profile `llm` a la vez: ambos usan el puerto 11434.
 
+## Benchmark (ADR-006)
+
+`scripts/benchmark_llm.py` mide, desde el host, cada modelo ya descargado con tres tareas sobre
+una transcripción inventada (resumir, segmentar en pasos y responder con citas): VRAM libre antes de
+cada corrida, capas en GPU según los logs, VRAM real con `nvidia-smi`, tiempo a primer token,
+tokens/s y validez del JSON. Resultados crudos en `docs/adr/datos/benchmark_llm/<variante>.json`.
+
+```powershell
+python scripts/benchmark_llm.py --variante fa_off --modelos gemma4:e4b-it-q4_K_M qwen3:8b-q4_K_M
+python scripts/benchmark_llm.py --tabla
+```
+
+Para medir una variante del servidor, reinicia `ollama` con la variable correspondiente (el
+compose la toma del entorno) y vuelve a dejarlo como estaba al terminar:
+
+```powershell
+$env:OLLAMA_FLASH_ATTENTION = "1"; docker compose --profile llm up -d ollama
+python scripts/benchmark_llm.py --variante fa_on --modelos gemma4:e4b-it-q4_K_M
+Remove-Item Env:OLLAMA_FLASH_ATTENTION; docker compose --profile llm up -d ollama
+```
+
 ## Observaciones de la prueba técnica (10 oct 2026, RTX 2070 SUPER 8 GB)
 
 - Ollama 0.40.2 sirve los modelos con `llama-server` (llama.cpp) y activa por su cuenta la

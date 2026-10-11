@@ -269,3 +269,13 @@ def test_desde_settings_toma_las_variables_llm():
         assert cliente.timeout_s == 30
         assert cliente.num_ctx == 4096
         assert cliente.think is False
+
+
+def test_cuerpo_para_streaming_conserva_las_opciones_fijas():
+    with cliente_con(lambda r: respuesta_chat("x")) as cliente:
+        cuerpo = cliente.cuerpo([{"role": "user", "content": "x"}], esquema=ESQUEMA, stream=True)
+
+    assert cuerpo["stream"] is True
+    assert cuerpo["format"] == ESQUEMA
+    assert cuerpo["think"] is False
+    assert cuerpo["options"] == {"num_ctx": 8192, "temperature": 0, "seed": SEMILLA}

@@ -116,16 +116,28 @@ class ClienteLLM:
         Con `esquema`, Ollama restringe la salida a ese JSON Schema y aquí se interpreta el
         JSON; validar el contenido contra las reglas del dominio le toca a quien llama.
         """
+        cuerpo = self.cuerpo(mensajes, esquema=esquema, think=think)
+        return self._interpretar(self._post("/api/chat", cuerpo), con_esquema=esquema is not None)
+
+    def cuerpo(
+        self,
+        mensajes: list[dict[str, str]],
+        *,
+        esquema: dict[str, Any] | None = None,
+        think: bool | None = None,
+        stream: bool = False,
+    ) -> dict[str, Any]:
+        """Cuerpo de `/api/chat` con las opciones fijas del cliente (lo reutiliza el benchmark)."""
         cuerpo: dict[str, Any] = {
             "model": self.modelo,
             "messages": mensajes,
-            "stream": False,
+            "stream": stream,
             "think": self.think if think is None else think,
             "options": {"num_ctx": self.num_ctx, "temperature": 0, "seed": self.seed},
         }
         if esquema is not None:
             cuerpo["format"] = esquema
-        return self._interpretar(self._post("/api/chat", cuerpo), con_esquema=esquema is not None)
+        return cuerpo
 
     def disponible(self, timeout_s: float | None = None) -> bool:
         """True si Ollama responde y tiene descargado `modelo`. Nunca lanza excepciones.
