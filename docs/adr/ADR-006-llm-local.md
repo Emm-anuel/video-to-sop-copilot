@@ -46,8 +46,9 @@ No se midió Ollama nativo para comparar: Docker ya cumple (todas las capas en G
   (de ~6.3 GB libres), F1 de fronteras 0.83, RAG 3/3 con la cita correcta, 9/10 hechos en el resumen.
 - Flash attention **reduce el tiempo a primer token a la mitad o menos** (3.3 → 1.5 s al segmentar)
   sin cambiar la calidad y con algo menos de VRAM. Se propone encenderlo
-  (`OLLAMA_FLASH_ATTENTION=1`); hoy el compose lo deja apagado hasta que el equipo lo apruebe.
-- `gemma4:e2b-it-q4_K_M`, el valor actual de `LLM_MODEL`, sirve para probar la integración, pero no
+  (`OLLAMA_FLASH_ATTENTION=1`). **Aplicado** como valor por defecto del compose el 11 oct 2026.
+- `LLM_MODEL=gemma4:e4b-it-q4_K_M` es el valor por defecto desde el 11 oct 2026.
+- `gemma4:e2b-it-q4_K_M`, el valor anterior de `LLM_MODEL`, sirve para probar la integración, pero no
   para segmentar (marca los 60 segmentos como pasos).
 - Caché KV en q8_0: no hace falta con Gemma 4 (su caché pesa 0.17 GB). Solo ahorra en `qwen3:8b`
   (1.15 → 0.6 GB) y ahí no cambió la calidad.
@@ -69,7 +70,7 @@ mediana**. `num_ctx=8192`, temperatura 0, semilla 42, `think: false`. Resultados
 VRAM libre antes de cada repetición y las salidas) en [datos/benchmark_llm/](datos/benchmark_llm/).
 Reproducir: `python scripts/benchmark_llm.py --tabla`.
 
-### Rendimiento (flash attention apagado, valor actual del compose)
+### Rendimiento (flash attention apagado; el compose lo enciende desde el 11 oct)
 
 | Modelo | MTP¹ | Disco | Capas en GPU² | VRAM real³ | `/api/ps`⁴ | Carga⁵ | TTFT (b) | tok/s (a) | Total (a) / (b) / (c) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -149,8 +150,8 @@ velocidad (27 → 33 tok/s) pero sigue por debajo de los Gemma y su carga en fr�
 
 ## Seguimiento
 
-1. Aprobar o rechazar: `LLM_MODEL=gemma4:e4b-it-q4_K_M` y `OLLAMA_FLASH_ATTENTION=1` como valores por
-   defecto de desarrollo.
+1. ~~Aprobar `LLM_MODEL=gemma4:e4b-it-q4_K_M` y `OLLAMA_FLASH_ATTENTION=1` como valores por defecto
+   de desarrollo~~: aprobados por el equipo y aplicados el 11 oct 2026 (caché KV sigue en f16).
 2. Con la GPU de 24 GB confirmada: correr el benchmark con `gemma4:26b-a4b-it-qat` y `gemma4:12b-it-qat`
    y cerrar la decisión de producción.
 3. Revisar la elección de modelo con los resultados de la Fase 4 (tres transcripciones) y, en F2,

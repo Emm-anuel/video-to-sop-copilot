@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # "localhost" prueba ::1 primero y pierde ~2 s por conexión. La API en Docker usa el
     # valor que le pasa docker-compose.yml.
     llm_base_url: str = "http://127.0.0.1:11434"
-    llm_model: str = "gemma4:e2b-it-q4_K_M"
+    llm_model: str = "gemma4:e4b-it-q4_K_M"
     # Cubre la carga en frío: la primera llamada tras arrancar tardó 56-107 s (ADR-006).
     llm_timeout_s: float = 180.0
     llm_num_ctx: int = 8192

@@ -7,10 +7,10 @@ informa `"llm": "no_disponible"`. Decisión y benchmark: ADR-006. Cliente: `sopv
 | Pieza | Valor |
 |---|---|
 | Imagen | `ollama/ollama:0.40.2` (fijada; Gemma 4 requiere ≥ 0.20.0) |
-| Modelo por defecto | `LLM_MODEL=gemma4:e2b-it-q4_K_M` (cabe completo en 8 GB de VRAM) |
+| Modelo por defecto | `LLM_MODEL=gemma4:e4b-it-q4_K_M` (cabe completo en 8 GB de VRAM: 4.7 GiB con FA; ADR-006) |
 | Modelos descargados | volumen `sopvid_ollama` (`/root/.ollama`); `docker compose down` lo conserva |
 | Puerto | `127.0.0.1:11434`, solo en el host local (Ollama no tiene autenticación) |
-| Flash attention / caché KV | apagado / f16, fijados en el compose hasta medirlos (ADR-006) |
+| Flash attention / caché KV | encendido / f16, fijados en el compose (ADR-006) |
 | Permanencia en GPU | `OLLAMA_KEEP_ALIVE=30m`: el modelo se descarga de la GPU 30 min después de la última petición |
 | Timeout por petición | `LLM_TIMEOUT_S=180` (cubre la carga en frío; ver abajo) |
 
@@ -34,7 +34,7 @@ docker compose --profile llm up -d --build
 ```
 
 Arranca `db`, `api`, `ollama` y `ollama-pull`. Este último espera a que `ollama` esté sano,
-descarga `LLM_MODEL` (≈ 4.6 GB la primera vez) y termina. Es idempotente: si el modelo ya está en
+descarga `LLM_MODEL` (≈ 6.6 GB la primera vez) y termina. Es idempotente: si el modelo ya está en
 el volumen, termina en ~1 s sin contactar al registro.
 
 ```powershell
@@ -79,11 +79,12 @@ nvidia-smi                                  # VRAM en uso antes y después de ca
 
 - En los logs, `offloaded N/N layers to GPU` confirma que todas las capas están en la GPU. Si
   sale `offloaded k/N` con `k < N`, el modelo se repartió con la CPU y será mucho más lento.
-- En Gemma 4 `e2b`/`e4b` es normal ver un `CPU_Mapped model buffer` grande (≈ 2.1 GB en `e2b`):
-  son las tablas de embeddings por capa, que solo se consultan por índice. No es un reparto.
-- **Ojo con `/api/ps`:** en 0.40.2 con el runner `llamacpp`, `size_vram` reporta solo una parte
-  (≈ 264 MB con `e2b`, que en realidad ocupa ≈ 3.2 GB de VRAM). Úsalo para ver si el modelo está
-  cargado, no para medir memoria; para eso, los logs y `nvidia-smi`.
+- En Gemma 4 `e2b`/`e4b` es normal ver un buffer de modelo grande en la CPU (`CPU_Mapped` o
+  `CUDA_Host`; ≈ 2.7 GB en `e4b`): son las tablas de embeddings por capa, que solo se consultan por
+  índice. No es un reparto.
+- **Ojo con `/api/ps`:** en 0.40.2 con el runner `llamacpp`, `size_vram` no es confiable (≈ 0.25 GB
+  con `e4b`, que en realidad ocupa ≈ 4.7 GB de VRAM). Úsalo para ver si el modelo está cargado, no
+  para medir memoria; para eso, los logs y `nvidia-smi`.
 
 La GPU también la usa el escritorio de Windows (≈ 1.5–1.7 GB en una RTX 2070 SUPER de 8 GB);
 mide la VRAM libre antes de comparar corridas.
@@ -114,11 +115,13 @@ La primera petición después de arrancar `ollama` (o tras 30 min sin uso) carga
 GPU antes de responder. Con `stream: false` Ollama no envía nada hasta terminar, así que
 `LLM_TIMEOUT_S` debe cubrir **carga + generación**:
 
-| Medición (`gemma4:e2b-it-q4_K_M`, RTX 2070 SUPER) | Tiempo |
+| Medición (RTX 2070 SUPER) | Tiempo |
 |---|---|
-| Primera llamada tras descargar el modelo (disco frío) | 107 s, de ellos 78 s de carga |
-| Primera llamada tras reiniciar el contenedor | 56 s, de ellos 36 s de carga |
-| Llamada con el modelo ya en GPU | 0.5–0.8 s |
+| `e2b`: primera llamada tras descargar el modelo (disco frío) | 107 s, de ellos 78 s de carga |
+| `e2b`: primera llamada tras reiniciar el contenedor | 56 s, de ellos 36 s de carga |
+| `e4b`: carga tras reiniciar el contenedor (benchmark) | 85.7 s; con 120 s de timeout la llamada falló |
+| `e4b`: carga con los pesos en la caché del sistema | 8.6–11.2 s |
+| Llamada corta con el modelo ya en GPU | < 1 s |
 
 Por eso el valor por defecto es 180 s y no 120 s. Si un timeout ocurre igual, el cliente reintenta
 una vez: la carga ya avanzó del lado del servidor y el segundo intento suele responder rápido.
@@ -150,7 +153,7 @@ cada corrida, capas en GPU según los logs, VRAM real con `nvidia-smi`, tiempo a
 tokens/s y validez del JSON. Resultados crudos en `docs/adr/datos/benchmark_llm/<variante>.json`.
 
 ```powershell
-python scripts/benchmark_llm.py --variante fa_off --modelos gemma4:e4b-it-q4_K_M qwen3:8b-q4_K_M
+python scripts/benchmark_llm.py --variante fa_on --modelos gemma4:e4b-it-q4_K_M qwen3:8b-q4_K_M
 python scripts/benchmark_llm.py --tabla
 ```
 
@@ -158,8 +161,8 @@ Para medir una variante del servidor, reinicia `ollama` con la variable correspo
 compose la toma del entorno) y vuelve a dejarlo como estaba al terminar:
 
 ```powershell
-$env:OLLAMA_FLASH_ATTENTION = "1"; docker compose --profile llm up -d ollama
-python scripts/benchmark_llm.py --variante fa_on --modelos gemma4:e4b-it-q4_K_M
+$env:OLLAMA_FLASH_ATTENTION = "0"; docker compose --profile llm up -d ollama
+python scripts/benchmark_llm.py --variante fa_off --modelos gemma4:e4b-it-q4_K_M
 Remove-Item Env:OLLAMA_FLASH_ATTENTION; docker compose --profile llm up -d ollama
 ```
 
@@ -169,9 +172,10 @@ Remove-Item Env:OLLAMA_FLASH_ATTENTION; docker compose --profile llm up -d ollam
   decodificación especulativa con la cabeza MTP que traen las etiquetas de Gemma 4
   (`--spec-type draft-mtp`). Con `temperature=0` la salida debería ser la misma; cambia la
   velocidad.
-- Con `gemma4:e2b-it-q4_K_M`: todas las capas en GPU y +3.2 GB de VRAM en uso (modelo,
-  proyector de visión, cabeza MTP y contexto CUDA); con el modelo en memoria genera
-  ~150–170 tokens/s.
+- Con `gemma4:e4b-it-q4_K_M` y FA: 43/43 capas en GPU y +4.7 GiB de VRAM en uso (modelo,
+  proyector de visión, cabeza MTP y contexto CUDA); genera ~90–110 tokens/s y el tiempo a primer
+  token al segmentar una transcripción de ~1,500 palabras es ~1.5 s. `e2b` es más rápido, pero
+  segmenta mal (ADR-006).
 - Sin el profile, `GET /health` responde en ~2 s con `"llm": "no_disponible"`: en Docker Desktop
   resolver el nombre `ollama` tarda ~4 s en fallar, y el cliente corta la consulta al vencer
   `LLM_HEALTH_TIMEOUT_S`.

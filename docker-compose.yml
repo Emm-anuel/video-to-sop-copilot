@@ -58,10 +58,11 @@ services:
     image: ollama/ollama:0.40.2
     profiles: ["llm"]
     environment:
-      # Flash attention apagado y caché KV en f16 hasta medirlos en el benchmark (ADR-006).
-      # Hay que fijarlo: desde 0.40 Ollama arranca llama-server con --flash-attn auto.
-      # Para una variante: `OLLAMA_FLASH_ATTENTION=1 docker compose --profile llm up -d ollama`.
-      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-0}
+      # Flash attention encendido y caché KV en f16 (ADR-006: FA reduce el tiempo a primer token
+      # 42-60 % sin cambiar la calidad). Se fija explícito para no depender del valor por defecto
+      # de cada versión de Ollama. Para una variante:
+      # `OLLAMA_FLASH_ATTENTION=0 docker compose --profile llm up -d ollama`.
+      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
       OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-f16}
       # El modelo sigue en la GPU 30 min tras la última petición (por defecto, 5 min) para no
       # pagar la carga en frío a cada rato; mientras tanto ocupa su VRAM.
@@ -95,7 +96,7 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-      LLM_MODEL: ${LLM_MODEL:-gemma4:e2b-it-q4_K_M}
+      LLM_MODEL: ${LLM_MODEL:-gemma4:e4b-it-q4_K_M}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >-

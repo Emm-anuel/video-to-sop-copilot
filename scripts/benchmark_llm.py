@@ -18,7 +18,7 @@ contenedor ("offloaded N/M layers"). La cifra de /api/ps se guarda, pero en Olla
 runner llamacpp no es confiable.
 
 Uso (con el profile "llm" arriba):
-    python scripts/benchmark_llm.py --variante fa_off --modelos gemma4:e2b-it-q4_K_M qwen3:8b-q4_K_M
+    python scripts/benchmark_llm.py --variante fa_on --modelos gemma4:e4b-it-q4_K_M qwen3:8b-q4_K_M
     python scripts/benchmark_llm.py --tabla        # tablas Markdown con todo lo guardado
 
 Los resultados crudos van a docs/adr/datos/benchmark_llm/<variante>.json.
