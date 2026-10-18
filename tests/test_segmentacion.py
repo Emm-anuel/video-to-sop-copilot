@@ -22,6 +22,7 @@ from sopvid.percepcion.segmentacion import (
     segmentar,
     segmentar_heuristica,
     validar_propuesta,
+    verificar_cita,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "transcripciones"
@@ -236,7 +237,6 @@ def test_construir_pasos_calcula_tiempos_desde_los_segmentos(analisis):
         "Abrir la llave y revisar fugas",
     ]
     assert [p.responsable for p in pasos] == ["Técnica", "Técnico", NO_IDENTIFICADO]
-    assert all(p.fuente == "audio" and p.confianza == "baja" for p in pasos)  # provisionales
     assert all(isinstance(p, PasoVideo) for p in pasos)
 
 
@@ -296,6 +296,74 @@ def test_ningun_tiempo_de_construir_pasos_sale_del_llm(analisis):
     inicios = {s.t_inicio for s in analisis.transcripcion}
     fines = {s.t_fin for s in analisis.transcripcion}
     assert all(p.t_inicio in inicios and p.t_fin in fines for p in pasos)
+
+
+# ── Verificación de citas (RNF-06) ───────────────────────────────────────────────────────────
+
+PASO_1 = (4, 5)  # guantes y lentes: segmentos 4–5 del fixture
+
+
+@pytest.mark.parametrize(
+    ("cita", "rango", "esperado"),
+    [
+        # Exacta, copiada del segmento 4.
+        (
+            "Primero me pongo los guantes de nitrilo y los lentes de seguridad.",
+            PASO_1,
+            ("alta", "audio"),
+        ),
+        # Mayúsculas, acentos y puntuación distintos (segmento 9: "Después", "presión", "botón").
+        ("DESPUES libero la PRESION con el boton rojo", (9, 11), ("alta", "audio")),
+        # Sin el punto y coma del segmento 7.
+        ("la tuberia asi sabemos que esta cerrada", (6, 8), ("alta", "audio")),
+        # Cruza del segmento 4 al 5.
+        ("los lentes de seguridad. Los lentes son obligatorios", PASO_1, ("alta", "audio")),
+        # Está en la transcripción, pero en el paso 6 (segmento 21).
+        ("abro la llave de paso despacio", PASO_1, ("media", "audio")),
+        # Cruza la frontera del paso: final del segmento 11 e inicio del 12.
+        ("un poco de agua. Con la llave de carcasa", (9, 11), ("media", "audio")),
+        # Inventada.
+        ("se aprieta el tornillo con el torquímetro", PASO_1, ("baja", "inferido")),
+        # Palabra incompleta: no basta una subcadena de caracteres.
+        ("los guantes de nitri", PASO_1, ("baja", "inferido")),
+        # Vacía o solo puntuación.
+        ("", PASO_1, ("baja", "inferido")),
+        ("  ¿…?  ", PASO_1, ("baja", "inferido")),
+    ],
+    ids=[
+        "exacta",
+        "mayusculas_y_acentos",
+        "sin_puntuacion",
+        "cruza_dos_segmentos",
+        "en_otro_paso",
+        "cruza_frontera_de_paso",
+        "inventada",
+        "palabra_incompleta",
+        "vacia",
+        "solo_puntuacion",
+    ],
+)
+def test_verificar_cita(analisis, cita, rango, esperado):
+    assert verificar_cita(cita, analisis, rango) == esperado
+
+
+def test_construir_pasos_usa_la_verificacion_de_citas_y_la_registra_sin_texto(analisis, caplog):
+    propuestas = [
+        propuesta(4, cita="me pongo los guantes de nitrilo"),
+        propuesta(9, cita="Finalmente abro la llave de paso"),  # es del paso de la 21
+        propuesta(21, cita="aprieto la contratuerca a mano"),  # inventada
+    ]
+    with caplog.at_level(logging.INFO, logger="sopvid.percepcion.segmentacion"):
+        pasos = construir_pasos(propuestas, analisis)
+
+    assert [(p.confianza, p.fuente) for p in pasos] == [
+        ("alta", "audio"),
+        ("media", "audio"),
+        ("baja", "inferido"),
+    ]
+    assert "Citas verificadas en 3 pasos: alta=1, media=1, baja=1" in caplog.text
+    for p in propuestas:
+        assert p["cita"] not in caplog.text
 
 
 # ── Esquema y petición a Ollama ──────────────────────────────────────────────────────────────

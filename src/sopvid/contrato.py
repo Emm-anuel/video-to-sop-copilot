@@ -21,6 +21,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 URI_JSON_SCHEMA = "https://json-schema.org/draft/2020-12/schema"
 
 Tiempo = Annotated[float, Field(ge=0, description="Segundos desde el inicio del video.")]
+# De dónde sale la evidencia de un paso y qué tan sólida es (RNF-06).
+Fuente = Literal["audio", "visual", "inferido"]
+Confianza = Literal["alta", "media", "baja"]
 
 
 class _Modelo(BaseModel):
@@ -111,8 +114,8 @@ class PasoVideo(_Modelo):
     t_inicio: Tiempo
     t_fin: Tiempo
     cita: str
-    fuente: Literal["audio", "visual", "inferido"]
-    confianza: Literal["alta", "media", "baja"]
+    fuente: Fuente
+    confianza: Confianza
 
     @model_validator(mode="after")
     def _rango(self) -> Self:

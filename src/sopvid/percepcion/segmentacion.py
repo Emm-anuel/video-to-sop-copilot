@@ -18,13 +18,14 @@ Este módulo es Python puro (sin pandas) porque corre en la API.
 import logging
 import re
 import unicodedata
+from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
 
-from sopvid.contrato import Analisis, PasoVideo
+from sopvid.contrato import Analisis, Confianza, Fuente, PasoVideo
 from sopvid.lenguaje.llm import ClienteLLM, LLMError
 
 logger = logging.getLogger(__name__)
@@ -238,6 +239,7 @@ def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConR
     resultado = []
     for numero, (p, i_fin) in enumerate(zip(validas, fines, strict=True), start=1):
         primero, ultimo = segmentos[posicion[p.segmento_id]], segmentos[i_fin]
+        confianza, fuente = verificar_cita(p.cita, analisis, (primero.id, ultimo.id))
         paso = PasoVideo(
             numero=numero,
             nombre=p.nombre,
@@ -246,8 +248,8 @@ def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConR
             t_inicio=primero.t_inicio,
             t_fin=ultimo.t_fin,
             cita=p.cita,
-            fuente="audio",  # provisional: se calcula al verificar la cita
-            confianza="baja",  # provisional
+            fuente=fuente,
+            confianza=confianza,
         )
         resultado.append(_PasoConRango(paso, primero.id, ultimo.id))
     return resultado
@@ -259,8 +261,54 @@ def construir_pasos(propuestas: Any, analisis: Analisis) -> list[PasoVideo]:
     Valida igual que `validar_propuesta` y lanza `PropuestaInvalida`. Los tiempos salen solo
     de la transcripción: `t_inicio` del segmento elegido y `t_fin` del último segmento antes del
     siguiente paso (o del último de la transcripción). `numero` es la posición desde 1.
+    `confianza` y `fuente` salen de verificar la cita (`verificar_cita`, RNF-06).
     """
-    return [r.paso for r in _construir_con_rangos(propuestas, analisis)]
+    pasos = [r.paso for r in _construir_con_rangos(propuestas, analisis)]
+    niveles = Counter(p.confianza for p in pasos)
+    logger.info(
+        "Citas verificadas en %d pasos: alta=%d, media=%d, baja=%d",
+        len(pasos),
+        niveles["alta"],
+        niveles["media"],
+        niveles["baja"],
+    )
+    return pasos
+
+
+# ── Verificación de citas (RNF-06) ───────────────────────────────────────────────────────────
+
+
+def _texto_comparable(texto: str) -> str:
+    """Minúsculas, sin acentos ni puntuación y con espacios colapsados (como la heurística)."""
+    return " ".join(_normalizar(texto).split())
+
+
+def verificar_cita(
+    cita: str, analisis: Analisis, rango_ids: tuple[int, int]
+) -> tuple[Confianza, Fuente]:
+    """Confianza y fuente de un paso según dónde aparece su cita en la transcripción.
+
+    La cita debe aparecer como secuencia contigua de palabras completas, tras normalizar ambos
+    lados. Los segmentos del paso (`rango_ids`, ids inclusive) se unen, así que la cita puede
+    cruzar de un segmento al siguiente.
+
+    - dentro de los segmentos del paso → ("alta", "audio")
+    - en otra parte de la transcripción → ("media", "audio")
+    - en ninguna parte, o cita vacía → ("baja", "inferido")
+
+    "visual" queda reservado para la evidencia de fotogramas.
+    """
+    buscada = _texto_comparable(cita)
+    if not buscada:
+        return "baja", "inferido"
+    primer_id, ultimo_id = rango_ids
+    del_paso = " ".join(s.texto for s in analisis.transcripcion if primer_id <= s.id <= ultimo_id)
+    completa = " ".join(s.texto for s in analisis.transcripcion)
+    if f" {buscada} " in f" {_texto_comparable(del_paso)} ":
+        return "alta", "audio"
+    if f" {buscada} " in f" {_texto_comparable(completa)} ":
+        return "media", "audio"
+    return "baja", "inferido"
 
 
 def segmentar_con_llm(
