@@ -164,6 +164,7 @@ def correr(
                             "repeticion": rep,
                             "camino": r.metodo,
                             "motivo_respaldo": r.motivo_respaldo,
+                            "intentos": r.intentos,
                             "segundos": round(time.perf_counter() - inicio, 2),
                             "ids": ids,
                             "titulos": [p.nombre for p in r.pasos],

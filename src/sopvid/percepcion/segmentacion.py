@@ -19,9 +19,9 @@ import logging
 import re
 import unicodedata
 from collections import Counter
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Generic, Literal, NotRequired, TypedDict, TypeVar
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
 
@@ -58,6 +58,7 @@ class Segmentacion:
     metodo: Literal["llm", "heuristica"]
     motivo_respaldo: str | None  # por qué se usó la heurística; None si fue el LLM
     modelo: str | None
+    intentos: int = 0  # llamadas hechas al LLM (0 sin cliente; máximo MAX_INTENTOS)
 
 
 class PropuestaInvalida(ValueError):  # noqa: N818 (nombre de dominio)
@@ -391,6 +392,75 @@ def rol_mencionado(responsable: str, texto: str) -> bool:
     return any(_raiz(p) == sustantivo for p in _texto_comparable(texto).split())
 
 
+T = TypeVar("T")
+
+MAX_INTENTOS = 3  # una llamada más dos reintentos si la propuesta no pasa la validación
+
+
+def mensaje_de_correccion(motivo: PropuestaInvalida) -> str:
+    """Mensaje "user" para pedir que corrija la propuesta. El motivo solo trae campos, tipos de
+    error e ids, nunca texto de la transcripción."""
+    return (
+        f"Tu respuesta anterior no es válida: {motivo}. Corrígela y responde de nuevo SOLO con "
+        "la lista JSON completa, con los mismos campos. Usa solo números de segmento de la "
+        "lista, en orden creciente y sin repetir; no escribas tiempos."
+    )
+
+
+@dataclass(frozen=True)
+class _Resultado(Generic[T]):
+    """Lo que dejó el ciclo de reintentos: el valor o el error final, y las llamadas hechas."""
+
+    valor: T | None
+    intentos: int
+    error: LLMError | PropuestaInvalida | None
+
+
+def _pedir_con_reintentos(
+    mensajes: list[dict[str, str]],
+    llm: ClienteLLM,
+    convertir: Callable[[Any], T],
+) -> _Resultado[T]:
+    """Llama al LLM y convierte su respuesta; si `convertir` lanza `PropuestaInvalida`, reintenta.
+
+    Cada reintento agrega la respuesta anterior como "assistant" y un "user" con el motivo
+    (`mensaje_de_correccion`). La temperatura y la semilla son las fijas del cliente. Un
+    `LLMError` (Ollama caído, JSON roto, petición rechazada) no se reintenta.
+    """
+    historial = list(mensajes)
+    error: PropuestaInvalida | None = None
+    for intento in range(1, MAX_INTENTOS + 1):
+        try:
+            respuesta = llm.chat(historial, esquema=ESQUEMA_PASOS)
+        except LLMError as exc:
+            return _Resultado(None, intento, exc)
+        try:
+            return _Resultado(convertir(respuesta.datos), intento, None)
+        except PropuestaInvalida as exc:
+            error = exc
+            logger.warning(
+                "Propuesta del LLM inválida (intento %d de %d): %s", intento, MAX_INTENTOS, exc
+            )
+            historial += [
+                {"role": "assistant", "content": respuesta.texto},
+                {"role": "user", "content": mensaje_de_correccion(exc)},
+            ]
+    return _Resultado(
+        None, MAX_INTENTOS, PropuestaInvalida(f"{error} (tras {MAX_INTENTOS} intentos)")
+    )
+
+
+def _segmentar_con_llm(
+    segmentos: Sequence[Segmento],
+    etiquetas: Mapping[str, str],
+    llm: ClienteLLM,
+    *,
+    regla_aclaraciones: bool = False,
+) -> _Resultado[list[Paso]]:
+    mensajes = construir_mensajes(segmentos, etiquetas, regla_aclaraciones=regla_aclaraciones)
+    return _pedir_con_reintentos(mensajes, llm, lambda datos: validar_propuesta(datos, segmentos))
+
+
 def segmentar_con_llm(
     segmentos: Sequence[Segmento],
     etiquetas: Mapping[str, str],
@@ -398,10 +468,13 @@ def segmentar_con_llm(
     *,
     regla_aclaraciones: bool = False,
 ) -> list[Paso]:
-    """Pasos propuestos por el LLM. Lanza `LLMError` o `PropuestaInvalida`."""
-    mensajes = construir_mensajes(segmentos, etiquetas, regla_aclaraciones=regla_aclaraciones)
-    respuesta = llm.chat(mensajes, esquema=ESQUEMA_PASOS)
-    return validar_propuesta(respuesta.datos, segmentos)
+    """Pasos propuestos por el LLM, con hasta `MAX_INTENTOS` llamadas si la propuesta no es
+    válida. Lanza `LLMError` (sin reintentar) o `PropuestaInvalida` con el último motivo."""
+    r = _segmentar_con_llm(segmentos, etiquetas, llm, regla_aclaraciones=regla_aclaraciones)
+    if r.error is not None:
+        raise r.error
+    assert r.valor is not None
+    return r.valor
 
 
 # ── Heurística de respaldo ───────────────────────────────────────────────────────────────────
@@ -488,25 +561,35 @@ def segmentar(
     *,
     regla_aclaraciones: bool = False,
 ) -> Segmentacion:
-    """Pasos del video: LLM si está y responde bien; si no, la heurística. Registra el camino."""
+    """Pasos del video: LLM si está y responde bien; si no, la heurística. Registra el camino.
+
+    Una propuesta inválida se reintenta hasta completar `MAX_INTENTOS` llamadas; si el LLM no
+    responde, se va directo a la heurística (RNF-07). `Segmentacion.intentos` cuenta las
+    llamadas hechas al LLM.
+    """
+    intentos = 0
     if llm is None:
         motivo = "sin cliente LLM"
     else:
-        try:
-            pasos = segmentar_con_llm(
-                segmentos, etiquetas, llm, regla_aclaraciones=regla_aclaraciones
-            )
-        except LLMError as exc:
-            motivo = f"LLM no disponible o con error ({type(exc).__name__})"
-        except PropuestaInvalida as exc:
-            motivo = f"propuesta del LLM inválida: {exc}"
+        r = _segmentar_con_llm(segmentos, etiquetas, llm, regla_aclaraciones=regla_aclaraciones)
+        intentos = r.intentos
+        if isinstance(r.error, LLMError):
+            motivo = f"LLM no disponible o con error ({type(r.error).__name__})"
+        elif isinstance(r.error, PropuestaInvalida):
+            motivo = f"propuesta del LLM inválida: {r.error}"
         else:
-            logger.info("Segmentación por LLM (%s): %d pasos", llm.modelo, len(pasos))
-            return Segmentacion(pasos, "llm", None, llm.modelo)
+            assert r.valor is not None
+            logger.info(
+                "Segmentación por LLM (%s): %d pasos en %d intento(s)",
+                llm.modelo,
+                len(r.valor),
+                intentos,
+            )
+            return Segmentacion(r.valor, "llm", None, llm.modelo, intentos)
 
     pasos = segmentar_heuristica(segmentos)
     logger.info("Segmentación por heurística: %d pasos; motivo: %s", len(pasos), motivo)
-    return Segmentacion(pasos, "heuristica", motivo, None)
+    return Segmentacion(pasos, "heuristica", motivo, None, intentos)
 
 
 # ── Evaluación ───────────────────────────────────────────────────────────────────────────────

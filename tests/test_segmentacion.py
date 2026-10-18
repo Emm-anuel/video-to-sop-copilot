@@ -22,6 +22,7 @@ from sopvid.percepcion.segmentacion import (
     normalizar_responsable,
     rol_mencionado,
     segmentar,
+    segmentar_con_llm,
     segmentar_heuristica,
     validar_propuesta,
     verificar_cita,
@@ -161,20 +162,137 @@ def test_llm_caido_cae_a_la_heuristica(error):
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
+    assert r.intentos == 1  # el cliente reintenta la red una vez por dentro; aquí no se repite
 
 
-def test_json_roto_cae_a_la_heuristica():
-    with cliente_que_responde('[{"segmento_id": 2, "tit') as llm:
+def test_json_roto_cae_a_la_heuristica_sin_reintentos():
+    peticiones = []
+    with cliente_que_responde('[{"segmento_id": 2, "tit', peticiones=peticiones) as llm:
         r = segmentar(SEGMENTOS, ETIQUETAS, llm)
 
     assert r.metodo == "heuristica"
     assert "LLMRespuestaInvalida" in r.motivo_respaldo
+    assert len(peticiones) == r.intentos == 1
 
 
 def test_sin_cliente_usa_la_heuristica():
     r = segmentar(SEGMENTOS, ETIQUETAS, None)
     assert r.metodo == "heuristica"
     assert r.motivo_respaldo == "sin cliente LLM"
+    assert r.intentos == 0
+
+
+# ── Reintentos (RNF-07) ──────────────────────────────────────────────────────────────────────
+
+
+def cliente_en_secuencia(respuestas: list, peticiones: list):
+    """Cliente simulado que devuelve `respuestas` en orden: texto del modelo o código HTTP."""
+    pendientes = iter(respuestas)
+
+    def manejador(request):
+        peticiones.append(json.loads(request.content))
+        r = next(pendientes)
+        if isinstance(r, int):
+            return httpx.Response(r, json={"error": "falla del servidor"})
+        return httpx.Response(
+            200, json={"model": "falso", "message": {"role": "assistant", "content": r}}
+        )
+
+    return ClienteLLM("http://ollama.test:11434", "falso", transport=httpx.MockTransport(manejador))
+
+
+VALIDA = json.dumps([propuesta(2), propuesta(4), propuesta(6)])
+ID_INEXISTENTE = json.dumps([propuesta(2), propuesta(99)])
+DUPLICADA = json.dumps([propuesta(2), propuesta(2)])
+CON_TIEMPO = json.dumps([propuesta(2, t_inicio=4.5)])
+
+
+def test_valida_al_primer_intento():
+    peticiones = []
+    with cliente_en_secuencia([VALIDA], peticiones) as llm:
+        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert (r.metodo, r.intentos, len(peticiones)) == ("llm", 1, 1)
+    assert [p.segmento_id for p in r.pasos] == [2, 4, 6]
+
+
+def test_invalida_y_luego_valida_reenvia_la_respuesta_y_el_error():
+    peticiones = []
+    with cliente_en_secuencia([ID_INEXISTENTE, VALIDA], peticiones) as llm:
+        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert (r.metodo, r.intentos, r.motivo_respaldo) == ("llm", 2, None)
+    assert [p.segmento_id for p in r.pasos] == [2, 4, 6]
+
+    primera, segunda = (p["messages"] for p in peticiones)
+    assert segunda[:2] == primera  # mismo sistema y mismo prompt
+    assert [m["role"] for m in segunda] == ["system", "user", "assistant", "user"]
+    assert segunda[2]["content"] == ID_INEXISTENTE  # la respuesta anterior, tal cual
+    correccion = segunda[3]["content"]
+    assert "el segmento 99 no existe" in correccion
+    assert "no escribas tiempos" in correccion
+    for s in SEGMENTOS:  # el error no copia texto de la transcripción
+        assert s["texto"] not in correccion
+    for p in peticiones:  # misma decodificación determinista en cada llamada
+        assert p["options"]["temperature"] == 0 and p["options"]["seed"] == SEMILLA
+        assert p["format"] == ESQUEMA_PASOS
+
+
+def test_el_error_de_esquema_se_resume_por_campo():
+    peticiones = []
+    with cliente_en_secuencia([CON_TIEMPO, VALIDA], peticiones) as llm:
+        segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert "t_inicio (extra_forbidden)" in peticiones[1]["messages"][-1]["content"]
+
+
+def test_tres_invalidas_caen_a_la_heuristica_con_el_ultimo_motivo(caplog):
+    peticiones = []
+    with (
+        caplog.at_level(logging.WARNING),
+        cliente_en_secuencia([ID_INEXISTENTE, CON_TIEMPO, DUPLICADA], peticiones) as llm,
+    ):
+        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert (r.metodo, r.intentos, len(peticiones)) == ("heuristica", 3, 3)
+    assert r.pasos == segmentar_heuristica(SEGMENTOS)
+    assert "inválida" in r.motivo_respaldo
+    assert "el segmento 2 está duplicado" in r.motivo_respaldo  # el último, no el primero
+    assert "tras 3 intentos" in r.motivo_respaldo
+    # La tercera llamada lleva las dos respuestas anteriores y sus dos correcciones.
+    assert [m["role"] for m in peticiones[2]["messages"]] == ["system", "user"] + [
+        "assistant",
+        "user",
+    ] * 2
+    assert caplog.text.count("Propuesta del LLM inválida") == 3
+
+
+def test_segmentar_con_llm_lanza_el_ultimo_motivo():
+    with (
+        cliente_en_secuencia([ID_INEXISTENTE] * 3, []) as llm,
+        pytest.raises(PropuestaInvalida, match="99 no existe.*tras 3 intentos"),
+    ):
+        segmentar_con_llm(SEGMENTOS, ETIQUETAS, llm)
+
+
+def test_llm_no_disponible_va_directo_a_la_heuristica_sin_reintentos():
+    peticiones = []
+    with cliente_en_secuencia([500, VALIDA], peticiones) as llm:
+        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert r.metodo == "heuristica"
+    assert "LLMNoDisponible" in r.motivo_respaldo
+    assert len(peticiones) == r.intentos == 1
+
+
+def test_llm_que_se_cae_a_media_correccion_no_se_reintenta():
+    peticiones = []
+    with cliente_en_secuencia([ID_INEXISTENTE, 500, VALIDA], peticiones) as llm:
+        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert r.metodo == "heuristica"
+    assert "LLMNoDisponible" in r.motivo_respaldo
+    assert len(peticiones) == r.intentos == 2
 
 
 def test_el_prompt_lleva_ids_y_etiquetas_pero_ningun_tiempo():
