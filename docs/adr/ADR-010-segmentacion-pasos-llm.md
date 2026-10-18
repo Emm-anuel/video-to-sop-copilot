@@ -211,17 +211,25 @@ en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana).
 [datos/segmentacion/pasos_video.json](datos/segmentacion/pasos_video.json). **Resultado indicativo
 (n=3 + 1).**
 
-| Mismas 3 transcripciones | F1 ±1 segmento | F1 ±2 s | Falsos positivos | No detectados | s por transcripción |
-|---|---|---|---|---|---|
-| Fase 4 (prompt de 2 campos) | **0.741** | 0.691 | 21 | 0 | 5.2 |
-| RF-13 (prompt de 5 campos) | **0.645** | 0.602 | 33 | 0 | 18.9 |
+| Mismas 3 transcripciones | F1 ±1 segmento | F1 ±2 s | Falsos positivos | No detectados | Pasos sin redactar | s por transcripción |
+|---|---|---|---|---|---|---|
+| Fase 4 (prompt de 2 campos) | **0.741** | 0.691 | 21 | 0 | — | 5.2 |
+| RF-13 (prompt de 5 campos) | **0.645** | 0.602 | 33 | 0 | 0 de 9 corridas | 18.9 |
+| RF-13 opción A (dos llamadas) | **0.741** | 0.691 | 21 | 0 | **9 de 9 corridas** | 55.3 |
 
-| Transcripción | F1 Fase 4 | F1 RF-13 | % alta / media / baja | Intentos promedio | Caídas a la heurística |
-|---|---|---|---|---|---|
-| cambio_cuchilla | 0.800 | 0.615 | 4 / 96 / 0 | 1.00 | 0 |
-| cambio_filtro_hidraulico | 0.581 | 0.581 | 42 / 58 / 0 | 1.00 | 0 |
-| limpieza_cip_tanque | 0.900 | 0.783 | 14 / 86 / 0 | 1.00 | 0 |
-| analisis_ejemplo | — | 0.632 | 100 / 0 / 0 | 1.00 | 0 |
+| Transcripción | Método | F1 ±1 segmento | % alta / media / baja | Intentos (fronteras + redacción) | Caídas a la heurística | s |
+|---|---|---|---|---|---|---|
+| cambio_cuchilla | Fase 4 | 0.800 | — | — | — | 5.3 |
+| | RF-13 | 0.615 | 4 / 96 / 0 | 1.00 | 0 | 23.4 |
+| | RF-13 opción A | 0.800 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 55.3 |
+| cambio_filtro_hidraulico | Fase 4 | 0.581 | — | — | — | 5.9 |
+| | RF-13 | 0.581 | 42 / 58 / 0 | 1.00 | 0 | 18.9 |
+| | RF-13 opción A | 0.581 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 61.5 |
+| limpieza_cip_tanque | Fase 4 | 0.900 | — | — | — | 2.8 |
+| | RF-13 | 0.783 | 14 / 86 / 0 | 1.00 | 0 | 11.5 |
+| | RF-13 opción A | 0.900 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 23.7 |
+| analisis_ejemplo | RF-13 | 0.632 | 100 / 0 / 0 | 1.00 | 0 | 11.7 |
+| | RF-13 opción A | 0.571 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 49.9 |
 
 **De dónde viene la diferencia:**
 
@@ -245,4 +253,29 @@ en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana).
 - **B · Una llamada con dos bloques.** El esquema pide primero los inicios y después la redacción.
 - **C · Dejarlo así y confiar en la fusión de ADR-013.** Solo ayuda cuando hay SOP.
 
-El ADR sigue **Propuesto** hasta medir la opción elegida con `scripts/evaluar_segmentacion.py`.
+**Opción A, implementada y medida (18 oct):**
+
+- **Las fronteras se recuperan.** La primera llamada usa el prompt v1 sin cambios y da los mismos
+  cortes que la Fase 4: F1 0.741 en las tres transcripciones, con 21 falsos positivos. En
+  `analisis_ejemplo` baja de 0.632 a 0.571.
+- **La redacción falló en las 12 corridas.** Tras 3 intentos, todos los pasos quedaron sin redactar
+  (nombre = título, cita vacía, confianza `baja`). Ninguna corrida cayó a la heurística. Las
+  causas, según el log:
+  - El modelo copia el segmento entero como cita: 16 a 22 palabras, contra el máximo de 15 que exige
+    la validación.
+  - Al reintentar, el historial crece (respuesta anterior + corrección) y la salida se corta
+    (`done_reason=length`) en las transcripciones largas: cuchilla, 60 segmentos; filtro, 29.
+  - La validación es de todo o nada: una sola cita larga invalida los demás pasos.
+- **Tarda más:** 23 a 62 s por transcripción, contra 12 a 23 s de la llamada única. Pesan la segunda
+  llamada y sus reintentos.
+
+**Pendiente de decisión** (sin cambios hasta elegir):
+
+1. Aceptar los pasos válidos de la redacción y dejar sin redactar solo los que fallan, en lugar de
+   descartar todo.
+2. Para la cita: recortar por código una cita literal larga a sus primeras 15 palabras (sigue siendo
+   literal y verificable), o subir el máximo.
+3. En el reintento, enviar solo la corrección de los pasos que fallaron, sin repetir la respuesta
+   completa, o subir `num_ctx`.
+
+El ADR sigue **Propuesto** hasta medir la versión corregida con `scripts/evaluar_segmentacion.py`.
