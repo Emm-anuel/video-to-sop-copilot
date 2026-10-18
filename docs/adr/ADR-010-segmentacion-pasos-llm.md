@@ -217,6 +217,7 @@ en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana).
 | RF-13 (prompt de 5 campos) | **0.645** | 0.602 | 33 | 0 | 0 de 9 corridas | 18.9 |
 | RF-13 opción A, todo o nada | **0.741** | 0.691 | 21 | 0 | **100 %** (9 de 9 corridas) | 55.3 |
 | RF-13 opción A corregida | **0.741** | 0.691 | 21 | 0 | **0 %** (0 de 151 pasos) | 29.5 |
+| RF-13 opción A + prompt de redacción final | **0.744** | 0.718 | 19 | 1 | **0 %** (0 de 146 pasos) | 19.8 |
 
 | Transcripción | Método | F1 ±1 segmento | % alta / media / baja | Intentos (fronteras + redacción) | Caídas a la heurística | s |
 |---|---|---|---|---|---|---|
@@ -224,17 +225,21 @@ en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana).
 | | RF-13 | 0.615 | 4 / 96 / 0 | 1.00 | 0 | 23.4 |
 | | RF-13 opción A, todo o nada | 0.800 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 55.3 |
 | | RF-13 opción A corregida | 0.800 | 6 / 94 / 0 | 1.00 + 1.00 | 0 | 53.3 |
+| | RF-13 opción A + prompt final | 0.800 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 19.8 |
 | cambio_filtro_hidraulico | Fase 4 | 0.581 | — | — | — | 5.9 |
 | | RF-13 | 0.581 | 42 / 58 / 0 | 1.00 | 0 | 18.9 |
 | | RF-13 opción A, todo o nada | 0.581 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 61.5 |
 | | RF-13 opción A corregida | 0.581 | 5 / 95 / 0 | 1.00 + 1.33 | 0 | 29.5 |
+| | RF-13 opción A + prompt final | 0.581 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 22.9 |
 | limpieza_cip_tanque | Fase 4 | 0.900 | — | — | — | 2.8 |
 | | RF-13 | 0.783 | 14 / 86 / 0 | 1.00 | 0 | 11.5 |
 | | RF-13 opción A, todo o nada | 0.900 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 23.7 |
 | | RF-13 opción A corregida | 0.900 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 11.1 |
+| | RF-13 opción A + prompt final | 0.941 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 9.6 |
 | analisis_ejemplo | RF-13 | 0.632 | 100 / 0 / 0 | 1.00 | 0 | 11.7 |
 | | RF-13 opción A, todo o nada | 0.571 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 49.9 |
 | | RF-13 opción A corregida | 0.571 | 0 / 100 / 0 | 1.00 + 1.00 | 0 | 21.6 |
+| | RF-13 opción A + prompt final | 0.571 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 18.0 |
 
 **De dónde viene la diferencia:**
 
@@ -301,10 +306,35 @@ anterior siguen en `pasos_video.json` con la etiqueta "opción A (todo o nada)".
     su puesto en la introducción ("técnica de mantenimiento"). Además, una vez escribió su nombre
     ("Laura") en lugar del puesto. Un nombre de trabajador es un dato personal (LFPDPPP).
 
-**Pendiente de decisión:**
+**Prompt de redacción final (18 oct):** fila "RF-13 opción A + prompt de redacción final". Las
+corridas anteriores siguen en `pasos_video.json` con la etiqueta "opción A (segmentos numerados)".
 
-1. Quitar los números de segmento del prompt de redacción: cada paso solo con su texto, sin `[n]`.
-2. Pedir el responsable como puesto, nunca como nombre de persona. Si quien narra dice su puesto en la
-   introducción y describe los pasos en primera persona, ese puesto es el responsable.
+1. Los segmentos van sin `[n]` en el prompt de redacción: cada paso lleva solo su texto.
+2. El responsable se pide como puesto, nunca como nombre de persona. Si quien narra dice su puesto y
+   describe los pasos en primera persona, ese puesto es el responsable de esos pasos.
 
-El ADR sigue **Propuesto** hasta medir esas dos correcciones con `scripts/evaluar_segmentacion.py`.
+Resultado:
+
+- **Confianza:** 100 % de los pasos en `alta` en las cuatro transcripciones (antes, 26 %). Todas las
+  citas son literales y de su propio paso.
+- **Redacción:** ningún paso sin redactar y ningún reintento (1 llamada de redacción por corrida).
+- **Tiempo:** 10 a 23 s por transcripción, parecido a la llamada única (12 a 23 s), con las fronteras
+  de la Fase 4.
+- **Responsable:**
+  - En `analisis_ejemplo` sale "Técnica de mantenimiento de la línea de enjuague", el puesto que dice
+    la narradora, y ya no su nombre.
+  - En las otras tres transcripciones sale "No identificado", y es correcto en casi todos los pasos:
+    quien narra nunca dice su puesto, y el supervisor solo aparece como alguien a quien avisar.
+  - Caso dudoso: en el CIP, "el supervisor de calidad firma la liberación del tanque" (segmento 25)
+    podría hacer del supervisor de calidad el responsable del último paso.
+- **Fronteras:** la llamada 1 no cambió. El CIP da 0.941 en lugar de 0.900 por la variación entre
+  corridas que ya se veía en la Fase 4 (la repetición 1 a veces difiere de la 2 y la 3).
+
+**Pendiente:**
+
+- Los pasos de más que propone `gemma4:e4b` siguen ahí (19 falsos positivos en 30 pasos reales).
+  Con SOP los absorbe la fusión de ADR-013; al generar un SOP, el supervisor los corrige (RF-26).
+- Decidir con el patrocinador lo de la sección "Pendiente con el patrocinador" (modelo mayor o
+  excepción para `qwen3.5`).
+
+El ADR sigue **Propuesto**: la extracción en dos llamadas queda como el método por defecto de RF-13.
