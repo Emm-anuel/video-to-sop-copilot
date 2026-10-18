@@ -215,21 +215,26 @@ en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana).
 |---|---|---|---|---|---|---|
 | Fase 4 (prompt de 2 campos) | **0.741** | 0.691 | 21 | 0 | — | 5.2 |
 | RF-13 (prompt de 5 campos) | **0.645** | 0.602 | 33 | 0 | 0 de 9 corridas | 18.9 |
-| RF-13 opción A (dos llamadas) | **0.741** | 0.691 | 21 | 0 | **9 de 9 corridas** | 55.3 |
+| RF-13 opción A, todo o nada | **0.741** | 0.691 | 21 | 0 | **100 %** (9 de 9 corridas) | 55.3 |
+| RF-13 opción A corregida | **0.741** | 0.691 | 21 | 0 | **0 %** (0 de 151 pasos) | 29.5 |
 
 | Transcripción | Método | F1 ±1 segmento | % alta / media / baja | Intentos (fronteras + redacción) | Caídas a la heurística | s |
 |---|---|---|---|---|---|---|
 | cambio_cuchilla | Fase 4 | 0.800 | — | — | — | 5.3 |
 | | RF-13 | 0.615 | 4 / 96 / 0 | 1.00 | 0 | 23.4 |
-| | RF-13 opción A | 0.800 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 55.3 |
+| | RF-13 opción A, todo o nada | 0.800 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 55.3 |
+| | RF-13 opción A corregida | 0.800 | 6 / 94 / 0 | 1.00 + 1.00 | 0 | 53.3 |
 | cambio_filtro_hidraulico | Fase 4 | 0.581 | — | — | — | 5.9 |
 | | RF-13 | 0.581 | 42 / 58 / 0 | 1.00 | 0 | 18.9 |
-| | RF-13 opción A | 0.581 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 61.5 |
+| | RF-13 opción A, todo o nada | 0.581 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 61.5 |
+| | RF-13 opción A corregida | 0.581 | 5 / 95 / 0 | 1.00 + 1.33 | 0 | 29.5 |
 | limpieza_cip_tanque | Fase 4 | 0.900 | — | — | — | 2.8 |
 | | RF-13 | 0.783 | 14 / 86 / 0 | 1.00 | 0 | 11.5 |
-| | RF-13 opción A | 0.900 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 23.7 |
+| | RF-13 opción A, todo o nada | 0.900 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 23.7 |
+| | RF-13 opción A corregida | 0.900 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 11.1 |
 | analisis_ejemplo | RF-13 | 0.632 | 100 / 0 / 0 | 1.00 | 0 | 11.7 |
-| | RF-13 opción A | 0.571 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 49.9 |
+| | RF-13 opción A, todo o nada | 0.571 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 49.9 |
+| | RF-13 opción A corregida | 0.571 | 0 / 100 / 0 | 1.00 + 1.00 | 0 | 21.6 |
 
 **De dónde viene la diferencia:**
 
@@ -269,13 +274,37 @@ en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana).
 - **Tarda más:** 23 a 62 s por transcripción, contra 12 a 23 s de la llamada única. Pesan la segunda
   llamada y sus reintentos.
 
-**Pendiente de decisión** (sin cambios hasta elegir):
+**Correcciones aplicadas a la opción A (18 oct):**
 
-1. Aceptar los pasos válidos de la redacción y dejar sin redactar solo los que fallan, en lugar de
-   descartar todo.
-2. Para la cita: recortar por código una cita literal larga a sus primeras 15 palabras (sigue siendo
-   literal y verificable), o subir el máximo.
-3. En el reintento, enviar solo la corrección de los pasos que fallaron, sin repetir la respuesta
-   completa, o subir `num_ctx`.
+1. La redacción se valida paso por paso: los pasos válidos se usan y solo los que fallan quedan sin
+   redactar (`Segmentacion.pasos_sin_redactar`).
+2. Una cita literal de más de 15 palabras se recorta por código a sus primeras 15
+   (`recortar_cita`): sigue siendo literal y se verifica igual. Menos de 4 palabras sigue siendo
+   inválida.
+3. El reintento envía el prompt original más un mensaje con solo los pasos pendientes y su motivo,
+   sin la respuesta anterior, así que el contexto no crece.
 
-El ADR sigue **Propuesto** hasta medir la versión corregida con `scripts/evaluar_segmentacion.py`.
+**Opción A corregida, medida (18 oct):** fila "RF-13 opción A corregida". Las corridas de la versión
+anterior siguen en `pasos_video.json` con la etiqueta "opción A (todo o nada)".
+
+- **Fronteras:** las mismas de la Fase 4 (F1 0.741, 21 falsos positivos).
+- **Redacción:** funciona. Se redactaron los 151 pasos de las tres transcripciones y los 45 de
+  `analisis_ejemplo`; solo una corrida necesitó reintentar un paso.
+- **Tiempo:** 11 a 53 s por transcripción, contra 12 a 23 s de la llamada única.
+- **Confianza:** el 74 % de los pasos queda en `media` (100 % en `analisis_ejemplo`). La revisión del
+  ejemplo muestra dos problemas nuevos, ajenos a las correcciones:
+  - **El modelo confunde el número de paso con el número de segmento.** Para el paso *n* cita el
+    segmento `[n]`: el paso 3 (segmentos 6–8) cita el segmento 3. Las citas son literales, pero de
+    otra parte del video, y por eso quedan en `media`. Viene de que el prompt de redacción muestra
+    los segmentos con su número entre corchetes, y esos números chocan con los de los pasos.
+  - **Sin ejemplo de rol, el modelo pone "No identificado" casi siempre**, aunque la narradora diga
+    su puesto en la introducción ("técnica de mantenimiento"). Además, una vez escribió su nombre
+    ("Laura") en lugar del puesto. Un nombre de trabajador es un dato personal (LFPDPPP).
+
+**Pendiente de decisión:**
+
+1. Quitar los números de segmento del prompt de redacción: cada paso solo con su texto, sin `[n]`.
+2. Pedir el responsable como puesto, nunca como nombre de persona. Si quien narra dice su puesto en la
+   introducción y describe los pasos en primera persona, ese puesto es el responsable.
+
+El ADR sigue **Propuesto** hasta medir esas dos correcciones con `scripts/evaluar_segmentacion.py`.
