@@ -207,6 +207,7 @@ def correr(
                             "intentos": r.intentos,
                             "intentos_redaccion": r.intentos_redaccion,
                             "motivo_sin_redaccion": r.motivo_sin_redaccion,
+                            "pasos_sin_redactar": r.pasos_sin_redactar,
                             "segundos": round(time.perf_counter() - inicio, 2),
                             "ids": ids,
                             "titulos": [p.nombre for p in r.pasos],
@@ -351,9 +352,9 @@ def tabla_por_transcripcion(datos: dict[str, Any]) -> None:
     print("\nPor transcripción (medianas de las repeticiones; intentos y confianza sobre todas)\n")
     print(
         "| Método | Transcripción | F1 ±1 seg | F1 ±2 s | FP | ND | Intentos prom. "
-        "| % alta / media / baja | Heurística | s por transcripción |"
+        "| % alta / media / baja | % sin redactar | Heurística | s por transcripción |"
     )
-    print("|---|---|---|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
     corridas = [c for c in datos["corridas"] if "confianzas" in c]
     for m in dict.fromkeys(c["metodo"] for c in corridas):
         for f in datos["fixtures"]:
@@ -372,13 +373,28 @@ def tabla_por_transcripcion(datos: dict[str, Any]) -> None:
             if redaccion:
                 prom_intentos += f" + {statistics.mean(redaccion):.2f}"
             tiempo = f"{_mediana(segundos):.1f}" if segundos else "< 0.01"
+            sin_redactar = _pct_sin_redactar(cs)
             print(
                 f"| {m} | {f} | {_mediana([c['f1'] for c in cs]):.3f} "
                 f"| {_mediana([c['f1_tiempo_2s']['f1'] for c in cs]):.3f} "
                 f"| {_mediana([len(c['falsos_positivos']) for c in cs]):g} "
                 f"| {_mediana([len(c['no_detectados']) for c in cs]):g} "
-                f"| {prom_intentos} | {pct} | {heuristica} | {tiempo} |"
+                f"| {prom_intentos} | {pct} | {sin_redactar} | {heuristica} | {tiempo} |"
             )
+
+
+def _pct_sin_redactar(corridas: list[dict[str, Any]]) -> str:
+    """% de pasos que quedaron sin redactar (solo opción A). Las corridas de la primera versión
+    no guardaban el conteo: ahí la redacción era de todo o nada."""
+    con_redaccion = [c for c in corridas if "intentos_redaccion" in c and c["intentos_redaccion"]]
+    if not con_redaccion:
+        return "—"
+    total = sum(len(c["confianzas"]) for c in con_redaccion)
+    sin = sum(
+        c.get("pasos_sin_redactar", len(c["confianzas"]) if c.get("motivo_sin_redaccion") else 0)
+        for c in con_redaccion
+    )
+    return f"{100 * sin / total:.0f}"
 
 
 def main() -> None:

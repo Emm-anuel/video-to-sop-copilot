@@ -22,6 +22,7 @@ from sopvid.percepcion.segmentacion import (
     SISTEMA,
     PropuestaFrontera,
     PropuestaInvalida,
+    RedaccionPaso,
     _construir_con_rangos,
     _texto_comparable,
     _validar_propuestas,
@@ -33,6 +34,7 @@ from sopvid.percepcion.segmentacion import (
     empieza_con_marcador,
     f1_fronteras,
     normalizar_responsable,
+    recortar_cita,
     rol_mencionado,
     segmentar,
     segmentar_con_llm,
@@ -1071,6 +1073,7 @@ def test_opcion_a_es_el_camino_por_defecto_y_arma_los_pasos(analisis):
         1,
         None,
     )
+    assert r.pasos_sin_redactar == 0
     assert [p["format"] for p in peticiones] == [ESQUEMA_FRONTERAS, ESQUEMA_REDACCION]
     assert segmentos_de_inicio(r.pasos, analisis) == [4, 6, 9, 12, 17, 21]
     assert [p.nombre for p in r.pasos] == TITULOS_EJEMPLO  # el título de la llamada 1
@@ -1127,62 +1130,106 @@ def test_el_prompt_de_redaccion_trae_los_pasos_fijos_sin_ejemplos_de_rol(analisi
         assert ejemplo not in usuario
 
 
-def test_redaccion_invalida_se_reintenta_sin_repetir_las_fronteras(analisis):
+def test_redaccion_reintenta_solo_los_pasos_que_fallaron(analisis):
     corta = json.dumps(redaccion_ejemplo(p3={"cita": "libero la presión"}), ensure_ascii=False)
-    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta, REDACCION_EJEMPLO])
+    solo_3 = json.dumps([redaccion(3, "libero la presión con el botón rojo")], ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta, solo_3])
 
     assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 2, 3)
-    correccion = peticiones[2]["messages"][-1]["content"]
-    assert [m["role"] for m in peticiones[2]["messages"]] == [
-        "system",
-        "user",
-        "assistant",
-        "user",
-    ]
-    assert "el elemento 2 no cumple el esquema: cita (value_error)" in correccion
-    assert "la cita tiene 3 palabras y debe tener de 4 a 15" in correccion
+    assert (r.pasos_sin_redactar, r.motivo_sin_redaccion) == (0, None)
+    assert r.pasos[2].cita == "libero la presión con el botón rojo"
+    assert all(p.confianza == "alta" for p in r.pasos)
+
+    # El reintento repite el prompt y pide solo el paso 3, sin reenviar la respuesta anterior.
+    reintento = peticiones[2]["messages"]
+    assert [m["role"] for m in reintento] == ["system", "user", "user"]
+    assert reintento[:2] == peticiones[1]["messages"]
+    correccion = reintento[-1]["content"]
+    assert (
+        "paso 3: cita (value_error): la cita tiene 3 palabras y debe tener de 4 a 15" in correccion
+    )
+    assert "(numero 3)" in correccion
     assert RECORDATORIO_REDACCION in correccion
     assert "libero la presión" not in correccion  # el motivo no copia la cita
+    for n in (1, 2, 4, 5, 6):
+        assert f"paso {n}:" not in correccion
+
+
+ESPERADOS = [1, 2, 3, 4, 5, 6]
+
+
+def test_validar_redaccion_acepta_los_pasos_validos_aunque_otros_fallen():
+    datos = redaccion_ejemplo(p2={"cita": "me pongo"}, p4={"t_inicio": 74.76})[:5]
+    validos, fallos = _validar_redaccion(datos, ESPERADOS)
+
+    assert sorted(validos) == [1, 3, 5]
+    assert fallos[2].startswith("cita (value_error): la cita tiene 2 palabras")
+    assert fallos[4] == "t_inicio (extra_forbidden)"
+    assert fallos[6] == "falta en la respuesta"
+
+
+def test_validar_redaccion_no_depende_del_orden_e_ignora_lo_que_no_se_pidio():
+    datos = list(reversed(redaccion_ejemplo()))
+    datos.append(redaccion(7, "un paso que no se pidió"))
+    datos.append(redaccion(2, "me pongo"))  # repetido e inválido: vale el primero
+    validos, fallos = _validar_redaccion(datos, ESPERADOS)
+
+    assert sorted(validos) == ESPERADOS and fallos == {}
 
 
 @pytest.mark.parametrize(
-    ("datos", "motivo"),
-    [
-        (redaccion_ejemplo()[:5], "se esperaban 6 pasos y llegaron 5"),
-        (redaccion_ejemplo(p2={"numero": 3}), "el elemento 1 trae el paso 3 y se esperaba el 2"),
-        (redaccion_ejemplo(p1={"cita": ""}), "la cita tiene 0 palabras"),
-        (
-            redaccion_ejemplo(p1={"cita": " ".join(["palabra"] * 16)}),
-            "la cita tiene 16 palabras",
-        ),
-        (redaccion_ejemplo(p4={"t_inicio": 74.76}), r"t_inicio \(extra_forbidden\)"),
-        (redaccion_ejemplo(p1={"numero": "1"}), r"numero \(int_type\)"),
-        ([], "al menos un paso"),
-    ],
-    ids=["faltan", "numeracion", "cita_vacia", "cita_larga", "tiempo", "numero_texto", "vacia"],
+    "datos",
+    [[], {"pasos": []}, "texto", [["1"]], [redaccion("1", "me pongo los guantes")]],
+    ids=["vacia", "objeto", "texto", "no_objeto", "numero_texto"],
 )
-def test_validacion_de_la_redaccion(datos, motivo):
-    with pytest.raises(PropuestaInvalida, match=motivo):
-        _validar_redaccion(datos, 6)
+def test_validar_redaccion_sin_pasos_atribuibles(datos):
+    validos, fallos = _validar_redaccion(datos, [1])
+    assert validos == {}
+    assert fallos[1] in (
+        "la respuesta no es una lista con al menos un paso",
+        "falta en la respuesta",
+    )
 
 
 @pytest.mark.parametrize(
-    ("cita", "valida"),
+    ("cita", "esperada"),
     [
-        ("me pongo los guantes", True),  # 4
-        (" ".join(["palabra"] * 15), True),
-        ("¿me pongo, los guantes?", True),  # la puntuación no cuenta
-        ("me pongo guantes", False),  # 3
-        ("… ¿? …", False),
+        ("me pongo los guantes", "me pongo los guantes"),  # 4
+        (" ".join(["palabra"] * 15), " ".join(["palabra"] * 15)),
+        ("¿me pongo, los guantes?", "¿me pongo, los guantes?"),  # la puntuación no cuenta
+        (" ".join(f"p{i}" for i in range(16)), " ".join(f"p{i}" for i in range(15))),
+        ("uno — dos — tres — cuatro — cinco", "uno — dos — tres — cuatro — cinco"),
     ],
+    ids=["4", "15", "puntuacion", "16_se_recorta", "guiones"],
 )
-def test_la_cita_redactada_debe_tener_de_4_a_15_palabras(cita, valida):
-    datos = [redaccion(1, cita)]
-    if valida:
-        assert _validar_redaccion(datos, 1)[0].cita == cita.strip()
-    else:
-        with pytest.raises(PropuestaInvalida, match="la cita tiene"):
-            _validar_redaccion(datos, 1)
+def test_la_cita_redactada_de_4_a_15_palabras_y_las_largas_se_recortan(cita, esperada):
+    assert RedaccionPaso.model_validate(redaccion(1, cita)).cita == esperada
+
+
+@pytest.mark.parametrize("cita", ["me pongo guantes", "… ¿? …", ""])
+def test_la_cita_de_menos_de_4_palabras_es_invalida(cita):
+    _, fallos = _validar_redaccion([redaccion(1, cita)], [1])
+    assert "la cita tiene" in fallos[1] and "debe tener de 4 a 15" in fallos[1]
+
+
+def test_recortar_cita_cuenta_como_la_verificacion():
+    assert recortar_cita("a, b; c. d", 2) == "a, b;"
+    assert recortar_cita("¿uno? — dos tres", 2) == "¿uno? — dos"  # "—" no cuenta como palabra
+    assert recortar_cita("rojo/verde azul", 2) == "rojo/verde"  # "rojo/verde" son dos
+    assert recortar_cita("rojo/verde azul", 1) == ""
+    assert recortar_cita("me pongo los guantes", 15) == "me pongo los guantes"  # sin recorte
+
+
+def test_una_cita_literal_larga_se_recorta_y_sigue_siendo_alta(analisis):
+    segmento_6 = analisis.transcripcion[5].texto  # 18 palabras, paso 2
+    datos = redaccion_ejemplo(p2={"cita": segmento_6})
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, json.dumps(datos, ensure_ascii=False)])
+
+    assert len(peticiones) == 2  # aceptada al primer intento
+    assert len(_texto_comparable(segmento_6).split()) == 18
+    assert r.pasos[1].cita == recortar_cita(segmento_6)
+    assert len(_texto_comparable(r.pasos[1].cita).split()) == 15
+    assert (r.pasos[1].confianza, r.pasos[1].fuente) == ("alta", "audio")
 
 
 def test_titulo_vacio_invalida_las_fronteras():
@@ -1190,22 +1237,55 @@ def test_titulo_vacio_invalida_las_fronteras():
         _validar_propuestas([{"segmento_id": 2, "titulo": " "}], {2}, PropuestaFrontera)
 
 
-def _sin_redactar(pasos, analisis):
+def _sin_redactar(pasos, analisis, numeros=(1, 2, 3, 4, 5, 6)):
+    """Comprueba que los pasos `numeros` conservan la frontera sin redactar."""
     assert segmentos_de_inicio(pasos, analisis) == [4, 6, 9, 12, 17, 21]
     assert [p.nombre for p in pasos] == TITULOS_EJEMPLO
     for p in pasos:
-        assert (p.cita, p.descripcion, p.responsable) == ("", "", NO_IDENTIFICADO)
-        assert (p.confianza, p.fuente) == ("baja", "inferido")
+        if p.numero in numeros:
+            assert (p.cita, p.descripcion, p.responsable) == ("", "", NO_IDENTIFICADO)
+            assert (p.confianza, p.fuente) == ("baja", "inferido")
+        else:
+            assert p.cita and p.confianza == "alta"
 
 
-def test_si_la_redaccion_falla_tres_veces_se_conservan_las_fronteras(analisis):
-    mala = json.dumps(redaccion_ejemplo()[:5], ensure_ascii=False)
-    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, mala, JSON_ROTO, mala])
+def test_si_un_paso_nunca_se_redacta_los_demas_si(analisis):
+    sin_6 = json.dumps(redaccion_ejemplo()[:5], ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, sin_6, JSON_ROTO, sin_6])
 
     assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 3, 4)
     assert r.motivo_respaldo is None  # no cae a la heurística
-    assert "se esperaban 6 pasos y llegaron 5 (tras 3 intentos)" in r.motivo_sin_redaccion
+    assert r.pasos_sin_redactar == 1
+    assert r.motivo_sin_redaccion == (
+        "pasos sin redactar: 6 tras 3 intentos (paso 6: falta en la respuesta)"
+    )
+    _sin_redactar(r.pasos, analisis, numeros=(6,))
+    # Los reintentos no acumulan historial: siempre prompt + una corrección.
+    assert [len(p["messages"]) for p in peticiones[1:]] == [2, 3, 3]
+    assert "paso 6: El modelo no devolvió JSON válido" in peticiones[3]["messages"][-1]["content"]
+
+
+def test_si_toda_la_redaccion_falla_se_conservan_todas_las_fronteras(analisis):
+    r, _ = _extraer_a(analisis, [FRONTERAS_EJEMPLO, JSON_ROTO, JSON_ROTO, JSON_ROTO])
+
+    assert (r.metodo, r.intentos_redaccion, r.pasos_sin_redactar) == ("llm", 3, 6)
+    assert r.motivo_sin_redaccion.startswith("pasos sin redactar: 1, 2, 3, 4, 5, 6 tras 3 intentos")
     _sin_redactar(r.pasos, analisis)
+
+
+def test_si_ollama_se_cae_a_media_redaccion_se_conserva_lo_redactado(analisis):
+    corta = json.dumps(redaccion_ejemplo(p3={"cita": "libero la presión"}), ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta, 500, REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos_redaccion, r.pasos_sin_redactar, len(peticiones)) == (
+        "llm",
+        2,
+        1,
+        3,
+    )
+    assert "LLMNoDisponible" in r.motivo_sin_redaccion
+    assert "pasos sin redactar: 3" in r.motivo_sin_redaccion
+    _sin_redactar(r.pasos, analisis, numeros=(3,))
 
 
 def test_si_ollama_se_cae_en_la_redaccion_se_conservan_las_fronteras(analisis):
@@ -1213,6 +1293,7 @@ def test_si_ollama_se_cae_en_la_redaccion_se_conservan_las_fronteras(analisis):
 
     assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 1, 2)
     assert "LLMNoDisponible" in r.motivo_sin_redaccion
+    assert r.pasos_sin_redactar == 6
     _sin_redactar(r.pasos, analisis)
 
 

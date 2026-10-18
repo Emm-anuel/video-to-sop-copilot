@@ -20,9 +20,9 @@ La salida del pipeline de video es un `Analisis` y la extracción devuelve `Paso
 
 | Función | Qué hace |
 |---|---|
-| `segmentar(analisis, llm, etiquetas=None)` | Punto de entrada. Por defecto, opción A de ADR-010: una llamada para las fronteras y otra para la redacción, cada una con hasta 3 intentos (RNF-07). Si fallan las fronteras, usa la heurística; si falla solo la redacción, conserva las fronteras sin redactar. Devuelve `Segmentacion` con `list[PasoVideo]`, el camino usado y los intentos de cada llamada |
+| `segmentar(analisis, llm, etiquetas=None)` | Punto de entrada. Por defecto, opción A de ADR-010: una llamada para las fronteras y otra para la redacción, cada una con hasta 3 intentos (RNF-07). Si fallan las fronteras, usa la heurística. La redacción se valida paso por paso: el reintento pide solo los pasos que faltan o fallaron, y los que nunca se logran conservan su frontera sin redactar. Devuelve `Segmentacion` con `list[PasoVideo]`, el camino usado y los intentos de cada llamada |
 | `construir_mensajes_fronteras` | Llamada 1: el prompt v1 de la Fase 4 (`PropuestaFrontera`: segmento y título). Sin tiempos y sin SOP |
-| `construir_mensajes_redaccion` | Llamada 2: los pasos ya fijados, para redactar descripción, responsable y una cita de 4 a 15 palabras (`RedaccionPaso`). Sin ejemplos de rol |
+| `construir_mensajes_redaccion` | Llamada 2: los pasos ya fijados, para redactar descripción, responsable y una cita de 4 a 15 palabras (`RedaccionPaso`; una cita más larga se recorta con `recortar_cita`). Sin ejemplos de rol |
 | `construir_mensajes`, `construir_pasos` | Llamada única (`dos_llamadas=False`, descartada como valor por defecto): cortes y redacción a la vez; `construir_pasos` arma `PasoVideo` con tiempos del índice |
 | `verificar_cita` | Confianza y fuente según dónde aparece la cita: en el paso, en otra parte o en ninguna (RNF-06) |
 | `normalizar_responsable`, `rol_mencionado` | Responsable dicho en el audio o "No identificado"; si el rol no se dice, la confianza baja un nivel (ADR-008) |

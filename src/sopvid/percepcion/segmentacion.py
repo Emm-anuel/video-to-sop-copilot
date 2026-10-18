@@ -45,7 +45,8 @@ class Segmentacion:
     modelo: str | None
     intentos: int = 0  # llamadas para las fronteras (o la única llamada); máximo MAX_INTENTOS
     intentos_redaccion: int = 0  # llamadas para redactar (opción A); 0 si no se llegó a pedir
-    motivo_sin_redaccion: str | None = None  # por qué los pasos quedaron sin redactar
+    motivo_sin_redaccion: str | None = None  # por qué hay pasos sin redactar (sin texto)
+    pasos_sin_redactar: int = 0  # pasos que quedaron con nombre = título y cita vacía
 
 
 class PropuestaInvalida(ValueError):  # noqa: N818 (nombre de dominio)
@@ -98,11 +99,13 @@ class RedaccionPaso(_Respuesta):
     @field_validator("cita")
     @classmethod
     def _cita_de_4_a_15_palabras(cls, v: str) -> str:
+        """Menos de 4 palabras es inválida; más de 15 se recorta a sus primeras 15 (un recorte
+        de una cita literal sigue siendo literal, así que se verifica igual)."""
         minimo, maximo = PALABRAS_CITA
         n = len(_texto_comparable(v).split())
-        if not minimo <= n <= maximo:
+        if n < minimo:
             raise ValueError(f"la cita tiene {n} palabras y debe tener de {minimo} a {maximo}")
-        return v
+        return recortar_cita(v, maximo) if n > maximo else v
 
 
 class PropuestaPaso(_Respuesta):
@@ -308,26 +311,49 @@ def _validar_lista(datos: Any, modelo: type[R]) -> list[R]:
         try:
             validos.append(modelo.model_validate(d))
         except ValidationError as exc:
-            campos = ", ".join(
-                f"{'.'.join(map(str, e['loc']))} ({e['type']})"
-                + (f": {e['ctx']['error']}" if e["type"] == "value_error" else "")
-                for e in exc.errors()
-            )
-            raise PropuestaInvalida(f"el elemento {i} no cumple el esquema: {campos}") from None
+            raise PropuestaInvalida(
+                f"el elemento {i} no cumple el esquema: {_resumen_errores(exc)}"
+            ) from None
     return validos
 
 
-def _validar_redaccion(datos: Any, n_pasos: int) -> list[RedaccionPaso]:
-    """Un `RedaccionPaso` por paso, numerados de 1 a `n_pasos` en orden, o `PropuestaInvalida`."""
-    redacciones = _validar_lista(datos, RedaccionPaso)
-    if len(redacciones) != n_pasos:
-        raise PropuestaInvalida(f"se esperaban {n_pasos} pasos y llegaron {len(redacciones)}")
-    for esperado, r in enumerate(redacciones, start=1):
-        if r.numero != esperado:
-            raise PropuestaInvalida(
-                f"el elemento {esperado - 1} trae el paso {r.numero} y se esperaba el {esperado}"
-            )
-    return redacciones
+def _resumen_errores(exc: ValidationError) -> str:
+    """Campo y tipo de cada error, más el detalle de nuestras reglas; sin el valor recibido."""
+    return ", ".join(
+        f"{'.'.join(map(str, e['loc']))} ({e['type']})"
+        + (f": {e['ctx']['error']}" if e["type"] == "value_error" else "")
+        for e in exc.errors()
+    )
+
+
+def _validar_redaccion(
+    datos: Any, esperados: Sequence[int]
+) -> tuple[dict[int, RedaccionPaso], dict[int, str]]:
+    """Valida la redacción paso por paso: (válidos por número, motivo de cada esperado que falla).
+
+    Un paso inválido no invalida a los demás. Se ignoran los números que no se pidieron y las
+    repeticiones (vale el primero). Los motivos nunca copian texto de la transcripción.
+    """
+    if not isinstance(datos, list) or not datos:
+        return {}, dict.fromkeys(esperados, "la respuesta no es una lista con al menos un paso")
+    validos: dict[int, RedaccionPaso] = {}
+    fallos: dict[int, str] = {}
+    for d in datos:
+        numero = d.get("numero") if isinstance(d, dict) else None
+        if not isinstance(numero, int) or isinstance(numero, bool) or numero not in esperados:
+            continue  # sin un número de paso pedido no se puede atribuir
+        if numero in validos:
+            continue
+        try:
+            validos[numero] = RedaccionPaso.model_validate(d)
+        except ValidationError as exc:
+            fallos.setdefault(numero, _resumen_errores(exc))
+        else:
+            fallos.pop(numero, None)
+    for n in esperados:
+        if n not in validos:
+            fallos.setdefault(n, "falta en la respuesta")
+    return validos, fallos
 
 
 P = TypeVar("P", PropuestaPaso, PropuestaFrontera)
@@ -459,6 +485,20 @@ def _texto_comparable(texto: str) -> str:
     return " ".join(_normalizar(texto).split())
 
 
+def recortar_cita(cita: str, max_palabras: int = PALABRAS_CITA[1]) -> str:
+    """Primeras `max_palabras` palabras de la cita, contadas como en la verificación (la
+    puntuación sola no cuenta). Si la cita era literal, el recorte también lo es."""
+    tomadas: list[str] = []
+    n = 0
+    for token in cita.split():
+        cuenta = len(_texto_comparable(token).split())
+        if n + cuenta > max_palabras:
+            break
+        tomadas.append(token)
+        n += cuenta
+    return " ".join(tomadas)
+
+
 def verificar_cita(
     cita: str, analisis: Analisis, rango_ids: tuple[int, int]
 ) -> tuple[Confianza, Fuente]:
@@ -554,7 +594,7 @@ RECORDATORIO_SEGMENTOS = (
     "tiempos."
 )
 RECORDATORIO_REDACCION = (
-    "Da un objeto por paso, con numero del 1 al último en orden; la cita, de "
+    "La cita, de "
     f"{PALABRAS_CITA[0]} a {PALABRAS_CITA[1]} palabras copiadas de ese paso; no escribas tiempos."
 )
 
@@ -629,12 +669,87 @@ class _Extraccion:
     intentos: int
     intentos_redaccion: int = 0
     motivo_sin_redaccion: str | None = None
+    pasos_sin_redactar: int = 0
 
 
 def _motivo(error: LLMError | PropuestaInvalida) -> str:
     if isinstance(error, PropuestaInvalida):
         return f"respuesta del LLM inválida: {error}"
     return f"LLM no disponible o con error ({type(error).__name__})"
+
+
+def mensaje_de_pendientes(fallos: Mapping[int, str]) -> str:
+    """Mensaje "user" del reintento de la redacción: solo los pasos que faltan o fallaron, con su
+    motivo (sin texto de la transcripción). No se reenvía la respuesta anterior, así que el
+    contexto no crece de un intento a otro."""
+    detalle = "; ".join(f"paso {n}: {motivo}" for n, motivo in sorted(fallos.items()))
+    numeros = ", ".join(str(n) for n in sorted(fallos))
+    return (
+        f"Faltan o no son válidos estos pasos: {detalle}. Responde SOLO con una lista JSON con "
+        f"un objeto para cada uno de esos pasos (numero {numeros}), con los mismos campos. "
+        f"{RECORDATORIO_REDACCION}"
+    )
+
+
+@dataclass(frozen=True)
+class _Redaccion:
+    """Lo que dejó la llamada 2: pasos redactados por número, llamadas y motivo de los que no."""
+
+    validos: dict[int, RedaccionPaso]
+    intentos: int
+    motivo: str | None  # None si se redactaron todos
+
+
+def _redactar(
+    analisis: Analisis,
+    fronteras: Sequence[PropuestaFrontera],
+    llm: ClienteLLM,
+    etiquetas: Mapping[str, str] | None,
+) -> _Redaccion:
+    """Llamada 2 de la opción A, con hasta `MAX_INTENTOS` llamadas.
+
+    Cada paso se valida por separado: los válidos se guardan y el reintento pide solo los que
+    faltan o fallaron (`mensaje_de_pendientes`). Si Ollama no responde, se detiene ahí.
+    """
+    base = construir_mensajes_redaccion(analisis, fronteras, etiquetas)
+    pendientes = list(range(1, len(fronteras) + 1))
+    validos: dict[int, RedaccionPaso] = {}
+    fallos: dict[int, str] = {}
+    for intento in range(1, MAX_INTENTOS + 1):
+        mensajes = base if intento == 1 else [*base, _usuario(mensaje_de_pendientes(fallos))]
+        try:
+            respuesta = llm.chat(mensajes, esquema=ESQUEMA_REDACCION)
+        except LLMRespuestaInvalida as exc:  # sin texto: solo longitud y done_reason
+            fallos = dict.fromkeys(pendientes, str(exc))
+        except LLMError as exc:
+            return _Redaccion(validos, intento, f"{_motivo(exc)}; {_sin_redactar(pendientes)}")
+        else:
+            nuevos, fallos = _validar_redaccion(respuesta.datos, pendientes)
+            validos.update(nuevos)
+        pendientes = [n for n in pendientes if n not in validos]
+        if not pendientes:
+            return _Redaccion(validos, intento, None)
+        logger.warning(
+            "Redacción: %d de %d pasos sin validar (intento %d de %d)",
+            len(pendientes),
+            len(fronteras),
+            intento,
+            MAX_INTENTOS,
+        )
+    detalle = "; ".join(f"paso {n}: {fallos[n]}" for n in pendientes)
+    return _Redaccion(
+        validos,
+        MAX_INTENTOS,
+        f"{_sin_redactar(pendientes)} tras {MAX_INTENTOS} intentos ({detalle})",
+    )
+
+
+def _usuario(contenido: str) -> dict[str, str]:
+    return {"role": "user", "content": contenido}
+
+
+def _sin_redactar(pendientes: Sequence[int]) -> str:
+    return f"pasos sin redactar: {', '.join(str(n) for n in pendientes)}"
 
 
 def _en_dos_llamadas(
@@ -645,8 +760,9 @@ def _en_dos_llamadas(
 ) -> _Extraccion:
     """Opción A de ADR-010: fronteras con el prompt v1 y, aparte, la redacción de cada paso.
 
-    Si las fronteras fallan, no hay pasos (`segmentar` usa la heurística). Si falla la
-    redacción, se conservan las fronteras con nombre = título, cita vacía y confianza baja.
+    Si las fronteras fallan, no hay pasos (`segmentar` usa la heurística). Cada paso que no se
+    logra redactar conserva su frontera con nombre = título, cita vacía y confianza baja; los
+    demás pasos se redactan normalmente.
     """
     posicion = {s.id: i for i, s in enumerate(analisis.transcripcion)}
     r1 = _pedir_con_reintentos(
@@ -660,41 +776,29 @@ def _en_dos_llamadas(
     fronteras = r1.valor
     assert fronteras is not None
 
-    r2 = _pedir_con_reintentos(
-        construir_mensajes_redaccion(analisis, fronteras, etiquetas),
-        llm,
-        lambda datos: _validar_redaccion(datos, len(fronteras)),
-        ESQUEMA_REDACCION,
-        RECORDATORIO_REDACCION,
-    )
-    if r2.error is not None:
-        motivo = _motivo(r2.error)
-        logger.warning("Pasos sin redactar; se conservan las fronteras: %s", motivo)
-        propuestas = [
+    r2 = _redactar(analisis, fronteras, llm, etiquetas)
+    if r2.motivo is not None:
+        logger.warning("Se conservan sin redactar algunas fronteras: %s", r2.motivo)
+    propuestas = []
+    for numero, f in enumerate(fronteras, start=1):
+        r = r2.validos.get(numero)
+        propuestas.append(
             PropuestaPaso(
                 segmento_id=f.segmento_id,
                 nombre=f.titulo,
-                descripcion="",
-                responsable=NO_IDENTIFICADO,
-                cita="",
+                descripcion=r.descripcion if r else "",
+                responsable=r.responsable if r else NO_IDENTIFICADO,
+                cita=r.cita if r else "",
             )
-            for f in fronteras
-        ]
-        pasos = _registrar(_armar(propuestas, analisis))
-        return _Extraccion(pasos, None, r1.intentos, r2.intentos, motivo)
-
-    assert r2.valor is not None
-    propuestas = [
-        PropuestaPaso(
-            segmento_id=f.segmento_id,
-            nombre=f.titulo,
-            descripcion=r.descripcion,
-            responsable=r.responsable,
-            cita=r.cita,
         )
-        for f, r in zip(fronteras, r2.valor, strict=True)
-    ]
-    return _Extraccion(_registrar(_armar(propuestas, analisis)), None, r1.intentos, r2.intentos)
+    return _Extraccion(
+        _registrar(_armar(propuestas, analisis)),
+        None,
+        r1.intentos,
+        r2.intentos,
+        r2.motivo,
+        len(fronteras) - len(r2.validos),
+    )
 
 
 def _en_una_llamada(
@@ -899,7 +1003,7 @@ def segmentar(
                 len(r.pasos),
                 r.intentos,
                 r.intentos_redaccion,
-                "; sin redactar" if r.motivo_sin_redaccion else "",
+                f"; {r.pasos_sin_redactar} sin redactar" if r.pasos_sin_redactar else "",
             )
             return Segmentacion(
                 r.pasos,
@@ -909,6 +1013,7 @@ def segmentar(
                 r.intentos,
                 r.intentos_redaccion,
                 r.motivo_sin_redaccion,
+                r.pasos_sin_redactar,
             )
 
     pasos = segmentar_heuristica(analisis)
