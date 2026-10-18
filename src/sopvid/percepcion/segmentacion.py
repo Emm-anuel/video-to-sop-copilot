@@ -227,30 +227,33 @@ def construir_mensajes_redaccion(
     """Llamada 2 de la opción A: redactar cada paso con las fronteras ya fijadas por el código.
 
     Muestra la introducción (lo anterior al primer paso, donde suele presentarse quien narra) y
-    cada paso numerado con su título y sus segmentos. Sin tiempos, sin SOP y sin ejemplos de rol
-    que el modelo pueda copiar: el responsable es "No identificado" salvo que se diga.
+    cada paso numerado con su título y su texto. Los segmentos van **sin número**: con `[n]` el
+    modelo confundía el número de paso con el de segmento y citaba el segmento `[n]` en el paso
+    n (medición del 18 oct, ADR-010). Sin tiempos, sin SOP y sin ejemplos de rol que el modelo
+    pueda copiar; el responsable se pide como puesto, nunca como nombre de persona.
     """
     segmentos = analisis.transcripcion
     posicion = {s.id: i for i, s in enumerate(segmentos)}
     rangos = _rangos([posicion[f.segmento_id] for f in fronteras], len(segmentos))
-    introduccion = _numerados(segmentos[: rangos[0][0]]) if rangos else ""
+    introduccion = _texto_de(segmentos[: rangos[0][0]]) if rangos else ""
     bloques = "\n\n".join(
-        f"Paso {n} · {f.titulo}\n{_numerados(segmentos[i : j + 1])}"
+        f"Paso {n} · {f.titulo}\n{_texto_de(segmentos[i : j + 1])}"
         for n, (f, (i, j)) in enumerate(zip(fronteras, rangos, strict=True), start=1)
     )
     usuario = (
         _linea_etiquetas(etiquetas)
-        + "Transcripción de un procedimiento, ya dividida en pasos. Los segmentos están "
-        "numerados y en orden.\n\n"
+        + "Transcripción de un procedimiento, ya dividida en pasos y en orden.\n\n"
         f"Introducción (antes del primer paso):\n{introduccion or '(sin introducción)'}\n\n"
         f"{bloques}\n\n"
         "Para cada paso da:\n"
         "- numero: el número del paso, tal como aparece arriba.\n"
         "- descripcion: qué se hace en el paso, en una o dos frases.\n"
-        f'- responsable: "{NO_IDENTIFICADO}", salvo que la transcripción diga qué rol o '
-        "puesto hace el paso (en la introducción o en el mismo paso); en ese caso, ese rol. "
-        "No supongas un rol que no se dice.\n"
-        f"- cita: una frase copiada textualmente de los segmentos de ese paso, de "
+        "- responsable: el puesto de quien hace el paso, nunca el nombre de una persona. Si "
+        "quien narra dice su puesto (por lo general en la introducción) y describe los pasos "
+        "en primera persona, ese puesto es el responsable de esos pasos. Si en la "
+        f'transcripción no se dice ningún puesto, "{NO_IDENTIFICADO}". No supongas un puesto '
+        "que no se dice.\n"
+        f"- cita: una frase copiada textualmente del texto de ese mismo paso, de "
         f"{PALABRAS_CITA[0]} a {PALABRAS_CITA[1]} palabras, sin parafrasear ni traducir.\n"
         "Redacta descripcion y responsable en español aunque la transcripción esté en otro "
         "idioma; la cita se deja en el idioma original. "
@@ -258,6 +261,11 @@ def construir_mensajes_redaccion(
         "cambies los pasos ni escribas tiempos."
     )
     return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": usuario}]
+
+
+def _texto_de(segmentos: Sequence[Segmento]) -> str:
+    """Texto de los segmentos, uno por línea y sin número (para la llamada de redacción)."""
+    return "\n".join(s.texto for s in segmentos)
 
 
 def construir_mensajes(

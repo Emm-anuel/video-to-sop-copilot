@@ -30,6 +30,7 @@ from sopvid.percepcion.segmentacion import (
     cargar_transcripcion_prueba,
     construir_mensajes,
     construir_mensajes_fronteras,
+    construir_mensajes_redaccion,
     construir_pasos,
     empieza_con_marcador,
     f1_fronteras,
@@ -1115,19 +1116,36 @@ def test_el_prompt_de_fronteras_es_el_v1_de_la_fase_4():
 def test_el_prompt_de_redaccion_trae_los_pasos_fijos_sin_ejemplos_de_rol(analisis):
     _, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, REDACCION_EJEMPLO])
     usuario = peticiones[1]["messages"][1]["content"]
+    texto = {s.id: s.texto for s in analisis.transcripcion}
 
     assert len(peticiones[1]["messages"]) == 2  # empieza de cero: sin el historial de la 1
-    introduccion = usuario.split("Paso 1 ·")[0]
-    assert "[1] Buenos días, soy Laura" in introduccion and "[4]" not in introduccion
-    assert "Paso 1 · Ponerse guantes y lentes\n[4] Primero me pongo" in usuario
-    assert "[5] Los lentes son obligatorios" in usuario.split("Paso 2 ·")[0]
-    assert "Paso 6 · Abrir la llave y revisar fugas\n[21]" in usuario
-    assert usuario.index("[25]") > usuario.index("Paso 6 ·")
-    assert f'"{NO_IDENTIFICADO}", salvo que la transcripción diga' in usuario
+    # Sin números de segmento: con [n] el modelo citaba el segmento n en el paso n (ADR-010).
+    assert not re.search(r"\[\d+\]", usuario)
+    introduccion, *bloques = usuario.split("\n\nPaso ")
+    assert texto[1] in introduccion and texto[3] in introduccion and texto[4] not in introduccion
+    assert bloques[0].startswith(f"1 · Ponerse guantes y lentes\n{texto[4]}\n{texto[5]}")
+    assert bloques[5].startswith(f"6 · Abrir la llave y revisar fugas\n{texto[21]}")
+    assert texto[25] in bloques[5] and texto[21] not in bloques[4]
+
+
+def test_el_prompt_de_redaccion_pide_el_puesto_y_nunca_un_nombre(analisis):
+    _, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, REDACCION_EJEMPLO])
+    usuario = peticiones[1]["messages"][1]["content"]
+
+    assert "el puesto de quien hace el paso, nunca el nombre de una persona" in usuario
+    assert "describe los pasos en primera persona, ese puesto es el responsable" in usuario
+    assert f'no se dice ningún puesto, "{NO_IDENTIFICADO}"' in usuario
     assert "de 4 a 15 palabras" in usuario
+    assert "del texto de ese mismo paso" in usuario
     assert "la cita se deja en el idioma original" in usuario
     for ejemplo in ("Operador", "Supervisor", "por ejemplo"):
         assert ejemplo not in usuario
+
+
+def test_el_prompt_de_redaccion_sin_introduccion():
+    fronteras = [PropuestaFrontera(segmento_id=1, titulo="Todo")]
+    usuario = construir_mensajes_redaccion(ANALISIS, fronteras)[1]["content"]
+    assert "Introducción (antes del primer paso):\n(sin introducción)" in usuario
 
 
 def test_redaccion_reintenta_solo_los_pasos_que_fallaron(analisis):
