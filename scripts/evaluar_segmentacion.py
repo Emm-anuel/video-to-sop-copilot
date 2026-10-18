@@ -4,11 +4,14 @@ Transcripciones inventadas de tests/fixtures/transcripciones/ con inicios de pas
 mano. Para cada método mide F1 de fronteras a ±1 segmento (`segmentacion.f1_fronteras`) y, como
 segunda vista, F1 en tiempo a ±2/4/6 s reutilizando `sopvid.features.pasos.label_phrases`.
 
-Métodos:
+Métodos (`--versiones`):
   heuristica                  marcadores de transición + pausas (determinista, 1 corrida)
-  <modelo> · prompt v1        prompt del benchmark de ADR-006
+  <modelo> · prompt v1        una llamada: cortes con la regla del prompt v1 de ADR-006 (en la
+                              Fase 4, solo segmento y título; desde RF-13, los cinco campos)
   <modelo> · prompt v2        v1 + regla explícita: aclaraciones, advertencias y comentarios
                               dentro de un paso no inician un paso nuevo
+  <modelo> · opción A         dos llamadas (ADR-010): fronteras con el prompt v1 de la Fase 4
+                              y, aparte, la redacción de cada paso
 
 Cada combinación LLM corre 3 veces; se reporta la mediana y si los cortes fueron estables. Se
 usa `segmentar()`, así que si el LLM falla o su propuesta es inválida se registra el respaldo.
@@ -57,6 +60,7 @@ EJEMPLO = PROJECT_ROOT / "tests/fixtures/analisis_ejemplo.json"
 INICIOS_EJEMPLO = [4, 6, 9, 12, 17, 21]  # anotados a mano en tests/fixtures/README.md
 MODELOS = ("gemma4:e4b-it-q4_K_M", "qwen3.5:9b-q4_K_M")
 REPETICIONES = 3
+NOMBRES = {"v1": "prompt v1", "v2": "prompt v2", "a": "opción A"}  # --versiones
 
 
 def cargar_fixtures(incluir_ejemplo: bool = False) -> dict[str, dict[str, Any]]:
@@ -148,7 +152,7 @@ def correr(
 ) -> dict[str, Any]:
     settings = get_settings()
     fixtures = cargar_fixtures(incluir_ejemplo)
-    metodos_nuevos = {f"{m} · prompt {v}" for m in modelos for v in versiones}
+    metodos_nuevos = {f"{m} · {NOMBRES[v]}" for m in modelos for v in versiones}
     corridas = [
         c
         for c in (previos or {}).get("corridas", [])
@@ -181,22 +185,28 @@ def correr(
             timeout_s=settings.llm_timeout_s,
             num_ctx=settings.llm_num_ctx,
         )
-        for version, regla in ((v, v == "v2") for v in versiones):
+        for version in versiones:
             for nombre, fx in fixtures.items():
                 for rep in range(1, REPETICIONES + 1):
                     inicio = time.perf_counter()
                     r = segmentar(
-                        fx["analisis"], cliente, fx["etiquetas"], regla_aclaraciones=regla
+                        fx["analisis"],
+                        cliente,
+                        fx["etiquetas"],
+                        regla_aclaraciones=version == "v2",
+                        dos_llamadas=version == "a",
                     )
                     ids = segmentos_de_inicio(r.pasos, fx["analisis"])
                     corridas.append(
                         {
-                            "metodo": f"{modelo} · prompt {version}",
+                            "metodo": f"{modelo} · {NOMBRES[version]}",
                             "fixture": nombre,
                             "repeticion": rep,
                             "camino": r.metodo,
                             "motivo_respaldo": r.motivo_respaldo,
                             "intentos": r.intentos,
+                            "intentos_redaccion": r.intentos_redaccion,
+                            "motivo_sin_redaccion": r.motivo_sin_redaccion,
                             "segundos": round(time.perf_counter() - inicio, 2),
                             "ids": ids,
                             "titulos": [p.nombre for p in r.pasos],
@@ -355,9 +365,12 @@ def tabla_por_transcripcion(datos: dict[str, Any]) -> None:
                 f"{100 * niveles.count(n) / len(niveles):.0f}" for n in ("alta", "media", "baja")
             )
             intentos = [c["intentos"] for c in cs if "intentos" in c]
+            redaccion = [c["intentos_redaccion"] for c in cs if c.get("intentos_redaccion")]
             segundos = [c["segundos"] for c in cs if "segundos" in c]
             heuristica = sum(c["camino"] != "llm" for c in cs) if m != "heuristica" else "—"
             prom_intentos = f"{statistics.mean(intentos):.2f}" if intentos else "—"
+            if redaccion:
+                prom_intentos += f" + {statistics.mean(redaccion):.2f}"
             tiempo = f"{_mediana(segundos):.1f}" if segundos else "< 0.01"
             print(
                 f"| {m} | {f} | {_mediana([c['f1'] for c in cs]):.3f} "
@@ -377,7 +390,7 @@ def main() -> None:
         help="reevalúa los cortes guardados con la métrica actual (sin llamar al LLM)",
     )
     ap.add_argument("--modelos", nargs="+", default=list(MODELOS))
-    ap.add_argument("--versiones", nargs="+", default=["v1", "v2"], choices=["v1", "v2"])
+    ap.add_argument("--versiones", nargs="+", default=["v1", "v2"], choices=list(NOMBRES))
     ap.add_argument("--contenedor", default="sopvid-ollama-1", help="'' si Ollama es nativo")
     ap.add_argument(
         "--incluir-ejemplo",

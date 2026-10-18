@@ -4,7 +4,7 @@ Para cada modelo (ya descargado en Ollama) mide tres tareas en español sobre un
 INVENTADA (tests/fixtures/transcripciones/cambio_cuchilla.json):
 
   (a) resumen     resumir ~1,500 palabras (texto libre)
-  (b) segmentar   elegir segmentos donde empieza cada paso -> [{"segmento_id", "nombre", ...}]
+  (b) segmentar   elegir segmentos donde empieza cada paso -> [{"segmento_id", "titulo"}]
   (c) rag         responder solo con fragmentos dados y citar sus ids -> JSON
 
 Metodología: descarga de la GPU todos los modelos, registra la VRAM libre, hace una corrida de
@@ -40,9 +40,9 @@ import httpx
 
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
 from sopvid.percepcion.segmentacion import (
-    ESQUEMA_PASOS,
+    ESQUEMA_FRONTERAS,
     cargar_transcripcion_prueba,
-    construir_mensajes,
+    construir_mensajes_fronteras,
     f1_fronteras,
 )
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
@@ -100,7 +100,7 @@ def tareas(fx: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Mensajes, esquema y evaluador de cada tarea."""
     texto = " ".join(s["texto"] for s in fx["segmentos"])
     # (b) usa el prompt del benchmark original de ADR-006: sin la regla de aclaraciones.
-    segmentar_msgs = construir_mensajes(
+    segmentar_msgs = construir_mensajes_fronteras(
         cargar_transcripcion_prueba(FIXTURE), fx["etiquetas"], regla_aclaraciones=False
     )
     por_id = {s["id"]: s for s in fx["segmentos"]}
@@ -122,7 +122,7 @@ def tareas(fx: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "b_segmentar": {
             "sistema": segmentar_msgs[0]["content"],
             "usuario": segmentar_msgs[1]["content"],
-            "esquema": ESQUEMA_PASOS,
+            "esquema": ESQUEMA_FRONTERAS,
             "evaluar": lambda salida: evaluar_segmentacion(salida, fx),
         },
         "c_rag": {
@@ -166,7 +166,7 @@ def evaluar_segmentacion(salida: str, fx: dict[str, Any]) -> dict[str, Any]:
     forma_ok = isinstance(datos, list) and all(
         isinstance(d, dict)
         and isinstance(d.get("segmento_id"), int)
-        and isinstance(d.get("nombre"), str)
+        and isinstance(d.get("titulo"), str)
         for d in datos
     )
     if not forma_ok:

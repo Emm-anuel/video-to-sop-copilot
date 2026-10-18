@@ -43,7 +43,9 @@ class Segmentacion:
     metodo: Literal["llm", "heuristica"]
     motivo_respaldo: str | None  # por qué se usó la heurística; None si fue el LLM
     modelo: str | None
-    intentos: int = 0  # llamadas hechas al LLM (0 sin cliente; máximo MAX_INTENTOS)
+    intentos: int = 0  # llamadas para las fronteras (o la única llamada); máximo MAX_INTENTOS
+    intentos_redaccion: int = 0  # llamadas para redactar (opción A); 0 si no se llegó a pedir
+    motivo_sin_redaccion: str | None = None  # por qué los pasos quedaron sin redactar
 
 
 class PropuestaInvalida(ValueError):  # noqa: N818 (nombre de dominio)
@@ -52,16 +54,60 @@ class PropuestaInvalida(ValueError):  # noqa: N818 (nombre de dominio)
 
 # ── LLM ──────────────────────────────────────────────────────────────────────────────────────
 
+PALABRAS_CITA = (4, 15)  # largo exigido a la cita que redacta el LLM (opción A)
 
-class PropuestaPaso(BaseModel):
-    """Un paso tal como lo propone el LLM: un número de segmento y texto, ningún tiempo."""
+
+class _Respuesta(BaseModel):
+    """Configuración común de lo que devuelve el LLM."""
 
     model_config = ConfigDict(
-        extra="forbid",
-        strict=True,  # "2" o True no cuentan como segmento_id
+        extra="forbid",  # un campo de más, como un tiempo, invalida la respuesta
+        strict=True,  # "2" o True no cuentan como número
         str_strip_whitespace=True,
         hide_input_in_errors=True,  # los errores no deben copiar texto de la transcripción
     )
+
+
+class PropuestaFrontera(_Respuesta):
+    """Llamada 1 de la opción A: dónde empieza cada paso y un título. Ningún tiempo."""
+
+    segmento_id: int
+    titulo: str
+
+    @field_validator("titulo")
+    @classmethod
+    def _titulo_no_vacio(cls, v: str) -> str:
+        if not v:
+            raise ValueError("título vacío")
+        return v
+
+
+class RedaccionPaso(_Respuesta):
+    """Llamada 2 de la opción A: redacción de un paso cuyas fronteras ya fijó el código."""
+
+    numero: int
+    descripcion: str
+    responsable: str
+    cita: str
+
+    @field_validator("responsable")
+    @classmethod
+    def _responsable_normalizado(cls, v: str) -> str:
+        return normalizar_responsable(v)
+
+    @field_validator("cita")
+    @classmethod
+    def _cita_de_4_a_15_palabras(cls, v: str) -> str:
+        minimo, maximo = PALABRAS_CITA
+        n = len(_texto_comparable(v).split())
+        if not minimo <= n <= maximo:
+            raise ValueError(f"la cita tiene {n} palabras y debe tener de {minimo} a {maximo}")
+        return v
+
+
+class PropuestaPaso(_Respuesta):
+    """Un paso completo en una sola llamada (opción descartada como valor por defecto, ver
+    ADR-010): un número de segmento y texto, ningún tiempo."""
 
     segmento_id: int
     nombre: str
@@ -104,8 +150,14 @@ def _sin_refs(esquema: dict[str, Any]) -> dict[str, Any]:
     return resolver(esquema)
 
 
-# Esquema para el parámetro `format` de Ollama, generado desde `PropuestaPaso` y sin `$ref`.
-ESQUEMA_PASOS: dict[str, Any] = _sin_refs(TypeAdapter(list[PropuestaPaso]).json_schema())
+def _esquema_de_lista(modelo: type[BaseModel]) -> dict[str, Any]:
+    """Esquema para el parámetro `format` de Ollama: lista de `modelo`, sin `$ref`."""
+    return _sin_refs(TypeAdapter(list[modelo]).json_schema())
+
+
+ESQUEMA_FRONTERAS = _esquema_de_lista(PropuestaFrontera)
+ESQUEMA_REDACCION = _esquema_de_lista(RedaccionPaso)
+ESQUEMA_PASOS = _esquema_de_lista(PropuestaPaso)
 
 SISTEMA = (
     "Eres un asistente técnico de una planta industrial. Respondes en español, con precisión y "
@@ -122,27 +174,105 @@ REGLA_ACLARACIONES = (
 )
 
 
+def _linea_etiquetas(etiquetas: Mapping[str, str] | None) -> str:
+    texto = "; ".join(f"{k}={v}" for k, v in (etiquetas or {}).items())
+    return f"Etiquetas del video: {texto}.\n\n" if texto else ""
+
+
+def _numerados(segmentos: Sequence[Segmento]) -> str:
+    return "\n".join(f"[{s.id}] {s.texto}" for s in segmentos)
+
+
+# Regla de cortes del prompt v1 (benchmark de ADR-006); la usan la llamada de fronteras y la
+# llamada única.
+_REGLA_CORTES = (
+    "Identifica en qué segmento empieza cada paso del procedimiento. Un paso suele "
+    "abarcar varios segmentos: no marques cada segmento como paso, y la introducción o "
+    "los comentarios no inician pasos. "
+)
+
+
+def construir_mensajes_fronteras(
+    analisis: Analisis,
+    etiquetas: Mapping[str, str] | None = None,
+    *,
+    regla_aclaraciones: bool = False,
+) -> list[dict[str, str]]:
+    """Llamada 1 de la opción A: el prompt v1 de la Fase 4 (F1 0.74), sin cambios.
+
+    Solo números de segmento y texto: ningún tiempo y nunca el SOP. Sin etiquetas se omite esa
+    línea. `regla_aclaraciones=True` agrega la regla del prompt v2 (descartado en la Fase 4).
+    """
+    usuario = (
+        _linea_etiquetas(etiquetas) + f"Segmentos de la transcripción, numerados y en orden:\n"
+        f"{_numerados(analisis.transcripcion)}\n\n"
+        + _REGLA_CORTES
+        + (REGLA_ACLARACIONES if regla_aclaraciones else "")
+        + "Responde SOLO con "
+        'una lista JSON de objetos {"segmento_id": número del segmento donde empieza el '
+        'paso, "titulo": nombre corto del paso en español}, en orden. Usa solo números de '
+        "segmento de la lista; no escribas tiempos."
+    )
+    return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": usuario}]
+
+
+def construir_mensajes_redaccion(
+    analisis: Analisis,
+    fronteras: Sequence[PropuestaFrontera],
+    etiquetas: Mapping[str, str] | None = None,
+) -> list[dict[str, str]]:
+    """Llamada 2 de la opción A: redactar cada paso con las fronteras ya fijadas por el código.
+
+    Muestra la introducción (lo anterior al primer paso, donde suele presentarse quien narra) y
+    cada paso numerado con su título y sus segmentos. Sin tiempos, sin SOP y sin ejemplos de rol
+    que el modelo pueda copiar: el responsable es "No identificado" salvo que se diga.
+    """
+    segmentos = analisis.transcripcion
+    posicion = {s.id: i for i, s in enumerate(segmentos)}
+    rangos = _rangos([posicion[f.segmento_id] for f in fronteras], len(segmentos))
+    introduccion = _numerados(segmentos[: rangos[0][0]]) if rangos else ""
+    bloques = "\n\n".join(
+        f"Paso {n} · {f.titulo}\n{_numerados(segmentos[i : j + 1])}"
+        for n, (f, (i, j)) in enumerate(zip(fronteras, rangos, strict=True), start=1)
+    )
+    usuario = (
+        _linea_etiquetas(etiquetas)
+        + "Transcripción de un procedimiento, ya dividida en pasos. Los segmentos están "
+        "numerados y en orden.\n\n"
+        f"Introducción (antes del primer paso):\n{introduccion or '(sin introducción)'}\n\n"
+        f"{bloques}\n\n"
+        "Para cada paso da:\n"
+        "- numero: el número del paso, tal como aparece arriba.\n"
+        "- descripcion: qué se hace en el paso, en una o dos frases.\n"
+        f'- responsable: "{NO_IDENTIFICADO}", salvo que la transcripción diga qué rol o '
+        "puesto hace el paso (en la introducción o en el mismo paso); en ese caso, ese rol. "
+        "No supongas un rol que no se dice.\n"
+        f"- cita: una frase copiada textualmente de los segmentos de ese paso, de "
+        f"{PALABRAS_CITA[0]} a {PALABRAS_CITA[1]} palabras, sin parafrasear ni traducir.\n"
+        "Redacta descripcion y responsable en español aunque la transcripción esté en otro "
+        "idioma; la cita se deja en el idioma original. "
+        "Responde SOLO con una lista JSON con un objeto por paso, en el mismo orden. No "
+        "cambies los pasos ni escribas tiempos."
+    )
+    return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": usuario}]
+
+
 def construir_mensajes(
     analisis: Analisis,
     etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
 ) -> list[dict[str, str]]:
-    """Mensajes para el LLM. Solo números de segmento y texto: ningún tiempo y nunca el SOP.
+    """Llamada única (descartada como valor por defecto): cortes y redacción a la vez.
 
-    La regla de cortes es la del prompt v1 (benchmark de ADR-006), ampliada para RF-13 con
-    descripción, responsable y cita. Sin etiquetas (la ficha de contexto llega después), se
-    omite esa línea. `regla_aclaraciones=True` agrega la regla de aclaraciones (prompt v2,
-    descartado en la Fase 4).
+    La regla de cortes es la del prompt v1, ampliada para RF-13 con descripción, responsable y
+    cita. En la medición del 18 oct partió más los pasos que el prompt v1 solo (ADR-010).
+    Solo números de segmento y texto: ningún tiempo y nunca el SOP.
     """
-    numerados = "\n".join(f"[{s.id}] {s.texto}" for s in analisis.transcripcion)
-    texto_etiquetas = "; ".join(f"{k}={v}" for k, v in (etiquetas or {}).items())
     usuario = (
-        (f"Etiquetas del video: {texto_etiquetas}.\n\n" if texto_etiquetas else "")
-        + f"Segmentos de la transcripción, numerados y en orden:\n{numerados}\n\n"
-        "Identifica en qué segmento empieza cada paso del procedimiento. Un paso suele "
-        "abarcar varios segmentos: no marques cada segmento como paso, y la introducción o "
-        "los comentarios no inician pasos. "
+        _linea_etiquetas(etiquetas) + f"Segmentos de la transcripción, numerados y en orden:\n"
+        f"{_numerados(analisis.transcripcion)}\n\n"
+        + _REGLA_CORTES
         + (REGLA_ACLARACIONES if regla_aclaraciones else "")
         + "Para cada paso da:\n"
         "- segmento_id: número del segmento donde empieza el paso.\n"
@@ -160,26 +290,60 @@ def construir_mensajes(
     return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": usuario}]
 
 
-def _validar_propuestas(datos: Any, ids_existentes: Collection[int]) -> list[PropuestaPaso]:
-    """Valida la respuesta del LLM o lanza `PropuestaInvalida`.
+R = TypeVar("R", bound=_Respuesta)
 
-    Reglas: lista no vacía de objetos que cumplen `PropuestaPaso` (sin campos extra, como un
-    tiempo inventado, y con nombre no vacío); ids que existen; orden estrictamente creciente (lo
-    que también excluye duplicados). Los motivos nunca incluyen texto de la transcripción.
+
+def _validar_lista(datos: Any, modelo: type[R]) -> list[R]:
+    """Lista no vacía de objetos que cumplen `modelo`, o `PropuestaInvalida`.
+
+    El motivo nombra el elemento, el campo y el tipo de error (y el detalle de nuestras propias
+    reglas, como el largo de la cita); nunca copia texto de la transcripción.
     """
     if not isinstance(datos, list) or not datos:
         raise PropuestaInvalida("la respuesta no es una lista con al menos un paso")
-    propuestas: list[PropuestaPaso] = []
+    validos: list[R] = []
     for i, d in enumerate(datos):
         if not isinstance(d, dict):
             raise PropuestaInvalida(f"el elemento {i} no es un objeto")
         try:
-            p = PropuestaPaso.model_validate(d)
+            validos.append(modelo.model_validate(d))
         except ValidationError as exc:
             campos = ", ".join(
-                f"{'.'.join(map(str, e['loc']))} ({e['type']})" for e in exc.errors()
+                f"{'.'.join(map(str, e['loc']))} ({e['type']})"
+                + (f": {e['ctx']['error']}" if e["type"] == "value_error" else "")
+                for e in exc.errors()
             )
             raise PropuestaInvalida(f"el elemento {i} no cumple el esquema: {campos}") from None
+    return validos
+
+
+def _validar_redaccion(datos: Any, n_pasos: int) -> list[RedaccionPaso]:
+    """Un `RedaccionPaso` por paso, numerados de 1 a `n_pasos` en orden, o `PropuestaInvalida`."""
+    redacciones = _validar_lista(datos, RedaccionPaso)
+    if len(redacciones) != n_pasos:
+        raise PropuestaInvalida(f"se esperaban {n_pasos} pasos y llegaron {len(redacciones)}")
+    for esperado, r in enumerate(redacciones, start=1):
+        if r.numero != esperado:
+            raise PropuestaInvalida(
+                f"el elemento {esperado - 1} trae el paso {r.numero} y se esperaba el {esperado}"
+            )
+    return redacciones
+
+
+P = TypeVar("P", PropuestaPaso, PropuestaFrontera)
+
+
+def _validar_propuestas(
+    datos: Any, ids_existentes: Collection[int], modelo: type[P] = PropuestaPaso
+) -> list[P]:
+    """Valida la respuesta del LLM o lanza `PropuestaInvalida`.
+
+    Reglas: lista no vacía de objetos que cumplen `modelo` (sin campos extra, como un tiempo
+    inventado, y con nombre o título no vacío); ids que existen; orden estrictamente creciente
+    (lo que también excluye duplicados). Los motivos nunca incluyen texto de la transcripción.
+    """
+    propuestas: list[P] = []
+    for p in _validar_lista(datos, modelo):
         sid, anterior = p.segmento_id, propuestas[-1].segmento_id if propuestas else None
         if sid not in ids_existentes:
             raise PropuestaInvalida(f"el segmento {sid} no existe")
@@ -213,9 +377,14 @@ class _PasoConRango:
 
 
 def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConRango]:
+    posicion = {s.id: i for i, s in enumerate(analisis.transcripcion)}
+    return _armar(_validar_propuestas(propuestas, posicion), analisis)
+
+
+def _armar(validas: Sequence[PropuestaPaso], analisis: Analisis) -> list[_PasoConRango]:
+    """`PasoVideo` con tiempos del índice, cita verificada y ajuste por responsable."""
     segmentos = analisis.transcripcion
     posicion = {s.id: i for i, s in enumerate(segmentos)}
-    validas = _validar_propuestas(propuestas, posicion)
     rangos = _rangos([posicion[p.segmento_id] for p in validas], len(segmentos))
     # Introducción: lo que se dice antes del primer paso (ahí suele presentarse quien narra).
     introduccion = " ".join(s.texto for s in segmentos[: rangos[0][0]])
@@ -264,7 +433,11 @@ def construir_pasos(propuestas: Any, analisis: Analisis) -> list[PasoVideo]:
       conserva pero la confianza del paso baja un nivel: alta → media, media → baja (`baja` se
       queda en `baja`; la fuente no cambia). "No identificado" no baja nada.
     """
-    construidos = _construir_con_rangos(propuestas, analisis)
+    return _registrar(_construir_con_rangos(propuestas, analisis))
+
+
+def _registrar(construidos: Sequence[_PasoConRango]) -> list[PasoVideo]:
+    """Deja en el log cuántas citas cayeron en cada nivel (sin texto) y devuelve los pasos."""
     niveles = Counter(r.confianza_cita for r in construidos)
     logger.info(
         "Citas verificadas en %d pasos: alta=%d, media=%d, baja=%d; "
@@ -373,16 +546,27 @@ def rol_mencionado(responsable: str, texto: str) -> bool:
 
 T = TypeVar("T")
 
-MAX_INTENTOS = 3  # una llamada más dos reintentos si la propuesta no pasa la validación
+MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no pasa la validación
+
+# Lo que se recuerda al pedir una corrección, según la llamada.
+RECORDATORIO_SEGMENTOS = (
+    "Usa solo números de segmento de la lista, en orden creciente y sin repetir; no escribas "
+    "tiempos."
+)
+RECORDATORIO_REDACCION = (
+    "Da un objeto por paso, con numero del 1 al último en orden; la cita, de "
+    f"{PALABRAS_CITA[0]} a {PALABRAS_CITA[1]} palabras copiadas de ese paso; no escribas tiempos."
+)
 
 
-def mensaje_de_correccion(motivo: PropuestaInvalida) -> str:
-    """Mensaje "user" para pedir que corrija la propuesta. El motivo solo trae campos, tipos de
-    error e ids, nunca texto de la transcripción."""
+def mensaje_de_correccion(
+    motivo: PropuestaInvalida, recordatorio: str = RECORDATORIO_SEGMENTOS
+) -> str:
+    """Mensaje "user" para pedir que corrija la respuesta. El motivo solo trae campos, tipos de
+    error, ids y números de paso, nunca texto de la transcripción."""
     return (
         f"Tu respuesta anterior no es válida: {motivo}. Corrígela y responde de nuevo SOLO con "
-        "la lista JSON completa, con los mismos campos. Usa solo números de segmento de la "
-        "lista, en orden creciente y sin repetir; no escribas tiempos."
+        f"la lista JSON completa, con los mismos campos. {recordatorio}"
     )
 
 
@@ -399,21 +583,23 @@ def _pedir_con_reintentos(
     mensajes: list[dict[str, str]],
     llm: ClienteLLM,
     convertir: Callable[[Any], T],
+    esquema: dict[str, Any],
+    recordatorio: str = RECORDATORIO_SEGMENTOS,
 ) -> _Resultado[T]:
-    """Llama al LLM y convierte su respuesta; si no es válida, reintenta.
+    """Llama al LLM con `esquema` y convierte su respuesta; si no es válida, reintenta.
 
     Se reintenta si `convertir` lanza `PropuestaInvalida` o si el modelo no devolvió JSON
     válido (`LLMRespuestaInvalida`). Cada reintento agrega la respuesta anterior como
     "assistant" (si se pudo leer; el cliente no expone el texto de un JSON roto) y un "user" con
-    el motivo (`mensaje_de_correccion`). La temperatura y la semilla son las fijas del cliente.
-    Los demás `LLMError` (Ollama caído, petición rechazada) no se reintentan.
+    el motivo y `recordatorio` (`mensaje_de_correccion`). La temperatura y la semilla son las
+    fijas del cliente. Los demás `LLMError` (Ollama caído, petición rechazada) no se reintentan.
     """
     historial = list(mensajes)
     error: PropuestaInvalida | None = None
     for intento in range(1, MAX_INTENTOS + 1):
         anterior: str | None = None
         try:
-            respuesta = llm.chat(historial, esquema=ESQUEMA_PASOS)
+            respuesta = llm.chat(historial, esquema=esquema)
         except LLMRespuestaInvalida as exc:
             error = PropuestaInvalida(str(exc))  # sin texto: solo longitud y done_reason
         except LLMError as exc:
@@ -424,14 +610,107 @@ def _pedir_con_reintentos(
             except PropuestaInvalida as exc:
                 error, anterior = exc, respuesta.texto
         logger.warning(
-            "Propuesta del LLM inválida (intento %d de %d): %s", intento, MAX_INTENTOS, error
+            "Respuesta del LLM inválida (intento %d de %d): %s", intento, MAX_INTENTOS, error
         )
         if anterior is not None:
             historial.append({"role": "assistant", "content": anterior})
-        historial.append({"role": "user", "content": mensaje_de_correccion(error)})
+        historial.append({"role": "user", "content": mensaje_de_correccion(error, recordatorio)})
     return _Resultado(
         None, MAX_INTENTOS, PropuestaInvalida(f"{error} (tras {MAX_INTENTOS} intentos)")
     )
+
+
+@dataclass(frozen=True)
+class _Extraccion:
+    """Resultado del camino LLM: pasos o error final, y lo que pasó en cada llamada."""
+
+    pasos: list[PasoVideo] | None
+    error: LLMError | PropuestaInvalida | None
+    intentos: int
+    intentos_redaccion: int = 0
+    motivo_sin_redaccion: str | None = None
+
+
+def _motivo(error: LLMError | PropuestaInvalida) -> str:
+    if isinstance(error, PropuestaInvalida):
+        return f"respuesta del LLM inválida: {error}"
+    return f"LLM no disponible o con error ({type(error).__name__})"
+
+
+def _en_dos_llamadas(
+    analisis: Analisis,
+    llm: ClienteLLM,
+    etiquetas: Mapping[str, str] | None,
+    regla_aclaraciones: bool,
+) -> _Extraccion:
+    """Opción A de ADR-010: fronteras con el prompt v1 y, aparte, la redacción de cada paso.
+
+    Si las fronteras fallan, no hay pasos (`segmentar` usa la heurística). Si falla la
+    redacción, se conservan las fronteras con nombre = título, cita vacía y confianza baja.
+    """
+    posicion = {s.id: i for i, s in enumerate(analisis.transcripcion)}
+    r1 = _pedir_con_reintentos(
+        construir_mensajes_fronteras(analisis, etiquetas, regla_aclaraciones=regla_aclaraciones),
+        llm,
+        lambda datos: _validar_propuestas(datos, posicion, PropuestaFrontera),
+        ESQUEMA_FRONTERAS,
+    )
+    if r1.error is not None:
+        return _Extraccion(None, r1.error, r1.intentos)
+    fronteras = r1.valor
+    assert fronteras is not None
+
+    r2 = _pedir_con_reintentos(
+        construir_mensajes_redaccion(analisis, fronteras, etiquetas),
+        llm,
+        lambda datos: _validar_redaccion(datos, len(fronteras)),
+        ESQUEMA_REDACCION,
+        RECORDATORIO_REDACCION,
+    )
+    if r2.error is not None:
+        motivo = _motivo(r2.error)
+        logger.warning("Pasos sin redactar; se conservan las fronteras: %s", motivo)
+        propuestas = [
+            PropuestaPaso(
+                segmento_id=f.segmento_id,
+                nombre=f.titulo,
+                descripcion="",
+                responsable=NO_IDENTIFICADO,
+                cita="",
+            )
+            for f in fronteras
+        ]
+        pasos = _registrar(_armar(propuestas, analisis))
+        return _Extraccion(pasos, None, r1.intentos, r2.intentos, motivo)
+
+    assert r2.valor is not None
+    propuestas = [
+        PropuestaPaso(
+            segmento_id=f.segmento_id,
+            nombre=f.titulo,
+            descripcion=r.descripcion,
+            responsable=r.responsable,
+            cita=r.cita,
+        )
+        for f, r in zip(fronteras, r2.valor, strict=True)
+    ]
+    return _Extraccion(_registrar(_armar(propuestas, analisis)), None, r1.intentos, r2.intentos)
+
+
+def _en_una_llamada(
+    analisis: Analisis,
+    llm: ClienteLLM,
+    etiquetas: Mapping[str, str] | None,
+    regla_aclaraciones: bool,
+) -> _Extraccion:
+    """Cortes y redacción en una sola llamada (prompt v1 ampliado, medido el 18 oct)."""
+    r = _pedir_con_reintentos(
+        construir_mensajes(analisis, etiquetas, regla_aclaraciones=regla_aclaraciones),
+        llm,
+        lambda datos: construir_pasos(datos, analisis),
+        ESQUEMA_PASOS,
+    )
+    return _Extraccion(r.valor, r.error, r.intentos)
 
 
 def _segmentar_con_llm(
@@ -440,9 +719,10 @@ def _segmentar_con_llm(
     etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
-) -> _Resultado[list[PasoVideo]]:
-    mensajes = construir_mensajes(analisis, etiquetas, regla_aclaraciones=regla_aclaraciones)
-    return _pedir_con_reintentos(mensajes, llm, lambda datos: construir_pasos(datos, analisis))
+    dos_llamadas: bool = True,
+) -> _Extraccion:
+    extraer = _en_dos_llamadas if dos_llamadas else _en_una_llamada
+    return extraer(analisis, llm, etiquetas, regla_aclaraciones)
 
 
 def segmentar_con_llm(
@@ -451,15 +731,19 @@ def segmentar_con_llm(
     etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
+    dos_llamadas: bool = True,
 ) -> list[PasoVideo]:
-    """Pasos propuestos por el LLM, con hasta `MAX_INTENTOS` llamadas si la propuesta (o su
-    JSON) no es válida. Lanza `LLMError` si Ollama falla (sin reintentar) o
-    `PropuestaInvalida` con el último motivo."""
-    r = _segmentar_con_llm(analisis, llm, etiquetas, regla_aclaraciones=regla_aclaraciones)
+    """Pasos propuestos por el LLM, con hasta `MAX_INTENTOS` llamadas por etapa si la respuesta
+    (o su JSON) no es válida. Lanza `LLMError` si Ollama falla al buscar las fronteras (sin
+    reintentar) o `PropuestaInvalida` con el último motivo. Con `dos_llamadas`, si solo falla la
+    redacción, devuelve las fronteras sin redactar."""
+    r = _segmentar_con_llm(
+        analisis, llm, etiquetas, regla_aclaraciones=regla_aclaraciones, dos_llamadas=dos_llamadas
+    )
     if r.error is not None:
         raise r.error
-    assert r.valor is not None
-    return r.valor
+    assert r.pasos is not None
+    return r.pasos
 
 
 # ── Heurística de respaldo ───────────────────────────────────────────────────────────────────
@@ -577,13 +861,18 @@ def segmentar(
     etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
+    dos_llamadas: bool = True,
 ) -> Segmentacion:
     """Pasos del video: LLM si está y responde bien; si no, la heurística. Registra el camino.
 
-    Una propuesta inválida o con JSON roto se reintenta hasta completar `MAX_INTENTOS`
-    llamadas; si el LLM no responde, se va directo a la heurística (RNF-07).
-    `Segmentacion.intentos` cuenta las llamadas hechas al LLM. Las etiquetas son opcionales (la
-    ficha de contexto llega en S5).
+    Por defecto, opción A de ADR-010: una llamada para las fronteras (prompt v1) y otra para
+    redactar descripción, responsable y cita; si falla solo la redacción, se conservan las
+    fronteras sin redactar. Con `dos_llamadas=False`, todo en una llamada.
+
+    Cada llamada reintenta una respuesta inválida o con JSON roto hasta completar `MAX_INTENTOS`;
+    si el LLM no responde al buscar las fronteras, se va directo a la heurística (RNF-07).
+    `Segmentacion.intentos` e `intentos_redaccion` cuentan las llamadas de cada etapa. Las
+    etiquetas son opcionales (la ficha de contexto llega en S5).
     """
     intentos = 0
     if not analisis.transcripcion:
@@ -591,21 +880,36 @@ def segmentar(
     elif llm is None:
         motivo = "sin cliente LLM"
     else:
-        r = _segmentar_con_llm(analisis, llm, etiquetas, regla_aclaraciones=regla_aclaraciones)
+        r = _segmentar_con_llm(
+            analisis,
+            llm,
+            etiquetas,
+            regla_aclaraciones=regla_aclaraciones,
+            dos_llamadas=dos_llamadas,
+        )
         intentos = r.intentos
-        if isinstance(r.error, LLMError):
-            motivo = f"LLM no disponible o con error ({type(r.error).__name__})"
-        elif isinstance(r.error, PropuestaInvalida):
-            motivo = f"propuesta del LLM inválida: {r.error}"
+        if r.error is not None:
+            motivo = _motivo(r.error)
         else:
-            assert r.valor is not None
+            assert r.pasos is not None
             logger.info(
-                "Segmentación por LLM (%s): %d pasos en %d intento(s)",
+                "Segmentación por LLM (%s): %d pasos; %d intento(s) de fronteras, "
+                "%d de redacción%s",
                 llm.modelo,
-                len(r.valor),
-                intentos,
+                len(r.pasos),
+                r.intentos,
+                r.intentos_redaccion,
+                "; sin redactar" if r.motivo_sin_redaccion else "",
             )
-            return Segmentacion(r.valor, "llm", None, llm.modelo, intentos)
+            return Segmentacion(
+                r.pasos,
+                "llm",
+                None,
+                llm.modelo,
+                r.intentos,
+                r.intentos_redaccion,
+                r.motivo_sin_redaccion,
+            )
 
     pasos = segmentar_heuristica(analisis)
     logger.info("Segmentación por heurística: %d pasos; motivo: %s", len(pasos), motivo)

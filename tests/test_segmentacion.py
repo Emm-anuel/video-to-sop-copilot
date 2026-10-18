@@ -13,13 +13,22 @@ from pydantic import TypeAdapter
 from sopvid.contrato import Analisis, PasoVideo
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
 from sopvid.percepcion.segmentacion import (
+    ESQUEMA_FRONTERAS,
     ESQUEMA_PASOS,
+    ESQUEMA_REDACCION,
     NO_IDENTIFICADO,
+    RECORDATORIO_REDACCION,
+    RECORDATORIO_SEGMENTOS,
+    SISTEMA,
+    PropuestaFrontera,
     PropuestaInvalida,
     _construir_con_rangos,
     _texto_comparable,
+    _validar_propuestas,
+    _validar_redaccion,
     cargar_transcripcion_prueba,
     construir_mensajes,
+    construir_mensajes_fronteras,
     construir_pasos,
     empieza_con_marcador,
     f1_fronteras,
@@ -105,7 +114,7 @@ def test_los_pasos_traen_los_campos_del_llm_y_los_tiempos_de_los_segmentos():
         ]
     )
     with cliente_que_responde(respuesta) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert r.metodo == "llm"
     assert r.motivo_respaldo is None
@@ -126,7 +135,7 @@ def test_los_pasos_traen_los_campos_del_llm_y_los_tiempos_de_los_segmentos():
 def test_un_tiempo_escrito_por_el_llm_invalida_la_propuesta():
     respuesta = json.dumps([propuesta(2, t_inicio=999), propuesta(4)])
     with cliente_que_responde(respuesta) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert r.metodo == "heuristica"
     assert "t_inicio (extra_forbidden)" in r.motivo_respaldo
@@ -163,7 +172,7 @@ def test_el_motivo_de_rechazo_no_copia_texto_de_la_transcripcion():
 def test_propuesta_invalida_cae_a_la_heuristica_y_registra_el_camino(caplog):
     respuesta = json.dumps([propuesta(2), propuesta(99)])
     with caplog.at_level(logging.INFO), cliente_que_responde(respuesta) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert r.metodo == "heuristica"
     assert "inválida" in r.motivo_respaldo and "99" in r.motivo_respaldo
@@ -176,7 +185,7 @@ def test_propuesta_invalida_cae_a_la_heuristica_y_registra_el_camino(caplog):
 )
 def test_llm_caido_cae_a_la_heuristica(error):
     with cliente_que_responde(error=error) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
@@ -218,7 +227,7 @@ CON_TIEMPO = json.dumps([propuesta(2, t_inicio=4.5)])
 def test_valida_al_primer_intento():
     peticiones = []
     with cliente_en_secuencia([VALIDA], peticiones) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert (r.metodo, r.intentos, len(peticiones)) == ("llm", 1, 1)
     assert segmentos_de_inicio(r.pasos, ANALISIS) == [2, 4, 6]
@@ -227,7 +236,7 @@ def test_valida_al_primer_intento():
 def test_invalida_y_luego_valida_reenvia_la_respuesta_y_el_error():
     peticiones = []
     with cliente_en_secuencia([ID_INEXISTENTE, VALIDA], peticiones) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert (r.metodo, r.intentos, r.motivo_respaldo) == ("llm", 2, None)
     assert segmentos_de_inicio(r.pasos, ANALISIS) == [2, 4, 6]
@@ -249,7 +258,7 @@ def test_invalida_y_luego_valida_reenvia_la_respuesta_y_el_error():
 def test_el_error_de_esquema_se_resume_por_campo():
     peticiones = []
     with cliente_en_secuencia([CON_TIEMPO, VALIDA], peticiones) as llm:
-        segmentar(ANALISIS, llm, ETIQUETAS)
+        segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert "t_inicio (extra_forbidden)" in peticiones[1]["messages"][-1]["content"]
 
@@ -260,7 +269,7 @@ def test_tres_invalidas_caen_a_la_heuristica_con_el_ultimo_motivo(caplog):
         caplog.at_level(logging.WARNING),
         cliente_en_secuencia([ID_INEXISTENTE, CON_TIEMPO, DUPLICADA], peticiones) as llm,
     ):
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert (r.metodo, r.intentos, len(peticiones)) == ("heuristica", 3, 3)
     assert r.pasos == segmentar_heuristica(ANALISIS)
@@ -272,7 +281,7 @@ def test_tres_invalidas_caen_a_la_heuristica_con_el_ultimo_motivo(caplog):
         "assistant",
         "user",
     ] * 2
-    assert caplog.text.count("Propuesta del LLM inválida") == 3
+    assert caplog.text.count("Respuesta del LLM inválida") == 3
 
 
 def test_segmentar_con_llm_lanza_el_ultimo_motivo():
@@ -280,13 +289,13 @@ def test_segmentar_con_llm_lanza_el_ultimo_motivo():
         cliente_en_secuencia([ID_INEXISTENTE] * 3, []) as llm,
         pytest.raises(PropuestaInvalida, match="99 no existe.*tras 3 intentos"),
     ):
-        segmentar_con_llm(ANALISIS, llm, ETIQUETAS)
+        segmentar_con_llm(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
 
 def test_llm_no_disponible_va_directo_a_la_heuristica_sin_reintentos():
     peticiones = []
     with cliente_en_secuencia([500, VALIDA], peticiones) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
@@ -296,7 +305,7 @@ def test_llm_no_disponible_va_directo_a_la_heuristica_sin_reintentos():
 def test_llm_que_se_cae_a_media_correccion_no_se_reintenta():
     peticiones = []
     with cliente_en_secuencia([ID_INEXISTENTE, 500, VALIDA], peticiones) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
+        r = segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
@@ -345,7 +354,7 @@ def test_las_etiquetas_son_opcionales(etiquetas):
 
     peticiones = []
     with cliente_en_secuencia([VALIDA], peticiones) as llm:
-        r = segmentar(ANALISIS, llm)
+        r = segmentar(ANALISIS, llm, dos_llamadas=False)
     assert r.metodo == "llm"
     assert "Etiquetas" not in peticiones[0]["messages"][1]["content"]
 
@@ -662,7 +671,7 @@ def test_el_esquema_de_ollama_es_plano_y_sale_de_propuesta_paso():
 def test_la_peticion_lleva_el_esquema_temperatura_0_y_la_semilla():
     peticiones = []
     with cliente_que_responde(json.dumps([propuesta(2)]), peticiones=peticiones) as llm:
-        segmentar(ANALISIS, llm, ETIQUETAS)
+        segmentar(ANALISIS, llm, ETIQUETAS, dos_llamadas=False)
 
     (cuerpo,) = peticiones
     assert cuerpo["format"] == ESQUEMA_PASOS
@@ -885,7 +894,7 @@ SOP_PRUEBA = [
 def _extraer(analisis, respuestas):
     peticiones = []
     with cliente_en_secuencia(respuestas, peticiones) as llm:
-        return segmentar(analisis, llm), peticiones
+        return segmentar(analisis, llm, dos_llamadas=False), peticiones
 
 
 def test_salida_valida_da_paso_video_con_tiempos_del_indice_y_confianza_alta(analisis):
@@ -1008,9 +1017,285 @@ def test_misma_entrada_y_misma_respuesta_dan_el_mismo_resultado(analisis):
 
 def test_segmentar_con_llm_devuelve_paso_video(analisis):
     with cliente_en_secuencia([RESPUESTA_EJEMPLO], []) as llm:
-        pasos = segmentar_con_llm(analisis, llm)
+        pasos = segmentar_con_llm(analisis, llm, dos_llamadas=False)
     assert [p.numero for p in pasos] == [1, 2, 3, 4, 5, 6]
 
 
 def test_un_rol_que_solo_trae_articulos_no_cuenta_como_mencionado():
     assert rol_mencionado("El", "el operador") is False
+
+
+# ── Opción A de ADR-010: fronteras y redacción en dos llamadas ──────────────────────────────
+
+FRONTERAS_EJEMPLO = json.dumps(
+    [{"segmento_id": sid, "titulo": nombre} for sid, nombre, _ in PROPUESTA_EJEMPLO],
+    ensure_ascii=False,
+)
+TITULOS_EJEMPLO = [nombre for _, nombre, _ in PROPUESTA_EJEMPLO]
+
+
+def redaccion(numero, cita, *, responsable="Técnica de mantenimiento", **campos) -> dict:
+    """Un paso como lo redactaría el LLM en la llamada 2."""
+    return {
+        "numero": numero,
+        "descripcion": "Se hace el paso con cuidado.",
+        "responsable": responsable,
+        "cita": cita,
+        **campos,
+    }
+
+
+def redaccion_ejemplo(**cambios) -> list[dict]:
+    """Redacción válida de los 6 pasos; `cambios` reemplaza campos de un paso: {3: {...}}."""
+    pasos = [redaccion(n, cita) for n, (_, _, cita) in enumerate(PROPUESTA_EJEMPLO, start=1)]
+    for numero, campos in cambios.items():
+        pasos[int(numero.removeprefix("p")) - 1].update(campos)
+    return pasos
+
+
+REDACCION_EJEMPLO = json.dumps(redaccion_ejemplo(), ensure_ascii=False)
+
+
+def _extraer_a(analisis, respuestas):
+    peticiones = []
+    with cliente_en_secuencia(respuestas, peticiones) as llm:
+        return segmentar(analisis, llm), peticiones
+
+
+def test_opcion_a_es_el_camino_por_defecto_y_arma_los_pasos(analisis):
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos, r.intentos_redaccion, r.motivo_sin_redaccion) == (
+        "llm",
+        1,
+        1,
+        None,
+    )
+    assert [p["format"] for p in peticiones] == [ESQUEMA_FRONTERAS, ESQUEMA_REDACCION]
+    assert segmentos_de_inicio(r.pasos, analisis) == [4, 6, 9, 12, 17, 21]
+    assert [p.nombre for p in r.pasos] == TITULOS_EJEMPLO  # el título de la llamada 1
+    assert [(p.t_inicio, p.t_fin) for p in r.pasos] == [
+        (20.45, 31.64),
+        (33.44, 53.91),
+        (55.51, 73.56),
+        (74.76, 103.4),
+        (104.9, 125.62),
+        (127.32, 156.29),
+    ]
+    assert [p.cita for p in r.pasos] == [cita for _, _, cita in PROPUESTA_EJEMPLO]
+    assert all((p.confianza, p.fuente) == ("alta", "audio") for p in r.pasos)
+    assert all(p.descripcion == "Se hace el paso con cuidado." for p in r.pasos)
+
+
+def test_el_prompt_de_fronteras_es_el_v1_de_la_fase_4():
+    numerados = "\n".join(f"[{s['id']}] {s['texto']}" for s in SEGMENTOS)
+    # Copia literal del prompt v1 medido en la Fase 4 (F1 0.74), antes de RF-13.
+    v1_fase4 = (
+        "Etiquetas del video: maquina=cortadora; area=conversión; proceso=cambio de cuchilla.\n\n"
+        f"Segmentos de la transcripción, numerados y en orden:\n{numerados}\n\n"
+        "Identifica en qué segmento empieza cada paso del procedimiento. Un paso suele "
+        "abarcar varios segmentos: no marques cada segmento como paso, y la introducción o "
+        "los comentarios no inician pasos. "
+        "Responde SOLO con "
+        'una lista JSON de objetos {"segmento_id": número del segmento donde empieza el '
+        'paso, "titulo": nombre corto del paso en español}, en orden. Usa solo números de '
+        "segmento de la lista; no escribas tiempos."
+    )
+    sistema, usuario = construir_mensajes_fronteras(ANALISIS, ETIQUETAS)
+
+    assert usuario["content"] == v1_fase4
+    assert sistema["content"] == SISTEMA
+    con_regla = construir_mensajes_fronteras(ANALISIS, ETIQUETAS, regla_aclaraciones=True)
+    assert "aclaraciones, advertencias" in con_regla[1]["content"]
+
+
+def test_el_prompt_de_redaccion_trae_los_pasos_fijos_sin_ejemplos_de_rol(analisis):
+    _, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, REDACCION_EJEMPLO])
+    usuario = peticiones[1]["messages"][1]["content"]
+
+    assert len(peticiones[1]["messages"]) == 2  # empieza de cero: sin el historial de la 1
+    introduccion = usuario.split("Paso 1 ·")[0]
+    assert "[1] Buenos días, soy Laura" in introduccion and "[4]" not in introduccion
+    assert "Paso 1 · Ponerse guantes y lentes\n[4] Primero me pongo" in usuario
+    assert "[5] Los lentes son obligatorios" in usuario.split("Paso 2 ·")[0]
+    assert "Paso 6 · Abrir la llave y revisar fugas\n[21]" in usuario
+    assert usuario.index("[25]") > usuario.index("Paso 6 ·")
+    assert f'"{NO_IDENTIFICADO}", salvo que la transcripción diga' in usuario
+    assert "de 4 a 15 palabras" in usuario
+    assert "la cita se deja en el idioma original" in usuario
+    for ejemplo in ("Operador", "Supervisor", "por ejemplo"):
+        assert ejemplo not in usuario
+
+
+def test_redaccion_invalida_se_reintenta_sin_repetir_las_fronteras(analisis):
+    corta = json.dumps(redaccion_ejemplo(p3={"cita": "libero la presión"}), ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta, REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 2, 3)
+    correccion = peticiones[2]["messages"][-1]["content"]
+    assert [m["role"] for m in peticiones[2]["messages"]] == [
+        "system",
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert "el elemento 2 no cumple el esquema: cita (value_error)" in correccion
+    assert "la cita tiene 3 palabras y debe tener de 4 a 15" in correccion
+    assert RECORDATORIO_REDACCION in correccion
+    assert "libero la presión" not in correccion  # el motivo no copia la cita
+
+
+@pytest.mark.parametrize(
+    ("datos", "motivo"),
+    [
+        (redaccion_ejemplo()[:5], "se esperaban 6 pasos y llegaron 5"),
+        (redaccion_ejemplo(p2={"numero": 3}), "el elemento 1 trae el paso 3 y se esperaba el 2"),
+        (redaccion_ejemplo(p1={"cita": ""}), "la cita tiene 0 palabras"),
+        (
+            redaccion_ejemplo(p1={"cita": " ".join(["palabra"] * 16)}),
+            "la cita tiene 16 palabras",
+        ),
+        (redaccion_ejemplo(p4={"t_inicio": 74.76}), r"t_inicio \(extra_forbidden\)"),
+        (redaccion_ejemplo(p1={"numero": "1"}), r"numero \(int_type\)"),
+        ([], "al menos un paso"),
+    ],
+    ids=["faltan", "numeracion", "cita_vacia", "cita_larga", "tiempo", "numero_texto", "vacia"],
+)
+def test_validacion_de_la_redaccion(datos, motivo):
+    with pytest.raises(PropuestaInvalida, match=motivo):
+        _validar_redaccion(datos, 6)
+
+
+@pytest.mark.parametrize(
+    ("cita", "valida"),
+    [
+        ("me pongo los guantes", True),  # 4
+        (" ".join(["palabra"] * 15), True),
+        ("¿me pongo, los guantes?", True),  # la puntuación no cuenta
+        ("me pongo guantes", False),  # 3
+        ("… ¿? …", False),
+    ],
+)
+def test_la_cita_redactada_debe_tener_de_4_a_15_palabras(cita, valida):
+    datos = [redaccion(1, cita)]
+    if valida:
+        assert _validar_redaccion(datos, 1)[0].cita == cita.strip()
+    else:
+        with pytest.raises(PropuestaInvalida, match="la cita tiene"):
+            _validar_redaccion(datos, 1)
+
+
+def test_titulo_vacio_invalida_las_fronteras():
+    with pytest.raises(PropuestaInvalida, match=r"titulo \(value_error\): título vacío"):
+        _validar_propuestas([{"segmento_id": 2, "titulo": " "}], {2}, PropuestaFrontera)
+
+
+def _sin_redactar(pasos, analisis):
+    assert segmentos_de_inicio(pasos, analisis) == [4, 6, 9, 12, 17, 21]
+    assert [p.nombre for p in pasos] == TITULOS_EJEMPLO
+    for p in pasos:
+        assert (p.cita, p.descripcion, p.responsable) == ("", "", NO_IDENTIFICADO)
+        assert (p.confianza, p.fuente) == ("baja", "inferido")
+
+
+def test_si_la_redaccion_falla_tres_veces_se_conservan_las_fronteras(analisis):
+    mala = json.dumps(redaccion_ejemplo()[:5], ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, mala, JSON_ROTO, mala])
+
+    assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 3, 4)
+    assert r.motivo_respaldo is None  # no cae a la heurística
+    assert "se esperaban 6 pasos y llegaron 5 (tras 3 intentos)" in r.motivo_sin_redaccion
+    _sin_redactar(r.pasos, analisis)
+
+
+def test_si_ollama_se_cae_en_la_redaccion_se_conservan_las_fronteras(analisis):
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, 500, REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 1, 2)
+    assert "LLMNoDisponible" in r.motivo_sin_redaccion
+    _sin_redactar(r.pasos, analisis)
+
+
+def test_si_fallan_las_fronteras_va_a_la_heuristica_sin_redactar(analisis):
+    malas = json.dumps([{"segmento_id": 99, "titulo": "Paso"}])
+    r, peticiones = _extraer_a(analisis, [malas] * 3 + [REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == (
+        "heuristica",
+        3,
+        0,
+        3,
+    )
+    assert "el segmento 99 no existe (tras 3 intentos)" in r.motivo_respaldo
+    assert r.pasos == segmentar_heuristica(analisis)
+
+
+def test_si_ollama_no_responde_a_las_fronteras_va_directo_a_la_heuristica(analisis):
+    r, peticiones = _extraer_a(analisis, [500, FRONTERAS_EJEMPLO, REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos, len(peticiones)) == ("heuristica", 1, 1)
+    assert "LLMNoDisponible" in r.motivo_respaldo
+
+
+def test_fronteras_corregidas_y_luego_redaccion(analisis):
+    con_99 = json.loads(FRONTERAS_EJEMPLO)
+    con_99[2]["segmento_id"] = 99
+    r, peticiones = _extraer_a(analisis, [json.dumps(con_99), FRONTERAS_EJEMPLO, REDACCION_EJEMPLO])
+
+    assert (r.metodo, r.intentos, r.intentos_redaccion) == ("llm", 2, 1)
+    assert "el segmento 99 no existe" in peticiones[1]["messages"][-1]["content"]
+    assert RECORDATORIO_SEGMENTOS in peticiones[1]["messages"][-1]["content"]
+    assert len(peticiones[2]["messages"]) == 2  # la redacción no arrastra la corrección
+
+
+def test_redaccion_con_rol_que_no_se_dice_baja_la_confianza(analisis):
+    datos = redaccion_ejemplo(p2={"responsable": "Operador"}, p3={"responsable": "n/a"})
+    r, _ = _extraer_a(analisis, [FRONTERAS_EJEMPLO, json.dumps(datos, ensure_ascii=False)])
+
+    assert (r.pasos[1].responsable, r.pasos[1].confianza) == ("Operador", "media")
+    assert (r.pasos[2].responsable, r.pasos[2].confianza) == (NO_IDENTIFICADO, "alta")
+
+
+def test_cita_redactada_de_otro_paso_queda_media(analisis):
+    datos = redaccion_ejemplo(p1={"cita": "abro la llave de paso despacio"})
+    r, _ = _extraer_a(analisis, [FRONTERAS_EJEMPLO, json.dumps(datos, ensure_ascii=False)])
+    assert (r.pasos[0].confianza, r.pasos[0].fuente) == ("media", "audio")
+
+
+def test_opcion_a_nunca_envia_el_sop_ni_tiempos(analisis):
+    con_99 = json.loads(FRONTERAS_EJEMPLO)
+    con_99[0]["segmento_id"] = 99
+    corta = json.dumps(redaccion_ejemplo(p1={"cita": "me pongo"}), ensure_ascii=False)
+    _, peticiones = _extraer_a(
+        analisis, [JSON_ROTO, json.dumps(con_99), FRONTERAS_EJEMPLO, corta, REDACCION_EJEMPLO]
+    )
+
+    assert len(peticiones) == 5
+    for peticion in peticiones:
+        enviado = " ".join(m["content"] for m in peticion["messages"])
+        comparable = _texto_comparable(enviado)
+        for linea in SOP_PRUEBA:
+            assert _texto_comparable(linea) not in comparable
+        assert "SOP" not in enviado
+        assert not re.search(r"\d+[.:]\d+", enviado), "un número con formato de tiempo"
+        assert "t_inicio" not in json.dumps(peticion["format"])
+
+
+def test_opcion_a_es_determinista_y_se_serializa(analisis):
+    lista = TypeAdapter(list[PasoVideo])
+    for respuestas in (
+        [FRONTERAS_EJEMPLO, REDACCION_EJEMPLO],
+        [FRONTERAS_EJEMPLO, JSON_ROTO, REDACCION_EJEMPLO],
+        [FRONTERAS_EJEMPLO, 500],
+    ):
+        r1, peticiones1 = _extraer_a(analisis, respuestas)
+        r2, peticiones2 = _extraer_a(analisis, respuestas)
+
+        assert r1 == r2 and peticiones1 == peticiones2
+        assert lista.validate_json(lista.dump_json(r1.pasos)) == r1.pasos
+
+
+def test_segmentar_con_llm_en_dos_llamadas(analisis):
+    with cliente_en_secuencia([FRONTERAS_EJEMPLO, REDACCION_EJEMPLO], []) as llm:
+        pasos = segmentar_con_llm(analisis, llm)
+    assert [p.nombre for p in pasos] == TITULOS_EJEMPLO
