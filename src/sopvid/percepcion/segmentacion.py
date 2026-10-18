@@ -92,8 +92,8 @@ class PropuestaPaso(BaseModel):
 
     @field_validator("responsable")
     @classmethod
-    def _responsable_por_defecto(cls, v: str) -> str:
-        return v or NO_IDENTIFICADO
+    def _responsable_normalizado(cls, v: str) -> str:
+        return normalizar_responsable(v)
 
 
 def _sin_refs(esquema: dict[str, Any]) -> dict[str, Any]:
@@ -227,6 +227,8 @@ class _PasoConRango:
     paso: PasoVideo
     primer_segmento: int
     ultimo_segmento: int
+    confianza_cita: Confianza  # antes de ajustar por el responsable
+    rol_sin_mencion: bool  # el responsable no se dice en el paso ni en la introducción
 
 
 def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConRango]:
@@ -235,11 +237,19 @@ def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConR
     validas = _validar_propuestas(propuestas, posicion)
     # Cada paso termina en el segmento anterior al inicio del siguiente; el último, al final.
     fines = [posicion[p.segmento_id] - 1 for p in validas[1:]] + [len(segmentos) - 1]
+    # Introducción: lo que se dice antes del primer paso (ahí suele presentarse quien narra).
+    introduccion = " ".join(s.texto for s in segmentos[: posicion[validas[0].segmento_id]])
 
     resultado = []
     for numero, (p, i_fin) in enumerate(zip(validas, fines, strict=True), start=1):
-        primero, ultimo = segmentos[posicion[p.segmento_id]], segmentos[i_fin]
-        confianza, fuente = verificar_cita(p.cita, analisis, (primero.id, ultimo.id))
+        i_inicio = posicion[p.segmento_id]
+        primero, ultimo = segmentos[i_inicio], segmentos[i_fin]
+        confianza_cita, fuente = verificar_cita(p.cita, analisis, (primero.id, ultimo.id))
+        del_paso = " ".join(s.texto for s in segmentos[i_inicio : i_fin + 1])
+        rol_sin_mencion = p.responsable != NO_IDENTIFICADO and not rol_mencionado(
+            p.responsable, f"{introduccion} {del_paso}"
+        )
+        confianza = _BAJAR_CONFIANZA[confianza_cita] if rol_sin_mencion else confianza_cita
         paso = PasoVideo(
             numero=numero,
             nombre=p.nombre,
@@ -251,7 +261,9 @@ def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConR
             fuente=fuente,
             confianza=confianza,
         )
-        resultado.append(_PasoConRango(paso, primero.id, ultimo.id))
+        resultado.append(
+            _PasoConRango(paso, primero.id, ultimo.id, confianza_cita, rol_sin_mencion)
+        )
     return resultado
 
 
@@ -262,17 +274,28 @@ def construir_pasos(propuestas: Any, analisis: Analisis) -> list[PasoVideo]:
     de la transcripción: `t_inicio` del segmento elegido y `t_fin` del último segmento antes del
     siguiente paso (o del último de la transcripción). `numero` es la posición desde 1.
     `confianza` y `fuente` salen de verificar la cita (`verificar_cita`, RNF-06).
+
+    Responsable (sin diarización, ADR-008: el rol solo sale de lo que se dice en el audio):
+
+    - Se recorta y se capitaliza; vacío o un valor de relleno ("desconocido", "n/a",
+      "ninguno"…) pasa a "No identificado" (`normalizar_responsable`).
+    - Si el sustantivo del rol (p. ej. "operador" en "Operador de turno") no se menciona en los
+      segmentos del paso ni en la introducción (lo que se dice antes del primer paso), el rol se
+      conserva pero la confianza del paso baja un nivel: alta → media, media → baja (`baja` se
+      queda en `baja`; la fuente no cambia). "No identificado" no baja nada.
     """
-    pasos = [r.paso for r in _construir_con_rangos(propuestas, analisis)]
-    niveles = Counter(p.confianza for p in pasos)
+    construidos = _construir_con_rangos(propuestas, analisis)
+    niveles = Counter(r.confianza_cita for r in construidos)
     logger.info(
-        "Citas verificadas en %d pasos: alta=%d, media=%d, baja=%d",
-        len(pasos),
+        "Citas verificadas en %d pasos: alta=%d, media=%d, baja=%d; "
+        "responsables no mencionados en el audio: %d",
+        len(construidos),
         niveles["alta"],
         niveles["media"],
         niveles["baja"],
+        sum(r.rol_sin_mencion for r in construidos),
     )
-    return pasos
+    return [r.paso for r in construidos]
 
 
 # ── Verificación de citas (RNF-06) ───────────────────────────────────────────────────────────
@@ -309,6 +332,63 @@ def verificar_cita(
     if f" {buscada} " in f" {_texto_comparable(completa)} ":
         return "media", "audio"
     return "baja", "inferido"
+
+
+# ── Responsable (ADR-008: sin diarización) ───────────────────────────────────────────────────
+
+# Valores de relleno que equivalen a "nadie lo dice", ya normalizados ("n/a" → "n a").
+_RESPONSABLE_VACIO = frozenset(
+    {
+        "desconocido",
+        "desconocida",
+        "n a",
+        "na",
+        "ninguno",
+        "ninguna",
+        "nadie",
+        "no identificado",
+        "no identificada",
+        "sin identificar",
+        "no especificado",
+        "no especificada",
+        "no se menciona",
+        "no mencionado",
+        "no aplica",
+        "none",
+        "null",
+        "unknown",
+    }
+)
+_ARTICULOS = frozenset({"el", "la", "los", "las", "un", "una"})
+_BAJAR_CONFIANZA: dict[Confianza, Confianza] = {"alta": "media", "media": "baja", "baja": "baja"}
+
+
+def normalizar_responsable(responsable: str) -> str:
+    """Recorta y capitaliza el rol; vacío o un valor de relleno → "No identificado"."""
+    limpio = " ".join(responsable.split())
+    comparable = _texto_comparable(limpio)
+    if not comparable or comparable in _RESPONSABLE_VACIO:
+        return NO_IDENTIFICADO
+    return limpio[0].upper() + limpio[1:]  # no `capitalize()`: conserva siglas como "CNC"
+
+
+def _raiz(palabra: str) -> str:
+    """Quita la terminación de género y número: operadora/operadores → operador."""
+    raiz = re.sub(r"[aoe]?s?$", "", palabra)
+    return raiz if len(raiz) >= 3 else palabra
+
+
+def rol_mencionado(responsable: str, texto: str) -> bool:
+    """True si el sustantivo del rol aparece en `texto`, sin importar acentos, género o número.
+
+    El sustantivo es la primera palabra del rol que no es artículo ("El operador de turno" →
+    "operador").
+    """
+    palabras = [p for p in _texto_comparable(responsable).split() if p not in _ARTICULOS]
+    if not palabras:
+        return False
+    sustantivo = _raiz(palabras[0])
+    return any(_raiz(p) == sustantivo for p in _texto_comparable(texto).split())
 
 
 def segmentar_con_llm(

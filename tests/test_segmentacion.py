@@ -19,6 +19,8 @@ from sopvid.percepcion.segmentacion import (
     construir_pasos,
     empieza_con_marcador,
     f1_fronteras,
+    normalizar_responsable,
+    rol_mencionado,
     segmentar,
     segmentar_heuristica,
     validar_propuesta,
@@ -364,6 +366,117 @@ def test_construir_pasos_usa_la_verificacion_de_citas_y_la_registra_sin_texto(an
     assert "Citas verificadas en 3 pasos: alta=1, media=1, baja=1" in caplog.text
     for p in propuestas:
         assert p["cita"] not in caplog.text
+
+
+# ── Responsable (ADR-008) ────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [
+        ("  operador   de turno ", "Operador de turno"),
+        ("Operador CNC", "Operador CNC"),  # conserva siglas
+        ("", NO_IDENTIFICADO),
+        ("   ", NO_IDENTIFICADO),
+        ("N/A", NO_IDENTIFICADO),
+        ("Desconocido", NO_IDENTIFICADO),
+        ("ninguno", NO_IDENTIFICADO),
+        ("no identificado", NO_IDENTIFICADO),
+        ("-", NO_IDENTIFICADO),
+    ],
+)
+def test_normalizar_responsable(valor, esperado):
+    assert normalizar_responsable(valor) == esperado
+
+
+@pytest.mark.parametrize(
+    ("responsable", "texto", "esperado"),
+    [
+        ("Operador", "El operador abre la válvula.", True),
+        ("El operador de turno", "lo hace el OPERADOR", True),  # ignora artículo y mayúsculas
+        ("Técnico", "soy Laura, técnica de mantenimiento", True),  # género
+        ("Supervisora", "avisen a los supervisores", True),  # género y número
+        ("Operador", "La operación se detiene.", False),  # otra palabra con la misma raíz corta
+        ("Supervisor", "Se abre la llave de paso.", False),
+    ],
+)
+def test_rol_mencionado(responsable, texto, esperado):
+    assert rol_mencionado(responsable, texto) is esperado
+
+
+# Cita exacta del segmento 4 (paso 1, segmentos 4–5), para partir de confianza "alta".
+CITA_PASO_1 = "me pongo los guantes de nitrilo"
+
+
+def _paso_1(analisis, responsable, cita=CITA_PASO_1):
+    propuestas = [propuesta(4, cita=cita, responsable=responsable), propuesta(6)]
+    return construir_pasos(propuestas, analisis)[0]
+
+
+def test_rol_dicho_en_la_introduccion_no_baja_la_confianza(analisis):
+    # "soy Laura, técnica de mantenimiento" está en el segmento 1, antes del primer paso.
+    paso = _paso_1(analisis, "técnica de mantenimiento")
+    assert (paso.responsable, paso.confianza, paso.fuente) == (
+        "Técnica de mantenimiento",
+        "alta",
+        "audio",
+    )
+
+
+def test_rol_dicho_dentro_del_paso_no_baja_la_confianza(analisis):
+    # "avisen al supervisor de turno" está en el segmento 8, dentro del paso 6–8.
+    propuestas = [
+        propuesta(4),
+        propuesta(6, cita="cierro la llave de paso", responsable="Supervisor"),
+    ]
+    paso = construir_pasos(propuestas, analisis)[1]
+    assert (paso.responsable, paso.confianza) == ("Supervisor", "alta")
+
+
+def test_rol_dicho_solo_en_otro_paso_baja_la_confianza(analisis):
+    # El supervisor se menciona en el paso 2 (segmento 8), no en el 3 ni en la introducción.
+    propuestas = [
+        propuesta(4),
+        propuesta(6),
+        propuesta(9, cita="libero la presión con el botón rojo", responsable="Supervisor"),
+    ]
+    paso = construir_pasos(propuestas, analisis)[2]
+    assert (paso.responsable, paso.confianza) == ("Supervisor", "media")
+
+
+@pytest.mark.parametrize(
+    ("cita", "confianza_cita", "esperada"),
+    [
+        (CITA_PASO_1, "alta", "media"),
+        ("abro la llave de paso despacio", "media", "baja"),  # cita de otro paso
+        ("cita inventada por el modelo", "baja", "baja"),  # baja no baja más
+    ],
+)
+def test_rol_inventado_se_conserva_y_baja_un_nivel(analisis, cita, confianza_cita, esperada):
+    assert verificar_cita(cita, analisis, (4, 5))[0] == confianza_cita
+    paso = _paso_1(analisis, "jefe de línea", cita=cita)
+    assert paso.responsable == "Jefe de línea"
+    assert paso.confianza == esperada
+    assert paso.fuente == verificar_cita(cita, analisis, (4, 5))[1]  # la fuente no cambia
+
+
+@pytest.mark.parametrize("responsable", ["", "  ", "desconocido", "No identificado"])
+def test_responsable_vacio_o_no_identificado_no_baja_la_confianza(analisis, responsable):
+    paso = _paso_1(analisis, responsable)
+    assert (paso.responsable, paso.confianza) == (NO_IDENTIFICADO, "alta")
+
+
+def test_el_log_cuenta_los_responsables_no_mencionados_sin_texto(analisis, caplog):
+    propuestas = [
+        propuesta(4, cita=CITA_PASO_1, responsable="Jefe de línea"),
+        propuesta(6, responsable="Supervisor"),
+    ]
+    with caplog.at_level(logging.INFO, logger="sopvid.percepcion.segmentacion"):
+        construir_pasos(propuestas, analisis)
+
+    # Las citas se cuentan antes de ajustar por el responsable.
+    assert "alta=1, media=0, baja=1; responsables no mencionados en el audio: 1" in caplog.text
+    assert "Jefe" not in caplog.text and "Supervisor" not in caplog.text
 
 
 # ── Esquema y petición a Ollama ──────────────────────────────────────────────────────────────
