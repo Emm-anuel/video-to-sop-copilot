@@ -18,12 +18,13 @@ Este módulo es Python puro (sin pandas) porque corre en la API.
 import logging
 import re
 import unicodedata
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
 
+from sopvid.contrato import Analisis, PasoVideo
 from sopvid.lenguaje.llm import ClienteLLM, LLMError
 
 logger = logging.getLogger(__name__)
@@ -171,8 +172,8 @@ def construir_mensajes(
     return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": usuario}]
 
 
-def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
-    """Convierte la respuesta del LLM en pasos o lanza `PropuestaInvalida`.
+def _validar_propuestas(datos: Any, ids_existentes: Collection[int]) -> list[PropuestaPaso]:
+    """Valida la respuesta del LLM o lanza `PropuestaInvalida`.
 
     Reglas: lista no vacía de objetos que cumplen `PropuestaPaso` (sin campos extra, como un
     tiempo inventado, y con nombre no vacío); ids que existen; orden estrictamente creciente (lo
@@ -180,8 +181,7 @@ def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
     """
     if not isinstance(datos, list) or not datos:
         raise PropuestaInvalida("la respuesta no es una lista con al menos un paso")
-    por_id = {s["id"]: s for s in segmentos}
-    pasos: list[Paso] = []
+    propuestas: list[PropuestaPaso] = []
     for i, d in enumerate(datos):
         if not isinstance(d, dict):
             raise PropuestaInvalida(f"el elemento {i} no es un objeto")
@@ -192,16 +192,75 @@ def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
                 f"{'.'.join(map(str, e['loc']))} ({e['type']})" for e in exc.errors()
             )
             raise PropuestaInvalida(f"el elemento {i} no cumple el esquema: {campos}") from None
-        sid = p.segmento_id
-        if sid not in por_id:
+        sid, anterior = p.segmento_id, propuestas[-1].segmento_id if propuestas else None
+        if sid not in ids_existentes:
             raise PropuestaInvalida(f"el segmento {sid} no existe")
-        if pasos and sid == pasos[-1].segmento_id:
+        if anterior is not None and sid == anterior:
             raise PropuestaInvalida(f"el segmento {sid} está duplicado")
-        if pasos and sid < pasos[-1].segmento_id:
-            raise PropuestaInvalida(f"orden no creciente: {pasos[-1].segmento_id} → {sid}")
-        t_inicio = float(por_id[sid]["t_inicio"])
-        pasos.append(Paso(sid, t_inicio, p.nombre, p.descripcion, p.responsable, p.cita))
-    return pasos
+        if anterior is not None and sid < anterior:
+            raise PropuestaInvalida(f"orden no creciente: {anterior} → {sid}")
+        propuestas.append(p)
+    return propuestas
+
+
+def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
+    """Convierte la respuesta del LLM en pasos (solo inicio) o lanza `PropuestaInvalida`."""
+    por_id = {s["id"]: s for s in segmentos}
+    return [
+        Paso(
+            p.segmento_id,
+            float(por_id[p.segmento_id]["t_inicio"]),
+            p.nombre,
+            p.descripcion,
+            p.responsable,
+            p.cita,
+        )
+        for p in _validar_propuestas(datos, por_id)
+    ]
+
+
+@dataclass(frozen=True)
+class _PasoConRango:
+    """Paso del video más los segmentos que abarca (inclusive), para verificar la cita."""
+
+    paso: PasoVideo
+    primer_segmento: int
+    ultimo_segmento: int
+
+
+def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConRango]:
+    segmentos = analisis.transcripcion
+    posicion = {s.id: i for i, s in enumerate(segmentos)}
+    validas = _validar_propuestas(propuestas, posicion)
+    # Cada paso termina en el segmento anterior al inicio del siguiente; el último, al final.
+    fines = [posicion[p.segmento_id] - 1 for p in validas[1:]] + [len(segmentos) - 1]
+
+    resultado = []
+    for numero, (p, i_fin) in enumerate(zip(validas, fines, strict=True), start=1):
+        primero, ultimo = segmentos[posicion[p.segmento_id]], segmentos[i_fin]
+        paso = PasoVideo(
+            numero=numero,
+            nombre=p.nombre,
+            descripcion=p.descripcion,
+            responsable=p.responsable,
+            t_inicio=primero.t_inicio,
+            t_fin=ultimo.t_fin,
+            cita=p.cita,
+            fuente="audio",  # provisional: se calcula al verificar la cita
+            confianza="baja",  # provisional
+        )
+        resultado.append(_PasoConRango(paso, primero.id, ultimo.id))
+    return resultado
+
+
+def construir_pasos(propuestas: Any, analisis: Analisis) -> list[PasoVideo]:
+    """Pasos del video a partir de la respuesta del LLM (JSON ya interpretado) y el análisis.
+
+    Valida igual que `validar_propuesta` y lanza `PropuestaInvalida`. Los tiempos salen solo
+    de la transcripción: `t_inicio` del segmento elegido y `t_fin` del último segmento antes del
+    siguiente paso (o del último de la transcripción). `numero` es la posición desde 1.
+    """
+    return [r.paso for r in _construir_con_rangos(propuestas, analisis)]
 
 
 def segmentar_con_llm(

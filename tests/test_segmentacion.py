@@ -8,12 +8,15 @@ from pathlib import Path
 import httpx
 import pytest
 
+from sopvid.contrato import Analisis, PasoVideo
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
 from sopvid.percepcion.segmentacion import (
     ESQUEMA_PASOS,
     NO_IDENTIFICADO,
     PropuestaInvalida,
+    _construir_con_rangos,
     construir_mensajes,
+    construir_pasos,
     empieza_con_marcador,
     f1_fronteras,
     segmentar,
@@ -22,6 +25,7 @@ from sopvid.percepcion.segmentacion import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "transcripciones"
+ANALISIS_EJEMPLO = Path(__file__).parent / "fixtures" / "analisis_ejemplo.json"
 ETIQUETAS = {"maquina": "cortadora", "area": "conversión", "proceso": "cambio de cuchilla"}
 
 SEGMENTOS = [
@@ -202,6 +206,96 @@ def test_por_defecto_prompt_v1_y_la_regla_de_aclaraciones_es_opcional():
     assert por_defecto == v1  # v2 se probó en la Fase 4 y se descartó (ADR-010)
     assert "aclaraciones, advertencias" not in v1
     assert "aclaraciones, advertencias" in v2
+
+
+# ── Pasos del video (construir_pasos) ────────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def analisis() -> Analisis:
+    return Analisis.model_validate_json(ANALISIS_EJEMPLO.read_text(encoding="utf-8"))
+
+
+def test_construir_pasos_calcula_tiempos_desde_los_segmentos(analisis):
+    propuestas = [
+        propuesta(4, "Ponerse guantes y lentes", responsable="Técnica"),
+        propuesta(12, "Retirar la carcasa"),
+        propuesta(21, "Abrir la llave y revisar fugas", responsable=""),
+    ]
+    pasos = construir_pasos(propuestas, analisis)
+
+    # Segmentos 4–11, 12–20 y 21–25 del fixture (tests/fixtures/README.md).
+    assert [(p.numero, p.t_inicio, p.t_fin) for p in pasos] == [
+        (1, 20.45, 73.56),
+        (2, 74.76, 125.62),
+        (3, 127.32, 156.29),
+    ]
+    assert [p.nombre for p in pasos] == [
+        "Ponerse guantes y lentes",
+        "Retirar la carcasa",
+        "Abrir la llave y revisar fugas",
+    ]
+    assert [p.responsable for p in pasos] == ["Técnica", "Técnico", NO_IDENTIFICADO]
+    assert all(p.fuente == "audio" and p.confianza == "baja" for p in pasos)  # provisionales
+    assert all(isinstance(p, PasoVideo) for p in pasos)
+
+
+def test_construir_pasos_guarda_el_rango_de_segmentos_fuera_de_paso_video(analisis):
+    propuestas = [propuesta(4), propuesta(12), propuesta(21)]
+    rangos = _construir_con_rangos(propuestas, analisis)
+
+    assert [(r.primer_segmento, r.ultimo_segmento) for r in rangos] == [(4, 11), (12, 20), (21, 25)]
+    assert "segmento" not in " ".join(PasoVideo.model_fields)
+
+
+def test_un_solo_paso_abarca_hasta_el_final(analisis):
+    (paso,) = construir_pasos([propuesta(1, "Todo el procedimiento")], analisis)
+    assert (paso.numero, paso.t_inicio, paso.t_fin) == (1, 0.4, 156.29)
+
+
+def test_construir_pasos_con_ids_no_consecutivos():
+    analisis = Analisis(
+        video_id=9,
+        duracion_s=40.0,
+        idioma={"codigo": "es", "confianza": 0.9},
+        transcripcion=[
+            {"id": i, "t_inicio": t, "t_fin": t + 5.0, "texto": "x"}
+            for i, t in ((10, 0.0), (20, 10.0), (30, 20.0), (40, 30.0))
+        ],
+    )
+    pasos = construir_pasos([propuesta(10), propuesta(30)], analisis)
+    assert [(p.t_inicio, p.t_fin) for p in pasos] == [(0.0, 15.0), (20.0, 35.0)]
+
+
+@pytest.mark.parametrize(
+    ("ids", "motivo"),
+    [
+        ([4, 99], "el segmento 99 no existe"),
+        ([4, 4], "el segmento 4 está duplicado"),
+        ([12, 4], "orden no creciente: 12 → 4"),
+    ],
+    ids=["inexistente", "duplicado", "decreciente"],
+)
+def test_construir_pasos_rechaza_ids_invalidos(analisis, ids, motivo):
+    with pytest.raises(PropuestaInvalida, match=motivo):
+        construir_pasos([propuesta(i) for i in ids], analisis)
+
+
+def test_construir_pasos_rechaza_propuestas_vacias_o_sin_nombre(analisis):
+    with pytest.raises(PropuestaInvalida, match="al menos un paso"):
+        construir_pasos([], analisis)
+    with pytest.raises(PropuestaInvalida, match=r"nombre \(value_error\)"):
+        construir_pasos([propuesta(4, " ")], analisis)
+
+
+def test_ningun_tiempo_de_construir_pasos_sale_del_llm(analisis):
+    with pytest.raises(PropuestaInvalida, match=r"t_inicio \(extra_forbidden\)"):
+        construir_pasos([propuesta(4, t_inicio=1.0), propuesta(12)], analisis)
+
+    pasos = construir_pasos([propuesta(4), propuesta(12), propuesta(21)], analisis)
+    inicios = {s.t_inicio for s in analisis.transcripcion}
+    fines = {s.t_fin for s in analisis.transcripcion}
+    assert all(p.t_inicio in inicios and p.t_fin in fines for p in pasos)
 
 
 # ── Esquema y petición a Ollama ──────────────────────────────────────────────────────────────
