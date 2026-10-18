@@ -1,5 +1,6 @@
 """Segmentación en pasos con LLM simulado (httpx.MockTransport): no requiere Ollama ni GPU."""
 
+import inspect
 import json
 import logging
 import re
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from pydantic import TypeAdapter
 
 from sopvid.contrato import Analisis, PasoVideo
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
@@ -15,6 +17,7 @@ from sopvid.percepcion.segmentacion import (
     NO_IDENTIFICADO,
     PropuestaInvalida,
     _construir_con_rangos,
+    _texto_comparable,
     cargar_transcripcion_prueba,
     construir_mensajes,
     construir_pasos,
@@ -178,16 +181,6 @@ def test_llm_caido_cae_a_la_heuristica(error):
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
     assert r.intentos == 1  # el cliente reintenta la red una vez por dentro; aquí no se repite
-
-
-def test_json_roto_cae_a_la_heuristica_sin_reintentos():
-    peticiones = []
-    with cliente_que_responde('[{"segmento_id": 2, "tit', peticiones=peticiones) as llm:
-        r = segmentar(ANALISIS, llm, ETIQUETAS)
-
-    assert r.metodo == "heuristica"
-    assert "LLMRespuestaInvalida" in r.motivo_respaldo
-    assert len(peticiones) == r.intentos == 1
 
 
 def test_sin_cliente_usa_la_heuristica():
@@ -854,3 +847,170 @@ def test_las_transcripciones_de_prueba_corren_por_segmentar(archivo):
     assert r.metodo == "heuristica" and r.pasos
     assert r.pasos[-1].t_fin == a.transcripcion[-1].t_fin
     assert segmentos_de_inicio(r.pasos, a)[0] >= a.transcripcion[0].id
+
+
+# ── Extracción de pasos sobre analisis_ejemplo.json (RF-13, de punta a punta) ───────────────
+
+# Respuesta simulada del LLM sobre el fixture: los 6 inicios reales (tests/fixtures/README.md)
+# con citas copiadas de sus segmentos y el rol que la narradora dice en la introducción.
+PROPUESTA_EJEMPLO = [
+    (4, "Ponerse guantes y lentes", "me pongo los guantes de nitrilo y los lentes de seguridad"),
+    (6, "Cerrar la llave de paso", "cierro la llave de paso que está antes del filtro"),
+    (9, "Liberar la presión", "libero la presión con el botón rojo"),
+    (12, "Retirar la carcasa y el cartucho", "giro el vaso hacia la izquierda para aflojarlo"),
+    (17, "Colocar el cartucho nuevo", "tomo el cartucho nuevo y le quito el plástico"),
+    (21, "Abrir la llave y revisar fugas", "abro la llave de paso despacio"),
+]
+RESPUESTA_EJEMPLO = json.dumps(
+    [
+        propuesta(sid, nombre, cita=cita, responsable="Técnica de mantenimiento")
+        for sid, nombre, cita in PROPUESTA_EJEMPLO
+    ],
+    ensure_ascii=False,
+)
+JSON_ROTO = '[{"segmento_id": 4, "nombre": "Ponerse'
+
+# SOP de prueba INVENTADO, solo para comprobar que nunca llega al LLM (sección 5.3).
+SOP_PRUEBA = [
+    "SOP-FA-07 · Cambio del cartucho del filtro de agua",
+    "Colocarse guantes de nitrilo y lentes de seguridad antes de iniciar",
+    "Cerrar la válvula de aislamiento aguas arriba del filtro",
+    "Despresurizar la carcasa mediante la válvula de purga superior",
+    "Retirar el vaso y desechar el cartucho saturado",
+    "Instalar el cartucho nuevo y apretar 1/4 de vuelta",
+    "Restablecer el flujo y verificar ausencia de fugas durante 2:00 min",
+]
+
+
+def _extraer(analisis, respuestas):
+    peticiones = []
+    with cliente_en_secuencia(respuestas, peticiones) as llm:
+        return segmentar(analisis, llm), peticiones
+
+
+def test_salida_valida_da_paso_video_con_tiempos_del_indice_y_confianza_alta(analisis):
+    r, peticiones = _extraer(analisis, [RESPUESTA_EJEMPLO])
+
+    assert (r.metodo, r.intentos, len(peticiones)) == ("llm", 1, 1)
+    assert segmentos_de_inicio(r.pasos, analisis) == [4, 6, 9, 12, 17, 21]
+    # Inicio del segmento elegido y fin del último antes del siguiente paso (README).
+    assert [(p.numero, p.t_inicio, p.t_fin) for p in r.pasos] == [
+        (1, 20.45, 31.64),
+        (2, 33.44, 53.91),
+        (3, 55.51, 73.56),
+        (4, 74.76, 103.4),
+        (5, 104.9, 125.62),
+        (6, 127.32, 156.29),
+    ]
+    assert all((p.confianza, p.fuente) == ("alta", "audio") for p in r.pasos)
+    assert all(p.responsable == "Técnica de mantenimiento" for p in r.pasos)
+    assert [p.cita for p in r.pasos] == [cita for _, _, cita in PROPUESTA_EJEMPLO]
+
+
+def test_cita_inventada_da_confianza_baja_y_fuente_inferido(analisis):
+    datos = json.loads(RESPUESTA_EJEMPLO)
+    datos[2]["cita"] = "se purga el aire con la válvula de alivio"  # no está en el audio
+    r, _ = _extraer(analisis, [json.dumps(datos)])
+
+    assert r.metodo == "llm"
+    assert (r.pasos[2].confianza, r.pasos[2].fuente) == ("baja", "inferido")
+    assert all(p.confianza == "alta" for i, p in enumerate(r.pasos) if i != 2)
+
+
+def test_segmento_inexistente_se_reintenta_y_se_corrige(analisis):
+    datos = json.loads(RESPUESTA_EJEMPLO)
+    datos[3]["segmento_id"] = 99
+    r, peticiones = _extraer(analisis, [json.dumps(datos), RESPUESTA_EJEMPLO])
+
+    assert (r.metodo, r.intentos) == ("llm", 2)
+    assert "el segmento 99 no existe" in peticiones[1]["messages"][-1]["content"]
+
+
+def test_segmento_inexistente_que_persiste_cae_a_la_heuristica(analisis):
+    datos = json.loads(RESPUESTA_EJEMPLO)
+    datos[3]["segmento_id"] = 99
+    r, peticiones = _extraer(analisis, [json.dumps(datos)] * 3)
+
+    assert (r.metodo, r.intentos, len(peticiones)) == ("heuristica", 3, 3)
+    assert "el segmento 99 no existe (tras 3 intentos)" in r.motivo_respaldo
+    assert r.pasos == segmentar_heuristica(analisis)
+
+
+def test_json_invalido_se_reintenta_con_el_error_en_el_prompt(analisis):
+    r, peticiones = _extraer(analisis, [JSON_ROTO, RESPUESTA_EJEMPLO])
+
+    assert (r.metodo, r.intentos, len(r.pasos)) == ("llm", 2, 6)
+    segunda = peticiones[1]["messages"]
+    # El cliente no expone el texto roto: se agrega solo la corrección.
+    assert [m["role"] for m in segunda] == ["system", "user", "user"]
+    assert segunda[:2] == peticiones[0]["messages"]
+    assert "no devolvió JSON válido" in segunda[-1]["content"]
+    assert f"{len(JSON_ROTO)} caracteres" in segunda[-1]["content"]
+
+
+def test_json_invalido_tres_veces_cae_a_la_heuristica(analisis):
+    r, peticiones = _extraer(analisis, [JSON_ROTO, json.dumps([propuesta(99)]), JSON_ROTO])
+
+    assert (r.metodo, r.intentos, len(peticiones)) == ("heuristica", 3, 3)
+    assert "no devolvió JSON válido" in r.motivo_respaldo
+    assert "tras 3 intentos" in r.motivo_respaldo
+    # Tercera llamada: corrección del JSON roto; respuesta y corrección del segmento 99.
+    assert [m["role"] for m in peticiones[2]["messages"]] == [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "user",
+    ]
+
+
+def test_la_extraccion_nunca_recibe_el_sop_ni_tiempos(analisis):
+    datos = json.loads(RESPUESTA_EJEMPLO)
+    datos[0]["segmento_id"] = 99
+    _, peticiones = _extraer(analisis, [JSON_ROTO, json.dumps(datos), RESPUESTA_EJEMPLO])
+
+    # Ninguna función de la extracción admite un SOP.
+    for funcion in (segmentar, segmentar_con_llm, construir_mensajes, construir_pasos):
+        assert not any("sop" in p.lower() for p in inspect.signature(funcion).parameters)
+
+    assert len(peticiones) == 3  # original, tras JSON roto y tras segmento inexistente
+    for peticion in peticiones:
+        enviado = " ".join(m["content"] for m in peticion["messages"])
+        comparable = _texto_comparable(enviado)
+        for linea in SOP_PRUEBA:
+            assert _texto_comparable(linea) not in comparable
+        assert "SOP" not in enviado
+        assert not re.search(r"\d+[.:]\d+", enviado), "un número con formato de tiempo"
+        assert "t_inicio" not in json.dumps(peticion["format"])
+
+
+def test_el_resultado_valida_contra_paso_video_y_se_serializa(analisis):
+    r, _ = _extraer(analisis, [RESPUESTA_EJEMPLO])
+    heuristica = segmentar_heuristica(analisis)
+
+    lista = TypeAdapter(list[PasoVideo])
+    for pasos in (r.pasos, heuristica):
+        texto = lista.dump_json(pasos).decode()
+        assert lista.validate_json(texto) == pasos
+        for p, crudo in zip(pasos, json.loads(texto), strict=True):
+            assert set(crudo) == set(PasoVideo.model_fields)
+            assert PasoVideo.model_validate(crudo) == p
+
+
+def test_misma_entrada_y_misma_respuesta_dan_el_mismo_resultado(analisis):
+    for respuestas in ([RESPUESTA_EJEMPLO], [JSON_ROTO, RESPUESTA_EJEMPLO], [JSON_ROTO] * 3):
+        r1, peticiones1 = _extraer(analisis, respuestas)
+        r2, peticiones2 = _extraer(analisis, respuestas)
+
+        assert r1 == r2
+        assert peticiones1 == peticiones2  # mismos mensajes, esquema, temperatura y semilla
+
+
+def test_segmentar_con_llm_devuelve_paso_video(analisis):
+    with cliente_en_secuencia([RESPUESTA_EJEMPLO], []) as llm:
+        pasos = segmentar_con_llm(analisis, llm)
+    assert [p.numero for p in pasos] == [1, 2, 3, 4, 5, 6]
+
+
+def test_un_rol_que_solo_trae_articulos_no_cuenta_como_mencionado():
+    assert rol_mencionado("El", "el operador") is False

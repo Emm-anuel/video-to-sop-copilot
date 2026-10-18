@@ -30,7 +30,7 @@ from typing import Any, Generic, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
 
 from sopvid.contrato import Analisis, Confianza, Fuente, PasoVideo, Segmento
-from sopvid.lenguaje.llm import ClienteLLM, LLMError
+from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMRespuestaInvalida
 
 logger = logging.getLogger(__name__)
 
@@ -400,30 +400,35 @@ def _pedir_con_reintentos(
     llm: ClienteLLM,
     convertir: Callable[[Any], T],
 ) -> _Resultado[T]:
-    """Llama al LLM y convierte su respuesta; si `convertir` lanza `PropuestaInvalida`, reintenta.
+    """Llama al LLM y convierte su respuesta; si no es válida, reintenta.
 
-    Cada reintento agrega la respuesta anterior como "assistant" y un "user" con el motivo
-    (`mensaje_de_correccion`). La temperatura y la semilla son las fijas del cliente. Un
-    `LLMError` (Ollama caído, JSON roto, petición rechazada) no se reintenta.
+    Se reintenta si `convertir` lanza `PropuestaInvalida` o si el modelo no devolvió JSON
+    válido (`LLMRespuestaInvalida`). Cada reintento agrega la respuesta anterior como
+    "assistant" (si se pudo leer; el cliente no expone el texto de un JSON roto) y un "user" con
+    el motivo (`mensaje_de_correccion`). La temperatura y la semilla son las fijas del cliente.
+    Los demás `LLMError` (Ollama caído, petición rechazada) no se reintentan.
     """
     historial = list(mensajes)
     error: PropuestaInvalida | None = None
     for intento in range(1, MAX_INTENTOS + 1):
+        anterior: str | None = None
         try:
             respuesta = llm.chat(historial, esquema=ESQUEMA_PASOS)
+        except LLMRespuestaInvalida as exc:
+            error = PropuestaInvalida(str(exc))  # sin texto: solo longitud y done_reason
         except LLMError as exc:
             return _Resultado(None, intento, exc)
-        try:
-            return _Resultado(convertir(respuesta.datos), intento, None)
-        except PropuestaInvalida as exc:
-            error = exc
-            logger.warning(
-                "Propuesta del LLM inválida (intento %d de %d): %s", intento, MAX_INTENTOS, exc
-            )
-            historial += [
-                {"role": "assistant", "content": respuesta.texto},
-                {"role": "user", "content": mensaje_de_correccion(exc)},
-            ]
+        else:
+            try:
+                return _Resultado(convertir(respuesta.datos), intento, None)
+            except PropuestaInvalida as exc:
+                error, anterior = exc, respuesta.texto
+        logger.warning(
+            "Propuesta del LLM inválida (intento %d de %d): %s", intento, MAX_INTENTOS, error
+        )
+        if anterior is not None:
+            historial.append({"role": "assistant", "content": anterior})
+        historial.append({"role": "user", "content": mensaje_de_correccion(error)})
     return _Resultado(
         None, MAX_INTENTOS, PropuestaInvalida(f"{error} (tras {MAX_INTENTOS} intentos)")
     )
@@ -447,8 +452,9 @@ def segmentar_con_llm(
     *,
     regla_aclaraciones: bool = False,
 ) -> list[PasoVideo]:
-    """Pasos propuestos por el LLM, con hasta `MAX_INTENTOS` llamadas si la propuesta no es
-    válida. Lanza `LLMError` (sin reintentar) o `PropuestaInvalida` con el último motivo."""
+    """Pasos propuestos por el LLM, con hasta `MAX_INTENTOS` llamadas si la propuesta (o su
+    JSON) no es válida. Lanza `LLMError` si Ollama falla (sin reintentar) o
+    `PropuestaInvalida` con el último motivo."""
     r = _segmentar_con_llm(analisis, llm, etiquetas, regla_aclaraciones=regla_aclaraciones)
     if r.error is not None:
         raise r.error
@@ -574,9 +580,10 @@ def segmentar(
 ) -> Segmentacion:
     """Pasos del video: LLM si está y responde bien; si no, la heurística. Registra el camino.
 
-    Una propuesta inválida se reintenta hasta completar `MAX_INTENTOS` llamadas; si el LLM no
-    responde, se va directo a la heurística (RNF-07). `Segmentacion.intentos` cuenta las
-    llamadas hechas al LLM. Las etiquetas son opcionales (la ficha de contexto llega en S5).
+    Una propuesta inválida o con JSON roto se reintenta hasta completar `MAX_INTENTOS`
+    llamadas; si el LLM no responde, se va directo a la heurística (RNF-07).
+    `Segmentacion.intentos` cuenta las llamadas hechas al LLM. Las etiquetas son opcionales (la
+    ficha de contexto llega en S5).
     """
     intentos = 0
     if not analisis.transcripcion:
