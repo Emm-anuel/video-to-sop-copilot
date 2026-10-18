@@ -126,3 +126,123 @@ y parte de más en otra). **Se descarta como valor por defecto**: el prototipo u
 - La sobre-segmentación de `gemma4:e4b` produciría pasos *Sobra* falsos. Mitigación (ADR-013): antes
   de emparejar, se fusionan pasos consecutivos del video cuyo mejor paso del SOP es el mismo.
 - El seguimiento de F2 se hace con los videos de prueba A–E grabados y anotados por el equipo.
+
+## Ampliación 19 oct (RF-13)
+
+Implementado en la rama `feat/pasos-video`. El contrato vive en
+[src/sopvid/contrato.py](../../src/sopvid/contrato.py) y el esquema de entrada en
+[docs/contrato/analisis.schema.json](../contrato/analisis.schema.json), generado con
+`python scripts/exportar_contrato.py` (un test falla si deja de coincidir con el modelo).
+
+### Esquema de salida: `PropuestaPaso` → `PasoVideo`
+
+- **Entrada:** `Analisis` (versión 1 del contrato): `video_id`, `duracion_s`, `idioma`,
+  `transcripcion` (segmentos con `id`, `t_inicio`, `t_fin`, `texto` y `palabras`) y `fotogramas`.
+  Campos extra prohibidos, tiempos ≥ 0, ids de segmento estrictamente crecientes y segmentos sin
+  solaparse.
+- **Lo que responde el LLM:** `list[PropuestaPaso]` con `segmento_id`, `nombre`, `descripcion`,
+  `responsable` y `cita`. El JSON Schema del parámetro `format` de Ollama se genera desde Pydantic y
+  se aplana (sin `$ref`). Con Ollama 0.40.2 funcionan el esquema plano y el que lleva `$ref`; se usa
+  el plano por robustez. Cualquier campo extra, por ejemplo un `t_inicio`, invalida la propuesta.
+- **Lo que devuelve `segmentar(analisis, llm, etiquetas=None)`:** `Segmentacion` con
+  `list[PasoVideo]` (`numero`, `nombre`, `descripcion`, `responsable`, `t_inicio`, `t_fin`, `cita`,
+  `fuente`, `confianza`) por el LLM y por la heurística, más `metodo`, `motivo_respaldo`, `modelo` e
+  `intentos`. Las etiquetas son opcionales: la ficha de contexto llega en S5.
+- **Sin SOP:** ninguna función de la extracción tiene un parámetro para el SOP. Un test revisa que
+  ningún mensaje enviado al LLM, ni en los reintentos, contenga texto de un SOP de prueba ni números
+  con formato de tiempo.
+
+### Regla de tiempos
+
+Todos los tiempos salen del índice de la transcripción, nunca del LLM:
+
+- `t_inicio`: el del segmento elegido.
+- `t_fin`: el del último segmento antes del inicio del siguiente paso; para el último paso, el del
+  último segmento de la transcripción.
+- `numero`: la posición del paso, desde 1.
+
+### Confianza por cita (RNF-06)
+
+La cita y la transcripción se normalizan igual que en la heurística (minúsculas, sin acentos ni
+puntuación, espacios colapsados) y la cita se busca como secuencia contigua de palabras completas.
+
+| Dónde aparece la cita | `confianza` | `fuente` |
+|---|---|---|
+| En los segmentos del paso (puede cruzar de un segmento al siguiente) | alta | audio |
+| En otra parte de la transcripción (incluye una cita que cruza la frontera del paso) | media | audio |
+| En ninguna parte, o cita vacía | baja | inferido |
+
+`visual` queda reservado para la evidencia de fotogramas (S5).
+
+### Regla de responsable (ADR-008, sin diarización)
+
+- El rol se recorta y se capitaliza (se conservan siglas). Un valor vacío o de relleno
+  ("desconocido", "n/a", "ninguno"…) pasa a "No identificado".
+- Si el sustantivo del rol (por ejemplo "operador" en "Operador de turno") no se dice en los
+  segmentos del paso ni en la introducción (lo anterior al primer paso), el rol se conserva pero la
+  confianza del paso baja un nivel: alta → media, media → baja. La comparación tolera género y
+  número (técnico/técnica, supervisor/supervisores). "No identificado" no baja nada.
+
+### Reintentos (RNF-07)
+
+- Hasta 3 llamadas. Si la propuesta no pasa la validación o el JSON viene roto, se reenvía la
+  conversación con la respuesta anterior como "assistant" (si se pudo leer) y un "user" con el
+  motivo resumido: campo, tipo de error e ids, nunca texto de la transcripción.
+- Temperatura 0 y semilla 42 en todas las llamadas.
+- Si Ollama no responde o rechaza la petición, se va directo a la heurística, sin reintentar.
+- `Segmentacion.intentos` registra las llamadas hechas.
+
+### Heurística de respaldo
+
+Mismos cortes que en la Fase 4: marcadores de transición y pausas ≥ 3 s, con los mismos parámetros.
+Se verificó que reproduce los cortes guardados en `fase4.json`. Ahora devuelve `PasoVideo` con la
+misma regla de tiempos:
+
+- **nombre:** las primeras palabras del primer segmento.
+- **descripción:** el texto del paso recortado a unos 300 caracteres.
+- **responsable:** "No identificado".
+- **cita:** hasta 15 palabras del primer segmento.
+- **fuente y confianza:** siempre `audio` y `baja`.
+
+### Resultados contra la Fase 4 (18 oct 2026)
+
+`gemma4:e4b-it-q4_K_M`, prompt v1 ampliado (cortes + descripción, responsable y cita), 43/43 capas
+en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana). Datos crudos en
+[datos/segmentacion/pasos_video.json](datos/segmentacion/pasos_video.json). **Resultado indicativo
+(n=3 + 1).**
+
+| Mismas 3 transcripciones | F1 ±1 segmento | F1 ±2 s | Falsos positivos | No detectados | s por transcripción |
+|---|---|---|---|---|---|
+| Fase 4 (prompt de 2 campos) | **0.741** | 0.691 | 21 | 0 | 5.2 |
+| RF-13 (prompt de 5 campos) | **0.645** | 0.602 | 33 | 0 | 18.9 |
+
+| Transcripción | F1 Fase 4 | F1 RF-13 | % alta / media / baja | Intentos promedio | Caídas a la heurística |
+|---|---|---|---|---|---|
+| cambio_cuchilla | 0.800 | 0.615 | 4 / 96 / 0 | 1.00 | 0 |
+| cambio_filtro_hidraulico | 0.581 | 0.581 | 42 / 58 / 0 | 1.00 | 0 |
+| limpieza_cip_tanque | 0.900 | 0.783 | 14 / 86 / 0 | 1.00 | 0 |
+| analisis_ejemplo | — | 0.632 | 100 / 0 / 0 | 1.00 | 0 |
+
+**De dónde viene la diferencia:**
+
+- **El entorno no cambió.** El prompt de 2 campos, corrido el mismo día con el mismo modelo,
+  reproduce la Fase 4: 0.800 / 0.581 / 0.900.
+- **La caída viene del prompt ampliado.** Al redactar cinco campos por paso, el modelo parte más:
+  30 inicios en lugar de 18 en la cuchilla y 14 en lugar de 11 en el CIP. Sigue sin perder pasos
+  reales, escribe de 3 a 4 veces más tokens y tarda unas 4 veces más.
+- **La confianza `media` no viene de las citas.** Antes del ajuste por responsable, el 100 % de las
+  citas es literal. Lo que baja la confianza es que el modelo escribe "Operador", el ejemplo del
+  prompt, aunque nadie lo diga en el audio. En `analisis_ejemplo` la narradora dice su rol, y por eso
+  sale 100 % `alta`.
+- **El largo de la cita no se cumple siempre.** En el filtro, 14 de 21 citas quedaron fuera de 4 a
+  15 palabras; todavía no se exige.
+
+**Opciones, pendientes de decisión:**
+
+- **A · Dos llamadas (recomendada).** Una para las fronteras, con el prompt de 2 campos que mide
+  0.74, y otra para redactar descripción, responsable y cita con los rangos ya fijados por código.
+  En la segunda se quita el ejemplo de rol que ancla "Operador".
+- **B · Una llamada con dos bloques.** El esquema pide primero los inicios y después la redacción.
+- **C · Dejarlo así y confiar en la fusión de ADR-013.** Solo ayuda cuando hay SOP.
+
+El ADR sigue **Propuesto** hasta medir la opción elegida con `scripts/evaluar_segmentacion.py`.
