@@ -26,6 +26,11 @@ video → audio + fotogramas → transcripción con tiempos → contexto → pas
 Requerimientos con ID (RF-01 a RF-37, RNF-01 a RNF-16): el documento del patrocinador. Alcance y
 decisiones: @docs/plan/plan.md.
 
+**Primer hito: MVP de validación (8 nov 2026, plan §5.1).** Video + SOP en TXT/Markdown → transcripción
+→ pasos del video → emparejamiento → reporte con porcentaje y segundo, solo con voz. Hasta que los
+videos de prueba A y B den el resultado esperado, prioriza ese camino sobre fotogramas, PDF, búsqueda o
+pantallas adicionales.
+
 El sistema se construye **desde cero**: el código del POC del patrocinador no se entregó
 (ADR-001, pendiente de confirmación escrita). El POC solo es referencia funcional.
 

@@ -25,15 +25,20 @@ académicos hasta el 1 nov.
 ## Decisión
 
 **B.** Entran los 29 *Debe*; de los *Debería*, RF-04, RF-25, RF-31 y RF-37; de los *Podría*, RF-16
-(tiempos) y RF-35 (unir resultados a menos de 3 s). RF-18 y RF-21 entran solo si la validación está
-estable el 8 nov. RF-28 (diagrama de flujo, glosario, preguntas pendientes) queda fuera.
+(tiempos) y RF-35 (unir resultados a menos de 3 s). RF-18 y RF-21 entran solo si hay tiempo en S7.
+RF-28 (diagrama de flujo, glosario, preguntas pendientes) queda fuera.
+
+**Primer hito: MVP de validación (8 nov).** RF-03 (SOP en TXT o Markdown), RF-06 (sin partes),
+RF-09, RF-10, RF-13, RF-14, RF-19 y RF-20, solo con voz. Criterio: el video A da ≥ 90 % sin *Falta* y el
+video B da 2 *Falta* y 1 *Sobra* con su segundo. Va primero porque es lo más riesgoso y lo que miden las
+pruebas; el resto se construye encima (orden en el plan, §5.1).
 
 ## Consecuencias
 
 - **Positivas:** los 5 videos de prueba (sección 14) se pueden evaluar completos.
 - **Negativas / riesgos:** sin RF-18 la validación no revisa EPP paso por paso; sin RF-21 no se marcan
   falsos positivos en la app.
-- **Seguimiento:** revisión en el checkpoint del 8 nov. Responsable y semana por requerimiento en
+- **Seguimiento:** revisión en el hito del MVP (8 nov). Responsable y semana por requerimiento en
   `docs/plan/plan.md` §5.
 
 ## Referencias

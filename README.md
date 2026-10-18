@@ -14,6 +14,8 @@ Aplicación web que analiza el video de un operador narrando su trabajo, según 
 2. **Crear el SOP desde el video.** Si no hay SOP, lo redacta en español (cuadro resumen, tabla de pasos, palabras clave) para corregirlo, guardarlo en la biblioteca y descargarlo en PDF.
 3. **Buscar.** Una vista tipo chat busca una palabra o frase en los videos publicados y salta al segundo exacto.
 
+**Primer hito: MVP de validación (8 nov 2026).** Un video y un SOP en Markdown entran; sale el reporte de pasos (Cumple, Parcial, Falta, Sobra, Fuera de orden) con el porcentaje y el segundo de cada hallazgo. Solo voz. Después se agregan el SOP generado, personas y tiempos, fotogramas, PDF y búsqueda ([plan §5.1](docs/plan/plan.md#51-mvp-de-validación-hito-del-8-nov)).
+
 El código se construye desde cero: el código del POC no se entregó y el patrocinador indicó seguir con la arquitectura propia (13 oct 2026). Ver [ADR-001](docs/adr/ADR-001-herencia.md) y el [plan](docs/plan/plan.md).
 
 Proyecto Integrador (TC5035) · Maestría en Inteligencia Artificial Aplicada · Tecnológico de Monterrey.

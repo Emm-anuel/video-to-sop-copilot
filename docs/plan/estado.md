@@ -34,12 +34,12 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 |---|---|
 | **Dom 18 oct, 23:59** | **Avance 3** (baseline) desde `build_features` |
 | Lun 19 oct | Junta con Jorge: informar decisiones y preguntar la fecha de la demo ([plan §10](plan.md#10-para-la-junta-del-lunes-19-oct)) |
-| S2 | Fusionar `feat/llm-spike` a `main`; repo privado; tablas del documento en Postgres; grabar videos A–E |
-| S2 | Redactar ADR-002, 003, 004, 005, 008, 011, 012, 013 y 014 |
+| S2 | Fusionar `feat/llm-spike` a `main`; repo privado; tablas `videos`, `sops`, `reportes`; grabar videos A–E |
 | Dom 25 oct | Avance 4 |
 | Dom 1 nov | Avance 5 |
-| Dom 8 nov | ✓ Validación estable con los videos A–D |
-| Dom 15 nov | ✓ App completa en Docker con los 5 videos |
+| Dom 8 nov | ✓ **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)) |
+| Dom 15 nov | ✓ SOP generado, personas, tiempos y afinidad: pasan los videos C, D y E |
+| Dom 22 nov | ✓ App completa en Docker en máquina limpia |
 
 ## Resumen en dos frases
 

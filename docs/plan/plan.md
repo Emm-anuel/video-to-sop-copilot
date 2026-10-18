@@ -24,6 +24,11 @@ producto deja de ser "búsqueda y chat sobre pasos" y pasa a ser una app web que
 Todo corre local con Docker. La transcripción, la visión y el LLM son modelos abiertos servidos en la
 misma máquina (opción B de la sección 8.1 del documento). Ningún video sale y no se paga ninguna API.
 
+**Primer hito: MVP de validación (8 nov).** Un video y un SOP en Markdown entran; sale el reporte de
+pasos con su segundo. Solo voz, sin fotogramas, PDF ni búsqueda. Se hace primero porque es lo más
+difícil y lo que miden los videos de prueba; el SOP generado y la búsqueda reutilizan lo mismo después
+(sección 5.1).
+
 **Qué se conserva de lo hecho:** F0 (API, Postgres, Docker, CI), el cliente del LLM y Ollama en Docker
 (ADR-006), la segmentación por segmentos numerados (ADR-010), la regla de que el LLM nunca escribe un
 tiempo, `sopvid.features` para los avances y el MiniLM multilingüe investigado.
@@ -82,7 +87,7 @@ Subida (partes de 16 MB, reintentos) ── SOP nuevo: pdfplumber / python-docx 
 | Archivos | Volumen de medios | Videos, SOP originales, fotogramas, miniaturas, PDF |
 | Transcripción | faster-whisper `large-v3-turbo` (GPU, float16); `small` (CPU, int8) | Tiempo por palabra, VAD |
 | LLM y visión | Ollama 0.40.2 · `gemma4:e4b-it-q4_K_M` · JSON Schema · temperatura 0 · semilla 42 | Mismo modelo para texto e imágenes |
-| Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + `scipy.optimize.linear_sum_assignment` | Umbrales en `config`: 0.55 / 0.75 |
+| Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` (CPU) + `scipy.optimize.linear_sum_assignment` | Umbrales en `config`: 0.55 / 0.75; detalle en §5.3 |
 | Salidas | ReportLab, qrcode | Carta, español, encabezado y "Página X de Y" |
 
 **Interfaces** (proveedor elegido por configuración, RNF-14): `Transcriptor.transcribir`,
@@ -125,23 +130,85 @@ El SOP y el reporte usan los esquemas de la sección 10 del documento SOP V1.0 s
 
 - **Entran los 29 *Debe*.**
 - ***Debería*:** entran RF-04 (corregir SOP convertido), RF-25 (confianza y fuente), RF-31 (TXT, SRT,
-  JSON) y RF-37 (filtros). RF-18 (EPP) y RF-21 (falso positivo) solo si la validación está estable el 8 nov.
+  JSON) y RF-37 (filtros). RF-18 (EPP) y RF-21 (falso positivo) solo si hay tiempo en S7.
 - ***Podría*:** entran RF-16 (tiempos, lo evalúa el video C) y RF-35 (unir resultados a < 3 s).
   RF-28 (diagrama, glosario) queda fuera.
 - **Fuera:** todo lo de la columna derecha de la sección 2 del documento, más diarización (PR-04) y
   búsqueda semántica (PR-08).
 
+### 5.1 MVP de validación (hito del 8 nov)
+
+Validar un video contra un SOP, de punta a punta, solo con la voz. Va primero por tres razones: es lo
+más riesgoso (emparejar pasos con Gemma 4 E4B, que sobre-segmenta), es lo que miden los videos A–D y
+RNF-04, y es el experimento del paper. Generar el SOP reutiliza los mismos pasos del video y solo
+agrega la redacción; la búsqueda exacta no usa IA.
+
+| Entra en el MVP | Después del MVP |
+|---|---|
+| Subir un video completo (sin partes) | Subida por partes de 16 MB con reintentos (RF-06) |
+| SOP en TXT o Markdown escrito por el equipo, convertido al esquema (RF-03) | Leer PDF y Word (RF-01), biblioteca (RF-05), corregir la conversión (RF-04) |
+| Idioma y transcripción con tiempo por palabra (RF-09, RF-10) | Avance en vivo (RF-08), fotogramas (RF-11) |
+| Pasos del video con Gemma 4 sin ver el SOP (RF-13) | Ficha de contexto (RF-12) y afinidad (RF-17) |
+| Fusión, cascada y orden: Cumple / Parcial / Falta / Sobra / Fuera de orden (RF-14, ADR-012, ADR-013) | Personas (RF-15) y tiempos (RF-16) |
+| Porcentaje y semáforo (RF-19) | PDF del reporte (RF-29) y descargas (RF-31) |
+| Una pantalla: tabla del reporte con cita, y el video que salta al segundo (RF-20) | Las otras pantallas, SOP generado, búsqueda |
+
+**Criterio de terminado:** el video A da ≥ 90 % en verde, sin *Falta*; el video B da 2 *Falta* y
+1 *Sobra*, cada uno con su segundo. Medido con el script de métricas, con el commit registrado.
+
+**Orden después del MVP:** (1) SOP generado, sobre los mismos pasos (video E) · (2) personas y tiempos
+(video C) · (3) contexto y afinidad (video D) · (4) fotogramas, lectura de PDF y Word, subida por partes
+· (5) PDF del reporte y del SOP · (6) búsqueda exacta y el resto de las pantallas.
+
+### 5.2 Responsables por módulo
+
 | Módulo | RF | Responsable | Semana |
 |---|---|---|---|
-| Subida, idioma, transcripción, avance en vivo | RF-06, 08, 09, 10 | Sara | S2–S3 |
-| Fotogramas | RF-11 | Sara | S3 |
-| SOP de referencia | RF-01, 02, 03 · RF-04, 05 | Emmanuel · Sara (pantallas) | S3 · S4–S5 |
-| Contexto y pasos del video | RF-12, 13 | Emmanuel | S3 |
-| Validación | RF-14, 15, 16, 17, 19 | Emmanuel | S4 |
-| Evidencia y revisión | RF-20 · RF-21 | Sara | S4 · S6 |
-| SOP generado | RF-22, 23, 24, 25, 27 · RF-26 | Emmanuel · Sara | S5 |
-| PDF y descargas | RF-29, 30 · RF-31 | Emmanuel · Sara | S5 |
-| Búsqueda | RF-32 a 37 | Sara | S5–S6 |
+| Subida, idioma, transcripción | RF-06 (simple), 09, 10 · RF-06 (partes), 08 | Sara | S2 · S5 |
+| Fotogramas | RF-11 | Sara | S5 |
+| SOP de referencia | RF-03 (TXT/MD) · RF-01, 02 (PDF/Word) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
+| Pasos del video y contexto | RF-13 · RF-12 | Emmanuel | S2–S3 · S5 |
+| Validación | RF-14, 19 · RF-15, 16, 17 | Emmanuel | S3–S4 · S5 |
+| Evidencia y revisión | RF-20 · RF-21 | Sara | S3–S4 · S7 |
+| SOP generado | RF-22 a 25, 27 · RF-26 | Emmanuel · Sara | S5 · S5–S6 |
+| PDF y descargas | RF-29, 30 · RF-31 | Emmanuel · Sara | S6 |
+| Búsqueda | RF-32 a 37 | Sara | S6 |
+
+### 5.3 Implementación de MiniLM
+
+MiniLM (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, 118 M de parámetros, sección 8.1
+del documento) convierte cada paso en un vector y mide su parecido con similitud coseno. **Corre en CPU
+dentro del contenedor de la API**, no en la GPU: así no compite con faster-whisper ni con Gemma 4 por los
+8 GB de VRAM, y con decenas de pasos tarda milisegundos.
+
+**Dónde vive:** `src/sopvid/lenguaje/emparejamiento.py`, detrás de la interfaz `Emparejador`.
+
+| Pieza | Qué hace | Entrada → salida |
+|---|---|---|
+| `Embedder` | Carga MiniLM una sola vez y vectoriza textos (normalizados) | `list[str]` → matriz `n × 384` |
+| `similitud(sop, video)` | Texto de cada paso = `nombre + ". " + descripción`; coseno entre todos los pares | pasos SOP y video → matriz `m × n` |
+| `fusionar(pasos_video, S)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ 0.55 | pasos del video → pasos fusionados |
+| `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` sobre `-S`) | matriz → pares |
+| `clasificar(pares, S)` | < 0.55 sin pareja · 0.55–0.75 zona gris (va a Gemma 4) · ≥ 0.75 pareja aceptada | pares → estado preliminar |
+| `orden(pares)` | Subsecuencia creciente más larga; el resto *Fuera de orden* | pares → estado final de orden |
+| `afinidad(sop, contexto)` | Coseno entre objetivo + alcance + equipo del SOP y la ficha de contexto, × 100 (RF-17, umbral 60) | SOP, contexto → 0–100 |
+| `emparejar_roles(roles, personas)` | Mejor coincidencia de cada rol del SOP entre las personas identificadas (RF-15) | roles, personas → *Presente / Mencionado / Ausente* |
+
+**Dependencias:** `sentence-transformers` con versión exacta en `pyproject.toml` (la conservadora al
+agregarla) y `torch` en su build de CPU para no inflar la imagen. `scipy` ya está fijado (1.17.1).
+Los pesos (~470 MB) se descargan la primera vez a un volumen de caché (`HF_HOME`), no a la imagen.
+
+**Umbrales en configuración** (RNF-14): `PARECIDO_MIN=0.55`, `PARECIDO_ACEPTA=0.75`,
+`AFINIDAD_MIN=60`. Se calibran con `scripts/calibrar_umbrales.py` sobre los videos A–D anotados a mano:
+elige los valores que maximizan la coincidencia con la anotación y guarda el resultado en
+`docs/adr/datos/emparejamiento/`.
+
+**Pruebas** (`tests/test_emparejamiento.py`, con pasos inventados, sin GPU ni Ollama):
+pasos idénticos → *Cumple*; un paso omitido → *Falta*; uno agregado → *Sobra*; dos invertidos →
+*Fuera de orden*; un paso partido en dos → se fusiona; mismo resultado en dos corridas.
+
+**Uso académico:** en el avance 4 se agrega una variante del modelo `has_errors` con los embeddings
+MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 
 ---
 
@@ -150,12 +217,12 @@ El SOP y el reporte usan los esquemas de la sección 10 del documento SOP V1.0 s
 | Semana | Emmanuel | Sara | Compartido / checkpoint | Académico |
 |---|---|---|---|---|
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
-| S2 · 19–25 oct | Gemma 4 con imágenes; esquemas Pydantic; fixture del contrato | Grabar videos A–E; subida por partes; faster-whisper | Junta lun 19 oct; tablas en Postgres; SOP de referencia; repo privado | Avance 4 (25 oct) |
-| S3 · 26 oct–1 nov | Lector de SOP; ficha de contexto; pasos del video | Fotogramas; avance en vivo | Anotación a mano; script de métricas | Avance 5 (1 nov) |
-| S4 · 2–8 nov | Fusión, cascada, orden, personas, tiempos, afinidad, % | Biblioteca, nuevo análisis, reporte con salto al segundo | ✓ **Validación estable** (videos A–D) | — |
-| S5 · 9–15 nov | SOP generado; PDF de reporte y SOP | SOP editable; publicar; búsqueda exacta | ✓ **App completa** (video E); primera medición de RNF | — |
-| S6 · 16–22 nov | Si da tiempo: RF-18 | Si da tiempo: RF-21 | Docker en máquina limpia; RNF-01 a 07; video de demo | — |
-| S7 · 23–29 nov | Experimentos del paper | Ajustes | Demo con el patrocinador (*Por confirmar*) | Resumen ejecutivo (*Por confirmar*) |
+| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; conversión del SOP en Markdown; fixture del contrato; **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; tablas `videos`, `sops`, `reportes`; SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
+| S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
+| S4 · 2–8 nov | Juez Gemma 4 en la zona gris; porcentaje; **calibrar umbrales MiniLM** con A y B | Integrar la pantalla con la API | ✓ **MVP de validación** (videos A y B) | — |
+| S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
+| S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta; pantallas restantes; descargas | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
+| S7 · 23–29 nov | Experimentos del paper; si da tiempo RF-18 | Ajustes; si da tiempo RF-21 | Demo con el patrocinador (*Por confirmar*) | Resumen ejecutivo (*Por confirmar*) |
 | S8 · 30 nov–6 dic | Borrador del paper | Informe de pruebas y README | Documento de requerimientos actualizado | Presentación final (*Por confirmar*) |
 | S9 · 7–13 dic | — | — | Imagen 1.0 y release (NDA cl. 8) | Cierre |
 
@@ -216,7 +283,7 @@ anotado a mano antes de programar la comparación. Resuelve la falta de datos na
 
 ## 10. Para la junta del lunes 19 oct
 
-**Informar:** opción B local y costo cero; Gemma 4 E4B como LLM y visión (NDA cl. 1); PC propia con GPU
+**Informar:** el MVP de validación para el 8 nov (sección 5.1); opción B local y costo cero; Gemma 4 E4B como LLM y visión (NDA cl. 1); PC propia con GPU
 de 8 GB como hardware de referencia; los 5 videos de prueba; el alcance de la sección 5; lo que queda en
 versión 2 (diarización, búsqueda semántica, chat que pregunta antes de responder).
 
