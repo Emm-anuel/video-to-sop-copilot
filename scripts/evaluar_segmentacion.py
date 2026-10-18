@@ -13,10 +13,15 @@ Métodos:
 Cada combinación LLM corre 3 veces; se reporta la mediana y si los cortes fueron estables. Se
 usa `segmentar()`, así que si el LLM falla o su propuesta es inválida se registra el respaldo.
 
+Con `--incluir-ejemplo` se agrega tests/fixtures/analisis_ejemplo.json (contrato `Analisis`,
+inicios de paso anotados en tests/fixtures/README.md, sin etiquetas).
+
 Uso (con el profile "llm" arriba y los modelos descargados):
     python scripts/evaluar_segmentacion.py
     python scripts/evaluar_segmentacion.py --modelos gemma4:12b-it-qat --versiones v1
     python scripts/evaluar_segmentacion.py --tabla
+    python scripts/evaluar_segmentacion.py --modelos gemma4:e4b-it-q4_K_M --versiones v1
+        --incluir-ejemplo --salida docs/adr/datos/segmentacion/pasos_video.json
 
 Volver a correr un método reemplaza solo sus corridas; las demás se conservan.
 """
@@ -26,6 +31,7 @@ import json
 import statistics
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import benchmark_llm as bench  # mismo directorio: nvidia-smi y logs de Ollama
@@ -33,6 +39,7 @@ import httpx
 import numpy as np
 import pandas as pd
 
+from sopvid.contrato import Analisis
 from sopvid.features import pasos as fp
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
 from sopvid.percepcion.segmentacion import (
@@ -46,17 +53,28 @@ from sopvid.plataforma.config import PROJECT_ROOT, get_settings
 
 FIXTURES = PROJECT_ROOT / "tests/fixtures/transcripciones"
 SALIDA = PROJECT_ROOT / "docs/adr/datos/segmentacion/fase4.json"
+EJEMPLO = PROJECT_ROOT / "tests/fixtures/analisis_ejemplo.json"
+INICIOS_EJEMPLO = [4, 6, 9, 12, 17, 21]  # anotados a mano en tests/fixtures/README.md
 MODELOS = ("gemma4:e4b-it-q4_K_M", "qwen3.5:9b-q4_K_M")
 REPETICIONES = 3
 
 
-def cargar_fixtures() -> dict[str, dict[str, Any]]:
+def cargar_fixtures(incluir_ejemplo: bool = False) -> dict[str, dict[str, Any]]:
     """JSON de cada transcripción (etiquetas, inicios_paso…) más su `Analisis` en "analisis"."""
-    return {
+    fixtures = {
         p.stem: json.loads(p.read_text(encoding="utf-8"))
         | {"analisis": cargar_transcripcion_prueba(p)}
         for p in sorted(FIXTURES.glob("*.json"))
     }
+    if incluir_ejemplo:
+        analisis = Analisis.model_validate_json(EJEMPLO.read_text(encoding="utf-8"))
+        fixtures[EJEMPLO.stem] = {
+            "segmentos": [s.model_dump(exclude={"palabras"}) for s in analisis.transcripcion],
+            "etiquetas": {},
+            "inicios_paso": INICIOS_EJEMPLO,
+            "analisis": analisis,
+        }
+    return fixtures
 
 
 def f1_tiempo(t_predichos: list[float], t_reales: list[float], tol: float) -> dict[str, float]:
@@ -122,10 +140,14 @@ def medir_carga(modelo: str, contenedor: str) -> dict[str, Any]:
 
 
 def correr(
-    modelos: list[str], versiones: list[str], contenedor: str, previos: dict[str, Any] | None
+    modelos: list[str],
+    versiones: list[str],
+    contenedor: str,
+    previos: dict[str, Any] | None,
+    incluir_ejemplo: bool = False,
 ) -> dict[str, Any]:
     settings = get_settings()
-    fixtures = cargar_fixtures()
+    fixtures = cargar_fixtures(incluir_ejemplo)
     metodos_nuevos = {f"{m} · prompt {v}" for m in modelos for v in versiones}
     corridas = [
         c
@@ -145,6 +167,7 @@ def correr(
                 "camino": "heuristica",
                 "ids": ids,
                 "titulos": [p.nombre for p in pasos],
+                "confianzas": [p.confianza for p in pasos],
                 **evaluar(ids, fx),
             }
         )
@@ -177,6 +200,7 @@ def correr(
                             "segundos": round(time.perf_counter() - inicio, 2),
                             "ids": ids,
                             "titulos": [p.nombre for p in r.pasos],
+                            "confianzas": [p.confianza for p in r.pasos],
                             **evaluar(ids, fx),
                         }
                     )
@@ -308,6 +332,41 @@ def tablas(datos: dict[str, Any]) -> None:
                 f"| {c['falsos_positivos'] or '—'} | {c['no_detectados'] or '—'} | {estable} |"
             )
 
+    if any("confianzas" in c for c in corridas):
+        tabla_por_transcripcion(datos)
+
+
+def tabla_por_transcripcion(datos: dict[str, Any]) -> None:
+    """Métricas de la extracción por transcripción (corridas con nivel de confianza)."""
+    print("\nPor transcripción (medianas de las repeticiones; intentos y confianza sobre todas)\n")
+    print(
+        "| Método | Transcripción | F1 ±1 seg | F1 ±2 s | FP | ND | Intentos prom. "
+        "| % alta / media / baja | Heurística | s por transcripción |"
+    )
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    corridas = [c for c in datos["corridas"] if "confianzas" in c]
+    for m in dict.fromkeys(c["metodo"] for c in corridas):
+        for f in datos["fixtures"]:
+            cs = [c for c in corridas if c["metodo"] == m and c["fixture"] == f]
+            if not cs:
+                continue
+            niveles = [n for c in cs for n in c["confianzas"]]
+            pct = " / ".join(
+                f"{100 * niveles.count(n) / len(niveles):.0f}" for n in ("alta", "media", "baja")
+            )
+            intentos = [c["intentos"] for c in cs if "intentos" in c]
+            segundos = [c["segundos"] for c in cs if "segundos" in c]
+            heuristica = sum(c["camino"] != "llm" for c in cs) if m != "heuristica" else "—"
+            prom_intentos = f"{statistics.mean(intentos):.2f}" if intentos else "—"
+            tiempo = f"{_mediana(segundos):.1f}" if segundos else "< 0.01"
+            print(
+                f"| {m} | {f} | {_mediana([c['f1'] for c in cs]):.3f} "
+                f"| {_mediana([c['f1_tiempo_2s']['f1'] for c in cs]):.3f} "
+                f"| {_mediana([len(c['falsos_positivos']) for c in cs]):g} "
+                f"| {_mediana([len(c['no_detectados']) for c in cs]):g} "
+                f"| {prom_intentos} | {pct} | {heuristica} | {tiempo} |"
+            )
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
@@ -320,21 +379,30 @@ def main() -> None:
     ap.add_argument("--modelos", nargs="+", default=list(MODELOS))
     ap.add_argument("--versiones", nargs="+", default=["v1", "v2"], choices=["v1", "v2"])
     ap.add_argument("--contenedor", default="sopvid-ollama-1", help="'' si Ollama es nativo")
+    ap.add_argument(
+        "--incluir-ejemplo",
+        action="store_true",
+        help="agrega tests/fixtures/analisis_ejemplo.json a las transcripciones",
+    )
+    ap.add_argument(
+        "--salida", type=Path, default=SALIDA, help=f"JSON de resultados (por defecto {SALIDA})"
+    )
     args = ap.parse_args()
+    salida = args.salida if args.salida.is_absolute() else PROJECT_ROOT / args.salida
     if args.recalcular:
-        datos = json.loads(SALIDA.read_text(encoding="utf-8"))
-        fixtures = cargar_fixtures()
+        datos = json.loads(salida.read_text(encoding="utf-8"))
+        fixtures = cargar_fixtures(incluir_ejemplo=EJEMPLO.stem in datos["fixtures"])
         for c in datos["corridas"]:
             c.update(evaluar(c["ids"], fixtures[c["fixture"]]))
         datos["metricas_recalculadas"] = datetime.now(UTC).isoformat(timespec="seconds")
-        SALIDA.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
+        salida.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
     elif not args.tabla:
-        previos = json.loads(SALIDA.read_text(encoding="utf-8")) if SALIDA.exists() else None
-        datos = correr(args.modelos, args.versiones, args.contenedor, previos)
-        SALIDA.parent.mkdir(parents=True, exist_ok=True)
-        SALIDA.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"\nResultados en {SALIDA}\n")
-    tablas(json.loads(SALIDA.read_text(encoding="utf-8")))
+        previos = json.loads(salida.read_text(encoding="utf-8")) if salida.exists() else None
+        datos = correr(args.modelos, args.versiones, args.contenedor, previos, args.incluir_ejemplo)
+        salida.parent.mkdir(parents=True, exist_ok=True)
+        salida.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"\nResultados en {salida}\n")
+    tablas(json.loads(salida.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
