@@ -9,12 +9,22 @@ solo contiene reglas estables; si algo de aquí contradice al plan, avisa antes 
 **AI Co-Pilot Video-to-SOP (SOPVID).** Proyecto Integrador TC5035 · MNA · Tec de Monterrey · Equipo 51.
 Patrocinador: Alignity IQ Edge, bajo NDA. Cierre del trimestre: 13 de diciembre de 2026.
 
-Convierte videos de operación narrados por un experto en conocimiento consultable al segundo
-exacto. Columna vertebral del MVP (centrada en la voz):
+Versión 1.0 según el documento **"Requerimientos técnicos y funcionales de proyecto SOP V1.0"** del
+patrocinador (16 oct 2026). Una app web, local y en Docker, que analiza el video de un operador
+narrando su trabajo y:
+
+1. **Lo valida contra un SOP:** pasos que faltan, sobran o cambian de orden; personas; tiempos;
+   contexto. Reporte con porcentaje, semáforo y PDF.
+2. **Genera el SOP desde el video** si no existe, en español, editable y guardable en la biblioteca.
+3. **Busca por coincidencia exacta** en los videos publicados y salta al segundo exacto.
 
 ```
-video → transcripción con timestamps → pasos indexados → búsqueda y chat → reproducir desde el segundo
+video → audio + fotogramas → transcripción con tiempos → contexto → pasos del video (sin ver el SOP)
+      → con SOP: emparejar y reporte · sin SOP: redactar SOP → PDF → publicar → búsqueda exacta
 ```
+
+Requerimientos con ID (RF-01 a RF-37, RNF-01 a RNF-16): el documento del patrocinador. Alcance y
+decisiones: @docs/plan/plan.md.
 
 El sistema se construye **desde cero**: el código del POC del patrocinador no se entregó
 (ADR-001, pendiente de confirmación escrita). El POC solo es referencia funcional.
@@ -25,48 +35,61 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
    fragmentos. Tampoco en tests, fixtures, notebooks, logs ni mensajes de commit. El material del
    cliente se referencia por identificador y vive en el almacenamiento aprobado. Desarrollo con
    datasets públicos y videos grabados por el equipo. Rostros de trabajadores = dato personal (LFPDPPP).
-2. **Costo cero.** Sin servicios de pago ni APIs con tokens. Pesos abiertos servidos localmente.
+2. **Costo cero (ADR-011).** Sin servicios de pago ni APIs con tokens, tampoco "solo para probar":
+   ni OpenAI, ni AWS Transcribe, ni Bedrock. Pesos abiertos servidos localmente. Lo pidió el
+   patrocinador el 16 oct aunque su documento de referencia mencione GPT-4o-mini y whisper-1.
 3. **Secretos solo en `.env` (no versionado).** `.env.example` lleva nombres y valores de ejemplo.
    No relajes el `.gitignore`; solo agrega reglas.
-4. **El LLM nunca escribe un timestamp.** Todo minuto/segundo sale del índice (para segmentar, el LLM
-   elige números de segmento, no tiempos). Toda respuesta y todo
-   paso citan su segundo; sin evidencia suficiente, la respuesta es "no encontré".
-5. **Alcance cerrado.** No implementes lo diferido (sección 4) sin un ADR aprobado. Si una tarea
+4. **El LLM nunca escribe un timestamp.** Todo minuto/segundo sale de la transcripción (para
+   segmentar, el LLM elige números de segmento, no tiempos). Todo hallazgo y todo paso traen una cita
+   y su segundo; el código verifica que la cita exista en la transcripción. Sin evidencia, el dato
+   queda vacío o como inferido con confianza baja.
+5. **Los pasos del video se extraen sin mostrarle el SOP al modelo** (sección 5.3 del documento).
+   El orden se revisa con código, no con el LLM.
+6. **Alcance cerrado.** No implementes lo diferido (sección 4) sin un ADR aprobado. Si una tarea
    parece requerirlo, detente y pregunta.
-6. **Regresión primero.** Nada nuevo entra si rompe una prueba existente.
-7. **No modifiques entregables ya entregados** en `docs/entregables/` (p. ej. `Avance1.51.ipynb`).
+7. **Regresión primero.** Nada nuevo entra si rompe una prueba existente.
+8. **No modifiques entregables ya entregados** en `docs/entregables/` (p. ej. `Avance1.51.ipynb`).
 
 ## 3. Stack
 
 | Capa | Tecnología |
 |---|---|
 | Backend | Python 3.11, FastAPI + Uvicorn, SQLAlchemy 2 + Alembic, pydantic-settings |
-| Base de datos | PostgreSQL 16 + pgvector (vectores) + búsqueda de texto completo en español |
+| Base de datos | PostgreSQL 16 (imagen con pgvector, ADR-005). Tablas del documento: `sops`, `videos`, `reportes`, `palabras`, `busquedas`; análisis y reportes como JSONB. pgvector queda para la búsqueda semántica de la versión 2 |
 | Contenedores | Docker Compose, versiones fijadas, configuración por variables de entorno |
-| Transcripción | faster-whisper (timestamps por palabra, VAD) |
-| Embeddings | MiniLM multilingüe |
-| LLM | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. Desarrollo (GPU de 8 GB): `gemma4:e4b-it-q4_K_M` con flash attention; producción pendiente de la GPU de 24 GB ([ADR-006](docs/adr/ADR-006-llm-local.md)). Usos: segmentación en pasos ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)) y chat RAG |
+| Medios | ffmpeg: duración, audio mp3 mono 16 kHz, fotogramas (máx. 20), miniaturas |
+| Transcripción | faster-whisper `large-v3-turbo` en GPU (float16) o `small` en CPU (int8); tiempo por palabra, VAD, detección de idioma |
+| LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir el SOP, describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
+| Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
+| Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
 | ML académico | pandas, scikit-learn, LightGBM |
-| Frontend | Angular (componentes standalone, sin librerías de estado); entra en la semana 3 |
+| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno |
 | Calidad | pytest, ruff, GitHub Actions |
 
-Colab T4 solo como worker de GPU para transcribir por lotes; el sistema corre local con Docker.
+Hardware de referencia (ADR-014): RTX 2070 SUPER de 8 GB, i7-10700K, 32 GB de RAM. faster-whisper y
+Gemma 4 no caben juntos en la GPU: las etapas corren en secuencia, con un modelo cargado a la vez.
+Colab ya no forma parte del flujo; solo es respaldo si la GPU local falla.
 
 ## 4. Fuera de alcance (diferido, requiere ADR)
 
-V-JEPA 2 y análisis de fotogramas · grafo multi-video de orden parcial · voz y copiloto en vivo
-(Producto B) · lentes/diadema · multi-inquilino, rol auditor, cifrado en reposo · attentive probes.
+Lo de la columna "Fuera del alcance" del documento SOP V1.0: vista de administrador, usuarios y
+permisos · versiones del SOP, aprobación y firmas · grabar video en la app · editar o recortar video ·
+reconocimiento facial · traducir el SOP · integración con ERP, SharePoint o sistemas de calidad. Además:
+V-JEPA 2 y attentive probes · grafo multi-video · diarización (PR-04) · búsqueda semántica (PR-08) ·
+chat RAG y el aclarador que pregunta antes de responder · voz y copiloto en vivo (Producto B) ·
+cualquier API de pago. RF-28 (diagrama de flujo, glosario) queda fuera de 1.0.
 
-"Si sobra tiempo", en este orden: borrador de SOP trazable → aprobación humana con versión →
-roles cargador/administrador y bitácora → carga de PDF → aclarador con LLM.
+Si sobra tiempo, en este orden: RF-18 (EPP y puntos de validación) → RF-21 (aceptado / falso
+positivo) → propuestas PR-01 y PR-02 del documento.
 
 ## 5. Estructura del repositorio
 
 ```
 src/sopvid/            paquete instalable (src layout)
   plataforma/          config, base de datos, API FastAPI
-  percepcion/          ingesta, transcripción, segmentación en pasos
-  lenguaje/            búsqueda híbrida, chat RAG, SOP
+  percepcion/          subida, ffmpeg, transcripción, fotogramas, pasos del video
+  lenguaje/            cliente del LLM, lectura y redacción del SOP, emparejamiento, reporte, búsqueda exacta
   features/            limpieza e ingeniería de características (avances y pipeline)
 migrations/            Alembic
 scripts/               benchmark del LLM, evaluación de segmentación, preparación de datos
@@ -84,15 +107,17 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 11 oct 2026:
+> Estado al 17 oct 2026:
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **En la rama `feat/llm-spike` (sin fusionar):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
 >   en Docker, estado del LLM en `/health`, ADR-006 con su benchmark y el prototipo de segmentación
->   (`percepcion/segmentacion.py`, ADR-010).
-> - **Sin código todavía:** ingesta y transcripción (`percepcion/`); búsqueda, chat y SOP (`lenguaje/`).
-> - **Pendiente con el patrocinador:** en 8 GB `gemma4:e4b` sobre-segmenta, `qwen3.5:9b` segmenta mejor pero
->   no es Gemma 4 (NDA cl. 1); falta probar `gemma4:26b-a4b` con la GPU de 24 GB (ver ADR-006 y ADR-010).
+>   (`percepcion/segmentacion.py`, ADR-010). Se reutilizan en 1.0.
+> - **Sin código todavía:** subida, ffmpeg, transcripción y fotogramas (`percepcion/`); lectura del
+>   SOP, emparejamiento, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
+> - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
+>   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
+>   experimentos, nunca como valor por defecto sin aprobación escrita.
 
 ## 6. Comandos
 
@@ -132,7 +157,7 @@ Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versi�
   ajusta solo con train dentro de un `Pipeline`, y las estadísticas por categoría se calculan fuera de
   pliegue con `GroupKFold` por grabación. La validación cruzada siempre se agrupa por `recording_id`, y
   el AUC-PR se reporta junto con la proporción de positivos (0.249 en train).
-- No modificar `Avance1.51.ipynb`; `tests/test_features_avance1.py` vigila que el paquete reproduzca
+- No modificar `Avance1.51.ipynb` ni `Avance2.51.ipynb`; `tests/test_features_avance1.py` vigila que el paquete reproduzca
   sus resultados (se salta si no hay datos descargados).
 - Metodología: CRISP-ML(Q). Cada decisión de procesamiento se justifica en el notebook.
 - **Tarea de ML de los avances 2–5 ([ADR-009](docs/adr/ADR-009-tarea-ml.md)):** `has_errors` sobre

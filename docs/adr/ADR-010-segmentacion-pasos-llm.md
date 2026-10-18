@@ -115,3 +115,14 @@ y parte de más en otra). **Se descarta como valor por defecto**: el prototipo u
 
 - Brief §9 (narración), §10 (tres bucles HITL), criterio "aprendizaje demostrado"; NDA cl. 1.
 - ADR-002 (voz como fuente principal), ADR-006 (LLM local), ADR-008 (HITL), ADR-009.
+
+## Actualización 17 oct 2026 (documento SOP V1.0)
+
+- En la versión 1.0 este método extrae los **pasos del video** (RF-13) **sin mostrarle el SOP al
+  modelo** (sección 5.3 del documento). Además de `segmento_id` y `titulo`, el LLM devuelve
+  descripción, responsable y la cita textual; los tiempos siguen saliendo de los segmentos.
+- La corrección del experto se hace sobre el reporte (RF-21) y sobre el SOP generado (RF-26), no en una
+  "Pantalla 1" de pasos.
+- La sobre-segmentación de `gemma4:e4b` produciría pasos *Sobra* falsos. Mitigación (ADR-013): antes
+  de emparejar, se fusionan pasos consecutivos del video cuyo mejor paso del SOP es el mismo.
+- El seguimiento de F2 se hace con los videos de prueba A–E grabados y anotados por el equipo.

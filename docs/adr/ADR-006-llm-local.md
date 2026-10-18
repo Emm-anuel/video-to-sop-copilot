@@ -190,3 +190,17 @@ v1, FA encendido; indicativo, n=3). Detalle en ADR-010.
 - Datos: [datos/benchmark_llm/](datos/benchmark_llm/) · script: `scripts/benchmark_llm.py` · fixture:
   `tests/fixtures/transcripciones/cambio_cuchilla.json`.
 - `fa_off.json` corrió con `LLM_TIMEOUT_S=120` (no se registraba aún); `fa_on` y `fa_on_kv_q8` con 300.
+
+## Actualización 17 oct 2026 (documento SOP V1.0)
+
+- El patrocinador fijó **costo cero** y producto 100 % local (junta del 16 oct). La alternativa por API
+  de su documento de referencia (GPT-4o-mini, whisper-1) no se usa (ADR-011).
+- **Ya no se espera la GPU de 24 GB:** la versión 1.0 se mide en la RTX 2070 SUPER (ADR-014) con
+  `gemma4:e4b-it-q4_K_M`. La variante de producción se decide cuando el cliente tenga su servidor.
+- **El proyector de visión ahora sí se usa:** el mismo `gemma4:e4b` describe los fotogramas (RF-11),
+  así que no hace falta un segundo modelo de visión. Pendiente: medir la calidad con fotogramas de los
+  videos propios y el tiempo por lote de imágenes.
+- **Nuevos usos con JSON Schema:** convertir el SOP al esquema (sección 10 del documento), ficha de
+  contexto, juez de pares dudosos (ADR-012) y redacción del SOP.
+- faster-whisper y Gemma 4 no caben juntos en 8 GB (~1.3 GB libres con `e4b` cargado): la
+  transcripción termina y libera la GPU antes de cargar el LLM.
