@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Fotograma": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "archivo": {
+          "title": "Archivo",
+          "type": "string"
+        },
+        "descripcion": {
+          "title": "Descripcion",
+          "type": "string"
+        },
+        "equipos": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Equipos",
+          "type": "array"
+        },
+        "personas": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Personas",
+          "type": "integer"
+        },
+        "texto_visible": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Texto Visible",
+          "type": "array"
+        },
+        "riesgos": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Riesgos",
+          "type": "array"
+        }
+      },
+      "required": [
+        "t",
+        "archivo",
+        "descripcion"
+      ],
+      "title": "Fotograma",
+      "type": "object"
+    },
+    "Idioma": {
+      "additionalProperties": false,
+      "properties": {
+        "codigo": {
+          "description": "Código ISO 639-1, p. ej. 'es'.",
+          "minLength": 1,
+          "title": "Codigo",
+          "type": "string"
+        },
+        "confianza": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confianza",
+          "type": "number"
+        },
+        "fijado_a_mano": {
+          "default": false,
+          "title": "Fijado A Mano",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "codigo",
+        "confianza"
+      ],
+      "title": "Idioma",
+      "type": "object"
+    },
+    "Palabra": {
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "title": "W",
+          "type": "string"
+        },
+        "t": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "t_fin": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T Fin",
+          "type": "number"
+        }
+      },
+      "required": [
+        "w",
+        "t",
+        "t_fin"
+      ],
+      "title": "Palabra",
+      "type": "object"
+    },
+    "Segmento": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "t_inicio": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T Inicio",
+          "type": "number"
+        },
+        "t_fin": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T Fin",
+          "type": "number"
+        },
+        "texto": {
+          "title": "Texto",
+          "type": "string"
+        },
+        "palabras": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Palabra"
+          },
+          "title": "Palabras",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "t_inicio",
+        "t_fin",
+        "texto"
+      ],
+      "title": "Segmento",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Salida del pipeline de video y entrada de la extracción de pasos.",
+  "properties": {
+    "version_contrato": {
+      "const": 1,
+      "default": 1,
+      "title": "Version Contrato",
+      "type": "integer"
+    },
+    "video_id": {
+      "title": "Video Id",
+      "type": "integer"
+    },
+    "duracion_s": {
+      "description": "Segundos desde el inicio del video.",
+      "minimum": 0,
+      "title": "Duracion S",
+      "type": "number"
+    },
+    "idioma": {
+      "$ref": "#/$defs/Idioma"
+    },
+    "transcripcion": {
+      "items": {
+        "$ref": "#/$defs/Segmento"
+      },
+      "title": "Transcripcion",
+      "type": "array"
+    },
+    "fotogramas": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Fotograma"
+      },
+      "title": "Fotogramas",
+      "type": "array"
+    }
+  },
+  "required": [
+    "video_id",
+    "duracion_s",
+    "idioma",
+    "transcripcion"
+  ],
+  "title": "Analisis",
+  "type": "object"
+}

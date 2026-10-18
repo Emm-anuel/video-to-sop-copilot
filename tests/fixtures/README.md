@@ -1,0 +1,61 @@
+# Fixtures de prueba
+
+Todo lo que hay aquí lo **inventó el equipo**. Nada es material del cliente (NDA): ni videos,
+audio, SOPs, transcripciones ni fragmentos. Los nombres de personas son ficticios.
+
+## `transcripciones/`
+
+Transcripciones inventadas para evaluar la segmentación en pasos (ADR-010). Cada archivo lleva su
+propia `descripcion` con la palabra INVENTADA y los inicios de paso anotados a mano en
+`inicios_paso`.
+
+## `analisis_ejemplo.json`
+
+Ejemplo del contrato `sopvid.contrato.Analisis` (esquema en `docs/contrato/analisis.schema.json`).
+El contrato prohíbe campos extra, así que el JSON no puede llevar `_comentario` ni descripción:
+la documentación vive aquí.
+
+- **Origen:** transcripción INVENTADA por el equipo, en español, de un video que no existe. Los
+  tiempos por palabra se generaron con un script desechable (duración según la longitud de la
+  palabra y pausas entre segmentos), así que son coherentes pero no vienen de un ASR real.
+- **SOP de referencia (también inventado):** "Cambio del cartucho del filtro de agua", 6 pasos.
+- **Video:** `video_id` 1, 157.8 s, 25 segmentos, 330 palabras, idioma `es` (0.98), 4 fotogramas
+  con descripción inventada (no hay imágenes: `archivo` es solo un nombre).
+- **Narradora:** "Laura", técnica de mantenimiento (ficticia). Menciona al supervisor de turno
+  en una aclaración, pero él no hace ningún paso.
+
+### Inicios de paso reales, anotados a mano según la narración
+
+| Paso del SOP | Segmento de inicio | `t_inicio` (s) | Segmentos del paso | Marcador de transición |
+|---|---|---|---|---|
+| 1. Ponerse guantes y lentes | 4 | 20.45 | 4–5 | "Primero" |
+| 2. Cerrar la llave de paso | 6 | 33.44 | 6–8 | "Ahora" |
+| 3. Liberar la presión | 9 | 55.51 | 9–11 | "Después" |
+| 4. Retirar la carcasa y el cartucho usado | 12 | 74.76 | 12–16 | ninguno |
+| 5. Colocar el cartucho nuevo | 17 | 104.90 | 17–20 | "Luego" |
+| 6. Abrir la llave y revisar fugas | 21 | 127.32 | 21–24 | "Finalmente" |
+
+Inicios de paso: `[4, 6, 9, 12, 17, 21]`.
+
+Lo que **no** inicia paso, y sirve para detectar sobre-segmentación (ADR-013):
+
+- **Introducción** (1–3): presentación, qué se va a hacer y cada cuándo se cambia el cartucho.
+- **Aclaraciones dentro de un paso:** 5 (por qué los lentes), 7 (cómo saber que la llave está
+  cerrada), 8 (qué hacer si la llave está dura), 15 (revisar el anillo de hule), 20 (no apretar de
+  más).
+- **Anécdota:** 16 (el anillo partido que goteó toda la noche).
+- **Acciones de apoyo dentro de un paso:** 11 (poner la cubeta, parte del paso 3), 22–24 (purgar,
+  revisar uniones y presión, parte del paso 6).
+- **Cierre** (25).
+
+El paso 4 empieza sin palabra de transición ("Con la llave de carcasa giro el vaso…"): solo se
+distingue por el contenido.
+
+### Fotogramas
+
+| Archivo | `t` (s) | Paso al que pertenece |
+|---|---|---|
+| `f01.jpg` | 23.0 | 1 (guantes y lentes) |
+| `f02.jpg` | 58.0 | 3 (botón de purga, cubeta) |
+| `f03.jpg` | 84.0 | 4 (vaso retirado con el cartucho usado) |
+| `f04.jpg` | 149.0 | 6 (manómetro cerca de 4 bar) |

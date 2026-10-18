@@ -1,0 +1,580 @@
+{
+  "version_contrato": 1,
+  "video_id": 1,
+  "duracion_s": 157.8,
+  "idioma": {
+    "codigo": "es",
+    "confianza": 0.98,
+    "fijado_a_mano": false
+  },
+  "transcripcion": [
+    {
+      "id": 1,
+      "t_inicio": 0.4,
+      "t_fin": 5.76,
+      "texto": "Buenos días, soy Laura, técnica de mantenimiento de la línea de enjuague.",
+      "palabras": [
+        {"w": "Buenos", "t": 0.4, "t_fin": 0.85},
+        {"w": "días,", "t": 0.91, "t_fin": 1.25},
+        {"w": "soy", "t": 1.31, "t_fin": 1.6},
+        {"w": "Laura,", "t": 1.66, "t_fin": 2.06},
+        {"w": "técnica", "t": 2.12, "t_fin": 2.63},
+        {"w": "de", "t": 2.69, "t_fin": 2.92},
+        {"w": "mantenimiento", "t": 2.98, "t_fin": 3.81},
+        {"w": "de", "t": 3.87, "t_fin": 4.1},
+        {"w": "la", "t": 4.16, "t_fin": 4.39},
+        {"w": "línea", "t": 4.45, "t_fin": 4.85},
+        {"w": "de", "t": 4.91, "t_fin": 5.14},
+        {"w": "enjuague.", "t": 5.2, "t_fin": 5.76}
+      ]
+    },
+    {
+      "id": 2,
+      "t_inicio": 6.36,
+      "t_fin": 12.03,
+      "texto": "En este video les muestro cómo se cambia el cartucho del filtro de agua.",
+      "palabras": [
+        {"w": "En", "t": 6.36, "t_fin": 6.59},
+        {"w": "este", "t": 6.65, "t_fin": 6.99},
+        {"w": "video", "t": 7.05, "t_fin": 7.45},
+        {"w": "les", "t": 7.51, "t_fin": 7.8},
+        {"w": "muestro", "t": 7.86, "t_fin": 8.37},
+        {"w": "cómo", "t": 8.43, "t_fin": 8.77},
+        {"w": "se", "t": 8.83, "t_fin": 9.06},
+        {"w": "cambia", "t": 9.12, "t_fin": 9.57},
+        {"w": "el", "t": 9.63, "t_fin": 9.86},
+        {"w": "cartucho", "t": 9.92, "t_fin": 10.48},
+        {"w": "del", "t": 10.54, "t_fin": 10.83},
+        {"w": "filtro", "t": 10.89, "t_fin": 11.34},
+        {"w": "de", "t": 11.4, "t_fin": 11.63},
+        {"w": "agua.", "t": 11.69, "t_fin": 12.03}
+      ]
+    },
+    {
+      "id": 3,
+      "t_inicio": 12.53,
+      "t_fin": 19.05,
+      "texto": "El cartucho se cambia cada tres meses o cuando el manómetro marca menos de dos bar.",
+      "palabras": [
+        {"w": "El", "t": 12.53, "t_fin": 12.76},
+        {"w": "cartucho", "t": 12.82, "t_fin": 13.38},
+        {"w": "se", "t": 13.44, "t_fin": 13.67},
+        {"w": "cambia", "t": 13.73, "t_fin": 14.18},
+        {"w": "cada", "t": 14.24, "t_fin": 14.58},
+        {"w": "tres", "t": 14.64, "t_fin": 14.98},
+        {"w": "meses", "t": 15.04, "t_fin": 15.44},
+        {"w": "o", "t": 15.5, "t_fin": 15.67},
+        {"w": "cuando", "t": 15.73, "t_fin": 16.18},
+        {"w": "el", "t": 16.24, "t_fin": 16.47},
+        {"w": "manómetro", "t": 16.53, "t_fin": 17.14},
+        {"w": "marca", "t": 17.2, "t_fin": 17.6},
+        {"w": "menos", "t": 17.66, "t_fin": 18.06},
+        {"w": "de", "t": 18.12, "t_fin": 18.35},
+        {"w": "dos", "t": 18.41, "t_fin": 18.7},
+        {"w": "bar.", "t": 18.76, "t_fin": 19.05}
+      ]
+    },
+    {
+      "id": 4,
+      "t_inicio": 20.45,
+      "t_fin": 25.54,
+      "texto": "Primero me pongo los guantes de nitrilo y los lentes de seguridad.",
+      "palabras": [
+        {"w": "Primero", "t": 20.45, "t_fin": 20.96},
+        {"w": "me", "t": 21.02, "t_fin": 21.25},
+        {"w": "pongo", "t": 21.31, "t_fin": 21.71},
+        {"w": "los", "t": 21.77, "t_fin": 22.06},
+        {"w": "guantes", "t": 22.12, "t_fin": 22.63},
+        {"w": "de", "t": 22.69, "t_fin": 22.92},
+        {"w": "nitrilo", "t": 22.98, "t_fin": 23.49},
+        {"w": "y", "t": 23.55, "t_fin": 23.72},
+        {"w": "los", "t": 23.78, "t_fin": 24.07},
+        {"w": "lentes", "t": 24.13, "t_fin": 24.58},
+        {"w": "de", "t": 24.64, "t_fin": 24.87},
+        {"w": "seguridad.", "t": 24.93, "t_fin": 25.54}
+      ]
+    },
+    {
+      "id": 5,
+      "t_inicio": 25.94,
+      "t_fin": 31.64,
+      "texto": "Los lentes son obligatorios porque al liberar la presión puede salpicar agua.",
+      "palabras": [
+        {"w": "Los", "t": 25.94, "t_fin": 26.23},
+        {"w": "lentes", "t": 26.29, "t_fin": 26.74},
+        {"w": "son", "t": 26.8, "t_fin": 27.09},
+        {"w": "obligatorios", "t": 27.15, "t_fin": 27.93},
+        {"w": "porque", "t": 27.99, "t_fin": 28.44},
+        {"w": "al", "t": 28.5, "t_fin": 28.73},
+        {"w": "liberar", "t": 28.79, "t_fin": 29.3},
+        {"w": "la", "t": 29.36, "t_fin": 29.59},
+        {"w": "presión", "t": 29.65, "t_fin": 30.16},
+        {"w": "puede", "t": 30.22, "t_fin": 30.62},
+        {"w": "salpicar", "t": 30.68, "t_fin": 31.24},
+        {"w": "agua.", "t": 31.3, "t_fin": 31.64}
+      ]
+    },
+    {
+      "id": 6,
+      "t_inicio": 33.44,
+      "t_fin": 40.77,
+      "texto": "Ahora cierro la llave de paso que está antes del filtro, girándola a la derecha hasta el tope.",
+      "palabras": [
+        {"w": "Ahora", "t": 33.44, "t_fin": 33.84},
+        {"w": "cierro", "t": 33.9, "t_fin": 34.35},
+        {"w": "la", "t": 34.41, "t_fin": 34.64},
+        {"w": "llave", "t": 34.7, "t_fin": 35.1},
+        {"w": "de", "t": 35.16, "t_fin": 35.39},
+        {"w": "paso", "t": 35.45, "t_fin": 35.79},
+        {"w": "que", "t": 35.85, "t_fin": 36.14},
+        {"w": "está", "t": 36.2, "t_fin": 36.54},
+        {"w": "antes", "t": 36.6, "t_fin": 37.0},
+        {"w": "del", "t": 37.06, "t_fin": 37.35},
+        {"w": "filtro,", "t": 37.41, "t_fin": 37.86},
+        {"w": "girándola", "t": 37.92, "t_fin": 38.53},
+        {"w": "a", "t": 38.59, "t_fin": 38.76},
+        {"w": "la", "t": 38.82, "t_fin": 39.05},
+        {"w": "derecha", "t": 39.11, "t_fin": 39.62},
+        {"w": "hasta", "t": 39.68, "t_fin": 40.08},
+        {"w": "el", "t": 40.14, "t_fin": 40.37},
+        {"w": "tope.", "t": 40.43, "t_fin": 40.77}
+      ]
+    },
+    {
+      "id": 7,
+      "t_inicio": 41.27,
+      "t_fin": 46.98,
+      "texto": "La manija debe quedar atravesada a la tubería; así sabemos que está cerrada.",
+      "palabras": [
+        {"w": "La", "t": 41.27, "t_fin": 41.5},
+        {"w": "manija", "t": 41.56, "t_fin": 42.01},
+        {"w": "debe", "t": 42.07, "t_fin": 42.41},
+        {"w": "quedar", "t": 42.47, "t_fin": 42.92},
+        {"w": "atravesada", "t": 42.98, "t_fin": 43.65},
+        {"w": "a", "t": 43.71, "t_fin": 43.88},
+        {"w": "la", "t": 43.94, "t_fin": 44.17},
+        {"w": "tubería;", "t": 44.23, "t_fin": 44.74},
+        {"w": "así", "t": 44.8, "t_fin": 45.09},
+        {"w": "sabemos", "t": 45.15, "t_fin": 45.66},
+        {"w": "que", "t": 45.72, "t_fin": 46.01},
+        {"w": "está", "t": 46.07, "t_fin": 46.41},
+        {"w": "cerrada.", "t": 46.47, "t_fin": 46.98}
+      ]
+    },
+    {
+      "id": 8,
+      "t_inicio": 47.68,
+      "t_fin": 53.91,
+      "texto": "Si la llave está muy dura no usen extensión, mejor avisen al supervisor de turno.",
+      "palabras": [
+        {"w": "Si", "t": 47.68, "t_fin": 47.91},
+        {"w": "la", "t": 47.97, "t_fin": 48.2},
+        {"w": "llave", "t": 48.26, "t_fin": 48.66},
+        {"w": "está", "t": 48.72, "t_fin": 49.06},
+        {"w": "muy", "t": 49.12, "t_fin": 49.41},
+        {"w": "dura", "t": 49.47, "t_fin": 49.81},
+        {"w": "no", "t": 49.87, "t_fin": 50.1},
+        {"w": "usen", "t": 50.16, "t_fin": 50.5},
+        {"w": "extensión,", "t": 50.56, "t_fin": 51.17},
+        {"w": "mejor", "t": 51.23, "t_fin": 51.63},
+        {"w": "avisen", "t": 51.69, "t_fin": 52.14},
+        {"w": "al", "t": 52.2, "t_fin": 52.43},
+        {"w": "supervisor", "t": 52.49, "t_fin": 53.16},
+        {"w": "de", "t": 53.22, "t_fin": 53.45},
+        {"w": "turno.", "t": 53.51, "t_fin": 53.91}
+      ]
+    },
+    {
+      "id": 9,
+      "t_inicio": 55.51,
+      "t_fin": 61.3,
+      "texto": "Después libero la presión con el botón rojo que está arriba de la carcasa.",
+      "palabras": [
+        {"w": "Después", "t": 55.51, "t_fin": 56.02},
+        {"w": "libero", "t": 56.08, "t_fin": 56.53},
+        {"w": "la", "t": 56.59, "t_fin": 56.82},
+        {"w": "presión", "t": 56.88, "t_fin": 57.39},
+        {"w": "con", "t": 57.45, "t_fin": 57.74},
+        {"w": "el", "t": 57.8, "t_fin": 58.03},
+        {"w": "botón", "t": 58.09, "t_fin": 58.49},
+        {"w": "rojo", "t": 58.55, "t_fin": 58.89},
+        {"w": "que", "t": 58.95, "t_fin": 59.24},
+        {"w": "está", "t": 59.3, "t_fin": 59.64},
+        {"w": "arriba", "t": 59.7, "t_fin": 60.15},
+        {"w": "de", "t": 60.21, "t_fin": 60.44},
+        {"w": "la", "t": 60.5, "t_fin": 60.73},
+        {"w": "carcasa.", "t": 60.79, "t_fin": 61.3}
+      ]
+    },
+    {
+      "id": 10,
+      "t_inicio": 61.7,
+      "t_fin": 67.86,
+      "texto": "Lo mantengo presionado hasta que deja de salir aire y el manómetro baja a cero.",
+      "palabras": [
+        {"w": "Lo", "t": 61.7, "t_fin": 61.93},
+        {"w": "mantengo", "t": 61.99, "t_fin": 62.55},
+        {"w": "presionado", "t": 62.61, "t_fin": 63.28},
+        {"w": "hasta", "t": 63.34, "t_fin": 63.74},
+        {"w": "que", "t": 63.8, "t_fin": 64.09},
+        {"w": "deja", "t": 64.15, "t_fin": 64.49},
+        {"w": "de", "t": 64.55, "t_fin": 64.78},
+        {"w": "salir", "t": 64.84, "t_fin": 65.24},
+        {"w": "aire", "t": 65.3, "t_fin": 65.64},
+        {"w": "y", "t": 65.7, "t_fin": 65.87},
+        {"w": "el", "t": 65.93, "t_fin": 66.16},
+        {"w": "manómetro", "t": 66.22, "t_fin": 66.83},
+        {"w": "baja", "t": 66.89, "t_fin": 67.23},
+        {"w": "a", "t": 67.29, "t_fin": 67.46},
+        {"w": "cero.", "t": 67.52, "t_fin": 67.86}
+      ]
+    },
+    {
+      "id": 11,
+      "t_inicio": 68.76,
+      "t_fin": 73.56,
+      "texto": "Pongo una cubeta debajo porque siempre escurre un poco de agua.",
+      "palabras": [
+        {"w": "Pongo", "t": 68.76, "t_fin": 69.16},
+        {"w": "una", "t": 69.22, "t_fin": 69.51},
+        {"w": "cubeta", "t": 69.57, "t_fin": 70.02},
+        {"w": "debajo", "t": 70.08, "t_fin": 70.53},
+        {"w": "porque", "t": 70.59, "t_fin": 71.04},
+        {"w": "siempre", "t": 71.1, "t_fin": 71.61},
+        {"w": "escurre", "t": 71.67, "t_fin": 72.18},
+        {"w": "un", "t": 72.24, "t_fin": 72.47},
+        {"w": "poco", "t": 72.53, "t_fin": 72.87},
+        {"w": "de", "t": 72.93, "t_fin": 73.16},
+        {"w": "agua.", "t": 73.22, "t_fin": 73.56}
+      ]
+    },
+    {
+      "id": 12,
+      "t_inicio": 74.76,
+      "t_fin": 80.24,
+      "texto": "Con la llave de carcasa giro el vaso hacia la izquierda para aflojarlo.",
+      "palabras": [
+        {"w": "Con", "t": 74.76, "t_fin": 75.05},
+        {"w": "la", "t": 75.11, "t_fin": 75.34},
+        {"w": "llave", "t": 75.4, "t_fin": 75.8},
+        {"w": "de", "t": 75.86, "t_fin": 76.09},
+        {"w": "carcasa", "t": 76.15, "t_fin": 76.66},
+        {"w": "giro", "t": 76.72, "t_fin": 77.06},
+        {"w": "el", "t": 77.12, "t_fin": 77.35},
+        {"w": "vaso", "t": 77.41, "t_fin": 77.75},
+        {"w": "hacia", "t": 77.81, "t_fin": 78.21},
+        {"w": "la", "t": 78.27, "t_fin": 78.5},
+        {"w": "izquierda", "t": 78.56, "t_fin": 79.17},
+        {"w": "para", "t": 79.23, "t_fin": 79.57},
+        {"w": "aflojarlo.", "t": 79.63, "t_fin": 80.24}
+      ]
+    },
+    {
+      "id": 13,
+      "t_inicio": 80.74,
+      "t_fin": 85.44,
+      "texto": "Bajo el vaso con cuidado porque viene lleno de agua y pesa.",
+      "palabras": [
+        {"w": "Bajo", "t": 80.74, "t_fin": 81.08},
+        {"w": "el", "t": 81.14, "t_fin": 81.37},
+        {"w": "vaso", "t": 81.43, "t_fin": 81.77},
+        {"w": "con", "t": 81.83, "t_fin": 82.12},
+        {"w": "cuidado", "t": 82.18, "t_fin": 82.69},
+        {"w": "porque", "t": 82.75, "t_fin": 83.2},
+        {"w": "viene", "t": 83.26, "t_fin": 83.66},
+        {"w": "lleno", "t": 83.72, "t_fin": 84.12},
+        {"w": "de", "t": 84.18, "t_fin": 84.41},
+        {"w": "agua", "t": 84.47, "t_fin": 84.81},
+        {"w": "y", "t": 84.87, "t_fin": 85.04},
+        {"w": "pesa.", "t": 85.1, "t_fin": 85.44}
+      ]
+    },
+    {
+      "id": 14,
+      "t_inicio": 86.04,
+      "t_fin": 90.62,
+      "texto": "Saco el cartucho usado y lo dejo en la bolsa de residuos.",
+      "palabras": [
+        {"w": "Saco", "t": 86.04, "t_fin": 86.38},
+        {"w": "el", "t": 86.44, "t_fin": 86.67},
+        {"w": "cartucho", "t": 86.73, "t_fin": 87.29},
+        {"w": "usado", "t": 87.35, "t_fin": 87.75},
+        {"w": "y", "t": 87.81, "t_fin": 87.98},
+        {"w": "lo", "t": 88.04, "t_fin": 88.27},
+        {"w": "dejo", "t": 88.33, "t_fin": 88.67},
+        {"w": "en", "t": 88.73, "t_fin": 88.96},
+        {"w": "la", "t": 89.02, "t_fin": 89.25},
+        {"w": "bolsa", "t": 89.31, "t_fin": 89.71},
+        {"w": "de", "t": 89.77, "t_fin": 90.0},
+        {"w": "residuos.", "t": 90.06, "t_fin": 90.62}
+      ]
+    },
+    {
+      "id": 15,
+      "t_inicio": 91.42,
+      "t_fin": 97.95,
+      "texto": "Aquí aprovecho para revisar el anillo de hule; si está aplastado o cuarteado se cambia.",
+      "palabras": [
+        {"w": "Aquí", "t": 91.42, "t_fin": 91.76},
+        {"w": "aprovecho", "t": 91.82, "t_fin": 92.43},
+        {"w": "para", "t": 92.49, "t_fin": 92.83},
+        {"w": "revisar", "t": 92.89, "t_fin": 93.4},
+        {"w": "el", "t": 93.46, "t_fin": 93.69},
+        {"w": "anillo", "t": 93.75, "t_fin": 94.2},
+        {"w": "de", "t": 94.26, "t_fin": 94.49},
+        {"w": "hule;", "t": 94.55, "t_fin": 94.89},
+        {"w": "si", "t": 94.95, "t_fin": 95.18},
+        {"w": "está", "t": 95.24, "t_fin": 95.58},
+        {"w": "aplastado", "t": 95.64, "t_fin": 96.25},
+        {"w": "o", "t": 96.31, "t_fin": 96.48},
+        {"w": "cuarteado", "t": 96.54, "t_fin": 97.15},
+        {"w": "se", "t": 97.21, "t_fin": 97.44},
+        {"w": "cambia.", "t": 97.5, "t_fin": 97.95}
+      ]
+    },
+    {
+      "id": 16,
+      "t_inicio": 98.45,
+      "t_fin": 103.4,
+      "texto": "Una vez me tocó uno partido y la carcasa goteó toda la noche.",
+      "palabras": [
+        {"w": "Una", "t": 98.45, "t_fin": 98.74},
+        {"w": "vez", "t": 98.8, "t_fin": 99.09},
+        {"w": "me", "t": 99.15, "t_fin": 99.38},
+        {"w": "tocó", "t": 99.44, "t_fin": 99.78},
+        {"w": "uno", "t": 99.84, "t_fin": 100.13},
+        {"w": "partido", "t": 100.19, "t_fin": 100.7},
+        {"w": "y", "t": 100.76, "t_fin": 100.93},
+        {"w": "la", "t": 100.99, "t_fin": 101.22},
+        {"w": "carcasa", "t": 101.28, "t_fin": 101.79},
+        {"w": "goteó", "t": 101.85, "t_fin": 102.25},
+        {"w": "toda", "t": 102.31, "t_fin": 102.65},
+        {"w": "la", "t": 102.71, "t_fin": 102.94},
+        {"w": "noche.", "t": 103.0, "t_fin": 103.4}
+      ]
+    },
+    {
+      "id": 17,
+      "t_inicio": 104.9,
+      "t_fin": 108.96,
+      "texto": "Luego tomo el cartucho nuevo y le quito el plástico.",
+      "palabras": [
+        {"w": "Luego", "t": 104.9, "t_fin": 105.3},
+        {"w": "tomo", "t": 105.36, "t_fin": 105.7},
+        {"w": "el", "t": 105.76, "t_fin": 105.99},
+        {"w": "cartucho", "t": 106.05, "t_fin": 106.61},
+        {"w": "nuevo", "t": 106.67, "t_fin": 107.07},
+        {"w": "y", "t": 107.13, "t_fin": 107.3},
+        {"w": "le", "t": 107.36, "t_fin": 107.59},
+        {"w": "quito", "t": 107.65, "t_fin": 108.05},
+        {"w": "el", "t": 108.11, "t_fin": 108.34},
+        {"w": "plástico.", "t": 108.4, "t_fin": 108.96}
+      ]
+    },
+    {
+      "id": 18,
+      "t_inicio": 109.36,
+      "t_fin": 114.11,
+      "texto": "Lo meto en el vaso bien centrado, con la ranura hacia arriba.",
+      "palabras": [
+        {"w": "Lo", "t": 109.36, "t_fin": 109.59},
+        {"w": "meto", "t": 109.65, "t_fin": 109.99},
+        {"w": "en", "t": 110.05, "t_fin": 110.28},
+        {"w": "el", "t": 110.34, "t_fin": 110.57},
+        {"w": "vaso", "t": 110.63, "t_fin": 110.97},
+        {"w": "bien", "t": 111.03, "t_fin": 111.37},
+        {"w": "centrado,", "t": 111.43, "t_fin": 111.99},
+        {"w": "con", "t": 112.05, "t_fin": 112.34},
+        {"w": "la", "t": 112.4, "t_fin": 112.63},
+        {"w": "ranura", "t": 112.69, "t_fin": 113.14},
+        {"w": "hacia", "t": 113.2, "t_fin": 113.6},
+        {"w": "arriba.", "t": 113.66, "t_fin": 114.11}
+      ]
+    },
+    {
+      "id": 19,
+      "t_inicio": 114.71,
+      "t_fin": 121.43,
+      "texto": "Enrosco el vaso a mano hacia la derecha y le doy un cuarto de vuelta con la llave.",
+      "palabras": [
+        {"w": "Enrosco", "t": 114.71, "t_fin": 115.22},
+        {"w": "el", "t": 115.28, "t_fin": 115.51},
+        {"w": "vaso", "t": 115.57, "t_fin": 115.91},
+        {"w": "a", "t": 115.97, "t_fin": 116.14},
+        {"w": "mano", "t": 116.2, "t_fin": 116.54},
+        {"w": "hacia", "t": 116.6, "t_fin": 117.0},
+        {"w": "la", "t": 117.06, "t_fin": 117.29},
+        {"w": "derecha", "t": 117.35, "t_fin": 117.86},
+        {"w": "y", "t": 117.92, "t_fin": 118.09},
+        {"w": "le", "t": 118.15, "t_fin": 118.38},
+        {"w": "doy", "t": 118.44, "t_fin": 118.73},
+        {"w": "un", "t": 118.79, "t_fin": 119.02},
+        {"w": "cuarto", "t": 119.08, "t_fin": 119.53},
+        {"w": "de", "t": 119.59, "t_fin": 119.82},
+        {"w": "vuelta", "t": 119.88, "t_fin": 120.33},
+        {"w": "con", "t": 120.39, "t_fin": 120.68},
+        {"w": "la", "t": 120.74, "t_fin": 120.97},
+        {"w": "llave.", "t": 121.03, "t_fin": 121.43}
+      ]
+    },
+    {
+      "id": 20,
+      "t_inicio": 121.83,
+      "t_fin": 125.62,
+      "texto": "No lo aprieten de más porque se barre la rosca.",
+      "palabras": [
+        {"w": "No", "t": 121.83, "t_fin": 122.06},
+        {"w": "lo", "t": 122.12, "t_fin": 122.35},
+        {"w": "aprieten", "t": 122.41, "t_fin": 122.97},
+        {"w": "de", "t": 123.03, "t_fin": 123.26},
+        {"w": "más", "t": 123.32, "t_fin": 123.61},
+        {"w": "porque", "t": 123.67, "t_fin": 124.12},
+        {"w": "se", "t": 124.18, "t_fin": 124.41},
+        {"w": "barre", "t": 124.47, "t_fin": 124.87},
+        {"w": "la", "t": 124.93, "t_fin": 125.16},
+        {"w": "rosca.", "t": 125.22, "t_fin": 125.62}
+      ]
+    },
+    {
+      "id": 21,
+      "t_inicio": 127.32,
+      "t_fin": 132.75,
+      "texto": "Finalmente abro la llave de paso despacio para que se llene el filtro.",
+      "palabras": [
+        {"w": "Finalmente", "t": 127.32, "t_fin": 127.99},
+        {"w": "abro", "t": 128.05, "t_fin": 128.39},
+        {"w": "la", "t": 128.45, "t_fin": 128.68},
+        {"w": "llave", "t": 128.74, "t_fin": 129.14},
+        {"w": "de", "t": 129.2, "t_fin": 129.43},
+        {"w": "paso", "t": 129.49, "t_fin": 129.83},
+        {"w": "despacio", "t": 129.89, "t_fin": 130.45},
+        {"w": "para", "t": 130.51, "t_fin": 130.85},
+        {"w": "que", "t": 130.91, "t_fin": 131.2},
+        {"w": "se", "t": 131.26, "t_fin": 131.49},
+        {"w": "llene", "t": 131.55, "t_fin": 131.95},
+        {"w": "el", "t": 132.01, "t_fin": 132.24},
+        {"w": "filtro.", "t": 132.3, "t_fin": 132.75}
+      ]
+    },
+    {
+      "id": 22,
+      "t_inicio": 133.35,
+      "t_fin": 139.48,
+      "texto": "Presiono otra vez el botón rojo para purgar el aire hasta que salga solo agua.",
+      "palabras": [
+        {"w": "Presiono", "t": 133.35, "t_fin": 133.91},
+        {"w": "otra", "t": 133.97, "t_fin": 134.31},
+        {"w": "vez", "t": 134.37, "t_fin": 134.66},
+        {"w": "el", "t": 134.72, "t_fin": 134.95},
+        {"w": "botón", "t": 135.01, "t_fin": 135.41},
+        {"w": "rojo", "t": 135.47, "t_fin": 135.81},
+        {"w": "para", "t": 135.87, "t_fin": 136.21},
+        {"w": "purgar", "t": 136.27, "t_fin": 136.72},
+        {"w": "el", "t": 136.78, "t_fin": 137.01},
+        {"w": "aire", "t": 137.07, "t_fin": 137.41},
+        {"w": "hasta", "t": 137.47, "t_fin": 137.87},
+        {"w": "que", "t": 137.93, "t_fin": 138.22},
+        {"w": "salga", "t": 138.28, "t_fin": 138.68},
+        {"w": "solo", "t": 138.74, "t_fin": 139.08},
+        {"w": "agua.", "t": 139.14, "t_fin": 139.48}
+      ]
+    },
+    {
+      "id": 23,
+      "t_inicio": 140.28,
+      "t_fin": 147.35,
+      "texto": "Reviso la unión del vaso y las conexiones con una toalla de papel para ver si hay fugas.",
+      "palabras": [
+        {"w": "Reviso", "t": 140.28, "t_fin": 140.73},
+        {"w": "la", "t": 140.79, "t_fin": 141.02},
+        {"w": "unión", "t": 141.08, "t_fin": 141.48},
+        {"w": "del", "t": 141.54, "t_fin": 141.83},
+        {"w": "vaso", "t": 141.89, "t_fin": 142.23},
+        {"w": "y", "t": 142.29, "t_fin": 142.46},
+        {"w": "las", "t": 142.52, "t_fin": 142.81},
+        {"w": "conexiones", "t": 142.87, "t_fin": 143.54},
+        {"w": "con", "t": 143.6, "t_fin": 143.89},
+        {"w": "una", "t": 143.95, "t_fin": 144.24},
+        {"w": "toalla", "t": 144.3, "t_fin": 144.75},
+        {"w": "de", "t": 144.81, "t_fin": 145.04},
+        {"w": "papel", "t": 145.1, "t_fin": 145.5},
+        {"w": "para", "t": 145.56, "t_fin": 145.9},
+        {"w": "ver", "t": 145.96, "t_fin": 146.25},
+        {"w": "si", "t": 146.31, "t_fin": 146.54},
+        {"w": "hay", "t": 146.6, "t_fin": 146.89},
+        {"w": "fugas.", "t": 146.95, "t_fin": 147.35}
+      ]
+    },
+    {
+      "id": 24,
+      "t_inicio": 147.85,
+      "t_fin": 150.86,
+      "texto": "El manómetro debe regresar a cuatro bar.",
+      "palabras": [
+        {"w": "El", "t": 147.85, "t_fin": 148.08},
+        {"w": "manómetro", "t": 148.14, "t_fin": 148.75},
+        {"w": "debe", "t": 148.81, "t_fin": 149.15},
+        {"w": "regresar", "t": 149.21, "t_fin": 149.77},
+        {"w": "a", "t": 149.83, "t_fin": 150.0},
+        {"w": "cuatro", "t": 150.06, "t_fin": 150.51},
+        {"w": "bar.", "t": 150.57, "t_fin": 150.86}
+      ]
+    },
+    {
+      "id": 25,
+      "t_inicio": 152.16,
+      "t_fin": 156.29,
+      "texto": "Y con eso queda listo el cambio del cartucho, gracias.",
+      "palabras": [
+        {"w": "Y", "t": 152.16, "t_fin": 152.33},
+        {"w": "con", "t": 152.39, "t_fin": 152.68},
+        {"w": "eso", "t": 152.74, "t_fin": 153.03},
+        {"w": "queda", "t": 153.09, "t_fin": 153.49},
+        {"w": "listo", "t": 153.55, "t_fin": 153.95},
+        {"w": "el", "t": 154.01, "t_fin": 154.24},
+        {"w": "cambio", "t": 154.3, "t_fin": 154.75},
+        {"w": "del", "t": 154.81, "t_fin": 155.1},
+        {"w": "cartucho,", "t": 155.16, "t_fin": 155.72},
+        {"w": "gracias.", "t": 155.78, "t_fin": 156.29}
+      ]
+    }
+  ],
+  "fotogramas": [
+    {
+      "t": 23.0,
+      "archivo": "fotogramas/f01.jpg",
+      "descripcion": "Persona con guantes azules y lentes de seguridad frente a un filtro de cartucho montado en la pared.",
+      "equipos": ["filtro de cartucho", "manómetro"],
+      "personas": 1,
+      "texto_visible": [],
+      "riesgos": []
+    },
+    {
+      "t": 58.0,
+      "archivo": "fotogramas/f02.jpg",
+      "descripcion": "Mano presionando un botón rojo en la tapa de la carcasa; cubeta debajo del filtro.",
+      "equipos": ["carcasa del filtro", "cubeta"],
+      "personas": 1,
+      "texto_visible": ["PURGA"],
+      "riesgos": ["agua a presión"]
+    },
+    {
+      "t": 84.0,
+      "archivo": "fotogramas/f03.jpg",
+      "descripcion": "Vaso transparente del filtro retirado con un cartucho blanco sucio dentro.",
+      "equipos": ["vaso del filtro", "llave de carcasa"],
+      "personas": 1,
+      "texto_visible": [],
+      "riesgos": ["piso mojado"]
+    },
+    {
+      "t": 149.0,
+      "archivo": "fotogramas/f04.jpg",
+      "descripcion": "Manómetro con la aguja cerca de 4 bar junto a la llave de paso abierta.",
+      "equipos": ["manómetro", "llave de paso"],
+      "personas": 0,
+      "texto_visible": ["bar"],
+      "riesgos": []
+    }
+  ]
+}
