@@ -1,31 +1,35 @@
 """Segmentación de la narración en pasos (ADR-010) y extracción de los pasos del video (RF-13).
 
-El LLM recibe los segmentos de habla numerados y las etiquetas del video (nunca el SOP), y
-responde SOLO una lista de `PropuestaPaso` (`segmento_id`, `nombre`, `descripcion`,
+Entrada: el `Analisis` del pipeline de video (`sopvid.contrato`). Salida: `list[PasoVideo]`.
+
+El LLM recibe los segmentos de habla numerados y, si las hay, las etiquetas del video (nunca el
+SOP), y responde SOLO una lista de `PropuestaPaso` (`segmento_id`, `nombre`, `descripcion`,
 `responsable`, `cita`) restringida con un JSON Schema generado desde Pydantic. Los tiempos de
-cada paso se toman del segmento elegido, **nunca del LLM** (regla 4 de CLAUDE.md): el prompt no
+cada paso se toman de los segmentos, **nunca del LLM** (regla 4 de CLAUDE.md): el prompt no
 lleva tiempos y el esquema no los admite.
 
 Si el LLM no está disponible, falla o su propuesta no pasa la validación (esquema, ids
-existentes, orden creciente, sin duplicados, nombres no vacíos), se usa la heurística de
-respaldo: palabras de transición al inicio del segmento ("primero", "ahora", "después", "luego",
-"siguiente", "finalmente"…) y pausas largas. El camino usado queda en `Segmentacion.metodo` y en
-el log.
+existentes, orden creciente, sin duplicados, nombres no vacíos) tras los reintentos, se usa la
+heurística de respaldo: palabras de transición al inicio del segmento ("primero", "ahora",
+"después", "luego", "siguiente", "finalmente"…) y pausas largas. El camino usado queda en
+`Segmentacion.metodo` y en el log.
 
 Este módulo es Python puro (sin pandas) porque corre en la API.
 """
 
+import json
 import logging
 import re
 import unicodedata
 from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, NotRequired, TypedDict, TypeVar
+from pathlib import Path
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
 
-from sopvid.contrato import Analisis, Confianza, Fuente, PasoVideo
+from sopvid.contrato import Analisis, Confianza, Fuente, PasoVideo, Segmento
 from sopvid.lenguaje.llm import ClienteLLM, LLMError
 
 logger = logging.getLogger(__name__)
@@ -33,28 +37,9 @@ logger = logging.getLogger(__name__)
 NO_IDENTIFICADO = "No identificado"  # responsable cuando nadie lo dice en el audio (ADR-008)
 
 
-class Segmento(TypedDict):
-    """Segmento de habla del índice. `t_fin` es opcional; sin él no se usan pausas."""
-
-    id: int
-    t_inicio: float
-    texto: str
-    t_fin: NotRequired[float]
-
-
-@dataclass(frozen=True)
-class Paso:
-    segmento_id: int
-    t_inicio: float  # siempre el del segmento, nunca uno escrito por el LLM
-    nombre: str
-    descripcion: str = ""
-    responsable: str = NO_IDENTIFICADO
-    cita: str = ""  # la heurística no tiene evidencia que citar
-
-
 @dataclass(frozen=True)
 class Segmentacion:
-    pasos: list[Paso]
+    pasos: list[PasoVideo]
     metodo: Literal["llm", "heuristica"]
     motivo_respaldo: str | None  # por qué se usó la heurística; None si fue el LLM
     modelo: str | None
@@ -138,22 +123,23 @@ REGLA_ACLARACIONES = (
 
 
 def construir_mensajes(
-    segmentos: Sequence[Segmento],
-    etiquetas: Mapping[str, str],
+    analisis: Analisis,
+    etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
 ) -> list[dict[str, str]]:
     """Mensajes para el LLM. Solo números de segmento y texto: ningún tiempo y nunca el SOP.
 
     La regla de cortes es la del prompt v1 (benchmark de ADR-006), ampliada para RF-13 con
-    descripción, responsable y cita. `regla_aclaraciones=True` agrega la regla de aclaraciones
-    (prompt v2, descartado en la Fase 4).
+    descripción, responsable y cita. Sin etiquetas (la ficha de contexto llega después), se
+    omite esa línea. `regla_aclaraciones=True` agrega la regla de aclaraciones (prompt v2,
+    descartado en la Fase 4).
     """
-    numerados = "\n".join(f"[{s['id']}] {s['texto']}" for s in segmentos)
-    texto_etiquetas = "; ".join(f"{k}={v}" for k, v in etiquetas.items())
+    numerados = "\n".join(f"[{s.id}] {s.texto}" for s in analisis.transcripcion)
+    texto_etiquetas = "; ".join(f"{k}={v}" for k, v in (etiquetas or {}).items())
     usuario = (
-        f"Etiquetas del video: {texto_etiquetas}.\n\n"
-        f"Segmentos de la transcripción, numerados y en orden:\n{numerados}\n\n"
+        (f"Etiquetas del video: {texto_etiquetas}.\n\n" if texto_etiquetas else "")
+        + f"Segmentos de la transcripción, numerados y en orden:\n{numerados}\n\n"
         "Identifica en qué segmento empieza cada paso del procedimiento. Un paso suele "
         "abarcar varios segmentos: no marques cada segmento como paso, y la introducción o "
         "los comentarios no inician pasos. "
@@ -205,20 +191,14 @@ def _validar_propuestas(datos: Any, ids_existentes: Collection[int]) -> list[Pro
     return propuestas
 
 
-def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
-    """Convierte la respuesta del LLM en pasos (solo inicio) o lanza `PropuestaInvalida`."""
-    por_id = {s["id"]: s for s in segmentos}
-    return [
-        Paso(
-            p.segmento_id,
-            float(por_id[p.segmento_id]["t_inicio"]),
-            p.nombre,
-            p.descripcion,
-            p.responsable,
-            p.cita,
-        )
-        for p in _validar_propuestas(datos, por_id)
-    ]
+def _rangos(inicios: Sequence[int], n_segmentos: int) -> list[tuple[int, int]]:
+    """(posición inicial, posición final) de cada paso, inclusive, a partir de las posiciones
+    de inicio en orden creciente. Cada paso termina en el segmento anterior al inicio del
+    siguiente; el último, en el último segmento de la transcripción."""
+    if not inicios:
+        return []
+    fines = [i - 1 for i in inicios[1:]] + [n_segmentos - 1]
+    return list(zip(inicios, fines, strict=True))
 
 
 @dataclass(frozen=True)
@@ -236,14 +216,12 @@ def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConR
     segmentos = analisis.transcripcion
     posicion = {s.id: i for i, s in enumerate(segmentos)}
     validas = _validar_propuestas(propuestas, posicion)
-    # Cada paso termina en el segmento anterior al inicio del siguiente; el último, al final.
-    fines = [posicion[p.segmento_id] - 1 for p in validas[1:]] + [len(segmentos) - 1]
+    rangos = _rangos([posicion[p.segmento_id] for p in validas], len(segmentos))
     # Introducción: lo que se dice antes del primer paso (ahí suele presentarse quien narra).
-    introduccion = " ".join(s.texto for s in segmentos[: posicion[validas[0].segmento_id]])
+    introduccion = " ".join(s.texto for s in segmentos[: rangos[0][0]])
 
     resultado = []
-    for numero, (p, i_fin) in enumerate(zip(validas, fines, strict=True), start=1):
-        i_inicio = posicion[p.segmento_id]
+    for numero, (p, (i_inicio, i_fin)) in enumerate(zip(validas, rangos, strict=True), start=1):
         primero, ultimo = segmentos[i_inicio], segmentos[i_fin]
         confianza_cita, fuente = verificar_cita(p.cita, analisis, (primero.id, ultimo.id))
         del_paso = " ".join(s.texto for s in segmentos[i_inicio : i_fin + 1])
@@ -271,9 +249,10 @@ def _construir_con_rangos(propuestas: Any, analisis: Analisis) -> list[_PasoConR
 def construir_pasos(propuestas: Any, analisis: Analisis) -> list[PasoVideo]:
     """Pasos del video a partir de la respuesta del LLM (JSON ya interpretado) y el análisis.
 
-    Valida igual que `validar_propuesta` y lanza `PropuestaInvalida`. Los tiempos salen solo
-    de la transcripción: `t_inicio` del segmento elegido y `t_fin` del último segmento antes del
-    siguiente paso (o del último de la transcripción). `numero` es la posición desde 1.
+    Si la propuesta no es válida lanza `PropuestaInvalida` (`_validar_propuestas`). Los tiempos
+    salen solo de la transcripción: `t_inicio` del segmento elegido y `t_fin` del último
+    segmento antes del siguiente paso (o del último de la transcripción). `numero` es la
+    posición desde 1.
     `confianza` y `fuente` salen de verificar la cita (`verificar_cita`, RNF-06).
 
     Responsable (sin diarización, ADR-008: el rol solo sale de lo que se dice en el audio):
@@ -451,26 +430,26 @@ def _pedir_con_reintentos(
 
 
 def _segmentar_con_llm(
-    segmentos: Sequence[Segmento],
-    etiquetas: Mapping[str, str],
+    analisis: Analisis,
     llm: ClienteLLM,
+    etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
-) -> _Resultado[list[Paso]]:
-    mensajes = construir_mensajes(segmentos, etiquetas, regla_aclaraciones=regla_aclaraciones)
-    return _pedir_con_reintentos(mensajes, llm, lambda datos: validar_propuesta(datos, segmentos))
+) -> _Resultado[list[PasoVideo]]:
+    mensajes = construir_mensajes(analisis, etiquetas, regla_aclaraciones=regla_aclaraciones)
+    return _pedir_con_reintentos(mensajes, llm, lambda datos: construir_pasos(datos, analisis))
 
 
 def segmentar_con_llm(
-    segmentos: Sequence[Segmento],
-    etiquetas: Mapping[str, str],
+    analisis: Analisis,
     llm: ClienteLLM,
+    etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
-) -> list[Paso]:
+) -> list[PasoVideo]:
     """Pasos propuestos por el LLM, con hasta `MAX_INTENTOS` llamadas si la propuesta no es
     válida. Lanza `LLMError` (sin reintentar) o `PropuestaInvalida` con el último motivo."""
-    r = _segmentar_con_llm(segmentos, etiquetas, llm, regla_aclaraciones=regla_aclaraciones)
+    r = _segmentar_con_llm(analisis, llm, etiquetas, regla_aclaraciones=regla_aclaraciones)
     if r.error is not None:
         raise r.error
     assert r.valor is not None
@@ -499,6 +478,8 @@ PALABRAS_INICIALES = 3  # el marcador debe aparecer entre las primeras palabras
 PAUSA_MIN_S = 3.0  # silencio previo que por sí solo sugiere un paso nuevo
 SEPARACION_MIN = 2  # segmentos mínimos entre dos inicios de paso
 _PALABRAS_NOMBRE = 8
+_PALABRAS_CITA = 15  # máximo de la cita heurística, como la del LLM (4 a 15)
+_CARACTERES_DESCRIPCION = 300
 
 
 def _normalizar(texto: str) -> str:
@@ -512,42 +493,72 @@ def empieza_con_marcador(texto: str, palabras_iniciales: int = PALABRAS_INICIALE
     return any(re.search(rf"\b{m}\b", inicio) for m in MARCADORES)
 
 
-def _pausa_previa(anterior: Segmento | None, actual: Segmento) -> float | None:
-    if anterior is None or "t_fin" not in anterior:
-        return None
-    return float(actual["t_inicio"]) - float(anterior["t_fin"])
-
-
 def _nombre_heuristico(texto: str) -> str:
     palabras = texto.split()
     nombre = " ".join(palabras[:_PALABRAS_NOMBRE])
     return nombre + ("…" if len(palabras) > _PALABRAS_NOMBRE else "")
 
 
-def segmentar_heuristica(
+def _recortar(texto: str, limite: int = _CARACTERES_DESCRIPCION) -> str:
+    """Recorta en la última palabra completa antes de `limite` caracteres y agrega "…"."""
+    if len(texto) <= limite:
+        return texto
+    corte = texto[: limite + 1].rsplit(" ", 1)[0] or texto[:limite]
+    return corte.rstrip(" ,;:.") + "…"
+
+
+def inicios_heuristicos(
     segmentos: Sequence[Segmento],
     *,
     pausa_min_s: float = PAUSA_MIN_S,
     separacion_min: int = SEPARACION_MIN,
-) -> list[Paso]:
-    """Inicio de paso donde el segmento empieza con un marcador o tras una pausa larga.
-
-    Un candidato a menos de `separacion_min` segmentos del inicio anterior se descarta. Si no
-    hay ningún candidato, todo el video es un solo paso desde el primer segmento.
-    """
-    pasos: list[Paso] = []
-    ultimo_indice = None
-    anterior = None
+) -> list[int]:
+    """Posiciones donde empieza un paso: segmento que empieza con un marcador o tras una pausa
+    larga. Un candidato a menos de `separacion_min` segmentos del inicio anterior se descarta.
+    Si no hay ningún candidato, todo el video es un solo paso desde el primer segmento."""
+    inicios: list[int] = []
     for i, s in enumerate(segmentos):
-        pausa = _pausa_previa(anterior, s)
-        candidato = empieza_con_marcador(s["texto"]) or (pausa is not None and pausa >= pausa_min_s)
-        if candidato and (ultimo_indice is None or i - ultimo_indice >= separacion_min):
-            pasos.append(Paso(s["id"], float(s["t_inicio"]), _nombre_heuristico(s["texto"])))
-            ultimo_indice = i
-        anterior = s
-    if not pasos and segmentos:
-        s = segmentos[0]
-        pasos.append(Paso(s["id"], float(s["t_inicio"]), _nombre_heuristico(s["texto"])))
+        pausa = s.t_inicio - segmentos[i - 1].t_fin if i else None
+        candidato = empieza_con_marcador(s.texto) or (pausa is not None and pausa >= pausa_min_s)
+        if candidato and (not inicios or i - inicios[-1] >= separacion_min):
+            inicios.append(i)
+    return inicios or ([0] if segmentos else [])
+
+
+def segmentar_heuristica(
+    analisis: Analisis,
+    *,
+    pausa_min_s: float = PAUSA_MIN_S,
+    separacion_min: int = SEPARACION_MIN,
+) -> list[PasoVideo]:
+    """Pasos del video sin LLM, con los inicios de `inicios_heuristicos`.
+
+    Cada paso abarca hasta el segmento anterior al siguiente inicio (misma regla que
+    `construir_pasos`). Nombre: primeras palabras del primer segmento; descripción: texto de
+    los segmentos del paso recortado a ~300 caracteres; responsable "No identificado"; cita:
+    primeras palabras (hasta 15) del primer segmento, así que siempre está en la transcripción.
+    Fuente "audio" y confianza "baja" siempre: la heurística no entiende el contenido, y la
+    confianza no sube aunque la cita aparezca.
+    """
+    segmentos = analisis.transcripcion
+    inicios = inicios_heuristicos(segmentos, pausa_min_s=pausa_min_s, separacion_min=separacion_min)
+    pasos = []
+    for numero, (i_inicio, i_fin) in enumerate(_rangos(inicios, len(segmentos)), start=1):
+        primero, ultimo = segmentos[i_inicio], segmentos[i_fin]
+        texto = " ".join(" ".join(s.texto.split()) for s in segmentos[i_inicio : i_fin + 1])
+        pasos.append(
+            PasoVideo(
+                numero=numero,
+                nombre=_nombre_heuristico(primero.texto) or f"Paso {numero}",
+                descripcion=_recortar(texto),
+                responsable=NO_IDENTIFICADO,
+                t_inicio=primero.t_inicio,
+                t_fin=ultimo.t_fin,
+                cita=" ".join(primero.texto.split()[:_PALABRAS_CITA]),
+                fuente="audio",
+                confianza="baja",
+            )
+        )
     return pasos
 
 
@@ -555,9 +566,9 @@ def segmentar_heuristica(
 
 
 def segmentar(
-    segmentos: Sequence[Segmento],
-    etiquetas: Mapping[str, str],
-    llm: ClienteLLM | None = None,
+    analisis: Analisis,
+    llm: ClienteLLM | None,
+    etiquetas: Mapping[str, str] | None = None,
     *,
     regla_aclaraciones: bool = False,
 ) -> Segmentacion:
@@ -565,13 +576,15 @@ def segmentar(
 
     Una propuesta inválida se reintenta hasta completar `MAX_INTENTOS` llamadas; si el LLM no
     responde, se va directo a la heurística (RNF-07). `Segmentacion.intentos` cuenta las
-    llamadas hechas al LLM.
+    llamadas hechas al LLM. Las etiquetas son opcionales (la ficha de contexto llega en S5).
     """
     intentos = 0
-    if llm is None:
+    if not analisis.transcripcion:
+        motivo = "transcripción vacía"
+    elif llm is None:
         motivo = "sin cliente LLM"
     else:
-        r = _segmentar_con_llm(segmentos, etiquetas, llm, regla_aclaraciones=regla_aclaraciones)
+        r = _segmentar_con_llm(analisis, llm, etiquetas, regla_aclaraciones=regla_aclaraciones)
         intentos = r.intentos
         if isinstance(r.error, LLMError):
             motivo = f"LLM no disponible o con error ({type(r.error).__name__})"
@@ -587,12 +600,35 @@ def segmentar(
             )
             return Segmentacion(r.valor, "llm", None, llm.modelo, intentos)
 
-    pasos = segmentar_heuristica(segmentos)
+    pasos = segmentar_heuristica(analisis)
     logger.info("Segmentación por heurística: %d pasos; motivo: %s", len(pasos), motivo)
     return Segmentacion(pasos, "heuristica", motivo, None, intentos)
 
 
 # ── Evaluación ───────────────────────────────────────────────────────────────────────────────
+
+
+def cargar_transcripcion_prueba(path: Path | str, *, video_id: int = 0) -> Analisis:
+    """`Analisis` a partir de una transcripción de prueba de tests/fixtures/transcripciones/.
+
+    Esos archivos (inventados) solo traen segmentos con `id`, `t_inicio`, `t_fin` y `texto`,
+    más `etiquetas` e `inicios_paso`, que se leen aparte. No se modifican: el idioma se fija a
+    mano en español, la duración es el fin del último segmento y no hay palabras ni fotogramas.
+    """
+    datos = json.loads(Path(path).read_text(encoding="utf-8"))
+    segmentos = datos["segmentos"]
+    return Analisis(
+        video_id=video_id,
+        duracion_s=segmentos[-1]["t_fin"] if segmentos else 0.0,
+        idioma={"codigo": "es", "confianza": 1.0, "fijado_a_mano": True},
+        transcripcion=[{k: s[k] for k in ("id", "t_inicio", "t_fin", "texto")} for s in segmentos],
+    )
+
+
+def segmentos_de_inicio(pasos: Sequence[PasoVideo], analisis: Analisis) -> list[int]:
+    """Id del segmento donde empieza cada paso. `t_inicio` siempre es el de un segmento."""
+    id_por_inicio = {s.t_inicio: s.id for s in analisis.transcripcion}
+    return [id_por_inicio[p.t_inicio] for p in pasos]
 
 
 def f1_fronteras(

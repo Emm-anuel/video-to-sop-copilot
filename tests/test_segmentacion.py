@@ -15,6 +15,7 @@ from sopvid.percepcion.segmentacion import (
     NO_IDENTIFICADO,
     PropuestaInvalida,
     _construir_con_rangos,
+    cargar_transcripcion_prueba,
     construir_mensajes,
     construir_pasos,
     empieza_con_marcador,
@@ -24,7 +25,7 @@ from sopvid.percepcion.segmentacion import (
     segmentar,
     segmentar_con_llm,
     segmentar_heuristica,
-    validar_propuesta,
+    segmentos_de_inicio,
     verificar_cita,
 )
 
@@ -41,6 +42,18 @@ SEGMENTOS = [
     {"id": 6, "t_inicio": 24.5, "t_fin": 28.0, "texto": "Después se monta la cuchilla nueva."},
     {"id": 7, "t_inicio": 28.2, "t_fin": 31.0, "texto": "Ahora, ojo con el filo."},
 ]
+
+
+def analisis_de(segmentos: list[dict], video_id: int = 1) -> Analisis:
+    return Analisis(
+        video_id=video_id,
+        duracion_s=segmentos[-1]["t_fin"] if segmentos else 0.0,
+        idioma={"codigo": "es", "confianza": 0.99},
+        transcripcion=segmentos,
+    )
+
+
+ANALISIS = analisis_de(SEGMENTOS)
 
 
 def propuesta(segmento_id, nombre="Paso", **campos) -> dict:
@@ -89,14 +102,16 @@ def test_los_pasos_traen_los_campos_del_llm_y_los_tiempos_de_los_segmentos():
         ]
     )
     with cliente_que_responde(respuesta) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "llm"
     assert r.motivo_respaldo is None
-    assert [(p.segmento_id, p.t_inicio, p.nombre) for p in r.pasos] == [
-        (2, 4.5, "Apagar y bloquear"),
-        (4, 16.0, "Retirar la guarda"),
-        (6, 24.5, "Montar la cuchilla"),
+    assert all(isinstance(p, PasoVideo) for p in r.pasos)
+    assert segmentos_de_inicio(r.pasos, ANALISIS) == [2, 4, 6]
+    assert [(p.numero, p.t_inicio, p.t_fin, p.nombre) for p in r.pasos] == [
+        (1, 4.5, 12.0, "Apagar y bloquear"),
+        (2, 16.0, 24.0, "Retirar la guarda"),
+        (3, 24.5, 31.0, "Montar la cuchilla"),
     ]
     primero = r.pasos[0]
     assert primero.descripcion == "Se apaga la máquina y se bloquea el gabinete con candado."
@@ -108,7 +123,7 @@ def test_los_pasos_traen_los_campos_del_llm_y_los_tiempos_de_los_segmentos():
 def test_un_tiempo_escrito_por_el_llm_invalida_la_propuesta():
     respuesta = json.dumps([propuesta(2, t_inicio=999), propuesta(4)])
     with cliente_que_responde(respuesta) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "heuristica"
     assert "t_inicio (extra_forbidden)" in r.motivo_respaldo
@@ -132,24 +147,24 @@ def test_un_tiempo_escrito_por_el_llm_invalida_la_propuesta():
 )
 def test_validacion_rechaza_propuestas_invalidas(datos, motivo):
     with pytest.raises(PropuestaInvalida, match=motivo):
-        validar_propuesta(datos, SEGMENTOS)
+        construir_pasos(datos, ANALISIS)
 
 
 def test_el_motivo_de_rechazo_no_copia_texto_de_la_transcripcion():
     cita = "Se pone el candado en el gabinete."
     with pytest.raises(PropuestaInvalida) as exc:
-        validar_propuesta([propuesta(2, nombre=cita, extra=cita, cita=1)], SEGMENTOS)
+        construir_pasos([propuesta(2, nombre=cita, extra=cita, cita=1)], ANALISIS)
     assert "candado" not in str(exc.value)
 
 
 def test_propuesta_invalida_cae_a_la_heuristica_y_registra_el_camino(caplog):
     respuesta = json.dumps([propuesta(2), propuesta(99)])
     with caplog.at_level(logging.INFO), cliente_que_responde(respuesta) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "heuristica"
     assert "inválida" in r.motivo_respaldo and "99" in r.motivo_respaldo
-    assert r.pasos == segmentar_heuristica(SEGMENTOS)
+    assert r.pasos == segmentar_heuristica(ANALISIS)
     assert "heurística" in caplog.text
 
 
@@ -158,7 +173,7 @@ def test_propuesta_invalida_cae_a_la_heuristica_y_registra_el_camino(caplog):
 )
 def test_llm_caido_cae_a_la_heuristica(error):
     with cliente_que_responde(error=error) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
@@ -168,7 +183,7 @@ def test_llm_caido_cae_a_la_heuristica(error):
 def test_json_roto_cae_a_la_heuristica_sin_reintentos():
     peticiones = []
     with cliente_que_responde('[{"segmento_id": 2, "tit', peticiones=peticiones) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "heuristica"
     assert "LLMRespuestaInvalida" in r.motivo_respaldo
@@ -176,7 +191,7 @@ def test_json_roto_cae_a_la_heuristica_sin_reintentos():
 
 
 def test_sin_cliente_usa_la_heuristica():
-    r = segmentar(SEGMENTOS, ETIQUETAS, None)
+    r = segmentar(ANALISIS, None, ETIQUETAS)
     assert r.metodo == "heuristica"
     assert r.motivo_respaldo == "sin cliente LLM"
     assert r.intentos == 0
@@ -210,19 +225,19 @@ CON_TIEMPO = json.dumps([propuesta(2, t_inicio=4.5)])
 def test_valida_al_primer_intento():
     peticiones = []
     with cliente_en_secuencia([VALIDA], peticiones) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert (r.metodo, r.intentos, len(peticiones)) == ("llm", 1, 1)
-    assert [p.segmento_id for p in r.pasos] == [2, 4, 6]
+    assert segmentos_de_inicio(r.pasos, ANALISIS) == [2, 4, 6]
 
 
 def test_invalida_y_luego_valida_reenvia_la_respuesta_y_el_error():
     peticiones = []
     with cliente_en_secuencia([ID_INEXISTENTE, VALIDA], peticiones) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert (r.metodo, r.intentos, r.motivo_respaldo) == ("llm", 2, None)
-    assert [p.segmento_id for p in r.pasos] == [2, 4, 6]
+    assert segmentos_de_inicio(r.pasos, ANALISIS) == [2, 4, 6]
 
     primera, segunda = (p["messages"] for p in peticiones)
     assert segunda[:2] == primera  # mismo sistema y mismo prompt
@@ -241,7 +256,7 @@ def test_invalida_y_luego_valida_reenvia_la_respuesta_y_el_error():
 def test_el_error_de_esquema_se_resume_por_campo():
     peticiones = []
     with cliente_en_secuencia([CON_TIEMPO, VALIDA], peticiones) as llm:
-        segmentar(SEGMENTOS, ETIQUETAS, llm)
+        segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert "t_inicio (extra_forbidden)" in peticiones[1]["messages"][-1]["content"]
 
@@ -252,10 +267,10 @@ def test_tres_invalidas_caen_a_la_heuristica_con_el_ultimo_motivo(caplog):
         caplog.at_level(logging.WARNING),
         cliente_en_secuencia([ID_INEXISTENTE, CON_TIEMPO, DUPLICADA], peticiones) as llm,
     ):
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert (r.metodo, r.intentos, len(peticiones)) == ("heuristica", 3, 3)
-    assert r.pasos == segmentar_heuristica(SEGMENTOS)
+    assert r.pasos == segmentar_heuristica(ANALISIS)
     assert "inválida" in r.motivo_respaldo
     assert "el segmento 2 está duplicado" in r.motivo_respaldo  # el último, no el primero
     assert "tras 3 intentos" in r.motivo_respaldo
@@ -272,13 +287,13 @@ def test_segmentar_con_llm_lanza_el_ultimo_motivo():
         cliente_en_secuencia([ID_INEXISTENTE] * 3, []) as llm,
         pytest.raises(PropuestaInvalida, match="99 no existe.*tras 3 intentos"),
     ):
-        segmentar_con_llm(SEGMENTOS, ETIQUETAS, llm)
+        segmentar_con_llm(ANALISIS, llm, ETIQUETAS)
 
 
 def test_llm_no_disponible_va_directo_a_la_heuristica_sin_reintentos():
     peticiones = []
     with cliente_en_secuencia([500, VALIDA], peticiones) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
@@ -288,7 +303,7 @@ def test_llm_no_disponible_va_directo_a_la_heuristica_sin_reintentos():
 def test_llm_que_se_cae_a_media_correccion_no_se_reintenta():
     peticiones = []
     with cliente_en_secuencia([ID_INEXISTENTE, 500, VALIDA], peticiones) as llm:
-        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+        r = segmentar(ANALISIS, llm, ETIQUETAS)
 
     assert r.metodo == "heuristica"
     assert "LLMNoDisponible" in r.motivo_respaldo
@@ -296,7 +311,7 @@ def test_llm_que_se_cae_a_media_correccion_no_se_reintenta():
 
 
 def test_el_prompt_lleva_ids_y_etiquetas_pero_ningun_tiempo():
-    mensajes = construir_mensajes(SEGMENTOS, ETIQUETAS)
+    mensajes = construir_mensajes(ANALISIS, ETIQUETAS)
     usuario = mensajes[1]["content"]
 
     assert "[4] La guarda tiene cuatro perillas." in usuario
@@ -307,7 +322,7 @@ def test_el_prompt_lleva_ids_y_etiquetas_pero_ningun_tiempo():
 
 
 def test_el_prompt_pide_los_campos_de_rf13_sin_sop():
-    usuario = construir_mensajes(SEGMENTOS, ETIQUETAS)[1]["content"]
+    usuario = construir_mensajes(ANALISIS, ETIQUETAS)[1]["content"]
 
     for campo in ("segmento_id", "nombre", "descripcion", "responsable", "cita"):
         assert f"- {campo}:" in usuario
@@ -320,13 +335,26 @@ def test_el_prompt_pide_los_campos_de_rf13_sin_sop():
 
 
 def test_por_defecto_prompt_v1_y_la_regla_de_aclaraciones_es_opcional():
-    por_defecto = construir_mensajes(SEGMENTOS, ETIQUETAS)[1]["content"]
-    v1 = construir_mensajes(SEGMENTOS, ETIQUETAS, regla_aclaraciones=False)[1]["content"]
-    v2 = construir_mensajes(SEGMENTOS, ETIQUETAS, regla_aclaraciones=True)[1]["content"]
+    por_defecto = construir_mensajes(ANALISIS, ETIQUETAS)[1]["content"]
+    v1 = construir_mensajes(ANALISIS, ETIQUETAS, regla_aclaraciones=False)[1]["content"]
+    v2 = construir_mensajes(ANALISIS, ETIQUETAS, regla_aclaraciones=True)[1]["content"]
 
     assert por_defecto == v1  # v2 se probó en la Fase 4 y se descartó (ADR-010)
     assert "aclaraciones, advertencias" not in v1
     assert "aclaraciones, advertencias" in v2
+
+
+@pytest.mark.parametrize("etiquetas", [None, {}])
+def test_las_etiquetas_son_opcionales(etiquetas):
+    usuario = construir_mensajes(ANALISIS, etiquetas)[1]["content"]
+    assert "Etiquetas" not in usuario
+    assert usuario.startswith("Segmentos de la transcripción")
+
+    peticiones = []
+    with cliente_en_secuencia([VALIDA], peticiones) as llm:
+        r = segmentar(ANALISIS, llm)
+    assert r.metodo == "llm"
+    assert "Etiquetas" not in peticiones[0]["messages"][1]["content"]
 
 
 # ── Pasos del video (construir_pasos) ────────────────────────────────────────────────────────
@@ -641,7 +669,7 @@ def test_el_esquema_de_ollama_es_plano_y_sale_de_propuesta_paso():
 def test_la_peticion_lleva_el_esquema_temperatura_0_y_la_semilla():
     peticiones = []
     with cliente_que_responde(json.dumps([propuesta(2)]), peticiones=peticiones) as llm:
-        segmentar(SEGMENTOS, ETIQUETAS, llm)
+        segmentar(ANALISIS, llm, ETIQUETAS)
 
     (cuerpo,) = peticiones
     assert cuerpo["format"] == ESQUEMA_PASOS
@@ -670,22 +698,82 @@ def test_marcadores_al_inicio_sin_acentos_ni_mayusculas(texto, esperado):
 
 
 def test_heuristica_combina_marcadores_y_pausas_con_separacion_minima():
-    pasos = segmentar_heuristica(SEGMENTOS)
+    pasos = segmentar_heuristica(ANALISIS)
 
     # 2: "Primero"; 4: pausa de 4 s; 6: "Después"; 7 ("Ahora") queda a 1 segmento del 6.
-    assert [p.segmento_id for p in pasos] == [2, 4, 6]
-    assert [p.t_inicio for p in pasos] == [4.5, 16.0, 24.5]
+    assert segmentos_de_inicio(pasos, ANALISIS) == [2, 4, 6]
+    assert [(p.numero, p.t_inicio, p.t_fin) for p in pasos] == [
+        (1, 4.5, 12.0),
+        (2, 16.0, 24.0),
+        (3, 24.5, 31.0),
+    ]
 
 
-def test_heuristica_sin_t_fin_solo_usa_marcadores():
-    sin_fin = [{k: v for k, v in s.items() if k != "t_fin"} for s in SEGMENTOS]
-    assert [p.segmento_id for p in segmentar_heuristica(sin_fin)] == [2, 6]
+def test_heuristica_sin_pausas_solo_usa_marcadores():
+    pasos = segmentar_heuristica(ANALISIS, pausa_min_s=float("inf"))
+    assert segmentos_de_inicio(pasos, ANALISIS) == [2, 6]
 
 
 def test_heuristica_sin_candidatos_devuelve_un_solo_paso():
-    planos = [{"id": i, "t_inicio": float(i), "texto": "Se aprieta el tornillo."} for i in (1, 2)]
-    pasos = segmentar_heuristica(planos)
-    assert [(p.segmento_id, p.t_inicio) for p in pasos] == [(1, 1.0)]
+    planos = analisis_de(
+        [
+            {"id": i, "t_inicio": float(i), "t_fin": i + 0.5, "texto": "Se aprieta el tornillo."}
+            for i in (1, 2)
+        ]
+    )
+    (paso,) = segmentar_heuristica(planos)
+    assert (paso.numero, paso.t_inicio, paso.t_fin) == (1, 1.0, 2.5)
+
+
+def test_heuristica_llena_los_campos_de_paso_video():
+    primero, segundo, _ = segmentar_heuristica(ANALISIS)
+
+    assert primero.nombre == "Primero apagamos la máquina."
+    assert primero.descripcion == "Primero apagamos la máquina. Se pone el candado en el gabinete."
+    assert primero.cita == "Primero apagamos la máquina."
+    assert segundo.cita == "La guarda tiene cuatro perillas."
+    for p in (primero, segundo):
+        assert p.responsable == NO_IDENTIFICADO
+        assert (p.fuente, p.confianza) == ("audio", "baja")
+
+
+def test_heuristica_no_sube_la_confianza_aunque_la_cita_este_en_el_paso(analisis):
+    pasos = segmentar_heuristica(analisis)
+    rangos = segmentos_de_inicio(pasos, analisis)
+    ultimo_id = analisis.transcripcion[-1].id
+    fines = [i - 1 for i in rangos[1:]] + [ultimo_id]  # ids consecutivos en el fixture
+
+    for p, inicio, fin in zip(pasos, rangos, fines, strict=True):
+        assert verificar_cita(p.cita, analisis, (inicio, fin)) == ("alta", "audio")
+        assert (p.fuente, p.confianza) == ("audio", "baja")
+
+
+def test_heuristica_recorta_nombre_cita_y_descripcion():
+    palabras = [f"palabra{i:02d}" for i in range(60)]  # 60 palabras de 9 caracteres
+    largo = analisis_de([{"id": 1, "t_inicio": 0.0, "t_fin": 30.0, "texto": " ".join(palabras)}])
+    (paso,) = segmentar_heuristica(largo)
+
+    assert paso.nombre == " ".join(palabras[:8]) + "…"
+    assert paso.cita == " ".join(palabras[:15])
+    assert paso.descripcion.endswith("…")
+    assert len(paso.descripcion) <= 301
+    recortada = paso.descripcion.removesuffix("…").split()
+    assert recortada == palabras[: len(recortada)]  # corta en palabra completa
+    assert len(recortada) == 30  # 30 palabras con espacios = 299 caracteres; 31 = 309
+
+
+def test_transcripcion_vacia_no_llama_al_llm():
+    peticiones = []
+    with cliente_en_secuencia([VALIDA], peticiones) as llm:
+        r = segmentar(analisis_de([]), llm)
+
+    assert (r.metodo, r.motivo_respaldo, r.pasos, r.intentos) == (
+        "heuristica",
+        "transcripción vacía",
+        [],
+        0,
+    )
+    assert peticiones == []
 
 
 # ── Métrica ──────────────────────────────────────────────────────────────────────────────────
@@ -742,3 +830,27 @@ def test_fixtures_bien_formados(archivo):
 def test_hay_una_transcripcion_sin_palabras_de_transicion():
     fx = json.loads((FIXTURES / "cambio_filtro_hidraulico.json").read_text(encoding="utf-8"))
     assert not any(empieza_con_marcador(s["texto"], 99) for s in fx["segmentos"])
+
+
+@pytest.mark.parametrize("archivo", sorted(FIXTURES.glob("*.json")), ids=lambda p: p.stem)
+def test_cargar_transcripcion_prueba_sin_modificar_el_archivo(archivo):
+    antes = archivo.read_bytes()
+    a = cargar_transcripcion_prueba(archivo)
+    fx = json.loads(antes.decode("utf-8"))
+
+    assert archivo.read_bytes() == antes
+    assert isinstance(a, Analisis)
+    assert [s.model_dump(exclude={"palabras"}) for s in a.transcripcion] == fx["segmentos"]
+    assert a.duracion_s == fx["segmentos"][-1]["t_fin"]
+    assert (a.idioma.codigo, a.fotogramas) == ("es", [])
+    assert set(fx["inicios_paso"]) <= {s.id for s in a.transcripcion}
+
+
+@pytest.mark.parametrize("archivo", sorted(FIXTURES.glob("*.json")), ids=lambda p: p.stem)
+def test_las_transcripciones_de_prueba_corren_por_segmentar(archivo):
+    a = cargar_transcripcion_prueba(archivo)
+    r = segmentar(a, None)
+
+    assert r.metodo == "heuristica" and r.pasos
+    assert r.pasos[-1].t_fin == a.transcripcion[-1].t_fin
+    assert segmentos_de_inicio(r.pasos, a)[0] >= a.transcripcion[0].id

@@ -35,7 +35,13 @@ import pandas as pd
 
 from sopvid.features import pasos as fp
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
-from sopvid.percepcion.segmentacion import f1_fronteras, segmentar, segmentar_heuristica
+from sopvid.percepcion.segmentacion import (
+    cargar_transcripcion_prueba,
+    f1_fronteras,
+    segmentar,
+    segmentar_heuristica,
+    segmentos_de_inicio,
+)
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
 
 FIXTURES = PROJECT_ROOT / "tests/fixtures/transcripciones"
@@ -45,8 +51,11 @@ REPETICIONES = 3
 
 
 def cargar_fixtures() -> dict[str, dict[str, Any]]:
+    """JSON de cada transcripción (etiquetas, inicios_paso…) más su `Analisis` en "analisis"."""
     return {
-        p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted(FIXTURES.glob("*.json"))
+        p.stem: json.loads(p.read_text(encoding="utf-8"))
+        | {"analisis": cargar_transcripcion_prueba(p)}
+        for p in sorted(FIXTURES.glob("*.json"))
     }
 
 
@@ -126,8 +135,8 @@ def correr(
     hardware = (previos or {}).get("hardware", {})
 
     for nombre, fx in fixtures.items():
-        pasos = segmentar_heuristica(fx["segmentos"])
-        ids = [p.segmento_id for p in pasos]
+        pasos = segmentar_heuristica(fx["analisis"])
+        ids = segmentos_de_inicio(pasos, fx["analisis"])
         corridas.append(
             {
                 "metodo": "heuristica",
@@ -154,9 +163,9 @@ def correr(
                 for rep in range(1, REPETICIONES + 1):
                     inicio = time.perf_counter()
                     r = segmentar(
-                        fx["segmentos"], fx["etiquetas"], cliente, regla_aclaraciones=regla
+                        fx["analisis"], cliente, fx["etiquetas"], regla_aclaraciones=regla
                     )
-                    ids = [p.segmento_id for p in r.pasos]
+                    ids = segmentos_de_inicio(r.pasos, fx["analisis"])
                     corridas.append(
                         {
                             "metodo": f"{modelo} · prompt {version}",
