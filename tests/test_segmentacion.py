@@ -8,8 +8,10 @@ from pathlib import Path
 import httpx
 import pytest
 
-from sopvid.lenguaje.llm import ClienteLLM
+from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
 from sopvid.percepcion.segmentacion import (
+    ESQUEMA_PASOS,
+    NO_IDENTIFICADO,
     PropuestaInvalida,
     construir_mensajes,
     empieza_con_marcador,
@@ -33,8 +35,24 @@ SEGMENTOS = [
 ]
 
 
-def cliente_que_responde(contenido: str | None = None, *, error: Exception | None = None):
+def propuesta(segmento_id, nombre="Paso", **campos) -> dict:
+    """Un paso como lo devolvería el LLM, con los cinco campos de `PropuestaPaso`."""
+    return {
+        "segmento_id": segmento_id,
+        "nombre": nombre,
+        "descripcion": "Se hace algo.",
+        "responsable": "Técnico",
+        "cita": "una frase del segmento",
+        **campos,
+    }
+
+
+def cliente_que_responde(
+    contenido: str | None = None, *, error: Exception | None = None, peticiones: list | None = None
+):
     def manejador(request):
+        if peticiones is not None:
+            peticiones.append(json.loads(request.content))
         if error is not None:
             raise error
         return httpx.Response(
@@ -48,12 +66,18 @@ def cliente_que_responde(contenido: str | None = None, *, error: Exception | Non
 # ── Camino LLM y validación ──────────────────────────────────────────────────────────────────
 
 
-def test_los_tiempos_salen_de_los_segmentos_aunque_el_llm_invente_uno():
+def test_los_pasos_traen_los_campos_del_llm_y_los_tiempos_de_los_segmentos():
     respuesta = json.dumps(
         [
-            {"segmento_id": 2, "titulo": "Apagar y bloquear", "t_inicio": 999},
-            {"segmento_id": 4, "titulo": " Retirar la guarda "},
-            {"segmento_id": 6, "titulo": "Montar la cuchilla"},
+            propuesta(
+                2,
+                "Apagar y bloquear",
+                descripcion="Se apaga la máquina y se bloquea el gabinete con candado.",
+                responsable="Operador",
+                cita="Primero apagamos la máquina.",
+            ),
+            propuesta(4, " Retirar la guarda ", responsable=""),
+            propuesta(6, "Montar la cuchilla"),
         ]
     )
     with cliente_que_responde(respuesta) as llm:
@@ -61,24 +85,40 @@ def test_los_tiempos_salen_de_los_segmentos_aunque_el_llm_invente_uno():
 
     assert r.metodo == "llm"
     assert r.motivo_respaldo is None
-    assert [(p.segmento_id, p.t_inicio, p.titulo) for p in r.pasos] == [
+    assert [(p.segmento_id, p.t_inicio, p.nombre) for p in r.pasos] == [
         (2, 4.5, "Apagar y bloquear"),
         (4, 16.0, "Retirar la guarda"),
         (6, 24.5, "Montar la cuchilla"),
     ]
+    primero = r.pasos[0]
+    assert primero.descripcion == "Se apaga la máquina y se bloquea el gabinete con candado."
+    assert primero.responsable == "Operador"
+    assert primero.cita == "Primero apagamos la máquina."
+    assert r.pasos[1].responsable == NO_IDENTIFICADO  # vacío: nadie lo dice en el audio
+
+
+def test_un_tiempo_escrito_por_el_llm_invalida_la_propuesta():
+    respuesta = json.dumps([propuesta(2, t_inicio=999), propuesta(4)])
+    with cliente_que_responde(respuesta) as llm:
+        r = segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    assert r.metodo == "heuristica"
+    assert "t_inicio (extra_forbidden)" in r.motivo_respaldo
 
 
 @pytest.mark.parametrize(
     ("datos", "motivo"),
     [
-        ([{"segmento_id": 2, "titulo": "a"}, {"segmento_id": 99, "titulo": "b"}], "no existe"),
-        ([{"segmento_id": 4, "titulo": "a"}, {"segmento_id": 2, "titulo": "b"}], "no creciente"),
-        ([{"segmento_id": 2, "titulo": "a"}, {"segmento_id": 2, "titulo": "b"}], "duplicado"),
+        ([propuesta(2), propuesta(99)], "no existe"),
+        ([propuesta(4), propuesta(2)], "no creciente"),
+        ([propuesta(2), propuesta(2)], "duplicado"),
         ([], "al menos un paso"),
         ({"pasos": []}, "al menos un paso"),
-        ([{"segmento_id": "2", "titulo": "a"}], "entero"),
-        ([{"segmento_id": True, "titulo": "a"}], "entero"),
-        ([{"segmento_id": 2, "titulo": "  "}], "título"),
+        ([propuesta("2")], r"segmento_id \(int_type\)"),
+        ([propuesta(True)], r"segmento_id \(int_type\)"),
+        ([propuesta(2, "  ")], r"nombre \(value_error\)"),
+        ([{k: v for k, v in propuesta(2).items() if k != "cita"}], r"cita \(missing\)"),
+        ([propuesta(2, descripcion=None)], r"descripcion \(string_type\)"),
         (["2"], "objeto"),
     ],
 )
@@ -87,8 +127,15 @@ def test_validacion_rechaza_propuestas_invalidas(datos, motivo):
         validar_propuesta(datos, SEGMENTOS)
 
 
+def test_el_motivo_de_rechazo_no_copia_texto_de_la_transcripcion():
+    cita = "Se pone el candado en el gabinete."
+    with pytest.raises(PropuestaInvalida) as exc:
+        validar_propuesta([propuesta(2, nombre=cita, extra=cita, cita=1)], SEGMENTOS)
+    assert "candado" not in str(exc.value)
+
+
 def test_propuesta_invalida_cae_a_la_heuristica_y_registra_el_camino(caplog):
-    respuesta = json.dumps([{"segmento_id": 2, "titulo": "a"}, {"segmento_id": 99, "titulo": "b"}])
+    respuesta = json.dumps([propuesta(2), propuesta(99)])
     with caplog.at_level(logging.INFO), cliente_que_responde(respuesta) as llm:
         r = segmentar(SEGMENTOS, ETIQUETAS, llm)
 
@@ -134,6 +181,19 @@ def test_el_prompt_lleva_ids_y_etiquetas_pero_ningun_tiempo():
             assert not re.search(rf"(?<![\d.]){re.escape(str(t))}(?![\d])", usuario)
 
 
+def test_el_prompt_pide_los_campos_de_rf13_sin_sop():
+    usuario = construir_mensajes(SEGMENTOS, ETIQUETAS)[1]["content"]
+
+    for campo in ("segmento_id", "nombre", "descripcion", "responsable", "cita"):
+        assert f"- {campo}:" in usuario
+    assert f'"{NO_IDENTIFICADO}"' in usuario
+    assert "de 4 a 15 palabras, sin parafrasear" in usuario
+    assert "en español aunque la transcripción esté en otro idioma" in usuario
+    assert "la cita se deja en el idioma original" in usuario
+    assert "no escribas tiempos" in usuario
+    assert "SOP" not in usuario  # la extracción nunca ve el SOP (sección 5.3)
+
+
 def test_por_defecto_prompt_v1_y_la_regla_de_aclaraciones_es_opcional():
     por_defecto = construir_mensajes(SEGMENTOS, ETIQUETAS)[1]["content"]
     v1 = construir_mensajes(SEGMENTOS, ETIQUETAS, regla_aclaraciones=False)[1]["content"]
@@ -142,6 +202,58 @@ def test_por_defecto_prompt_v1_y_la_regla_de_aclaraciones_es_opcional():
     assert por_defecto == v1  # v2 se probó en la Fase 4 y se descartó (ADR-010)
     assert "aclaraciones, advertencias" not in v1
     assert "aclaraciones, advertencias" in v2
+
+
+# ── Esquema y petición a Ollama ──────────────────────────────────────────────────────────────
+
+# Palabras clave de JSON Schema que Ollama convierte en gramática sin problemas.
+CLAVES_ESQUEMA = {
+    "type",
+    "items",
+    "properties",
+    "required",
+    "additionalProperties",
+    "title",
+    "description",
+}
+
+
+def _nodos(esquema: dict):
+    yield esquema
+    for clave, valor in esquema.items():
+        if clave == "properties":
+            for hijo in valor.values():
+                yield from _nodos(hijo)
+        elif isinstance(valor, dict):
+            yield from _nodos(valor)
+
+
+def test_el_esquema_de_ollama_es_plano_y_sale_de_propuesta_paso():
+    assert "$ref" not in json.dumps(ESQUEMA_PASOS)
+    for nodo in _nodos(ESQUEMA_PASOS):
+        assert set(nodo) <= CLAVES_ESQUEMA, set(nodo) - CLAVES_ESQUEMA
+
+    assert ESQUEMA_PASOS["type"] == "array"
+    item = ESQUEMA_PASOS["items"]
+    campos = ["segmento_id", "nombre", "descripcion", "responsable", "cita"]
+    assert item["type"] == "object"
+    assert item["additionalProperties"] is False
+    assert item["required"] == campos
+    assert {k: v["type"] for k, v in item["properties"].items()} == {
+        "segmento_id": "integer",
+        **dict.fromkeys(campos[1:], "string"),
+    }
+
+
+def test_la_peticion_lleva_el_esquema_temperatura_0_y_la_semilla():
+    peticiones = []
+    with cliente_que_responde(json.dumps([propuesta(2)]), peticiones=peticiones) as llm:
+        segmentar(SEGMENTOS, ETIQUETAS, llm)
+
+    (cuerpo,) = peticiones
+    assert cuerpo["format"] == ESQUEMA_PASOS
+    assert cuerpo["options"]["temperature"] == 0
+    assert cuerpo["options"]["seed"] == SEMILLA
 
 
 # ── Heurística ───────────────────────────────────────────────────────────────────────────────

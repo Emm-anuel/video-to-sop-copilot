@@ -1,14 +1,16 @@
-"""Segmentación de la narración en pasos (ADR-010).
+"""Segmentación de la narración en pasos (ADR-010) y extracción de los pasos del video (RF-13).
 
-El LLM recibe los segmentos de habla numerados y las etiquetas del video, y responde SOLO una
-lista `[{"segmento_id": int, "titulo": str}]` restringida con JSON Schema. Los tiempos de cada
-paso se toman del segmento elegido, **nunca del LLM** (regla 4 de CLAUDE.md): el prompt no lleva
-tiempos y el esquema no los admite.
+El LLM recibe los segmentos de habla numerados y las etiquetas del video (nunca el SOP), y
+responde SOLO una lista de `PropuestaPaso` (`segmento_id`, `nombre`, `descripcion`,
+`responsable`, `cita`) restringida con un JSON Schema generado desde Pydantic. Los tiempos de
+cada paso se toman del segmento elegido, **nunca del LLM** (regla 4 de CLAUDE.md): el prompt no
+lleva tiempos y el esquema no los admite.
 
-Si el LLM no está disponible, falla o su propuesta no pasa la validación (ids existentes, orden
-creciente, sin duplicados, títulos no vacíos), se usa la heurística de respaldo: palabras de
-transición al inicio del segmento ("primero", "ahora", "después", "luego", "siguiente",
-"finalmente"…) y pausas largas. El camino usado queda en `Segmentacion.metodo` y en el log.
+Si el LLM no está disponible, falla o su propuesta no pasa la validación (esquema, ids
+existentes, orden creciente, sin duplicados, nombres no vacíos), se usa la heurística de
+respaldo: palabras de transición al inicio del segmento ("primero", "ahora", "después", "luego",
+"siguiente", "finalmente"…) y pausas largas. El camino usado queda en `Segmentacion.metodo` y en
+el log.
 
 Este módulo es Python puro (sin pandas) porque corre en la API.
 """
@@ -20,9 +22,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
 
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
+
 from sopvid.lenguaje.llm import ClienteLLM, LLMError
 
 logger = logging.getLogger(__name__)
+
+NO_IDENTIFICADO = "No identificado"  # responsable cuando nadie lo dice en el audio (ADR-008)
 
 
 class Segmento(TypedDict):
@@ -38,7 +44,10 @@ class Segmento(TypedDict):
 class Paso:
     segmento_id: int
     t_inicio: float  # siempre el del segmento, nunca uno escrito por el LLM
-    titulo: str
+    nombre: str
+    descripcion: str = ""
+    responsable: str = NO_IDENTIFICADO
+    cita: str = ""  # la heurística no tiene evidencia que citar
 
 
 @dataclass(frozen=True)
@@ -55,15 +64,60 @@ class PropuestaInvalida(ValueError):  # noqa: N818 (nombre de dominio)
 
 # ── LLM ──────────────────────────────────────────────────────────────────────────────────────
 
-ESQUEMA_PASOS: dict[str, Any] = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {"segmento_id": {"type": "integer"}, "titulo": {"type": "string"}},
-        "required": ["segmento_id", "titulo"],
-        "additionalProperties": False,
-    },
-}
+
+class PropuestaPaso(BaseModel):
+    """Un paso tal como lo propone el LLM: un número de segmento y texto, ningún tiempo."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,  # "2" o True no cuentan como segmento_id
+        str_strip_whitespace=True,
+        hide_input_in_errors=True,  # los errores no deben copiar texto de la transcripción
+    )
+
+    segmento_id: int
+    nombre: str
+    descripcion: str
+    responsable: str
+    cita: str
+
+    @field_validator("nombre")
+    @classmethod
+    def _nombre_no_vacio(cls, v: str) -> str:
+        if not v:
+            raise ValueError("nombre vacío")
+        return v
+
+    @field_validator("responsable")
+    @classmethod
+    def _responsable_por_defecto(cls, v: str) -> str:
+        return v or NO_IDENTIFICADO
+
+
+def _sin_refs(esquema: dict[str, Any]) -> dict[str, Any]:
+    """Sustituye cada `$ref` local por su definición y quita `$defs`.
+
+    Ollama convierte el esquema de `format` en una gramática; un esquema plano evita depender de
+    que resuelva referencias. No admite modelos recursivos (no los hay en este contrato).
+    """
+    defs = esquema.get("$defs", {})
+
+    def resolver(nodo: Any) -> Any:
+        if isinstance(nodo, dict):
+            if "$ref" in nodo:
+                definicion = defs[nodo["$ref"].removeprefix("#/$defs/")]
+                resto = {k: v for k, v in nodo.items() if k != "$ref"}
+                return resolver({**definicion, **resto})
+            return {k: resolver(v) for k, v in nodo.items() if k != "$defs"}
+        if isinstance(nodo, list):
+            return [resolver(x) for x in nodo]
+        return nodo
+
+    return resolver(esquema)
+
+
+# Esquema para el parámetro `format` de Ollama, generado desde `PropuestaPaso` y sin `$ref`.
+ESQUEMA_PASOS: dict[str, Any] = _sin_refs(TypeAdapter(list[PropuestaPaso]).json_schema())
 
 SISTEMA = (
     "Eres un asistente técnico de una planta industrial. Respondes en español, con precisión y "
@@ -86,10 +140,11 @@ def construir_mensajes(
     *,
     regla_aclaraciones: bool = False,
 ) -> list[dict[str, str]]:
-    """Mensajes para el LLM. Solo números de segmento y texto: ningún tiempo.
+    """Mensajes para el LLM. Solo números de segmento y texto: ningún tiempo y nunca el SOP.
 
-    Por defecto, prompt v1 (el del benchmark de ADR-006); `regla_aclaraciones=True` agrega la
-    regla de aclaraciones (prompt v2, descartado en la Fase 4).
+    La regla de cortes es la del prompt v1 (benchmark de ADR-006), ampliada para RF-13 con
+    descripción, responsable y cita. `regla_aclaraciones=True` agrega la regla de aclaraciones
+    (prompt v2, descartado en la Fase 4).
     """
     numerados = "\n".join(f"[{s['id']}] {s['texto']}" for s in segmentos)
     texto_etiquetas = "; ".join(f"{k}={v}" for k, v in etiquetas.items())
@@ -100,9 +155,17 @@ def construir_mensajes(
         "abarcar varios segmentos: no marques cada segmento como paso, y la introducción o "
         "los comentarios no inician pasos. "
         + (REGLA_ACLARACIONES if regla_aclaraciones else "")
-        + "Responde SOLO con "
-        'una lista JSON de objetos {"segmento_id": número del segmento donde empieza el '
-        'paso, "titulo": nombre corto del paso en español}, en orden. Usa solo números de '
+        + "Para cada paso da:\n"
+        "- segmento_id: número del segmento donde empieza el paso.\n"
+        "- nombre: nombre corto del paso.\n"
+        "- descripcion: qué se hace en el paso, en una o dos frases.\n"
+        "- responsable: el rol de quien hace el paso según lo que se dice en el audio "
+        f'(por ejemplo "Operador" o "Supervisor"); si nadie lo dice, "{NO_IDENTIFICADO}".\n'
+        "- cita: una frase copiada textualmente de los segmentos del paso, de 4 a 15 "
+        "palabras, sin parafrasear ni traducir.\n"
+        "Redacta nombre, descripcion y responsable en español aunque la transcripción esté "
+        "en otro idioma; la cita se deja en el idioma original. "
+        "Responde SOLO con una lista JSON de esos objetos, en orden. Usa solo números de "
         "segmento de la lista; no escribas tiempos."
     )
     return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": usuario}]
@@ -111,9 +174,9 @@ def construir_mensajes(
 def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
     """Convierte la respuesta del LLM en pasos o lanza `PropuestaInvalida`.
 
-    Reglas: lista no vacía de objetos con `segmento_id` entero y `titulo` no vacío; ids que
-    existen; orden estrictamente creciente (lo que también excluye duplicados). Los motivos
-    nunca incluyen texto de la transcripción.
+    Reglas: lista no vacía de objetos que cumplen `PropuestaPaso` (sin campos extra, como un
+    tiempo inventado, y con nombre no vacío); ids que existen; orden estrictamente creciente (lo
+    que también excluye duplicados). Los motivos nunca incluyen texto de la transcripción.
     """
     if not isinstance(datos, list) or not datos:
         raise PropuestaInvalida("la respuesta no es una lista con al menos un paso")
@@ -122,18 +185,22 @@ def validar_propuesta(datos: Any, segmentos: Sequence[Segmento]) -> list[Paso]:
     for i, d in enumerate(datos):
         if not isinstance(d, dict):
             raise PropuestaInvalida(f"el elemento {i} no es un objeto")
-        sid, titulo = d.get("segmento_id"), d.get("titulo")
-        if not isinstance(sid, int) or isinstance(sid, bool):
-            raise PropuestaInvalida(f"el elemento {i} no trae un segmento_id entero")
-        if not isinstance(titulo, str) or not titulo.strip():
-            raise PropuestaInvalida(f"el elemento {i} no trae título")
+        try:
+            p = PropuestaPaso.model_validate(d)
+        except ValidationError as exc:
+            campos = ", ".join(
+                f"{'.'.join(map(str, e['loc']))} ({e['type']})" for e in exc.errors()
+            )
+            raise PropuestaInvalida(f"el elemento {i} no cumple el esquema: {campos}") from None
+        sid = p.segmento_id
         if sid not in por_id:
             raise PropuestaInvalida(f"el segmento {sid} no existe")
         if pasos and sid == pasos[-1].segmento_id:
             raise PropuestaInvalida(f"el segmento {sid} está duplicado")
         if pasos and sid < pasos[-1].segmento_id:
             raise PropuestaInvalida(f"orden no creciente: {pasos[-1].segmento_id} → {sid}")
-        pasos.append(Paso(sid, float(por_id[sid]["t_inicio"]), titulo.strip()))
+        t_inicio = float(por_id[sid]["t_inicio"])
+        pasos.append(Paso(sid, t_inicio, p.nombre, p.descripcion, p.responsable, p.cita))
     return pasos
 
 
@@ -171,7 +238,7 @@ MARCADORES = (
 PALABRAS_INICIALES = 3  # el marcador debe aparecer entre las primeras palabras
 PAUSA_MIN_S = 3.0  # silencio previo que por sí solo sugiere un paso nuevo
 SEPARACION_MIN = 2  # segmentos mínimos entre dos inicios de paso
-_PALABRAS_TITULO = 8
+_PALABRAS_NOMBRE = 8
 
 
 def _normalizar(texto: str) -> str:
@@ -191,10 +258,10 @@ def _pausa_previa(anterior: Segmento | None, actual: Segmento) -> float | None:
     return float(actual["t_inicio"]) - float(anterior["t_fin"])
 
 
-def _titulo_heuristico(texto: str) -> str:
+def _nombre_heuristico(texto: str) -> str:
     palabras = texto.split()
-    titulo = " ".join(palabras[:_PALABRAS_TITULO])
-    return titulo + ("…" if len(palabras) > _PALABRAS_TITULO else "")
+    nombre = " ".join(palabras[:_PALABRAS_NOMBRE])
+    return nombre + ("…" if len(palabras) > _PALABRAS_NOMBRE else "")
 
 
 def segmentar_heuristica(
@@ -215,12 +282,12 @@ def segmentar_heuristica(
         pausa = _pausa_previa(anterior, s)
         candidato = empieza_con_marcador(s["texto"]) or (pausa is not None and pausa >= pausa_min_s)
         if candidato and (ultimo_indice is None or i - ultimo_indice >= separacion_min):
-            pasos.append(Paso(s["id"], float(s["t_inicio"]), _titulo_heuristico(s["texto"])))
+            pasos.append(Paso(s["id"], float(s["t_inicio"]), _nombre_heuristico(s["texto"])))
             ultimo_indice = i
         anterior = s
     if not pasos and segmentos:
         s = segmentos[0]
-        pasos.append(Paso(s["id"], float(s["t_inicio"]), _titulo_heuristico(s["texto"])))
+        pasos.append(Paso(s["id"], float(s["t_inicio"]), _nombre_heuristico(s["texto"])))
     return pasos
 
 

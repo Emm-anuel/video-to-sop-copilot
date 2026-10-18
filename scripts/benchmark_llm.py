@@ -4,7 +4,7 @@ Para cada modelo (ya descargado en Ollama) mide tres tareas en español sobre un
 INVENTADA (tests/fixtures/transcripciones/cambio_cuchilla.json):
 
   (a) resumen     resumir ~1,500 palabras (texto libre)
-  (b) segmentar   elegir segmentos donde empieza cada paso -> [{"segmento_id", "titulo"}]
+  (b) segmentar   elegir segmentos donde empieza cada paso -> [{"segmento_id", "nombre", ...}]
   (c) rag         responder solo con fragmentos dados y citar sus ids -> JSON
 
 Metodología: descarga de la GPU todos los modelos, registra la VRAM libre, hace una corrida de
@@ -159,7 +159,7 @@ def evaluar_segmentacion(salida: str, fx: dict[str, Any]) -> dict[str, Any]:
     forma_ok = isinstance(datos, list) and all(
         isinstance(d, dict)
         and isinstance(d.get("segmento_id"), int)
-        and isinstance(d.get("titulo"), str)
+        and isinstance(d.get("nombre"), str)
         for d in datos
     )
     if not forma_ok:

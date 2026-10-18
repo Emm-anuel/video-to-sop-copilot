@@ -135,7 +135,7 @@ def correr(
                 "repeticion": 1,
                 "camino": "heuristica",
                 "ids": ids,
-                "titulos": [p.titulo for p in pasos],
+                "titulos": [p.nombre for p in pasos],
                 **evaluar(ids, fx),
             }
         )
@@ -166,7 +166,7 @@ def correr(
                             "motivo_respaldo": r.motivo_respaldo,
                             "segundos": round(time.perf_counter() - inicio, 2),
                             "ids": ids,
-                            "titulos": [p.titulo for p in r.pasos],
+                            "titulos": [p.nombre for p in r.pasos],
                             **evaluar(ids, fx),
                         }
                     )
