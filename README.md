@@ -1,6 +1,6 @@
 # AI Co-Pilot Video-to-SOP
 
-Generación asistida, verificable y trazable de Procedimientos Operativos Estándar (SOP) a partir de video de operación, con validación humana (Human-in-the-Loop) y despliegue en planta.
+Valida videos de operación contra su Procedimiento Operativo Estándar (SOP), redacta el SOP cuando no existe y permite buscar al segundo exacto. Todo corre local, con modelos abiertos y costo cero.
 
 > **Repositorio privado.** El código y la arquitectura son propiedad de Alignity IQ Edge conforme al NDA firmado. No es público y no se comparte fuera del equipo, el asesor y el patrocinador.
 
@@ -8,11 +8,15 @@ Generación asistida, verificable y trazable de Procedimientos Operativos Están
 
 ## 1. Descripción
 
-Sistema que convierte video de operación en planta en SOPs escritos, verificables y trazables. Percibe acciones y objetos del video, transcribe la narración del experto, consolida varios videos de un mismo procedimiento en una estructura de pasos, y redacta el SOP en lenguaje natural con cada paso ligado a su evidencia en video.
+Aplicación web que analiza el video de un operador narrando su trabajo, según el documento **"Requerimientos técnicos y funcionales de proyecto SOP V1.0"** del patrocinador (16 oct 2026):
 
-Es una **segunda iteración**: el equipo parte de una base de código heredada del trimestre anterior y se obliga a mejorarla, no a reescribirla desde cero (ver [ADR-001 · Herencia del código](docs/adr/ADR-001-herencia.md)).
+1. **Validar contra un SOP.** Indica qué pasos faltan, sobran o cambian de orden, y si coinciden las personas, los tiempos y el contexto. Entrega un reporte con porcentaje de cumplimiento, semáforo y PDF; cada hallazgo enlaza al segundo del video.
+2. **Crear el SOP desde el video.** Si no hay SOP, lo redacta en español (cuadro resumen, tabla de pasos, palabras clave) para corregirlo, guardarlo en la biblioteca y descargarlo en PDF.
+3. **Buscar.** Una vista tipo chat busca una palabra o frase en los videos publicados y salta al segundo exacto.
 
-> **Nota:** esta sección se actualizará cuando se apruebe el ADR-001.
+**Primer hito: MVP de validación (8 nov 2026).** Un video y un SOP en Markdown entran; sale el reporte de pasos (Cumple, Parcial, Falta, Sobra, Fuera de orden) con el porcentaje y el segundo de cada hallazgo. Solo voz. Después se agregan el SOP generado, personas y tiempos, fotogramas, PDF y búsqueda ([plan §5.1](docs/plan/plan.md#51-mvp-de-validación-hito-del-8-nov)).
+
+El código se construye desde cero: el código del POC no se entregó y el patrocinador indicó seguir con la arquitectura propia (13 oct 2026). Ver [ADR-001](docs/adr/ADR-001-herencia.md) y el [plan](docs/plan/plan.md).
 
 Proyecto Integrador (TC5035) · Maestría en Inteligencia Artificial Aplicada · Tecnológico de Monterrey.
 
@@ -20,29 +24,32 @@ Proyecto Integrador (TC5035) · Maestría en Inteligencia Artificial Aplicada ·
 
 | Integrante | Matrícula | Frente |
 |---|---|---|
-| Marie Kate Palau | A01705711 | _(por acordar en Semana 1)_ |
-| Emmanuel Merida | A01795858 | _(por acordar en Semana 1)_ |
-| Sara Castillo | A01224696 | _(por acordar en Semana 1)_ |
+| Emmanuel Merida | A01795858 | Modelos: lectura del SOP, contexto, pasos, emparejamiento, reporte, SOP generado, PDF · avances académicos |
+| Sara Castillo | A01224696 | Video y web: subida, transcripción, fotogramas, pantallas en Angular, búsqueda |
+
+Marie Kate Palau (A01705711) dejó el equipo en octubre de 2026; el alcance se acotó a dos personas.
 
 Asesor: Dr. Gerardo Jesús Camacho González · Patrocinador: Dr. Jose Jacobo Eluani Vázquez (Alignity IQ Edge) · jeluani@tec.mx
 
 ## 3. Arquitectura de referencia
 
-| Capa | Pregunta que responde | Tecnología |
+| Etapa | Qué hace | Tecnología (local) |
 |---|---|---|
-| 0 · Fuente de video | ¿De dónde llega la imagen? | Abstracción: archivo, cámara fija, teléfono o lentes tras una misma interfaz |
-| 1a · Percepción visual | ¿Qué acción ocurre y cuándo? | V-JEPA 2 (attentive probes sobre backbone congelado) |
-| 1b · Percepción de audio | ¿Qué explica el experto? | Transcripción con marcas de tiempo (Whisper / Voxtral) |
-| 2 · Estructura | ¿Cuál es el procedimiento y en qué orden? | Grafo de tareas de orden parcial |
-| 3 · Lenguaje | ¿Cómo se escribe el SOP? ¿Cómo se conversa? | Gemma 4 (pesos abiertos, servible localmente) |
-| 4 · Incertidumbre y HITL | ¿Debo preguntar, y qué? | Umbral de confianza + valor esperado de la respuesta |
-| 5 · Plataforma | ¿Quién ve y aprueba qué? | Multiusuario, control de acceso, versionado, auditoría |
+| Subida y medios | Video en partes de 16 MB; audio, fotogramas y miniaturas | FastAPI, ffmpeg |
+| Voz | Idioma y transcripción con tiempo por palabra | faster-whisper |
+| Visión | Describe hasta 20 fotogramas: equipos, personas, texto, riesgos | Gemma 4 E4B (Ollama) |
+| Lenguaje | Convierte el SOP, arma el contexto, extrae los pasos del video y redacta el SOP | Gemma 4 E4B con JSON Schema |
+| Comparación | Empareja pasos del SOP y del video; revisa orden, personas y tiempos | MiniLM multilingüe + algoritmo húngaro; Gemma 4 solo en casos dudosos |
+| Salidas | Reporte y SOP en PDF con QR al segundo; TXT, SRT, JSON | ReportLab, qrcode |
+| Búsqueda | Coincidencia exacta sin acentos ni plurales simples | Índice de palabras en PostgreSQL |
 
-Dominio de IA predominante: **Visión Computacional**.
+Hardware de referencia: GPU NVIDIA de 8 GB (RTX 2070 SUPER), 32 GB de RAM. Detalle y decisiones en [docs/plan/plan.md](docs/plan/plan.md) y [docs/adr/](docs/adr/).
+
+Dominios de IA: voz, visión y lenguaje (multimodal), con modelos pequeños locales.
 
 ## 4. Estructura del repositorio
 
-Paquete Python instalable `sopvid` (src layout). Estado al 10 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`) y `features/` implementado para los avances académicos 1 y 2. Los frentes de percepción y lenguaje siguen reservados.
+Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`), `features/` implementado para los avances académicos 1 y 2, y en la rama `feat/llm-spike` el cliente del LLM con Ollama y el prototipo de segmentación en pasos. El resto de la versión 1.0 está por construir.
 
 ```
 ├── README.md
@@ -50,7 +57,7 @@ Paquete Python instalable `sopvid` (src layout). Estado al 10 oct 2026: **fase F
 ├── .env.example                # variables con valores de EJEMPLO (sin secretos)
 ├── pyproject.toml              # paquete sopvid, dependencias fijadas (extras ml, notebooks, dev), ruff y pytest
 ├── Dockerfile                  # imagen de la API (Python 3.11)
-├── docker-compose.yml          # API + PostgreSQL 16 con pgvector
+├── docker-compose.yml          # API + PostgreSQL 16 con pgvector; Ollama con el profile "llm"
 ├── Makefile                    # up, down, logs, migrate, test, lint, format
 ├── alembic.ini
 ├── .github/workflows/ci.yml    # ruff + pytest con Postgres en cada push y PR
@@ -59,8 +66,8 @@ Paquete Python instalable `sopvid` (src layout). Estado al 10 oct 2026: **fase F
 │   │   ├── config.py           # settings (pydantic-settings, lee .env)
 │   │   ├── db.py               # engine, sesión y Base de SQLAlchemy
 │   │   └── api/                # FastAPI: main.py, health.py (GET /health)
-│   ├── percepcion/             # ingesta, transcripción y segmentación en pasos (reservado)
-│   ├── lenguaje/               # búsqueda híbrida, chat RAG y SOP (reservado)
+│   ├── percepcion/             # subida, ffmpeg, transcripción, fotogramas y pasos del video
+│   ├── lenguaje/               # cliente del LLM, SOP, emparejamiento, reporte y búsqueda exacta
 │   └── features/               # datos de CaptainCook4D, preprocesamiento (avance 1) e ingeniería de características (avance 2)
 ├── migrations/                 # Alembic; 0001 habilita la extensión vector
 ├── tests/                      # /health, conexión a la base y sopvid.features
@@ -85,8 +92,11 @@ cd video-to-sop-copilot
 cp .env.example .env                     # PowerShell: Copy-Item .env.example .env
 docker compose up -d --build             # levanta Postgres y la API (la API espera a que la base esté sana)
 docker compose exec api alembic upgrade head   # migraciones (habilita pgvector)
-curl http://localhost:8000/health        # {"status":"ok","db":"ok"}
+curl http://localhost:8000/health        # {"status":"ok","db":"ok","llm":"no_disponible"}
 ```
+
+LLM local opcional (Ollama con GPU NVIDIA): `docker compose --profile llm up -d`; con él arriba,
+`/health` informa `"llm":"ok"`. Detalles en [docs/dev/llm.md](docs/dev/llm.md).
 
 En PowerShell, la comprobación equivalente es `Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en <http://localhost:8000/docs>.
 
@@ -142,7 +152,7 @@ Objetivo de reproducibilidad: clonar y ejecutar un solo script debe reproducir l
 | 1 | Planteamiento del proyecto + ADR-001 | `docs/entregables/Semana 1/`, `docs/adr/` |
 | 2 | Avance 0. Propuesta y firma de convenios | `docs/entregables/` |
 | 3 | Avance 1. Análisis exploratorio (CaptainCook4D) · entregado | `docs/entregables/Semana 3/Avance1.51.ipynb` |
-| 4 | Avance 2. Ingeniería de características · 11 oct | `docs/entregables/Semana 4/Avance2.51.ipynb` |
+| 4 | Avance 2. Ingeniería de características · entregado | `docs/entregables/Semana 4/Avance2.51.ipynb` |
 | 5–7 | Avances 3–5 (baseline, modelos, ensambles) · 18 oct, 25 oct y 1 nov | `docs/entregables/Semana N/` |
 | 8 | Avance 6. Producto de difusión | `docs/entregables/` |
 | 9 | Avance 7. Resumen ejecutivo | `docs/entregables/` |

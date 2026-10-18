@@ -1,0 +1,196 @@
+{
+ "id": "cambio_filtro_hidraulico",
+ "descripcion": "Transcripción INVENTADA por el equipo (no es material del cliente). Cambio del filtro de retorno hidráulico de una prensa. Sin palabras de transición: los pasos solo se distinguen por el contenido; las pausas largas no siempre marcan un paso. Inicios de paso marcados a mano según la narración.",
+ "etiquetas": {
+  "maquina": "prensa hidráulica de 100 t",
+  "area": "estampado",
+  "proceso": "cambio de filtro de retorno"
+ },
+ "segmentos": [
+  {
+   "id": 1,
+   "t_inicio": 0.0,
+   "t_fin": 6.9,
+   "texto": "Este video es del cambio del filtro de retorno del sistema hidráulico de la prensa de cien toneladas."
+  },
+  {
+   "id": 2,
+   "t_inicio": 7.6,
+   "t_fin": 14.9,
+   "texto": "El filtro se cambia cada quinientas horas de operación o cuando el indicador de saturación se pone en rojo."
+  },
+  {
+   "id": 3,
+   "t_inicio": 15.9,
+   "t_fin": 23.2,
+   "texto": "La corredera tiene que quedar abajo, apoyada sobre los bloques de seguridad, antes de tocar cualquier cosa del hidráulico."
+  },
+  {
+   "id": 4,
+   "t_inicio": 23.8,
+   "t_fin": 29.6,
+   "texto": "Con el selector en modo manual se baja despacio hasta que asiente en los bloques."
+  },
+  {
+   "id": 5,
+   "t_inicio": 33.7,
+   "t_fin": 40.2,
+   "texto": "El motor de la bomba se apaga desde el tablero y se pone candado en el seccionador."
+  },
+  {
+   "id": 6,
+   "t_inicio": 41.0,
+   "t_fin": 48.7,
+   "texto": "La presión que queda en el circuito se libera con la válvula de alivio manual, la de la manija amarilla."
+  },
+  {
+   "id": 7,
+   "t_inicio": 49.2,
+   "t_fin": 56.5,
+   "texto": "Hay que abrirla poco a poco; si se abre de golpe, el aceite sale con fuerza por el retorno."
+  },
+  {
+   "id": 8,
+   "t_inicio": 61.7,
+   "t_fin": 70.9,
+   "texto": "El manómetro del bloque de válvulas tiene que marcar cero. Si marca algo, se espera un par de minutos y se vuelve a revisar."
+  },
+  {
+   "id": 9,
+   "t_inicio": 71.5,
+   "t_fin": 76.9,
+   "texto": "Nunca se afloja una conexión con presión en el sistema, ni siquiera un poquito."
+  },
+  {
+   "id": 10,
+   "t_inicio": 80.4,
+   "t_fin": 88.9,
+   "texto": "Debajo de la carcasa del filtro va la charola de derrames, la grande, porque siempre escurre más de lo que uno cree."
+  },
+  {
+   "id": 11,
+   "t_inicio": 89.6,
+   "t_fin": 95.8,
+   "texto": "Con trapo se limpia el exterior de la carcasa para que no entre tierra al abrirla."
+  },
+  {
+   "id": 12,
+   "t_inicio": 96.9,
+   "t_fin": 106.5,
+   "texto": "La carcasa se desenrosca a mano girando a la izquierda; si está muy apretada, se usa la llave de banda, nunca una llave de tubo."
+  },
+  {
+   "id": 13,
+   "t_inicio": 110.3,
+   "t_fin": 116.8,
+   "texto": "Bájenla derecha, porque viene llena de aceite, y vacíen ese aceite en el contenedor de aceite usado."
+  },
+  {
+   "id": 14,
+   "t_inicio": 117.3,
+   "t_fin": 123.5,
+   "texto": "Ese aceite no se reutiliza ni se tira al drenaje; va al tambor marcado para recolección."
+  },
+  {
+   "id": 15,
+   "t_inicio": 124.2,
+   "t_fin": 135.7,
+   "texto": "El elemento filtrante sale jalándolo hacia abajo. Revisen la malla por fuera: si trae virutas metálicas brillantes, hay que avisar a mantenimiento porque algo se está desgastando en la bomba."
+  },
+  {
+   "id": 16,
+   "t_inicio": 136.3,
+   "t_fin": 139.4,
+   "texto": "Si solo trae lodo oscuro, es desgaste normal."
+  },
+  {
+   "id": 17,
+   "t_inicio": 139.9,
+   "t_fin": 148.4,
+   "texto": "Hace un año nos salió con rebabas de bronce y era el pistón de la bomba; por eso esa revisión es importante."
+  },
+  {
+   "id": 18,
+   "t_inicio": 151.0,
+   "t_fin": 161.0,
+   "texto": "El empaque de la carcasa se cambia siempre, aunque se vea bien. El viejo se saca con un pico de plástico para no rayar la ranura."
+  },
+  {
+   "id": 19,
+   "t_inicio": 161.6,
+   "t_fin": 168.9,
+   "texto": "El nuevo se lubrica con un poco de aceite hidráulico limpio antes de colocarlo; seco se muerde y fuga."
+  },
+  {
+   "id": 20,
+   "t_inicio": 169.8,
+   "t_fin": 177.1,
+   "texto": "El elemento nuevo se saca de su bolsa hasta el momento de instalarlo, para que no le caiga polvo."
+  },
+  {
+   "id": 21,
+   "t_inicio": 180.0,
+   "t_fin": 185.0,
+   "texto": "Se empuja hasta que asiente en el niple; se siente un tope firme."
+  },
+  {
+   "id": 22,
+   "t_inicio": 185.8,
+   "t_fin": 194.3,
+   "texto": "La carcasa se enrosca a mano hasta que toque el empaque y se le da un cuarto de vuelta más, sin herramienta."
+  },
+  {
+   "id": 23,
+   "t_inicio": 195.5,
+   "t_fin": 203.6,
+   "texto": "Con la válvula de alivio cerrada se retira el candado y se arranca la bomba en vacío, sin bajar la corredera."
+  },
+  {
+   "id": 24,
+   "t_inicio": 204.3,
+   "t_fin": 213.9,
+   "texto": "El aire del filtro sale por el tapón de purga de arriba; se afloja media vuelta hasta que salga aceite sin burbujas y se cierra."
+  },
+  {
+   "id": 25,
+   "t_inicio": 219.9,
+   "t_fin": 228.7,
+   "texto": "Durante unos dos minutos se vigila la carcasa por si gotea. Si gotea, se apaga, se libera presión y se revisa el empaque."
+  },
+  {
+   "id": 26,
+   "t_inicio": 229.3,
+   "t_fin": 239.7,
+   "texto": "El nivel del tanque baja un poco porque el filtro nuevo se llenó; se completa con aceite ISO cuarenta y seis hasta la marca de la mirilla."
+  },
+  {
+   "id": 27,
+   "t_inicio": 240.2,
+   "t_fin": 244.8,
+   "texto": "El indicador de saturación debe quedar en verde con la bomba trabajando."
+  },
+  {
+   "id": 28,
+   "t_inicio": 245.5,
+   "t_fin": 254.7,
+   "texto": "En la bitácora de la prensa se anotan las horas del horómetro, el lote del filtro y lo que se vio en la malla."
+  },
+  {
+   "id": 29,
+   "t_inicio": 255.3,
+   "t_fin": 258.4,
+   "texto": "Con eso la prensa queda lista para producción."
+  }
+ ],
+ "inicios_paso": [
+  3,
+  6,
+  10,
+  12,
+  15,
+  18,
+  20,
+  23,
+  26
+ ]
+}

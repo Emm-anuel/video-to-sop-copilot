@@ -53,7 +53,76 @@ timestamp**.
   El clasificador ligero (B) solo se construye si hace falta: copiloto en vivo, servidor sin GPU o
   necesidad de probabilidades calibradas para decidir cuándo preguntar.
 
+## Prototipo y resultados preliminares (11 oct 2026)
+
+Prototipo en `src/sopvid/percepcion/segmentacion.py`: el LLM recibe los segmentos numerados y las
+etiquetas, y responde solo `[{"segmento_id", "titulo"}]` con JSON Schema. Validación: ids que
+existen, orden creciente, sin duplicados. Los tiempos se toman del segmento elegido. Si el LLM
+falla o la propuesta es inválida, se usa la heurística (marcador de transición en las 3 primeras
+palabras o pausa ≥ 3 s, con al menos 2 segmentos entre cortes; parámetros fijados de antemano) y
+el camino queda registrado.
+
+Evaluación con `scripts/evaluar_segmentacion.py` sobre **3 transcripciones inventadas** (30 pasos
+marcados a mano; una sin ninguna palabra de transición). RTX 2070 SUPER de 8 GB, Ollama 0.40.2 con
+flash attention, temperatura 0, 3 repeticiones por combinación (mediana). Datos crudos en
+[datos/segmentacion/fase4.json](datos/segmentacion/fase4.json). **Resultado indicativo (n=3).**
+
+| Método | Capas en GPU | F1 ±1 segmento | F1 ±2 s | Falsos positivos | No detectados | s por transcripción |
+|---|---|---|---|---|---|---|
+| Heurística | — | 0.667 | 0.456 | 8 | 11 | < 0.01 |
+| `gemma4:e4b-it-q4_K_M` (prompt v1) | 43/43 | 0.741 | 0.691 | 21 | 0 | 5.2 |
+| `gemma4:12b-it-qat` (prompt v1) | **37/49** | 0.763 | 0.763 | 17 | 1 | 49.8 |
+| `qwen3.5:9b-q4_K_M` (prompt v1) | **32/33** | **0.947** | **0.842** | 0 | 3 | 6.2 |
+
+- Las 36 + 9 llamadas al LLM dieron JSON válido y pasaron la validación: ninguna cayó a la heurística.
+- Los Gemma 4 **sobre-segmentan**, sobre todo sin palabras de transición: en la transcripción del
+  filtro hidráulico (9 pasos) `e4b` propone 20 y `12b` 19. `qwen3.5` casi no tiene falsos positivos;
+  sus errores son pasos fusionados.
+- `gemma4:12b-it-qat` no cabe en 8 GB (37/49 capas en GPU, 6,247 MiB de VRAM) y tarda ~50 s por
+  transcripción; mejora poco a `e4b`.
+
+### Prompt v2 (regla de aclaraciones): probado y descartado
+
+Tras el benchmark de ADR-006, donde todos los errores eran pasos de más, se probó agregar al prompt:
+*"No marques como paso nuevo las aclaraciones, advertencias, ejemplos, anécdotas ni comentarios que
+el técnico hace dentro de un paso"*.
+
+| Modelo | Prompt | F1 ±1 segmento | Falsos positivos | No detectados |
+|---|---|---|---|---|
+| `gemma4:e4b-it-q4_K_M` | v1 | 0.741 | 21 | 0 |
+| | v2 | 0.741 | 21 | 0 |
+| `qwen3.5:9b-q4_K_M` | v1 | 0.947 | 0 | 3 |
+| | v2 | 0.852 | 5 | 4 |
+
+No redujo los falsos positivos de `e4b` y empeoró a `qwen3.5` (fusiona más pasos en una transcripción
+y parte de más en otra). **Se descarta como valor por defecto**: el prototipo usa v1;
+`regla_aclaraciones=True` queda como opción para futuras pruebas.
+
+## Pendiente con el patrocinador
+
+- **En 8 GB, `gemma4:e4b` sobre-segmenta** (F1 0.74; 21 pasos de más en 30 reales). Es útil como
+  borrador para que el experto corrija, pero no como segmentación final.
+- **`qwen3.5:9b` segmenta mejor** (F1 0.95, sin pasos de más) y tarda ~6 s por transcripción aunque
+  no cabe completo en 8 GB, **pero no es Gemma 4**: el NDA (cl. 1) pide Gemma 4 como base. Usarlo
+  requiere aprobación escrita del patrocinador.
+- **`gemma4:12b-it-qat` no resuelve el problema en 8 GB**: no cabe (37/49 capas), tarda ~50 s por
+  transcripción y solo sube el F1 a 0.76.
+- **Propuesta:** con la GPU de 24 GB confirmada, medir `gemma4:26b-a4b-it-qat` con
+  `scripts/evaluar_segmentacion.py` (mismas transcripciones, prompt v1) y decidir entre Gemma 4 mayor
+  y pedir la excepción para `qwen3.5`. Mientras tanto, desarrollo sigue con `gemma4:e4b` (ADR-006).
+
 ## Referencias
 
 - Brief §9 (narración), §10 (tres bucles HITL), criterio "aprendizaje demostrado"; NDA cl. 1.
 - ADR-002 (voz como fuente principal), ADR-006 (LLM local), ADR-008 (HITL), ADR-009.
+
+## Actualización 17 oct 2026 (documento SOP V1.0)
+
+- En la versión 1.0 este método extrae los **pasos del video** (RF-13) **sin mostrarle el SOP al
+  modelo** (sección 5.3 del documento). Además de `segmento_id` y `titulo`, el LLM devuelve
+  descripción, responsable y la cita textual; los tiempos siguen saliendo de los segmentos.
+- La corrección del experto se hace sobre el reporte (RF-21) y sobre el SOP generado (RF-26), no en una
+  "Pantalla 1" de pasos.
+- La sobre-segmentación de `gemma4:e4b` produciría pasos *Sobra* falsos. Mitigación (ADR-013): antes
+  de emparejar, se fusionan pasos consecutivos del video cuyo mejor paso del SOP es el mismo.
+- El seguimiento de F2 se hace con los videos de prueba A–E grabados y anotados por el equipo.

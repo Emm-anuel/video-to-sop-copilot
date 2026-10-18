@@ -1,0 +1,385 @@
+{
+ "id": "cambio_cuchilla",
+ "descripcion": "Transcripción INVENTADA por el equipo (no es material del cliente). Cambio de cuchilla circular en una cortadora rebobinadora. Inicios de paso marcados a mano según la narración.",
+ "etiquetas": {
+  "maquina": "cortadora rebobinadora 3",
+  "area": "conversión",
+  "proceso": "cambio de cuchilla circular"
+ },
+ "segmentos": [
+  {
+   "id": 1,
+   "t_inicio": 0.0,
+   "t_fin": 13.1,
+   "texto": "Buenos días. En este video les voy a mostrar cómo se cambia la cuchilla circular de la cortadora rebobinadora número tres, la que usamos para cortar el rollo de película en tiras más angostas."
+  },
+  {
+   "id": 2,
+   "t_inicio": 13.7,
+   "t_fin": 24.9,
+   "texto": "Este cambio se hace cada vez que el corte empieza a salir con rebaba o cuando el contador marca más o menos ochenta mil metros desde el último cambio."
+  },
+  {
+   "id": 3,
+   "t_inicio": 25.4,
+   "t_fin": 36.2,
+   "texto": "Es un trabajo de unos cuarenta minutos si todo sale bien, y lo puede hacer una sola persona, pero siempre avisando al supervisor de turno antes de empezar."
+  },
+  {
+   "id": 4,
+   "t_inicio": 36.8,
+   "t_fin": 54.5,
+   "texto": "Antes de empezar, una aclaración: en la planta hay dos modelos de cortadora, la vieja de cuchillas de navaja y esta, que es de cuchilla circular con contracuchilla. Lo que van a ver aplica solo a la de cuchilla circular; la otra tiene su propio procedimiento."
+  },
+  {
+   "id": 5,
+   "t_inicio": 56.9,
+   "t_fin": 64.2,
+   "texto": "Lo primero es preparar todo lo que vamos a necesitar, para no estar dando vueltas con la máquina abierta."
+  },
+  {
+   "id": 6,
+   "t_inicio": 64.7,
+   "t_fin": 74.3,
+   "texto": "Necesitamos la cuchilla nueva en su estuche, la llave allen de seis milímetros, el torquímetro chico, el calibrador de hojas, trapo limpio y alcohol isopropílico."
+  },
+  {
+   "id": 7,
+   "t_inicio": 75.0,
+   "t_fin": 84.6,
+   "texto": "Y muy importante: los guantes anticorte nivel cinco y los lentes de seguridad. Sin guantes nadie toca una cuchilla, ni la nueva ni la vieja."
+  },
+  {
+   "id": 8,
+   "t_inicio": 85.2,
+   "t_fin": 93.3,
+   "texto": "También traigan el candado personal y la tarjeta de bloqueo con su nombre, porque los vamos a usar en un momento."
+  },
+  {
+   "id": 9,
+   "t_inicio": 96.4,
+   "t_fin": 106.0,
+   "texto": "Ahora sí, vamos a detener la máquina. Desde el panel terminamos el rollo que está corriendo y presionamos paro normal, no el paro de emergencia."
+  },
+  {
+   "id": 10,
+   "t_inicio": 106.5,
+   "t_fin": 115.7,
+   "texto": "El paro de emergencia frena muy brusco y puede dañar el material, así que ese solo se usa si de verdad hay un peligro."
+  },
+  {
+   "id": 11,
+   "t_inicio": 116.3,
+   "t_fin": 131.3,
+   "texto": "Si la máquina se detuvo con el paro de emergencia por alguna razón, antes de seguir hay que restablecerlo desde el panel y revisar que el rollo no se haya desenrollado, porque luego eso se enreda en el rodillo."
+  },
+  {
+   "id": 12,
+   "t_inicio": 135.5,
+   "t_fin": 143.6,
+   "texto": "Cuando el rodillo deja de girar, vamos al gabinete eléctrico, bajamos el interruptor principal y ponemos el candado con la tarjeta."
+  },
+  {
+   "id": 13,
+   "t_inicio": 146.4,
+   "t_fin": 155.2,
+   "texto": "Luego hay que purgar el aire: cerramos la válvula de suministro neumático y abrimos la de alivio hasta que el manómetro marque cero."
+  },
+  {
+   "id": 14,
+   "t_inicio": 157.1,
+   "t_fin": 167.9,
+   "texto": "Para verificar energía cero intentamos arrancar desde el panel. Si no hace nada, estamos bien. Si algo se mueve, se detiene todo y se le avisa al supervisor."
+  },
+  {
+   "id": 15,
+   "t_inicio": 168.7,
+   "t_fin": 176.4,
+   "texto": "La guarda de policarbonato del lado del operador tiene cuatro perillas. Se aflojan con la mano, no hace falta herramienta."
+  },
+  {
+   "id": 16,
+   "t_inicio": 178.6,
+   "t_fin": 189.0,
+   "texto": "Levántenla con las dos manos y déjenla recargada en el soporte de la pared, con la cara rayada hacia la pared para que no se maltrate más."
+  },
+  {
+   "id": 17,
+   "t_inicio": 189.6,
+   "t_fin": 198.4,
+   "texto": "Fíjense que el sensor de la guarda queda colgando. No lo jalen, el cable es corto y ya se ha roto dos veces."
+  },
+  {
+   "id": 18,
+   "t_inicio": 198.8,
+   "t_fin": 206.5,
+   "texto": "Una vez a un compañero se le rompió y estuvimos medio turno parados esperando la refacción, así que con calma."
+  },
+  {
+   "id": 19,
+   "t_inicio": 207.5,
+   "t_fin": 214.4,
+   "texto": "Con la guarda fuera ya vemos el porta-cuchilla. Es este bloque gris que está montado sobre el riel."
+  },
+  {
+   "id": 20,
+   "t_inicio": 215.0,
+   "t_fin": 225.4,
+   "texto": "Con la llave allen de seis aflojamos los dos tornillos del riel. Solo se aflojan, no se sacan, porque si se caen adentro es un problema sacarlos."
+  },
+  {
+   "id": 21,
+   "t_inicio": 230.7,
+   "t_fin": 237.2,
+   "texto": "Ahora deslizamos el porta-cuchilla hacia afuera, despacio, cuidando que la cuchilla no toque el rodillo de contracuchilla."
+  },
+  {
+   "id": 22,
+   "t_inicio": 238.6,
+   "t_fin": 245.1,
+   "texto": "Lo ponemos sobre la mesa de trabajo, encima del tapete de hule, con la cuchilla hacia arriba."
+  },
+  {
+   "id": 23,
+   "t_inicio": 245.6,
+   "t_fin": 260.6,
+   "texto": "El tapete no es de adorno: si la cuchilla se apoya directo en la mesa metálica se puede mellar el filo, y como la vamos a desechar no importa tanto, pero el porta-cuchilla sí lo cuidamos porque es caro."
+  },
+  {
+   "id": 24,
+   "t_inicio": 263.2,
+   "t_fin": 270.5,
+   "texto": "Después sigue quitar la cuchilla vieja. La cuchilla está sujeta con una tuerca central y una arandela de presión."
+  },
+  {
+   "id": 25,
+   "t_inicio": 271.0,
+   "t_fin": 278.7,
+   "texto": "La tuerca tiene rosca izquierda, entonces se afloja girando hacia la derecha. Eso confunde a mucha gente la primera vez."
+  },
+  {
+   "id": 26,
+   "t_inicio": 282.2,
+   "t_fin": 289.9,
+   "texto": "Sostengan la cuchilla del cubo, nunca del filo, y saquen la tuerca y la arandela. Guárdenlas en la charola magnética."
+  },
+  {
+   "id": 27,
+   "t_inicio": 291.1,
+   "t_fin": 299.2,
+   "texto": "La cuchilla vieja va directo al contenedor rojo de desechos punzocortantes, envuelta en su estuche. No se deja sobre la mesa."
+  },
+  {
+   "id": 28,
+   "t_inicio": 299.7,
+   "t_fin": 309.7,
+   "texto": "Ojo: aunque la cuchilla esté gastada, sigue cortando muy bien. Las cortaduras más feas que hemos tenido han sido con cuchillas viejas, no con las nuevas."
+  },
+  {
+   "id": 29,
+   "t_inicio": 310.6,
+   "t_fin": 317.1,
+   "texto": "El eje y la cara del porta-cuchilla casi siempre tienen residuo de adhesivo y polvo de película."
+  },
+  {
+   "id": 30,
+   "t_inicio": 317.7,
+   "t_fin": 326.9,
+   "texto": "Con el trapo y el alcohol se limpian bien, hasta que el trapo salga limpio. Cualquier basura ahí hace que la cuchilla quede chueca."
+  },
+  {
+   "id": 31,
+   "t_inicio": 330.9,
+   "t_fin": 342.1,
+   "texto": "Revisen también el balero del eje: lo giran con la mano y debe sentirse suave, sin ruido ni juego. Si raspa, se reporta a mantenimiento y no se continúa."
+  },
+  {
+   "id": 32,
+   "t_inicio": 344.8,
+   "t_fin": 347.9,
+   "texto": "En este caso se siente bien, entonces seguimos."
+  },
+  {
+   "id": 33,
+   "t_inicio": 349.0,
+   "t_fin": 357.1,
+   "texto": "Siguiente paso: montar la cuchilla nueva. Sáquenla del estuche con los guantes puestos y revisen que el filo no tenga despostilladuras."
+  },
+  {
+   "id": 34,
+   "t_inicio": 357.8,
+   "t_fin": 367.0,
+   "texto": "La cuchilla tiene una flecha grabada que indica el sentido de giro. La flecha debe apuntar igual que la flecha pintada en el porta-cuchilla."
+  },
+  {
+   "id": 35,
+   "t_inicio": 367.6,
+   "t_fin": 383.0,
+   "texto": "Esa flecha a veces casi no se ve porque el grabado es muy fino. Pongan la cuchilla de lado contra la luz de la lámpara y ahí aparece; si de plano no se ve, pregunten al supervisor antes de montarla."
+  },
+  {
+   "id": 36,
+   "t_inicio": 383.5,
+   "t_fin": 390.8,
+   "texto": "Si la montan al revés, el corte sale con rebaba desde el primer metro y hay que repetir todo."
+  },
+  {
+   "id": 37,
+   "t_inicio": 392.6,
+   "t_fin": 400.3,
+   "texto": "Pongan la arandela de presión con la parte cóncava hacia la cuchilla y luego la tuerca, apretando primero a mano."
+  },
+  {
+   "id": 38,
+   "t_inicio": 404.2,
+   "t_fin": 414.2,
+   "texto": "Con el torquímetro aprietan la tuerca a doce newton metro. No más, porque la cuchilla se deforma, y no menos, porque se afloja con la vibración."
+  },
+  {
+   "id": 39,
+   "t_inicio": 414.8,
+   "t_fin": 423.6,
+   "texto": "Si el torquímetro no está calibrado, la etiqueta verde lo dice; si la etiqueta está vencida, pidan otro en el almacén de herramientas."
+  },
+  {
+   "id": 40,
+   "t_inicio": 424.5,
+   "t_fin": 431.8,
+   "texto": "Ya con la cuchilla montada, regresamos el porta-cuchilla al riel, deslizándolo con el mismo cuidado que cuando lo sacamos."
+  },
+  {
+   "id": 41,
+   "t_inicio": 434.3,
+   "t_fin": 444.3,
+   "texto": "Para el ancho de corte usamos la regla del riel. Para esta orden el ancho es de ciento veinte milímetros, medido desde el borde de referencia."
+  },
+  {
+   "id": 42,
+   "t_inicio": 447.3,
+   "t_fin": 455.8,
+   "texto": "Después, con el calibrador de hojas, revisamos la holgura entre la cuchilla y la contracuchilla. Debe ser de cinco centésimas de milímetro."
+  },
+  {
+   "id": 43,
+   "t_inicio": 456.5,
+   "t_fin": 471.1,
+   "texto": "La holgura es lo que más cuesta al principio. Si queda muy cerrada, la cuchilla roza la contracuchilla y se desgastan las dos en pocas horas; si queda muy abierta, el material se jala en lugar de cortarse."
+  },
+  {
+   "id": 44,
+   "t_inicio": 473.2,
+   "t_fin": 482.4,
+   "texto": "Si la hoja de cinco centésimas pasa justa, está bien. Si pasa floja, se acerca un poco el porta-cuchilla y se vuelve a medir."
+  },
+  {
+   "id": 45,
+   "t_inicio": 484.0,
+   "t_fin": 490.5,
+   "texto": "Cuando está bien, se aprietan los dos tornillos del riel con la allen, firmes pero sin forzar."
+  },
+  {
+   "id": 46,
+   "t_inicio": 492.8,
+   "t_fin": 500.9,
+   "texto": "Ahora volvemos a poner la guarda. Se acomoda en sus guías, se aprietan las cuatro perillas y se conecta el sensor."
+  },
+  {
+   "id": 47,
+   "t_inicio": 501.5,
+   "t_fin": 513.0,
+   "texto": "Si el sensor no queda conectado, la máquina no arranca y el panel marca falla de guarda, así que eso es lo primero que hay que revisar si no prende."
+  },
+  {
+   "id": 48,
+   "t_inicio": 515.0,
+   "t_fin": 525.8,
+   "texto": "Luego retiramos el bloqueo. Solo la persona que puso el candado lo puede quitar, y antes revisa que no haya nadie ni ninguna herramienta dentro de la máquina."
+  },
+  {
+   "id": 49,
+   "t_inicio": 528.2,
+   "t_fin": 536.3,
+   "texto": "Se quita el candado y la tarjeta, se sube el interruptor principal y se abre otra vez la válvula de aire."
+  },
+  {
+   "id": 50,
+   "t_inicio": 537.8,
+   "t_fin": 545.9,
+   "texto": "Hacemos una prueba en vacío, sin material, a velocidad baja, unos treinta segundos. Escuchen la cuchilla: debe sonar pareja, sin golpeteo."
+  },
+  {
+   "id": 51,
+   "t_inicio": 573.9,
+   "t_fin": 584.3,
+   "texto": "Si se escucha un golpeteo o un chillido, se para la máquina, se vuelve a bloquear y se revisa el apriete de la tuerca y la holgura."
+  },
+  {
+   "id": 52,
+   "t_inicio": 585.5,
+   "t_fin": 592.4,
+   "texto": "Con el sonido bien, se enhebra el material y se corren unos diez metros a velocidad de producción."
+  },
+  {
+   "id": 53,
+   "t_inicio": 598.9,
+   "t_fin": 607.7,
+   "texto": "Se corta una muestra de la orilla y se revisa contra la luz. El borde tiene que salir limpio, sin rebaba ni hilos."
+  },
+  {
+   "id": 54,
+   "t_inicio": 608.6,
+   "t_fin": 623.2,
+   "texto": "Las muestras se guardan en la bolsa de la orden con la fecha, porque calidad a veces las pide cuando un cliente reclama un lote, y así se puede comprobar que el corte salió bien después del cambio."
+  },
+  {
+   "id": 55,
+   "t_inicio": 625.2,
+   "t_fin": 633.3,
+   "texto": "También se mide el ancho de la tira con el flexómetro; debe dar ciento veinte milímetros más o menos medio milímetro."
+  },
+  {
+   "id": 56,
+   "t_inicio": 634.1,
+   "t_fin": 646.0,
+   "texto": "Si sale con rebaba, casi siempre es la holgura o el sentido de la cuchilla. Se vuelve a bloquear la máquina y se revisa, no se ajusta con la máquina andando."
+  },
+  {
+   "id": 57,
+   "t_inicio": 646.5,
+   "t_fin": 655.7,
+   "texto": "No se preocupen si la primera vez tienen que repetir; a todos nos pasó. Lo importante es no saltarse el bloqueo por las prisas."
+  },
+  {
+   "id": 58,
+   "t_inicio": 658.6,
+   "t_fin": 667.8,
+   "texto": "Finalmente se llena la bitácora de cambio de cuchilla: fecha, turno, número de máquina, lote de la cuchilla nueva y la lectura del contador."
+  },
+  {
+   "id": 59,
+   "t_inicio": 668.5,
+   "t_fin": 677.0,
+   "texto": "El contador se pone en cero en el panel, en el menú de mantenimiento, para que el siguiente cambio se programe bien."
+  },
+  {
+   "id": 60,
+   "t_inicio": 678.0,
+   "t_fin": 686.8,
+   "texto": "Y se le avisa al supervisor que la máquina queda liberada para producción. Con eso terminamos. Cualquier duda, pregunten antes de hacerlo solos."
+  }
+ ],
+ "inicios_paso": [
+  5,
+  9,
+  15,
+  19,
+  24,
+  29,
+  33,
+  40,
+  46,
+  48,
+  52,
+  58
+ ]
+}

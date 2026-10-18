@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     # Anotaciones públicas de CaptainCook4D (avances académicos). Nunca se versionan.
     data_dir: Path = Path("data/raw/captaincook4d")
 
+    # LLM local vía Ollama (ADR-006). Desde el host, 127.0.0.1 y no "localhost": en Windows
+    # "localhost" prueba ::1 primero y pierde ~2 s por conexión. La API en Docker usa el
+    # valor que le pasa docker-compose.yml.
+    llm_base_url: str = "http://127.0.0.1:11434"
+    llm_model: str = "gemma4:e4b-it-q4_K_M"
+    # Cubre la carga en frío: la primera llamada tras arrancar tardó 56-107 s (ADR-006).
+    llm_timeout_s: float = 180.0
+    llm_num_ctx: int = 8192
+    llm_health_timeout_s: float = 2.0
+
     @property
     def data_path(self) -> Path:
         """`data_dir` absoluto; si es relativo, se resuelve contra la raíz del proyecto."""

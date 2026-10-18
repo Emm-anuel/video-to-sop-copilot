@@ -1,0 +1,172 @@
+{
+ "id": "limpieza_cip_tanque",
+ "descripcion": "Transcripción INVENTADA por el equipo (no es material del cliente). Limpieza CIP de un tanque de mezcla. Con palabras de transición, pero con 'ahora' usado como muletilla dentro de pasos y dos pasos que empiezan sin marcador. Inicios de paso marcados a mano según la narración.",
+ "etiquetas": {
+  "maquina": "tanque de mezcla T2",
+  "area": "proceso",
+  "proceso": "limpieza CIP"
+ },
+ "segmentos": [
+  {
+   "id": 1,
+   "t_inicio": 0.0,
+   "t_fin": 7.7,
+   "texto": "Les explico la limpieza CIP del tanque de mezcla T dos, la que se hace al final de cada lote."
+  },
+  {
+   "id": 2,
+   "t_inicio": 8.3,
+   "t_fin": 18.3,
+   "texto": "Todo se maneja desde el panel del CIP, pero hay revisiones que se hacen en el tanque, así que hay que estar en los dos lados."
+  },
+  {
+   "id": 3,
+   "t_inicio": 20.5,
+   "t_fin": 28.6,
+   "texto": "Primero hay que vaciar el tanque por completo. Abrimos la válvula de fondo y mandamos el remanente al tanque de retrabajo."
+  },
+  {
+   "id": 4,
+   "t_inicio": 29.2,
+   "t_fin": 37.3,
+   "texto": "Ahora, ojo, el agitador se apaga solo cuando el nivel baja de diez por ciento, para que no trabaje en seco."
+  },
+  {
+   "id": 5,
+   "t_inicio": 40.7,
+   "t_fin": 44.9,
+   "texto": "Cuando el nivel marca cero se cierra la válvula de fondo."
+  },
+  {
+   "id": 6,
+   "t_inicio": 46.4,
+   "t_fin": 51.4,
+   "texto": "Después se hace el preenjuague con agua a temperatura ambiente durante cinco minutos."
+  },
+  {
+   "id": 7,
+   "t_inicio": 51.9,
+   "t_fin": 56.9,
+   "texto": "El agua de este enjuague va directo al drenaje porque trae mucho producto."
+  },
+  {
+   "id": 8,
+   "t_inicio": 57.6,
+   "t_fin": 66.4,
+   "texto": "Revisen por la mirilla que las esferas de aspersión estén girando; si alguna no gira, el tanque no queda limpio en esa zona."
+  },
+  {
+   "id": 9,
+   "t_inicio": 67.3,
+   "t_fin": 75.8,
+   "texto": "La solución cáustica se prepara al dos por ciento y se calienta a setenta y cinco grados en el tanque del CIP."
+  },
+  {
+   "id": 10,
+   "t_inicio": 76.4,
+   "t_fin": 83.3,
+   "texto": "El conductímetro del panel tiene que marcar entre noventa y ciento diez milisiemens; si marca menos, falta sosa."
+  },
+  {
+   "id": 11,
+   "t_inicio": 86.1,
+   "t_fin": 90.3,
+   "texto": "Luego se recircula la cáustica por el tanque durante veinte minutos."
+  },
+  {
+   "id": 12,
+   "t_inicio": 91.0,
+   "t_fin": 97.9,
+   "texto": "Ahora, mientras recircula, aprovechen para revisar que no haya fugas en las bridas de la línea de retorno."
+  },
+  {
+   "id": 13,
+   "t_inicio": 102.4,
+   "t_fin": 109.7,
+   "texto": "Si la temperatura de retorno baja de setenta grados, el tiempo se reinicia; eso lo hace el panel solo."
+  },
+  {
+   "id": 14,
+   "t_inicio": 110.7,
+   "t_fin": 116.9,
+   "texto": "Siguiente: enjuague intermedio con agua hasta que el pH del retorno baje de ocho y medio."
+  },
+  {
+   "id": 15,
+   "t_inicio": 117.5,
+   "t_fin": 124.4,
+   "texto": "El pH se lee en el panel, pero conviene confirmarlo con una tira en la toma de muestra."
+  },
+  {
+   "id": 16,
+   "t_inicio": 127.5,
+   "t_fin": 134.0,
+   "texto": "Luego viene el ácido: ácido nítrico al uno por ciento a sesenta grados, quince minutos de recirculación."
+  },
+  {
+   "id": 17,
+   "t_inicio": 134.5,
+   "t_fin": 139.1,
+   "texto": "El ácido quita las incrustaciones de minerales que la cáustica no saca."
+  },
+  {
+   "id": 18,
+   "t_inicio": 139.7,
+   "t_fin": 145.5,
+   "texto": "Para manejar los bidones de ácido es obligatorio careta, guantes de nitrilo largos y mandil."
+  },
+  {
+   "id": 19,
+   "t_inicio": 146.6,
+   "t_fin": 155.1,
+   "texto": "El enjuague final se hace con agua potable hasta que la conductividad del retorno sea igual a la del agua de entrada."
+  },
+  {
+   "id": 20,
+   "t_inicio": 155.8,
+   "t_fin": 161.6,
+   "texto": "Ese valor de referencia está pegado en el panel; normalmente anda cerca de cuatrocientos microsiemens."
+  },
+  {
+   "id": 21,
+   "t_inicio": 164.0,
+   "t_fin": 170.5,
+   "texto": "Después se inspecciona el interior con la lámpara por la entrada de hombre, sin entrar al tanque."
+  },
+  {
+   "id": 22,
+   "t_inicio": 171.1,
+   "t_fin": 178.4,
+   "texto": "Buscamos restos de producto en las paredes, sobre todo debajo del agitador y alrededor de la válvula de fondo."
+  },
+  {
+   "id": 23,
+   "t_inicio": 178.9,
+   "t_fin": 185.1,
+   "texto": "Si se ve producto pegado, se repite el ciclo de cáustica; no se limpia a mano."
+  },
+  {
+   "id": 24,
+   "t_inicio": 186.9,
+   "t_fin": 195.0,
+   "texto": "Finalmente se registra el CIP en el formato: hora de inicio y fin, concentraciones, temperaturas y el resultado de la inspección."
+  },
+  {
+   "id": 25,
+   "t_inicio": 195.7,
+   "t_fin": 202.6,
+   "texto": "El supervisor de calidad firma la liberación del tanque y hasta entonces se puede cargar el siguiente lote."
+  }
+ ],
+ "inicios_paso": [
+  3,
+  6,
+  9,
+  11,
+  14,
+  16,
+  19,
+  21,
+  24
+ ]
+}

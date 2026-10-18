@@ -1,0 +1,3175 @@
+{
+ "fecha": "2026-10-11T06:53:10+00:00",
+ "nota": "Resultado indicativo: 3 transcripciones inventadas, inicios marcados a mano.",
+ "parametros": {
+  "num_ctx": 8192,
+  "temperature": 0,
+  "seed": 42,
+  "think": false,
+  "repeticiones_llm": 3,
+  "tolerancia_segmentos": 1,
+  "tolerancias_tiempo_s": [
+   2,
+   4,
+   6
+  ]
+ },
+ "fixtures": {
+  "cambio_cuchilla": {
+   "segmentos": 60,
+   "inicios_paso": [
+    5,
+    9,
+    15,
+    19,
+    24,
+    29,
+    33,
+    40,
+    46,
+    48,
+    52,
+    58
+   ]
+  },
+  "cambio_filtro_hidraulico": {
+   "segmentos": 29,
+   "inicios_paso": [
+    3,
+    6,
+    10,
+    12,
+    15,
+    18,
+    20,
+    23,
+    26
+   ]
+  },
+  "limpieza_cip_tanque": {
+   "segmentos": 25,
+   "inicios_paso": [
+    3,
+    6,
+    9,
+    11,
+    14,
+    16,
+    19,
+    21,
+    24
+   ]
+  }
+ },
+ "hardware": {
+  "gemma4:12b-it-qat": {
+   "capas_gpu": "37/49",
+   "flash_attn": "on",
+   "mtp": false,
+   "vram_libre_antes_mib": 6570,
+   "vram_real_mib": 6247,
+   "carga_s": 48.2
+  }
+ },
+ "corridas": [
+  {
+   "metodo": "heuristica",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 1,
+   "camino": "heuristica",
+   "ids": [
+    5,
+    9,
+    12,
+    21,
+    24,
+    26,
+    31,
+    33,
+    38,
+    42,
+    46,
+    48,
+    51,
+    53,
+    58
+   ],
+   "titulos": [
+    "Lo primero es preparar todo lo que vamos…",
+    "Ahora sí, vamos a detener la máquina. Desde…",
+    "Cuando el rodillo deja de girar, vamos al…",
+    "Ahora deslizamos el porta-cuchilla hacia afuera, despacio, cuidando…",
+    "Después sigue quitar la cuchilla vieja. La cuchilla…",
+    "Sostengan la cuchilla del cubo, nunca del filo,…",
+    "Revisen también el balero del eje: lo giran…",
+    "Siguiente paso: montar la cuchilla nueva. Sáquenla del…",
+    "Con el torquímetro aprietan la tuerca a doce…",
+    "Después, con el calibrador de hojas, revisamos la…",
+    "Ahora volvemos a poner la guarda. Se acomoda…",
+    "Luego retiramos el bloqueo. Solo la persona que…",
+    "Si se escucha un golpeteo o un chillido,…",
+    "Se corta una muestra de la orilla y…",
+    "Finalmente se llena la bitácora de cambio de…"
+   ],
+   "tp": 8,
+   "n_predichos": 15,
+   "n_reales": 12,
+   "precision": 0.533,
+   "recall": 0.667,
+   "f1": 0.593,
+   "falsos_positivos": [
+    12,
+    21,
+    26,
+    31,
+    38,
+    42,
+    53
+   ],
+   "no_detectados": [
+    15,
+    19,
+    29,
+    40
+   ],
+   "f1_tiempo_2s": {
+    "tp": 7,
+    "f1": 0.519
+   },
+   "f1_tiempo_4s": {
+    "tp": 7,
+    "f1": 0.519
+   },
+   "f1_tiempo_6s": {
+    "tp": 7,
+    "f1": 0.519
+   }
+  },
+  {
+   "metodo": "heuristica",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 1,
+   "camino": "heuristica",
+   "ids": [
+    5,
+    8,
+    10,
+    13,
+    25
+   ],
+   "titulos": [
+    "El motor de la bomba se apaga desde…",
+    "El manómetro del bloque de válvulas tiene que…",
+    "Debajo de la carcasa del filtro va la…",
+    "Bájenla derecha, porque viene llena de aceite, y…",
+    "Durante unos dos minutos se vigila la carcasa…"
+   ],
+   "tp": 4,
+   "n_predichos": 5,
+   "n_reales": 9,
+   "precision": 0.8,
+   "recall": 0.444,
+   "f1": 0.571,
+   "falsos_positivos": [
+    8
+   ],
+   "no_detectados": [
+    3,
+    15,
+    18,
+    20,
+    23
+   ],
+   "f1_tiempo_2s": {
+    "tp": 1,
+    "f1": 0.143
+   },
+   "f1_tiempo_4s": {
+    "tp": 1,
+    "f1": 0.143
+   },
+   "f1_tiempo_6s": {
+    "tp": 1,
+    "f1": 0.143
+   }
+  },
+  {
+   "metodo": "heuristica",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 1,
+   "camino": "heuristica",
+   "ids": [
+    3,
+    5,
+    11,
+    13,
+    16,
+    21,
+    24
+   ],
+   "titulos": [
+    "Primero hay que vaciar el tanque por completo.…",
+    "Cuando el nivel marca cero se cierra la…",
+    "Luego se recircula la cáustica por el tanque…",
+    "Si la temperatura de retorno baja de setenta…",
+    "Luego viene el ácido: ácido nítrico al uno…",
+    "Después se inspecciona el interior con la lámpara…",
+    "Finalmente se registra el CIP en el formato:…"
+   ],
+   "tp": 7,
+   "n_predichos": 7,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.778,
+   "f1": 0.875,
+   "falsos_positivos": [],
+   "no_detectados": [
+    9,
+    19
+   ],
+   "f1_tiempo_2s": {
+    "tp": 5,
+    "f1": 0.625
+   },
+   "f1_tiempo_4s": {
+    "tp": 5,
+    "f1": 0.625
+   },
+   "f1_tiempo_6s": {
+    "tp": 6,
+    "f1": 0.75
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 6.27,
+   "ids": [
+    1,
+    5,
+    9,
+    12,
+    15,
+    19,
+    24,
+    30,
+    33,
+    37,
+    40,
+    42,
+    45,
+    46,
+    48,
+    50,
+    52,
+    58
+   ],
+   "titulos": [
+    "Introducción y propósito del cambio",
+    "Preparación de herramientas y EPP",
+    "Detención y bloqueo de la máquina",
+    "Aislamiento eléctrico y neumático",
+    "Retiro de la guarda de protección",
+    "Desmontaje del porta-cuchilla",
+    "Retiro de la cuchilla vieja",
+    "Limpieza del porta-cuchilla y eje",
+    "Montaje de la cuchilla nueva",
+    "Ajuste de la cuchilla y torqueo",
+    "Reinstalación del porta-cuchilla",
+    "Verificación de holgura y ancho de corte",
+    "Fijación del porta-cuchilla",
+    "Reinstalación de la guarda de protección",
+    "Retiro del bloqueo y energización",
+    "Prueba en vacío",
+    "Prueba de producción y verificación de corte",
+    "Registro y finalización del procedimiento"
+   ],
+   "tp": 12,
+   "n_predichos": 18,
+   "n_reales": 12,
+   "precision": 0.667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "falsos_positivos": [
+    1,
+    12,
+    37,
+    42,
+    45,
+    50
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_4s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_6s": {
+    "tp": 11,
+    "f1": 0.733
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.25,
+   "ids": [
+    1,
+    5,
+    9,
+    12,
+    15,
+    19,
+    24,
+    30,
+    33,
+    37,
+    40,
+    42,
+    45,
+    46,
+    48,
+    50,
+    52,
+    58
+   ],
+   "titulos": [
+    "Introducción y propósito del cambio",
+    "Preparación de herramientas y EPP",
+    "Detención y bloqueo de la máquina",
+    "Aislamiento eléctrico y neumático",
+    "Retiro de la guarda de protección",
+    "Desmontaje del porta-cuchilla",
+    "Retiro de la cuchilla vieja",
+    "Limpieza del porta-cuchilla y eje",
+    "Montaje de la cuchilla nueva",
+    "Ajuste de la cuchilla y torqueo",
+    "Reinstalación del porta-cuchilla",
+    "Verificación de holgura y ancho de corte",
+    "Fijación del porta-cuchilla",
+    "Reinstalación de la guarda de protección",
+    "Retiro del bloqueo y energización",
+    "Prueba en vacío",
+    "Prueba de producción y verificación de corte",
+    "Registro y finalización del procedimiento"
+   ],
+   "tp": 12,
+   "n_predichos": 18,
+   "n_reales": 12,
+   "precision": 0.667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "falsos_positivos": [
+    1,
+    12,
+    37,
+    42,
+    45,
+    50
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_4s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_6s": {
+    "tp": 11,
+    "f1": 0.733
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.07,
+   "ids": [
+    1,
+    5,
+    9,
+    12,
+    15,
+    19,
+    24,
+    30,
+    33,
+    37,
+    40,
+    42,
+    45,
+    46,
+    48,
+    50,
+    52,
+    58
+   ],
+   "titulos": [
+    "Introducción y propósito del cambio",
+    "Preparación de herramientas y EPP",
+    "Detención y bloqueo de la máquina",
+    "Aislamiento eléctrico y neumático",
+    "Retiro de la guarda de protección",
+    "Desmontaje del porta-cuchilla",
+    "Retiro de la cuchilla vieja",
+    "Limpieza del porta-cuchilla y eje",
+    "Montaje de la cuchilla nueva",
+    "Ajuste de la cuchilla y torqueo",
+    "Reinstalación del porta-cuchilla",
+    "Verificación de la holgura",
+    "Fijación del porta-cuchilla",
+    "Reinstalación de la guarda de protección",
+    "Retiro del bloqueo y energización",
+    "Prueba en vacío",
+    "Prueba de corte y verificación de calidad",
+    "Registro y finalización del procedimiento"
+   ],
+   "tp": 12,
+   "n_predichos": 18,
+   "n_reales": 12,
+   "precision": 0.667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "falsos_positivos": [
+    1,
+    12,
+    37,
+    42,
+    45,
+    50
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_4s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_6s": {
+    "tp": 11,
+    "f1": 0.733
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.76,
+   "ids": [
+    1,
+    3,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "titulos": [
+    "Introducción al cambio de filtro",
+    "Preparación y aseguramiento de la máquina",
+    "Desenergización del sistema",
+    "Liberación de presión del circuito",
+    "Verificación de presión cero",
+    "Preparación para drenaje",
+    "Limpieza de la carcasa",
+    "Desmontaje de la carcasa",
+    "Drenaje del aceite usado",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque",
+    "Preparación del nuevo elemento filtrante",
+    "Instalación del nuevo filtro",
+    "Aseguramiento de la carcasa",
+    "Puesta en marcha en vacío",
+    "Purgado del aire del filtro",
+    "Verificación de fugas",
+    "Relleno del sistema",
+    "Verificación final del indicador",
+    "Registro en bitácora"
+   ],
+   "tp": 9,
+   "n_predichos": 20,
+   "n_reales": 9,
+   "precision": 0.45,
+   "recall": 1.0,
+   "f1": 0.621,
+   "falsos_positivos": [
+    1,
+    5,
+    8,
+    11,
+    13,
+    21,
+    22,
+    24,
+    25,
+    27,
+    28
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.621
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.621
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.621
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.88,
+   "ids": [
+    1,
+    3,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+   ],
+   "titulos": [
+    "Introducción al cambio de filtro",
+    "Preparación y aseguramiento de la máquina",
+    "Desenergización del sistema",
+    "Liberación de presión del circuito",
+    "Verificación de presión cero",
+    "Preparación para la extracción del filtro",
+    "Limpieza de la carcasa",
+    "Desmontaje de la carcasa del filtro",
+    "Drenaje del aceite usado",
+    "Disposición del aceite usado",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque de la carcasa",
+    "Preparación del nuevo elemento filtrante",
+    "Instalación del nuevo elemento filtrante",
+    "Montaje y ajuste de la carcasa",
+    "Puesta en marcha inicial en vacío",
+    "Purgado del aire del filtro",
+    "Verificación de fugas",
+    "Relleno del sistema",
+    "Verificación final del indicador",
+    "Registro en bitácora",
+    "Finalización y puesta en producción"
+   ],
+   "tp": 9,
+   "n_predichos": 22,
+   "n_reales": 9,
+   "precision": 0.409,
+   "recall": 1.0,
+   "f1": 0.581,
+   "falsos_positivos": [
+    1,
+    5,
+    8,
+    11,
+    13,
+    14,
+    21,
+    22,
+    24,
+    25,
+    27,
+    28,
+    29
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.581
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.581
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.581
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.85,
+   "ids": [
+    1,
+    3,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+   ],
+   "titulos": [
+    "Introducción al cambio de filtro",
+    "Preparación y aseguramiento de la máquina",
+    "Desenergización del sistema",
+    "Liberación de presión del circuito",
+    "Verificación de presión cero",
+    "Preparación para la extracción del filtro",
+    "Limpieza de la carcasa",
+    "Desmontaje de la carcasa del filtro",
+    "Drenaje del aceite usado",
+    "Disposición del aceite usado",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque de la carcasa",
+    "Preparación del nuevo elemento filtrante",
+    "Instalación del nuevo elemento filtrante",
+    "Montaje y ajuste de la carcasa",
+    "Puesta en marcha inicial en vacío",
+    "Purgado del aire del filtro",
+    "Verificación de fugas",
+    "Relleno del sistema",
+    "Verificación final del indicador",
+    "Registro en bitácora",
+    "Finalización y puesta en producción"
+   ],
+   "tp": 9,
+   "n_predichos": 22,
+   "n_reales": 9,
+   "precision": 0.409,
+   "recall": 1.0,
+   "f1": 0.581,
+   "falsos_positivos": [
+    1,
+    5,
+    8,
+    11,
+    13,
+    14,
+    21,
+    22,
+    24,
+    25,
+    27,
+    28,
+    29
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.581
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.581
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.581
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 3.02,
+   "ids": [
+    3,
+    6,
+    8,
+    9,
+    14,
+    16,
+    19,
+    21,
+    23,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague",
+    "Verificación de aspersores",
+    "Limpieza con cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido",
+    "Enjuague final",
+    "Inspección visual",
+    "Repetición del ciclo (si es necesario)",
+    "Registro y liberación"
+   ],
+   "tp": 8,
+   "n_predichos": 10,
+   "n_reales": 9,
+   "precision": 0.8,
+   "recall": 0.889,
+   "f1": 0.842,
+   "falsos_positivos": [
+    8,
+    23
+   ],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.842
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.842
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.842
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 2.76,
+   "ids": [
+    3,
+    6,
+    8,
+    9,
+    12,
+    14,
+    16,
+    19,
+    21,
+    23,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague",
+    "Verificación de aspersores",
+    "Limpieza con cáustica",
+    "Revisión de fugas durante cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido",
+    "Enjuague final",
+    "Inspección visual",
+    "Repetición del ciclo (si es necesario)",
+    "Registro del CIP"
+   ],
+   "tp": 9,
+   "n_predichos": 11,
+   "n_reales": 9,
+   "precision": 0.818,
+   "recall": 1.0,
+   "f1": 0.9,
+   "falsos_positivos": [
+    8,
+    23
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.8
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.8
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.9
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 2.76,
+   "ids": [
+    3,
+    6,
+    8,
+    9,
+    12,
+    14,
+    16,
+    19,
+    21,
+    23,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague",
+    "Verificación de aspersores",
+    "Limpieza con cáustica",
+    "Revisión de fugas durante cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido",
+    "Enjuague final",
+    "Inspección visual",
+    "Repetición del ciclo (si es necesario)",
+    "Registro del CIP"
+   ],
+   "tp": 9,
+   "n_predichos": 11,
+   "n_reales": 9,
+   "precision": 0.818,
+   "recall": 1.0,
+   "f1": 0.9,
+   "falsos_positivos": [
+    8,
+    23
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.8
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.8
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.9
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.36,
+   "ids": [
+    5,
+    9,
+    12,
+    15,
+    19,
+    24,
+    30,
+    33,
+    40,
+    42,
+    45,
+    46,
+    48,
+    49,
+    50,
+    52,
+    53,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detener la máquina",
+    "Bloqueo y purga de aire",
+    "Retirar la guarda de policarbonato",
+    "Desmontar el porta-cuchilla",
+    "Retirar la cuchilla vieja",
+    "Limpieza del porta-cuchilla y eje",
+    "Montar la cuchilla nueva",
+    "Reinstalar el porta-cuchilla",
+    "Ajustar la holgura",
+    "Asegurar el porta-cuchilla",
+    "Colocar la guarda de policarbonato",
+    "Retirar el bloqueo",
+    "Puesta en marcha inicial",
+    "Prueba en vacío",
+    "Prueba de producción",
+    "Inspección de la muestra",
+    "Registro y finalización"
+   ],
+   "tp": 12,
+   "n_predichos": 18,
+   "n_reales": 12,
+   "precision": 0.667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "falsos_positivos": [
+    12,
+    42,
+    45,
+    49,
+    50,
+    53
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_4s": {
+    "tp": 11,
+    "f1": 0.733
+   },
+   "f1_tiempo_6s": {
+    "tp": 11,
+    "f1": 0.733
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.22,
+   "ids": [
+    5,
+    9,
+    12,
+    15,
+    19,
+    24,
+    30,
+    33,
+    40,
+    42,
+    45,
+    46,
+    48,
+    49,
+    50,
+    52,
+    53,
+    55,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detener la máquina",
+    "Bloqueo y purga de aire",
+    "Retirar la guarda de policarbonato",
+    "Desmontar el porta-cuchilla",
+    "Retirar la cuchilla vieja",
+    "Limpieza del porta-cuchilla y eje",
+    "Montar la cuchilla nueva",
+    "Reinstalar el porta-cuchilla",
+    "Ajustar la holgura",
+    "Asegurar el porta-cuchilla",
+    "Colocar la guarda de policarbonato",
+    "Retirar el bloqueo",
+    "Puesta en marcha inicial",
+    "Prueba en vacío",
+    "Prueba de producción",
+    "Inspección de la muestra",
+    "Medición del ancho de la tira",
+    "Registro y finalización"
+   ],
+   "tp": 12,
+   "n_predichos": 19,
+   "n_reales": 12,
+   "precision": 0.632,
+   "recall": 1.0,
+   "f1": 0.774,
+   "falsos_positivos": [
+    12,
+    42,
+    45,
+    49,
+    50,
+    53,
+    55
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 11,
+    "f1": 0.71
+   },
+   "f1_tiempo_4s": {
+    "tp": 11,
+    "f1": 0.71
+   },
+   "f1_tiempo_6s": {
+    "tp": 11,
+    "f1": 0.71
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.44,
+   "ids": [
+    5,
+    9,
+    12,
+    15,
+    19,
+    24,
+    30,
+    33,
+    40,
+    42,
+    45,
+    46,
+    48,
+    49,
+    50,
+    52,
+    53,
+    55,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detener la máquina",
+    "Bloqueo y purga de aire",
+    "Retirar la guarda de policarbonato",
+    "Desmontar el porta-cuchilla",
+    "Retirar la cuchilla vieja",
+    "Limpieza del porta-cuchilla y eje",
+    "Montar la cuchilla nueva",
+    "Reinstalar el porta-cuchilla",
+    "Ajustar la holgura",
+    "Asegurar el porta-cuchilla",
+    "Colocar la guarda de policarbonato",
+    "Retirar el bloqueo",
+    "Puesta en marcha inicial",
+    "Prueba en vacío",
+    "Prueba de producción",
+    "Inspección de la muestra",
+    "Medición del ancho de la tira",
+    "Registro y finalización"
+   ],
+   "tp": 12,
+   "n_predichos": 19,
+   "n_reales": 12,
+   "precision": 0.632,
+   "recall": 1.0,
+   "f1": 0.774,
+   "falsos_positivos": [
+    12,
+    42,
+    45,
+    49,
+    50,
+    53,
+    55
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 11,
+    "f1": 0.71
+   },
+   "f1_tiempo_4s": {
+    "tp": 11,
+    "f1": 0.71
+   },
+   "f1_tiempo_6s": {
+    "tp": 11,
+    "f1": 0.71
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.81,
+   "ids": [
+    1,
+    3,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "titulos": [
+    "Inicio del cambio de filtro",
+    "Preparación y aseguramiento de la máquina",
+    "Desenergización del sistema",
+    "Liberación de presión del circuito",
+    "Verificación de presión cero",
+    "Preparación para la extracción del filtro",
+    "Limpieza de la carcasa",
+    "Desmontaje de la carcasa",
+    "Drenaje del aceite usado",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque",
+    "Preparación del nuevo elemento filtrante",
+    "Instalación del nuevo filtro",
+    "Sellado de la carcasa",
+    "Puesta en marcha en vacío",
+    "Purgado del aire del filtro",
+    "Verificación de fugas",
+    "Relleno del sistema",
+    "Verificación final del indicador",
+    "Registro en bitácora"
+   ],
+   "tp": 9,
+   "n_predichos": 20,
+   "n_reales": 9,
+   "precision": 0.45,
+   "recall": 1.0,
+   "f1": 0.621,
+   "falsos_positivos": [
+    1,
+    5,
+    8,
+    11,
+    13,
+    21,
+    22,
+    24,
+    25,
+    27,
+    28
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.621
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.621
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.621
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.54,
+   "ids": [
+    1,
+    3,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "titulos": [
+    "Inicio del cambio de filtro",
+    "Preparación y aseguramiento de la máquina",
+    "Desenergización del sistema",
+    "Liberación de presión del circuito",
+    "Verificación de presión cero",
+    "Preparación para la extracción del filtro",
+    "Limpieza de la carcasa",
+    "Desmontaje de la carcasa",
+    "Drenaje del aceite usado",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque",
+    "Preparación del nuevo elemento filtrante",
+    "Instalación del nuevo filtro",
+    "Sellado de la carcasa",
+    "Puesta en marcha en vacío",
+    "Purgado del aire del filtro",
+    "Verificación de fugas",
+    "Relleno del sistema",
+    "Verificación final del indicador",
+    "Registro en bitácora"
+   ],
+   "tp": 9,
+   "n_predichos": 20,
+   "n_reales": 9,
+   "precision": 0.45,
+   "recall": 1.0,
+   "f1": 0.621,
+   "falsos_positivos": [
+    1,
+    5,
+    8,
+    11,
+    13,
+    21,
+    22,
+    24,
+    25,
+    27,
+    28
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.621
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.621
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.621
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.79,
+   "ids": [
+    1,
+    3,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+   ],
+   "titulos": [
+    "Inicio del cambio de filtro",
+    "Preparación y aseguramiento de la máquina",
+    "Desenergización del sistema",
+    "Liberación de presión del circuito",
+    "Verificación de presión cero",
+    "Preparación para la extracción del filtro",
+    "Limpieza de la carcasa",
+    "Desmontaje de la carcasa",
+    "Drenaje del aceite usado",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque de la carcasa",
+    "Preparación del nuevo elemento filtrante",
+    "Instalación del nuevo filtro",
+    "Sellado de la carcasa",
+    "Puesta en marcha en vacío",
+    "Purgado del aire del filtro",
+    "Verificación de fugas",
+    "Relleno del sistema",
+    "Verificación final del indicador",
+    "Registro en bitácora",
+    "Finalización y puesta en producción"
+   ],
+   "tp": 9,
+   "n_predichos": 21,
+   "n_reales": 9,
+   "precision": 0.429,
+   "recall": 1.0,
+   "f1": 0.6,
+   "falsos_positivos": [
+    1,
+    5,
+    8,
+    11,
+    13,
+    21,
+    22,
+    24,
+    25,
+    27,
+    28,
+    29
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.6
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.6
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.6
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 3.4,
+   "ids": [
+    3,
+    6,
+    8,
+    9,
+    12,
+    14,
+    16,
+    19,
+    21,
+    23,
+    24,
+    25
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague",
+    "Verificación de aspersores",
+    "Limpieza con cáustica",
+    "Revisión de fugas durante cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido",
+    "Enjuague final",
+    "Inspección visual",
+    "Repetición del ciclo (si es necesario)",
+    "Registro del CIP",
+    "Liberación del tanque"
+   ],
+   "tp": 9,
+   "n_predichos": 12,
+   "n_reales": 9,
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.857,
+   "falsos_positivos": [
+    8,
+    23,
+    25
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.762
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.762
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.857
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 3.06,
+   "ids": [
+    3,
+    6,
+    8,
+    9,
+    12,
+    14,
+    16,
+    19,
+    21,
+    23,
+    24,
+    25
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague",
+    "Verificación de aspersores",
+    "Limpieza con cáustica",
+    "Revisión de fugas durante cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido",
+    "Enjuague final",
+    "Inspección visual",
+    "Repetición del ciclo (si es necesario)",
+    "Registro del CIP",
+    "Liberación del tanque"
+   ],
+   "tp": 9,
+   "n_predichos": 12,
+   "n_reales": 9,
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.857,
+   "falsos_positivos": [
+    8,
+    23,
+    25
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.762
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.762
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.857
+   }
+  },
+  {
+   "metodo": "gemma4:e4b-it-q4_K_M · prompt v2",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 3.04,
+   "ids": [
+    3,
+    6,
+    8,
+    9,
+    12,
+    14,
+    16,
+    19,
+    21,
+    23,
+    24,
+    25
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague",
+    "Verificación de aspersores",
+    "Limpieza con cáustica",
+    "Revisión de fugas durante cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido",
+    "Enjuague final",
+    "Inspección visual",
+    "Repetición del ciclo (si es necesario)",
+    "Registro del CIP",
+    "Liberación del tanque"
+   ],
+   "tp": 9,
+   "n_predichos": 12,
+   "n_reales": 9,
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.857,
+   "falsos_positivos": [
+    8,
+    23,
+    25
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.762
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.762
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.857
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 19.16,
+   "ids": [
+    5,
+    9,
+    15,
+    20,
+    24,
+    33,
+    40,
+    45,
+    48,
+    52,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detención segura de la máquina y bloqueo energético (LOTO)",
+    "Retiro de la guarda de policarbonato",
+    "Deslizamiento del porta-cuchilla hacia afuera",
+    "Quitar la cuchilla vieja y limpieza del eje",
+    "Montaje de la nueva cuchilla y apriete con torquímetro",
+    "Regresar el porta-cuchilla al riel y ajuste de holgura",
+    "Apriete final del riel y reposición de la guarda",
+    "Retiro del bloqueo y prueba en vacío",
+    "Enhebrado, prueba de corte y verificación de calidad",
+    "Registro en bitácora y reinicio del contador"
+   ],
+   "tp": 11,
+   "n_predichos": 11,
+   "n_reales": 12,
+   "precision": 1.0,
+   "recall": 0.917,
+   "f1": 0.957,
+   "falsos_positivos": [],
+   "no_detectados": [
+    29
+   ],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.783
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.783
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.783
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 8.13,
+   "ids": [
+    5,
+    9,
+    15,
+    20,
+    24,
+    33,
+    40,
+    45,
+    48,
+    52,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detención segura de la máquina y bloqueo energético (LOTO)",
+    "Retiro de la guarda de policarbonato",
+    "Deslizamiento del porta-cuchilla hacia afuera",
+    "Quitar la cuchilla vieja y limpieza del eje",
+    "Montaje de la nueva cuchilla y apriete con torquímetro",
+    "Regresar el porta-cuchilla al riel y ajuste de holgura",
+    "Apriete final del riel y reposición de la guarda",
+    "Retiro del bloqueo y prueba en vacío",
+    "Enhebrado, prueba de corte y verificación de calidad",
+    "Registro en bitácora y reinicio del contador"
+   ],
+   "tp": 11,
+   "n_predichos": 11,
+   "n_reales": 12,
+   "precision": 1.0,
+   "recall": 0.917,
+   "f1": 0.957,
+   "falsos_positivos": [],
+   "no_detectados": [
+    29
+   ],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.783
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.783
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.783
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 8.19,
+   "ids": [
+    5,
+    9,
+    15,
+    20,
+    24,
+    33,
+    40,
+    45,
+    48,
+    52,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detención segura de la máquina y bloqueo energético (LOTO)",
+    "Retiro de la guarda de policarbonato",
+    "Deslizamiento del porta-cuchilla hacia afuera",
+    "Quitar la cuchilla vieja y limpieza del eje",
+    "Montaje de la nueva cuchilla y apriete con torquímetro",
+    "Regresar el porta-cuchilla al riel y ajuste de holgura",
+    "Apriete final del riel y reposición de la guarda",
+    "Retiro del bloqueo y prueba en vacío",
+    "Enhebrado, prueba de corte y verificación de calidad",
+    "Registro en bitácora y reinicio del contador"
+   ],
+   "tp": 11,
+   "n_predichos": 11,
+   "n_reales": 12,
+   "precision": 1.0,
+   "recall": 0.917,
+   "f1": 0.957,
+   "falsos_positivos": [],
+   "no_detectados": [
+    29
+   ],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.783
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.783
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.783
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 7.32,
+   "ids": [
+    3,
+    6,
+    10,
+    12,
+    15,
+    18,
+    21,
+    23,
+    26
+   ],
+   "titulos": [
+    "Preparación y bloqueo de energía",
+    "Liberación de presión del circuito",
+    "Instalación de charola y limpieza exterior",
+    "Desenroscado y vaciado de la carcasa",
+    "Inspección del elemento filtrante usado",
+    "Sustitución del empaque y preparación del nuevo elemento",
+    "Instalación del nuevo filtro y cierre de carcasa",
+    "Prueba de funcionamiento y purga de aire",
+    "Reposición de nivel de aceite y registro en bitácora"
+   ],
+   "tp": 9,
+   "n_predichos": 9,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "falsos_positivos": [],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.889
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.889
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.889
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 5.96,
+   "ids": [
+    3,
+    6,
+    10,
+    12,
+    15,
+    18,
+    21,
+    23,
+    26
+   ],
+   "titulos": [
+    "Preparación y bloqueo de energía",
+    "Liberación de presión del circuito",
+    "Instalación de charola y limpieza exterior",
+    "Desenroscado y vaciado de la carcasa",
+    "Inspección del elemento filtrante usado",
+    "Sustitución del empaque y preparación del nuevo elemento",
+    "Instalación del nuevo filtro y cierre de carcasa",
+    "Prueba de funcionamiento y purga de aire",
+    "Reposición de nivel de aceite y registro en bitácora"
+   ],
+   "tp": 9,
+   "n_predichos": 9,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "falsos_positivos": [],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.889
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.889
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.889
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 6.16,
+   "ids": [
+    3,
+    6,
+    10,
+    12,
+    15,
+    18,
+    21,
+    23,
+    26
+   ],
+   "titulos": [
+    "Preparación y bloqueo de energía",
+    "Liberación de presión del circuito",
+    "Instalación de charola y limpieza exterior",
+    "Desenroscado y vaciado de la carcasa",
+    "Inspección del elemento filtrante usado",
+    "Sustitución del empaque y preparación del nuevo elemento",
+    "Instalación del nuevo filtro y cierre de carcasa",
+    "Prueba de funcionamiento y purga de aire",
+    "Reposición de nivel de aceite y registro en bitácora"
+   ],
+   "tp": 9,
+   "n_predichos": 9,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "falsos_positivos": [],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.889
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.889
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.889
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 4.92,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague con agua",
+    "Limpieza con solución cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido nítrico",
+    "Enjuague final",
+    "Inspección visual del interior"
+   ],
+   "tp": 7,
+   "n_predichos": 7,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.778,
+   "f1": 0.875,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11,
+    24
+   ],
+   "f1_tiempo_2s": {
+    "tp": 7,
+    "f1": 0.875
+   },
+   "f1_tiempo_4s": {
+    "tp": 7,
+    "f1": 0.875
+   },
+   "f1_tiempo_6s": {
+    "tp": 7,
+    "f1": 0.875
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 4.03,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague con agua",
+    "Limpieza con solución cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido nítrico",
+    "Enjuague final",
+    "Inspección visual del interior"
+   ],
+   "tp": 7,
+   "n_predichos": 7,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.778,
+   "f1": 0.875,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11,
+    24
+   ],
+   "f1_tiempo_2s": {
+    "tp": 7,
+    "f1": 0.875
+   },
+   "f1_tiempo_4s": {
+    "tp": 7,
+    "f1": 0.875
+   },
+   "f1_tiempo_6s": {
+    "tp": 7,
+    "f1": 0.875
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 4.07,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague con agua",
+    "Limpieza con solución cáustica",
+    "Enjuague intermedio",
+    "Limpieza con ácido nítrico",
+    "Enjuague final",
+    "Inspección visual del interior"
+   ],
+   "tp": 7,
+   "n_predichos": 7,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.778,
+   "f1": 0.875,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11,
+    24
+   ],
+   "f1_tiempo_2s": {
+    "tp": 7,
+    "f1": 0.875
+   },
+   "f1_tiempo_4s": {
+    "tp": 7,
+    "f1": 0.875
+   },
+   "f1_tiempo_6s": {
+    "tp": 7,
+    "f1": 0.875
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 7.87,
+   "ids": [
+    5,
+    9,
+    15,
+    20,
+    24,
+    33,
+    40,
+    46,
+    50,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detención segura de la máquina y bloqueo energético",
+    "Retiro de la guarda de policarbonato",
+    "Deslizamiento del porta-cuchilla hacia afuera",
+    "Quitar la cuchilla vieja y limpieza del eje",
+    "Montaje de la nueva cuchilla",
+    "Regreso del porta-cuchilla al riel y ajuste de holgura",
+    "Reinstalación de la guarda y desbloqueo",
+    "Prueba en vacío y verificación de corte",
+    "Registro en bitácora y liberación"
+   ],
+   "tp": 9,
+   "n_predichos": 10,
+   "n_reales": 12,
+   "precision": 0.9,
+   "recall": 0.75,
+   "f1": 0.818,
+   "falsos_positivos": [
+    50
+   ],
+   "no_detectados": [
+    29,
+    48,
+    52
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.727
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.727
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.727
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 6.91,
+   "ids": [
+    5,
+    9,
+    15,
+    20,
+    24,
+    33,
+    40,
+    46,
+    50,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detención segura de la máquina y bloqueo energético",
+    "Retiro de la guarda de policarbonato",
+    "Deslizamiento del porta-cuchilla hacia afuera",
+    "Quitar la cuchilla vieja y limpieza del eje",
+    "Montaje de la nueva cuchilla",
+    "Regreso del porta-cuchilla al riel y ajuste de holgura",
+    "Reinstalación de la guarda y desbloqueo",
+    "Prueba en vacío y verificación de corte",
+    "Registro en bitácora y liberación"
+   ],
+   "tp": 9,
+   "n_predichos": 10,
+   "n_reales": 12,
+   "precision": 0.9,
+   "recall": 0.75,
+   "f1": 0.818,
+   "falsos_positivos": [
+    50
+   ],
+   "no_detectados": [
+    29,
+    48,
+    52
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.727
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.727
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.727
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 6.8,
+   "ids": [
+    5,
+    9,
+    15,
+    20,
+    24,
+    33,
+    40,
+    46,
+    50,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y EPP",
+    "Detención segura de la máquina y bloqueo energético",
+    "Retiro de la guarda de policarbonato",
+    "Deslizamiento del porta-cuchilla hacia afuera",
+    "Quitar la cuchilla vieja y limpieza del eje",
+    "Montaje de la nueva cuchilla",
+    "Regreso del porta-cuchilla al riel y ajuste de holgura",
+    "Reinstalación de la guarda y desbloqueo",
+    "Prueba en vacío y verificación de corte",
+    "Registro en bitácora y liberación"
+   ],
+   "tp": 9,
+   "n_predichos": 10,
+   "n_reales": 12,
+   "precision": 0.9,
+   "recall": 0.75,
+   "f1": 0.818,
+   "falsos_positivos": [
+    50
+   ],
+   "no_detectados": [
+    29,
+    48,
+    52
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.727
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.727
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.727
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 9.54,
+   "ids": [
+    3,
+    5,
+    6,
+    10,
+    12,
+    13,
+    15,
+    18,
+    20,
+    22,
+    23,
+    26,
+    27
+   ],
+   "titulos": [
+    "Bajar la corredera a los bloques de seguridad",
+    "Apagar el motor y bloquear el seccionador",
+    "Liberar la presión del circuito hidráulico",
+    "Colocar charola de derrames y limpiar exterior",
+    "Desenroscar y bajar la carcasa del filtro",
+    "Vaciar el aceite residual en contenedor adecuado",
+    "Extraer y revisar el elemento filtrante",
+    "Retirar empaque viejo e instalar nuevo lubricado",
+    "Instalar el nuevo elemento filtrante",
+    "Enroscar la carcasa y verificar sellado",
+    "Arrancar bomba en vacío para purgar aire",
+    "Completar nivel de aceite en el tanque",
+    "Verificar indicador de saturación y registrar datos"
+   ],
+   "tp": 9,
+   "n_predichos": 13,
+   "n_reales": 9,
+   "precision": 0.692,
+   "recall": 1.0,
+   "f1": 0.818,
+   "falsos_positivos": [
+    5,
+    13,
+    22,
+    27
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.818
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.818
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.818
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 8.78,
+   "ids": [
+    3,
+    5,
+    6,
+    10,
+    12,
+    13,
+    15,
+    18,
+    20,
+    22,
+    23,
+    26,
+    27
+   ],
+   "titulos": [
+    "Bajar la corredera a los bloques de seguridad",
+    "Apagar el motor y bloquear el seccionador",
+    "Liberar la presión del circuito hidráulico",
+    "Colocar charola de derrames y limpiar exterior",
+    "Desenroscar y bajar la carcasa del filtro",
+    "Vaciar el aceite residual en contenedor adecuado",
+    "Extraer y revisar el elemento filtrante",
+    "Retirar empaque viejo e instalar nuevo lubricado",
+    "Instalar el nuevo elemento filtrante",
+    "Enroscar la carcasa y verificar sellado",
+    "Arrancar bomba en vacío para purgar aire",
+    "Completar nivel de aceite en el tanque",
+    "Verificar indicador de saturación y registrar datos"
+   ],
+   "tp": 9,
+   "n_predichos": 13,
+   "n_reales": 9,
+   "precision": 0.692,
+   "recall": 1.0,
+   "f1": 0.818,
+   "falsos_positivos": [
+    5,
+    13,
+    22,
+    27
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.818
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.818
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.818
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 8.79,
+   "ids": [
+    3,
+    5,
+    6,
+    10,
+    12,
+    13,
+    15,
+    18,
+    20,
+    22,
+    23,
+    26,
+    27
+   ],
+   "titulos": [
+    "Bajar la corredera a los bloques de seguridad",
+    "Apagar el motor y bloquear el seccionador",
+    "Liberar la presión del circuito hidráulico",
+    "Colocar charola de derrames y limpiar exterior",
+    "Desenroscar y bajar la carcasa del filtro",
+    "Vaciar el aceite residual en contenedor adecuado",
+    "Extraer y revisar el elemento filtrante",
+    "Retirar empaque viejo e instalar nuevo lubricado",
+    "Instalar el nuevo elemento filtrante",
+    "Enroscar la carcasa y verificar sellado",
+    "Arrancar bomba en vacío para purgar aire",
+    "Completar nivel de aceite en el tanque",
+    "Verificar indicador de saturación y registrar datos"
+   ],
+   "tp": 9,
+   "n_predichos": 13,
+   "n_reales": 9,
+   "precision": 0.692,
+   "recall": 1.0,
+   "f1": 0.818,
+   "falsos_positivos": [
+    5,
+    13,
+    22,
+    27
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.818
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.818
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.818
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 9.01,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque al tanque de retrabajo",
+    "Preenjuague con agua a temperatura ambiente",
+    "Preparación y recirculación de la solución cáustica",
+    "Enjuague intermedio con agua hasta pH bajo 8.5",
+    "Recirculación de ácido nítrico para remover incrustaciones",
+    "Enjuague final con agua potable hasta igualar conductividad",
+    "Inspección visual del interior del tanque",
+    "Registro de datos y liberación por calidad"
+   ],
+   "tp": 8,
+   "n_predichos": 8,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.889,
+   "f1": 0.941,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.941
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 8.17,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque al tanque de retrabajo",
+    "Preenjuague con agua a temperatura ambiente",
+    "Preparación y recirculación de la solución cáustica",
+    "Enjuague intermedio con agua hasta pH bajo 8.5",
+    "Recirculación de ácido nítrico para remover incrustaciones",
+    "Enjuague final con agua potable hasta igualar conductividad",
+    "Inspección visual del interior del tanque",
+    "Registro de datos y liberación por calidad"
+   ],
+   "tp": 8,
+   "n_predichos": 8,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.889,
+   "f1": 0.941,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.941
+   }
+  },
+  {
+   "metodo": "qwen3.5:9b-q4_K_M · prompt v2",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 8.22,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque al tanque de retrabajo",
+    "Preenjuague con agua a temperatura ambiente",
+    "Preparación y recirculación de la solución cáustica",
+    "Enjuague intermedio con agua hasta pH bajo 8.5",
+    "Recirculación de ácido nítrico para remover incrustaciones",
+    "Enjuague final con agua potable hasta igualar conductividad",
+    "Inspección visual del interior del tanque",
+    "Registro de datos y liberación por calidad"
+   ],
+   "tp": 8,
+   "n_predichos": 8,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.889,
+   "f1": 0.941,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.941
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 67.32,
+   "ids": [
+    5,
+    9,
+    12,
+    14,
+    15,
+    19,
+    24,
+    29,
+    31,
+    33,
+    40,
+    41,
+    42,
+    45,
+    46,
+    48,
+    50,
+    52,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y materiales",
+    "Paro de máquina y bloqueo de seguridad",
+    "Corte de energía y purga de aire",
+    "Verificación de energía cero",
+    "Retiro de la guarda de policarbonato",
+    "Desmontaje del porta-cuchilla",
+    "Retiro de la cuchilla vieja",
+    "Limpieza del eje y porta-cuchilla",
+    "Inspección del balero del eje",
+    "Montaje de la cuchilla nueva",
+    "Reinstalación del porta-cuchilla",
+    "Ajuste del ancho de corte",
+    "Ajuste de la holgura entre cuchillas",
+    "Ajuste de tornillos del riel",
+    "Reinstalación de la guarda",
+    "Retiro de bloqueos y restablecimiento de energía",
+    "Prueba en vacío",
+    "Prueba de producción y verificación de calidad",
+    "Registro en bitácora y reinicio de contador"
+   ],
+   "tp": 12,
+   "n_predichos": 19,
+   "n_reales": 12,
+   "precision": 0.632,
+   "recall": 1.0,
+   "f1": 0.774,
+   "falsos_positivos": [
+    12,
+    14,
+    31,
+    41,
+    42,
+    45,
+    50
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 12,
+    "f1": 0.774
+   },
+   "f1_tiempo_4s": {
+    "tp": 12,
+    "f1": 0.774
+   },
+   "f1_tiempo_6s": {
+    "tp": 12,
+    "f1": 0.774
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 53.44,
+   "ids": [
+    5,
+    9,
+    12,
+    14,
+    15,
+    19,
+    24,
+    29,
+    31,
+    33,
+    40,
+    41,
+    42,
+    45,
+    46,
+    48,
+    50,
+    52,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y materiales",
+    "Paro de máquina y bloqueo de seguridad",
+    "Corte de energía y purga de aire",
+    "Verificación de energía cero",
+    "Retiro de la guarda de policarbonato",
+    "Desmontaje del porta-cuchilla",
+    "Retiro de la cuchilla vieja",
+    "Limpieza del eje y porta-cuchilla",
+    "Inspección del balero del eje",
+    "Montaje de la cuchilla nueva",
+    "Reinstalación del porta-cuchilla",
+    "Ajuste del ancho de corte",
+    "Ajuste de la holgura de corte",
+    "Ajuste de tornillos del riel",
+    "Reinstalación de la guarda",
+    "Retiro de bloqueos y restablecimiento de energía",
+    "Prueba en vacío",
+    "Prueba de producción y verificación de calidad",
+    "Registro en bitácora y reinicio de contador"
+   ],
+   "tp": 12,
+   "n_predichos": 19,
+   "n_reales": 12,
+   "precision": 0.632,
+   "recall": 1.0,
+   "f1": 0.774,
+   "falsos_positivos": [
+    12,
+    14,
+    31,
+    41,
+    42,
+    45,
+    50
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 12,
+    "f1": 0.774
+   },
+   "f1_tiempo_4s": {
+    "tp": 12,
+    "f1": 0.774
+   },
+   "f1_tiempo_6s": {
+    "tp": 12,
+    "f1": 0.774
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "cambio_cuchilla",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 52.68,
+   "ids": [
+    5,
+    9,
+    12,
+    14,
+    15,
+    19,
+    24,
+    29,
+    31,
+    33,
+    40,
+    41,
+    42,
+    45,
+    46,
+    48,
+    50,
+    52,
+    58
+   ],
+   "titulos": [
+    "Preparación de herramientas y materiales",
+    "Paro de máquina y bloqueo de seguridad",
+    "Corte de energía y purga de aire",
+    "Verificación de energía cero",
+    "Retiro de la guarda de policarbonato",
+    "Desmontaje del porta-cuchilla",
+    "Retiro de la cuchilla vieja",
+    "Limpieza del eje y porta-cuchilla",
+    "Inspección del balero del eje",
+    "Montaje de la cuchilla nueva",
+    "Reinstalación del porta-cuchilla",
+    "Ajuste del ancho de corte",
+    "Ajuste de la holgura de corte",
+    "Ajuste de tornillos del riel",
+    "Reinstalación de la guarda",
+    "Retiro de bloqueos y restablecimiento de energía",
+    "Prueba en vacío",
+    "Prueba de producción y verificación de calidad",
+    "Registro en bitácora y reinicio de contador"
+   ],
+   "tp": 12,
+   "n_predichos": 19,
+   "n_reales": 12,
+   "precision": 0.632,
+   "recall": 1.0,
+   "f1": 0.774,
+   "falsos_positivos": [
+    12,
+    14,
+    31,
+    41,
+    42,
+    45,
+    50
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 12,
+    "f1": 0.774
+   },
+   "f1_tiempo_4s": {
+    "tp": 12,
+    "f1": 0.774
+   },
+   "f1_tiempo_6s": {
+    "tp": 12,
+    "f1": 0.774
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 53.32,
+   "ids": [
+    3,
+    4,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "titulos": [
+    "Posicionamiento de la corredera",
+    "Bajar corredera en modo manual",
+    "Apagado del motor y bloqueo de seguridad",
+    "Liberación de presión del circuito",
+    "Verificación de presión en manómetro",
+    "Preparación de charola de derrames",
+    "Limpieza exterior de la carcasa",
+    "Desmontaje de la carcasa del filtro",
+    "Vaciado de aceite residual",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque de la carcasa",
+    "Instalación del nuevo elemento filtrante",
+    "Montaje de la carcasa",
+    "Arranque de la bomba en vacío",
+    "Purga de aire del filtro",
+    "Verificación de fugas",
+    "Nivelación de aceite ISO 46",
+    "Verificación del indicador de saturación",
+    "Registro en bitácora de mantenimiento"
+   ],
+   "tp": 9,
+   "n_predichos": 19,
+   "n_reales": 9,
+   "precision": 0.474,
+   "recall": 1.0,
+   "f1": 0.643,
+   "falsos_positivos": [
+    4,
+    5,
+    8,
+    11,
+    13,
+    22,
+    24,
+    25,
+    27,
+    28
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.643
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.643
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.643
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 49.6,
+   "ids": [
+    3,
+    4,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "titulos": [
+    "Posicionamiento de la corredera",
+    "Bajar corredera en modo manual",
+    "Apagado del motor y bloqueo de seguridad",
+    "Liberación de presión del circuito",
+    "Verificación de presión en manómetro",
+    "Preparación de charola de derrames",
+    "Limpieza exterior de la carcasa",
+    "Desmontaje de la carcasa del filtro",
+    "Vaciado de aceite residual",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque de la carcasa",
+    "Instalación del nuevo elemento filtrante",
+    "Montaje de la carcasa",
+    "Arranque de la bomba en vacío",
+    "Purga de aire del filtro",
+    "Verificación de fugas",
+    "Nivelación de aceite hidráulico",
+    "Verificación del indicador de saturación",
+    "Registro en bitácora de mantenimiento"
+   ],
+   "tp": 9,
+   "n_predichos": 19,
+   "n_reales": 9,
+   "precision": 0.474,
+   "recall": 1.0,
+   "f1": 0.643,
+   "falsos_positivos": [
+    4,
+    5,
+    8,
+    11,
+    13,
+    22,
+    24,
+    25,
+    27,
+    28
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.643
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.643
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.643
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "cambio_filtro_hidraulico",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 49.76,
+   "ids": [
+    3,
+    4,
+    5,
+    6,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    18,
+    20,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "titulos": [
+    "Posicionamiento de la corredera",
+    "Bajar corredera en modo manual",
+    "Apagado del motor y bloqueo de seguridad",
+    "Liberación de presión del circuito",
+    "Verificación de presión en manómetro",
+    "Preparación de charola de derrames",
+    "Limpieza exterior de la carcasa",
+    "Desmontaje de la carcasa del filtro",
+    "Vaciado de aceite residual",
+    "Inspección del elemento filtrante",
+    "Reemplazo del empaque de la carcasa",
+    "Instalación del nuevo elemento filtrante",
+    "Montaje de la carcasa",
+    "Arranque de la bomba en vacío",
+    "Purga de aire del filtro",
+    "Verificación de fugas",
+    "Nivelación de aceite hidráulico",
+    "Verificación del indicador de saturación",
+    "Registro en bitácora de mantenimiento"
+   ],
+   "tp": 9,
+   "n_predichos": 19,
+   "n_reales": 9,
+   "precision": 0.474,
+   "recall": 1.0,
+   "f1": 0.643,
+   "falsos_positivos": [
+    4,
+    5,
+    8,
+    11,
+    13,
+    22,
+    24,
+    25,
+    27,
+    28
+   ],
+   "no_detectados": [],
+   "f1_tiempo_2s": {
+    "tp": 9,
+    "f1": 0.643
+   },
+   "f1_tiempo_4s": {
+    "tp": 9,
+    "f1": 0.643
+   },
+   "f1_tiempo_6s": {
+    "tp": 9,
+    "f1": 0.643
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 1,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 22.88,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague con agua",
+    "Preparación y recirculación de solución cáustica",
+    "Enjuague intermedio",
+    "Recirculación de ácido nítrico",
+    "Enjuague final",
+    "Inspección visual interna",
+    "Registro y liberación del tanque"
+   ],
+   "tp": 8,
+   "n_predichos": 8,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.889,
+   "f1": 0.941,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.941
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 2,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 20.29,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague con agua",
+    "Preparación y recirculación de solución cáustica",
+    "Enjuague intermedio",
+    "Recirculación de ácido nítrico",
+    "Enjuague final",
+    "Inspección visual del interior",
+    "Registro y liberación del tanque"
+   ],
+   "tp": 8,
+   "n_predichos": 8,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.889,
+   "f1": 0.941,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.941
+   }
+  },
+  {
+   "metodo": "gemma4:12b-it-qat · prompt v1",
+   "fixture": "limpieza_cip_tanque",
+   "repeticion": 3,
+   "camino": "llm",
+   "motivo_respaldo": null,
+   "segundos": 19.98,
+   "ids": [
+    3,
+    6,
+    9,
+    14,
+    16,
+    19,
+    21,
+    24
+   ],
+   "titulos": [
+    "Vaciado del tanque",
+    "Preenjuague con agua",
+    "Preparación y recirculación de solución cáustica",
+    "Enjuague intermedio",
+    "Recirculación de ácido nítrico",
+    "Enjuague final",
+    "Inspección visual del interior",
+    "Registro y liberación del tanque"
+   ],
+   "tp": 8,
+   "n_predichos": 8,
+   "n_reales": 9,
+   "precision": 1.0,
+   "recall": 0.889,
+   "f1": 0.941,
+   "falsos_positivos": [],
+   "no_detectados": [
+    11
+   ],
+   "f1_tiempo_2s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_4s": {
+    "tp": 8,
+    "f1": 0.941
+   },
+   "f1_tiempo_6s": {
+    "tp": 8,
+    "f1": 0.941
+   }
+  }
+ ]
+}

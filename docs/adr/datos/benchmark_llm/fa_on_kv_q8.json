@@ -1,0 +1,544 @@
+{
+ "fecha": "2026-10-11T06:05:48+00:00",
+ "variante": "fa_on_kv_q8",
+ "ollama": "0.40.2",
+ "host": {
+  "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+  "driver": "616.92",
+  "usada_mib": 1422,
+  "libre_mib": 6568,
+  "total_mib": 8192
+ },
+ "parametros": {
+  "num_ctx": 8192,
+  "timeout_s": 300.0,
+  "temperature": 0,
+  "seed": 42,
+  "think": false,
+  "num_predict": 3000,
+  "repeticiones": 3,
+  "fixture": "tests/fixtures/transcripciones/cambio_cuchilla.json"
+ },
+ "modelos": [
+  {
+   "modelo": "qwen3:8b-q4_K_M",
+   "fecha": "2026-10-11T06:08:35+00:00",
+   "disco_bytes": 5225388164,
+   "carga_s": 43.63,
+   "vram_antes": {
+    "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+    "driver": "616.92",
+    "usada_mib": 1418,
+    "libre_mib": 6572,
+    "total_mib": 8192
+   },
+   "vram_cargado": {
+    "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+    "driver": "616.92",
+    "usada_mib": 6923,
+    "libre_mib": 1067,
+    "total_mib": 8192
+   },
+   "vram_delta_mib": 5505,
+   "api_ps": {
+    "size": 5620231044,
+    "size_vram": 5620231044,
+    "nota": "No confiable en Ollama 0.40.2 con el runner llamacpp; usar vram_delta_mib."
+   },
+   "logs": {
+    "runner": "llama-server",
+    "capas_gpu": "37/37",
+    "todas_las_capas_en_gpu": true,
+    "mtp": false,
+    "capas_gpu_mtp": null,
+    "flash_attn": "on",
+    "cache_type_k": "q8_0",
+    "proyector_vision": false,
+    "buffer_modelo_gpu_mib": 4643.78,
+    "buffer_modelo_cpu_mib": 333.84,
+    "kv_gpu_mib": 612.0,
+    "computo_gpu_mib": 104.09,
+    "mmproj_peor_caso_mib": null,
+    "num_ctx": 8192
+   },
+   "calentamiento": {
+    "a_resumen": {
+     "salida": "El objetivo del procedimiento es cambiar la cuchilla circular de la cortadora rebobinadora número tres, cuando el corte presenta rebaba o el contador alcanza aproximadamente ochenta mil metros. El proceso dura unos cuarenta minutos y requiere preparación, seguridad y precisión.\n\n**Pasos principales:**  \n1. Detener la máquina con paro normal, no de emergencia.  \n2. Bloquear eléctricamente la máquina con candado y tarjeta de bloqueo.  \n3. Purgar el aire y verificar que no haya energía.  \n4. Retirar la guarda con cuidado, evitando dañar el sensor.  \n5. Desmontar la cuchilla vieja, usando llave allen y torquímetro.  \n6. Limpiar el porta-cuchilla y revisar el balero.  \n7. Montar la cuchla nueva, asegurando el sentido de giro y la holgura de cinco centésimas de milímetro.  \n8. Ajustar el ancho de corte a ciento veinte milímetros.  \n9. Revisar el sensor de la guarda y desbloquear la máquina.  \n10. Realizar una prueba en vacío y verificar el corte con muestra.  \n11. Registrar el cambio en la bitácora y notificar al supervisor.\n\n**Advertencias:** Usar guantes nivel cinco y lentes de seguridad. No tocar cuchillas sin guantes. No forzar tornillos ni ajustes.  \n**Valores numéricos:** Torque de 12 Nm, holgura de 0,05 mm, ancho de corte de 120 mm ± 0,5 mm.",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 71.958,
+     "total_s": 84.399,
+     "carga_s": 43.63,
+     "prompt_tokens": 2436,
+     "prompt_s": 28.297,
+     "eval_tokens": 376,
+     "eval_s": 12.44,
+     "tok_s": 30.2,
+     "prefill_tok_s": 86.1,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "palabras": 201,
+      "hechos_presentes": 8,
+      "hechos_total": 10,
+      "hechos_faltantes": [
+       "rosca izquierda",
+       "desecho punzocortante"
+      ]
+     }
+    },
+    "b_segmentar": {
+     "salida": "[\n  {\"segmento_id\": 1, \"titulo\": \"Introducción al procedimiento\"},\n  {\"segmento_id\": 5, \"titulo\": \"Preparación de herramientas y equipo\"},\n  {\"segmento_id\": 9, \"titulo\": \"Detención segura de la máquina\"},\n  {\"segmento_id\": 12, \"titulo\": \"Bloqueo eléctrico y seguridad\"},\n  {\"segmento_id\": 15, \"titulo\": \"Retirada de la guarda\"},\n  {\"segmento_id\": 19, \"titulo\": \"Acceso al porta-cuchilla\"},\n  {\"segmento_id\": 24, \"titulo\": \"Retirada de la cuchilla vieja\"},\n  {\"segmento_id\": 29, \"titulo\": \"Limpieza del porta-cuchilla\"},\n  {\"segmento_id\": 33, \"titulo\": \"Montaje de la cuchilla nueva\"},\n  {\"segmento_id\": 41, \"titulo\": \"Ajuste del ancho de corte\"},\n  {\"segmento_id\": 42, \"titulo\": \"Verificación de holgura\"},\n  {\"segmento_id\": 46, \"titulo\": \"Reinstalación de la guarda\"},\n  {\"segmento_id\": 48, \"titulo\": \"Desbloqueo de la máquina\"},\n  {\"segmento_id\": 50, \"titulo\": \"Prueba en vacío\"},\n  {\"segmento_id\": 52, \"titulo\": \"Prueba con material\"},\n  {\"segmento_id\": 58, \"titulo\": \"Registro del cambio de cuchilla\"}\n]",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 2.018,
+     "total_s": 9.043,
+     "carga_s": 0.003,
+     "prompt_tokens": 2743,
+     "prompt_s": 1.805,
+     "eval_tokens": 354,
+     "eval_s": 7.025,
+     "tok_s": 50.4,
+     "prefill_tok_s": 1519.4,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "json_valido": true,
+      "forma_valida": true,
+      "ids_existen": true,
+      "orden_creciente": true,
+      "sin_duplicados": true,
+      "n_pasos": 16,
+      "n_pasos_reales": 12,
+      "ids": [
+       1,
+       5,
+       9,
+       12,
+       15,
+       19,
+       24,
+       29,
+       33,
+       41,
+       42,
+       46,
+       48,
+       50,
+       52,
+       58
+      ],
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1": 0.857,
+      "falsos_positivos": [
+       1,
+       12,
+       42,
+       50
+      ],
+      "no_detectados": []
+     }
+    },
+    "c_rag": {
+     "salida": "{\n  \"respuesta\": \"La tuerca se aprieta a doce newton metro con el torquímetro chico.\",\n  \"citas\": [38, 38],\n  \"encontrado\": true\n}",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 0.53,
+     "total_s": 1.47,
+     "carga_s": 0.003,
+     "prompt_tokens": 498,
+     "prompt_s": 0.322,
+     "eval_tokens": 51,
+     "eval_s": 0.94,
+     "tok_s": 54.2,
+     "prefill_tok_s": 1544.2,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "json_valido": true,
+      "forma_valida": true,
+      "citas": [
+       38,
+       38
+      ],
+      "ids_existen": true,
+      "cita_correcta": true,
+      "encontrado": true,
+      "menciona_12_y_torquimetro": true
+     }
+    }
+   },
+   "corridas": [
+    {
+     "salida": "**Resumen del procedimiento de cambio de cuchilla circular en la cortadora rebobinadora número tres:**\n\nEl objetivo del procedimiento es cambiar la cuchilla circular de la cortadora rebobinadora número tres cuando el corte presenta rebaba o cuando el contador alcanza aproximadamente 80,000 metros. El proceso dura unos 40 minutos y requiere preparación, seguridad y precisión.\n\n**Pasos principales:**  \n1. Detener la máquina con paro normal, no de emergencia.  \n2. Bloquear eléctricamente la máquina con candado y tarjeta de bloqueo.  \n3. Purgar el aire y verificar que no haya energía.  \n4. Retirar la guarda con cuidado, evitando dañar el cable.  \n5. Desmontar la cuchilla vieja, usando llave allen de 6 mm, y desecharla en contenedor rojo.  \n6. Limpiar el porta-cuchilla y revisar el balero.  \n7. Montar la cuchilla nueva, asegurando que la flecha coincida con la del porta-cuchilla.  \n8. Apretar la tuerca a 12 Nm con torquímetro calibrado.  \n9. Ajustar la holgura entre cuchilla y contracuchilla a 0,5 mm usando calibrador de hojas.  \n10. Reinstalar la guarda y verificar el sensor.  \n11. Desbloquear la máquina, hacer una prueba en vacío y verificar el sonido.  \n12. Enhebrar el material, cortar muestra y revisar el borde.  \n13. Registrar el cambio en la bitácora y resetear el contador.\n\n**Advertencias:** Usar guantes nivel 5 y lentes de seguridad. No tocar cuchillas sin guantes. No forzar tornillos.  \n**Valores numéricos:** Torque de 12 Nm, holgura de 0,5 mm, ancho de corte de 120 mm ± 0,5 mm.",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 1.68,
+     "total_s": 10.959,
+     "carga_s": 0.002,
+     "prompt_tokens": 2435,
+     "prompt_s": 1.625,
+     "eval_tokens": 462,
+     "eval_s": 9.28,
+     "tok_s": 49.8,
+     "prefill_tok_s": 1498.8,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "palabras": 238,
+      "hechos_presentes": 8,
+      "hechos_total": 10,
+      "hechos_faltantes": [
+       "holgura 0.05 mm",
+       "rosca izquierda"
+      ]
+     },
+     "tarea": "a_resumen",
+     "repeticion": 1,
+     "vram_libre_antes_mib": 1067
+    },
+    {
+     "salida": "[\n  {\"segmento_id\": 1, \"titulo\": \"Introducción al procedimiento\"},\n  {\"segmento_id\": 5, \"titulo\": \"Preparación de herramientas y equipo\"},\n  {\"segmento_id\": 9, \"titulo\": \"Detención segura de la máquina\"},\n  {\"segmento_id\": 12, \"titulo\": \"Bloqueo eléctrico y seguridad\"},\n  {\"segmento_id\": 15, \"titulo\": \"Retirada de la guarda\"},\n  {\"segmento_id\": 19, \"titulo\": \"Acceso al porta-cuchilla\"},\n  {\"segmento_id\": 24, \"titulo\": \"Retirada de la cuchilla vieja\"},\n  {\"segmento_id\": 29, \"titulo\": \"Limpieza del porta-cuchilla\"},\n  {\"segmento_id\": 33, \"titulo\": \"Montaje de la cuchilla nueva\"},\n  {\"segmento_id\": 40, \"titulo\": \"Reposición del porta-cuchilla\"},\n  {\"segmento_id\": 41, \"titulo\": \"Ajuste del ancho de corte\"},\n  {\"segmento_id\": 42, \"titulo\": \"Verificación de holgura\"},\n  {\"segmento_id\": 46, \"titulo\": \"Reinstalación de la guarda\"},\n  {\"segmento_id\": 48, \"titulo\": \"Desbloqueo de la máquina\"},\n  {\"segmento_id\": 50, \"titulo\": \"Prueba en vacío\"},\n  {\"segmento_id\": 52, \"titulo\": \"Prueba con material\"},\n  {\"segmento_id\": 58, \"titulo\": \"Registro del cambio de cuchilla\"}\n]",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 2.085,
+     "total_s": 10.108,
+     "carga_s": 0.002,
+     "prompt_tokens": 2742,
+     "prompt_s": 1.938,
+     "eval_tokens": 376,
+     "eval_s": 8.022,
+     "tok_s": 46.9,
+     "prefill_tok_s": 1414.8,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "json_valido": true,
+      "forma_valida": true,
+      "ids_existen": true,
+      "orden_creciente": true,
+      "sin_duplicados": true,
+      "n_pasos": 17,
+      "n_pasos_reales": 12,
+      "ids": [
+       1,
+       5,
+       9,
+       12,
+       15,
+       19,
+       24,
+       29,
+       33,
+       40,
+       41,
+       42,
+       46,
+       48,
+       50,
+       52,
+       58
+      ],
+      "precision": 0.706,
+      "recall": 1.0,
+      "f1": 0.828,
+      "falsos_positivos": [
+       1,
+       12,
+       41,
+       42,
+       50
+      ],
+      "no_detectados": []
+     },
+     "tarea": "b_segmentar",
+     "repeticion": 1,
+     "vram_libre_antes_mib": 1062
+    },
+    {
+     "salida": "{\n  \"respuesta\": \"La tuerca se aprieta a doce newton metro con el torquímetro chico.\",\n  \"citas\": [38, 38],\n  \"encontrado\": true\n}",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 0.557,
+     "total_s": 1.594,
+     "carga_s": 0.003,
+     "prompt_tokens": 497,
+     "prompt_s": 0.309,
+     "eval_tokens": 51,
+     "eval_s": 1.038,
+     "tok_s": 49.2,
+     "prefill_tok_s": 1608.5,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "json_valido": true,
+      "forma_valida": true,
+      "citas": [
+       38,
+       38
+      ],
+      "ids_existen": true,
+      "cita_correcta": true,
+      "encontrado": true,
+      "menciona_12_y_torquimetro": true
+     },
+     "tarea": "c_rag",
+     "repeticion": 1,
+     "vram_libre_antes_mib": 1041
+    },
+    {
+     "salida": "**Resumen del procedimiento de cambio de cuchilla circular en la cortadora rebobinadora número 3:**\n\nEl objetivo del procedimiento es cambiar la cuchilla circular de la cortadora rebobinadora número 3 cuando el corte presenta rebaba o cuando el contador alcanza aproximadamente 80,000 metros. El proceso dura unos 40 minutos y requiere preparación, seguridad y precisión.\n\n**Pasos principales:**  \n1. Detener la máquina con paro normal, no de emergencia.  \n2. Bloquear eléctricamente la máquina con candado y tarjeta de bloqueo.  \n3. Purgar el aire y verificar que no haya energía.  \n4. Retirar la guarda con cuidado, evitando dañar el cable.  \n5. Desmontar la cuchilla vieja, usando llave allen de 6 mm, y desecharla en contenedor rojo.  \n6. Limpiar el porta-cuchilla y revisar el balero.  \n7. Montar la cuchilla nueva, asegurando que la flecha coincida con la del porta-cuchilla.  \n8. Apretar la tuerca a 12 Nm con torquímetro calibrado.  \n9. Ajustar la holgura entre cuchilla y contracuchilla a 0,5 mm usando calibrador de hojas.  \n10. Reinstalar la guarda y verificar el sensor.  \n11. Desbloquear la máquina y hacer una prueba en vacío.  \n12. Verificar el corte con muestra y medir el ancho (120 mm ± 0,5 mm).  \n13. Registrar el cambio en la bitácora y notificar al supervisor.\n\n**Advertencias:** Usar guantes nivel 5 y lentes de seguridad. No tocar cuchillas sin guantes. No ajustar en marcha.  \n**Valores importantes:** Torque de 12 Nm, holgura de 0,5 mm, ancho de corte de 120 mm.",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 1.87,
+     "total_s": 11.859,
+     "carga_s": 0.002,
+     "prompt_tokens": 2435,
+     "prompt_s": 1.791,
+     "eval_tokens": 460,
+     "eval_s": 9.989,
+     "tok_s": 46.0,
+     "prefill_tok_s": 1359.6,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "palabras": 238,
+      "hechos_presentes": 8,
+      "hechos_total": 10,
+      "hechos_faltantes": [
+       "holgura 0.05 mm",
+       "rosca izquierda"
+      ]
+     },
+     "tarea": "a_resumen",
+     "repeticion": 2,
+     "vram_libre_antes_mib": 1063
+    },
+    {
+     "salida": "[\n  {\"segmento_id\": 1, \"titulo\": \"Introducción al procedimiento\"},\n  {\"segmento_id\": 5, \"titulo\": \"Preparación de herramientas y equipo\"},\n  {\"segmento_id\": 9, \"titulo\": \"Detención segura de la máquina\"},\n  {\"segmento_id\": 12, \"titulo\": \"Bloqueo eléctrico y seguridad\"},\n  {\"segmento_id\": 15, \"titulo\": \"Retirada de la guarda\"},\n  {\"segmento_id\": 19, \"titulo\": \"Acceso al porta-cuchilla\"},\n  {\"segmento_id\": 24, \"titulo\": \"Retirada de la cuchilla vieja\"},\n  {\"segmento_id\": 29, \"titulo\": \"Limpieza del porta-cuchilla\"},\n  {\"segmento_id\": 33, \"titulo\": \"Montaje de la cuchilla nueva\"},\n  {\"segmento_id\": 40, \"titulo\": \"Reposición del porta-cuchilla\"},\n  {\"segmento_id\": 41, \"titulo\": \"Ajuste del ancho de corte\"},\n  {\"segmento_id\": 42, \"titulo\": \"Verificación de holgura\"},\n  {\"segmento_id\": 46, \"titulo\": \"Reinstalación de la guarda\"},\n  {\"segmento_id\": 48, \"titulo\": \"Desbloqueo de la máquina\"},\n  {\"segmento_id\": 50, \"titulo\": \"Prueba en vacío\"},\n  {\"segmento_id\": 52, \"titulo\": \"Prueba con material\"},\n  {\"segmento_id\": 58, \"titulo\": \"Registro del cambio de cuchilla\"}\n]",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 2.195,
+     "total_s": 10.156,
+     "carga_s": 0.002,
+     "prompt_tokens": 2742,
+     "prompt_s": 2.022,
+     "eval_tokens": 376,
+     "eval_s": 7.961,
+     "tok_s": 47.2,
+     "prefill_tok_s": 1356.0,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "json_valido": true,
+      "forma_valida": true,
+      "ids_existen": true,
+      "orden_creciente": true,
+      "sin_duplicados": true,
+      "n_pasos": 17,
+      "n_pasos_reales": 12,
+      "ids": [
+       1,
+       5,
+       9,
+       12,
+       15,
+       19,
+       24,
+       29,
+       33,
+       40,
+       41,
+       42,
+       46,
+       48,
+       50,
+       52,
+       58
+      ],
+      "precision": 0.706,
+      "recall": 1.0,
+      "f1": 0.828,
+      "falsos_positivos": [
+       1,
+       12,
+       41,
+       42,
+       50
+      ],
+      "no_detectados": []
+     },
+     "tarea": "b_segmentar",
+     "repeticion": 2,
+     "vram_libre_antes_mib": 951
+    },
+    {
+     "salida": "{\n  \"respuesta\": \"La tuerca se aprieta a doce newton metro con el torquímetro chico.\",\n  \"citas\": [38, 3],\n  \"encontrado\": true\n}",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 0.509,
+     "total_s": 1.489,
+     "carga_s": 0.002,
+     "prompt_tokens": 497,
+     "prompt_s": 0.306,
+     "eval_tokens": 50,
+     "eval_s": 0.98,
+     "tok_s": 51.0,
+     "prefill_tok_s": 1624.4,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": false,
+      "json_valido": true,
+      "forma_valida": true,
+      "citas": [
+       38,
+       3
+      ],
+      "ids_existen": false,
+      "cita_correcta": true,
+      "encontrado": true,
+      "menciona_12_y_torquimetro": true
+     },
+     "tarea": "c_rag",
+     "repeticion": 2,
+     "vram_libre_antes_mib": 975
+    },
+    {
+     "salida": "El objetivo del procedimiento es cambiar la cuchilla circular de la cortadora rebobinadora número tres, cuando el corte presenta rebaba o el contador alcanza aproximadamente ochenta mil metros. El proceso dura unos cuarenta minutos y requiere preparación, seguridad y precisión.\n\n**Pasos principales:**  \n1. Detener la máquina con paro normal, no de emergencia.  \n2. Bloquear eléctricamente la máquina con candado y tarjeta de bloqueo.  \n3. Purgar el aire y verificar que no haya energía.  \n4. Retirar la guarda con cuidado, evitando dañar el sensor.  \n5. Desmontar la cuchilla vieja, usando llave allen y torquímetro.  \n6. Limpiar el porta-cuchilla y revisar el balero.  \n7. Montar la cuchilla nueva, asegurando el sentido de giro y la holgura de cinco centésimas de milímetro.  \n8. Ajustar el ancho de corte a ciento veinte milímetros.  \n9. Revisar el sensor de la guarda y desbloquear la máquina.  \n10. Realizar una prueba en vacío y verificar el corte con muestra.  \n11. Registrar el cambio en la bitácora y notificar al supervisor.\n\n**Advertencias:**  \n- Usar guantes nivel cinco y lentes de seguridad.  \n- No tocar cuchillas sin guantes.  \n- No forzar tornillos ni herramientas.  \n- No ajustar la cuchilla mientras la máquina está en marcha.  \n\n**Valores numéricos:**  \n- Torque: 12 Nm.  \n- Holgura: 0,05 mm.  \n- Ancho de corte: 120 mm ± 0,5 mm.",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 1.828,
+     "total_s": 10.335,
+     "carga_s": 0.002,
+     "prompt_tokens": 2435,
+     "prompt_s": 1.769,
+     "eval_tokens": 405,
+     "eval_s": 8.507,
+     "tok_s": 47.6,
+     "prefill_tok_s": 1376.8,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "palabras": 215,
+      "hechos_presentes": 8,
+      "hechos_total": 10,
+      "hechos_faltantes": [
+       "rosca izquierda",
+       "desecho punzocortante"
+      ]
+     },
+     "tarea": "a_resumen",
+     "repeticion": 3,
+     "vram_libre_antes_mib": 975
+    },
+    {
+     "salida": "[\n  {\"segmento_id\": 1, \"titulo\": \"Introducción al procedimiento\"},\n  {\"segmento_id\": 5, \"titulo\": \"Preparación de herramientas y equipo\"},\n  {\"segmento_id\": 9, \"titulo\": \"Detención segura de la máquina\"},\n  {\"segmento_id\": 12, \"titulo\": \"Bloqueo eléctrico y seguridad\"},\n  {\"segmento_id\": 15, \"titulo\": \"Retirada de la guarda\"},\n  {\"segmento_id\": 19, \"titulo\": \"Acceso al porta-cuchilla\"},\n  {\"segmento_id\": 24, \"titulo\": \"Retirada de la cuchilla vieja\"},\n  {\"segmento_id\": 29, \"titulo\": \"Limpieza del porta-cuchilla\"},\n  {\"segmento_id\": 33, \"titulo\": \"Montaje de la cuchilla nueva\"},\n  {\"segmento_id\": 40, \"titulo\": \"Reposición del porta-cuchilla\"},\n  {\"segmento_id\": 41, \"titulo\": \"Ajuste del ancho de corte\"},\n  {\"segmento_id\": 42, \"titulo\": \"Verificación de holgura\"},\n  {\"segmento_id\": 46, \"titulo\": \"Reinstalación de la guarda\"},\n  {\"segmento_id\": 48, \"titulo\": \"Desbloqueo de la máquina\"},\n  {\"segmento_id\": 50, \"titulo\": \"Prueba en vacío\"},\n  {\"segmento_id\": 52, \"titulo\": \"Prueba con material\"},\n  {\"segmento_id\": 58, \"titulo\": \"Registro del cambio de cuchilla\"}\n]",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 2.157,
+     "total_s": 10.304,
+     "carga_s": 0.003,
+     "prompt_tokens": 2742,
+     "prompt_s": 1.986,
+     "eval_tokens": 376,
+     "eval_s": 8.147,
+     "tok_s": 46.2,
+     "prefill_tok_s": 1380.8,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": true,
+      "json_valido": true,
+      "forma_valida": true,
+      "ids_existen": true,
+      "orden_creciente": true,
+      "sin_duplicados": true,
+      "n_pasos": 17,
+      "n_pasos_reales": 12,
+      "ids": [
+       1,
+       5,
+       9,
+       12,
+       15,
+       19,
+       24,
+       29,
+       33,
+       40,
+       41,
+       42,
+       46,
+       48,
+       50,
+       52,
+       58
+      ],
+      "precision": 0.706,
+      "recall": 1.0,
+      "f1": 0.828,
+      "falsos_positivos": [
+       1,
+       12,
+       41,
+       42,
+       50
+      ],
+      "no_detectados": []
+     },
+     "tarea": "b_segmentar",
+     "repeticion": 3,
+     "vram_libre_antes_mib": 977
+    },
+    {
+     "salida": "{\n  \"respuesta\": \"La tuerca se aprieta a doce newton metro con el torquímetro chico.\",\n  \"citas\": [38, 3],\n  \"encontrado\": true\n}",
+     "caracteres_pensamiento": 0,
+     "ttft_s": 0.51,
+     "total_s": 1.57,
+     "carga_s": 0.002,
+     "prompt_tokens": 497,
+     "prompt_s": 0.311,
+     "eval_tokens": 50,
+     "eval_s": 1.059,
+     "tok_s": 47.2,
+     "prefill_tok_s": 1596.6,
+     "done_reason": "stop",
+     "evaluacion": {
+      "valido": false,
+      "json_valido": true,
+      "forma_valida": true,
+      "citas": [
+       38,
+       3
+      ],
+      "ids_existen": false,
+      "cita_correcta": true,
+      "encontrado": true,
+      "menciona_12_y_torquimetro": true
+     },
+     "tarea": "c_rag",
+     "repeticion": 3,
+     "vram_libre_antes_mib": 1000
+    }
+   ],
+   "mediana": {
+    "a_resumen": {
+     "ttft_s": 1.828,
+     "total_s": 10.959,
+     "tok_s": 47.6,
+     "prefill_tok_s": 1376.8,
+     "prompt_tokens": 2435,
+     "validas": 3,
+     "repeticiones": 3
+    },
+    "b_segmentar": {
+     "ttft_s": 2.157,
+     "total_s": 10.156,
+     "tok_s": 46.9,
+     "prefill_tok_s": 1380.8,
+     "prompt_tokens": 2742,
+     "validas": 3,
+     "repeticiones": 3
+    },
+    "c_rag": {
+     "ttft_s": 0.51,
+     "total_s": 1.57,
+     "tok_s": 49.2,
+     "prefill_tok_s": 1608.5,
+     "prompt_tokens": 497,
+     "validas": 1,
+     "repeticiones": 3
+    }
+   }
+  }
+ ]
+}

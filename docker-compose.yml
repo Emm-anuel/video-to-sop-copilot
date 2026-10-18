@@ -1,5 +1,7 @@
 # Fase F0: API + PostgreSQL 16 con pgvector (base vacía).
 # Uso: copiar .env.example a .env y luego `docker compose up -d --build`.
+# LLM local (opcional, requiere GPU NVIDIA): `docker compose --profile llm up -d`.
+# Ver docs/dev/llm.md.
 name: sopvid
 
 services:
@@ -32,6 +34,9 @@ services:
       POSTGRES_PORT: "5432"
       # Anula una DATABASE_URL local (localhost) que viniera en .env.
       DATABASE_URL: ""
+      # Ollama visto desde la red de compose. Sin el profile "llm" el nombre no resuelve
+      # y /health informa "llm": "no_disponible" sin afectar a la API.
+      LLM_BASE_URL: ${LLM_BASE_URL_API:-http://ollama:11434}
     ports:
       - "${APP_PORT:-8000}:8000"
     depends_on:
@@ -48,5 +53,59 @@ services:
       retries: 5
       start_period: 10s
 
+  # ── LLM local (profile "llm"); la API y la base no dependen de estos servicios ──
+  ollama:
+    image: ollama/ollama:0.40.2
+    profiles: ["llm"]
+    environment:
+      # Flash attention encendido y caché KV en f16 (ADR-006: FA reduce el tiempo a primer token
+      # 42-60 % sin cambiar la calidad). Se fija explícito para no depender del valor por defecto
+      # de cada versión de Ollama. Para una variante:
+      # `OLLAMA_FLASH_ATTENTION=0 docker compose --profile llm up -d ollama`.
+      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-f16}
+      # El modelo sigue en la GPU 30 min tras la última petición (por defecto, 5 min) para no
+      # pagar la carga en frío a cada rato; mientras tanto ocupa su VRAM.
+      OLLAMA_KEEP_ALIVE: 30m
+    ports:
+      # Solo en el host local: Ollama no tiene autenticación.
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # Descarga LLM_MODEL una sola vez y termina. Idempotente: si el modelo ya está en el
+  # volumen no vuelve a contactar al registro.
+  ollama-pull:
+    image: ollama/ollama:0.40.2
+    profiles: ["llm"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-gemma4:e4b-it-q4_K_M}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        if ollama show "$$LLM_MODEL" > /dev/null 2>&1;
+        then echo "$$LLM_MODEL ya está descargado";
+        else ollama pull "$$LLM_MODEL";
+        fi
+    restart: "no"
+
 volumes:
   pgdata:
+  ollama:
