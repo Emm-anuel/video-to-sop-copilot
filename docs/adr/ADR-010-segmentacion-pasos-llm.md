@@ -126,3 +126,215 @@ y parte de más en otra). **Se descarta como valor por defecto**: el prototipo u
 - La sobre-segmentación de `gemma4:e4b` produciría pasos *Sobra* falsos. Mitigación (ADR-013): antes
   de emparejar, se fusionan pasos consecutivos del video cuyo mejor paso del SOP es el mismo.
 - El seguimiento de F2 se hace con los videos de prueba A–E grabados y anotados por el equipo.
+
+## Ampliación 19 oct (RF-13)
+
+Implementado en la rama `feat/pasos-video`. El contrato vive en
+[src/sopvid/contrato.py](../../src/sopvid/contrato.py) y el esquema de entrada en
+[docs/contrato/analisis.schema.json](../contrato/analisis.schema.json), generado con
+`python scripts/exportar_contrato.py` (un test falla si deja de coincidir con el modelo).
+
+### Esquema de salida: `PropuestaPaso` → `PasoVideo`
+
+- **Entrada:** `Analisis` (versión 1 del contrato): `video_id`, `duracion_s`, `idioma`,
+  `transcripcion` (segmentos con `id`, `t_inicio`, `t_fin`, `texto` y `palabras`) y `fotogramas`.
+  Campos extra prohibidos, tiempos ≥ 0, ids de segmento estrictamente crecientes y segmentos sin
+  solaparse.
+- **Lo que responde el LLM:** `list[PropuestaPaso]` con `segmento_id`, `nombre`, `descripcion`,
+  `responsable` y `cita`. El JSON Schema del parámetro `format` de Ollama se genera desde Pydantic y
+  se aplana (sin `$ref`). Con Ollama 0.40.2 funcionan el esquema plano y el que lleva `$ref`; se usa
+  el plano por robustez. Cualquier campo extra, por ejemplo un `t_inicio`, invalida la propuesta.
+- **Lo que devuelve `segmentar(analisis, llm, etiquetas=None)`:** `Segmentacion` con
+  `list[PasoVideo]` (`numero`, `nombre`, `descripcion`, `responsable`, `t_inicio`, `t_fin`, `cita`,
+  `fuente`, `confianza`) por el LLM y por la heurística, más `metodo`, `motivo_respaldo`, `modelo` e
+  `intentos`. Las etiquetas son opcionales: la ficha de contexto llega en S5.
+- **Sin SOP:** ninguna función de la extracción tiene un parámetro para el SOP. Un test revisa que
+  ningún mensaje enviado al LLM, ni en los reintentos, contenga texto de un SOP de prueba ni números
+  con formato de tiempo.
+
+### Regla de tiempos
+
+Todos los tiempos salen del índice de la transcripción, nunca del LLM:
+
+- `t_inicio`: el del segmento elegido.
+- `t_fin`: el del último segmento antes del inicio del siguiente paso; para el último paso, el del
+  último segmento de la transcripción.
+- `numero`: la posición del paso, desde 1.
+
+### Confianza por cita (RNF-06)
+
+La cita y la transcripción se normalizan igual que en la heurística (minúsculas, sin acentos ni
+puntuación, espacios colapsados) y la cita se busca como secuencia contigua de palabras completas.
+
+| Dónde aparece la cita | `confianza` | `fuente` |
+|---|---|---|
+| En los segmentos del paso (puede cruzar de un segmento al siguiente) | alta | audio |
+| En otra parte de la transcripción (incluye una cita que cruza la frontera del paso) | media | audio |
+| En ninguna parte, o cita vacía | baja | inferido |
+
+`visual` queda reservado para la evidencia de fotogramas (S5).
+
+### Regla de responsable (ADR-008, sin diarización)
+
+- El rol se recorta y se capitaliza (se conservan siglas). Un valor vacío o de relleno
+  ("desconocido", "n/a", "ninguno"…) pasa a "No identificado".
+- Si el sustantivo del rol (por ejemplo "operador" en "Operador de turno") no se dice en los
+  segmentos del paso ni en la introducción (lo anterior al primer paso), el rol se conserva pero la
+  confianza del paso baja un nivel: alta → media, media → baja. La comparación tolera género y
+  número (técnico/técnica, supervisor/supervisores). "No identificado" no baja nada.
+
+### Reintentos (RNF-07)
+
+- Hasta 3 llamadas. Si la propuesta no pasa la validación o el JSON viene roto, se reenvía la
+  conversación con la respuesta anterior como "assistant" (si se pudo leer) y un "user" con el
+  motivo resumido: campo, tipo de error e ids, nunca texto de la transcripción.
+- Temperatura 0 y semilla 42 en todas las llamadas.
+- Si Ollama no responde o rechaza la petición, se va directo a la heurística, sin reintentar.
+- `Segmentacion.intentos` registra las llamadas hechas.
+
+### Heurística de respaldo
+
+Mismos cortes que en la Fase 4: marcadores de transición y pausas ≥ 3 s, con los mismos parámetros.
+Se verificó que reproduce los cortes guardados en `fase4.json`. Ahora devuelve `PasoVideo` con la
+misma regla de tiempos:
+
+- **nombre:** las primeras palabras del primer segmento.
+- **descripción:** el texto del paso recortado a unos 300 caracteres.
+- **responsable:** "No identificado".
+- **cita:** hasta 15 palabras del primer segmento.
+- **fuente y confianza:** siempre `audio` y `baja`.
+
+### Resultados contra la Fase 4 (18 oct 2026)
+
+`gemma4:e4b-it-q4_K_M`, prompt v1 ampliado (cortes + descripción, responsable y cita), 43/43 capas
+en GPU, flash attention, Ollama 0.40.2, temperatura 0, 3 repeticiones (mediana). Datos crudos en
+[datos/segmentacion/pasos_video.json](datos/segmentacion/pasos_video.json). **Resultado indicativo
+(n=3 + 1).**
+
+| Mismas 3 transcripciones | F1 ±1 segmento | F1 ±2 s | Falsos positivos | No detectados | Pasos sin redactar | s por transcripción |
+|---|---|---|---|---|---|---|
+| Fase 4 (prompt de 2 campos) | **0.741** | 0.691 | 21 | 0 | — | 5.2 |
+| RF-13 (prompt de 5 campos) | **0.645** | 0.602 | 33 | 0 | 0 de 9 corridas | 18.9 |
+| RF-13 opción A, todo o nada | **0.741** | 0.691 | 21 | 0 | **100 %** (9 de 9 corridas) | 55.3 |
+| RF-13 opción A corregida | **0.741** | 0.691 | 21 | 0 | **0 %** (0 de 151 pasos) | 29.5 |
+| RF-13 opción A + prompt de redacción final | **0.744** | 0.718 | 19 | 1 | **0 %** (0 de 146 pasos) | 19.8 |
+
+| Transcripción | Método | F1 ±1 segmento | % alta / media / baja | Intentos (fronteras + redacción) | Caídas a la heurística | s |
+|---|---|---|---|---|---|---|
+| cambio_cuchilla | Fase 4 | 0.800 | — | — | — | 5.3 |
+| | RF-13 | 0.615 | 4 / 96 / 0 | 1.00 | 0 | 23.4 |
+| | RF-13 opción A, todo o nada | 0.800 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 55.3 |
+| | RF-13 opción A corregida | 0.800 | 6 / 94 / 0 | 1.00 + 1.00 | 0 | 53.3 |
+| | RF-13 opción A + prompt final | 0.800 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 19.8 |
+| cambio_filtro_hidraulico | Fase 4 | 0.581 | — | — | — | 5.9 |
+| | RF-13 | 0.581 | 42 / 58 / 0 | 1.00 | 0 | 18.9 |
+| | RF-13 opción A, todo o nada | 0.581 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 61.5 |
+| | RF-13 opción A corregida | 0.581 | 5 / 95 / 0 | 1.00 + 1.33 | 0 | 29.5 |
+| | RF-13 opción A + prompt final | 0.581 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 22.9 |
+| limpieza_cip_tanque | Fase 4 | 0.900 | — | — | — | 2.8 |
+| | RF-13 | 0.783 | 14 / 86 / 0 | 1.00 | 0 | 11.5 |
+| | RF-13 opción A, todo o nada | 0.900 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 23.7 |
+| | RF-13 opción A corregida | 0.900 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 11.1 |
+| | RF-13 opción A + prompt final | 0.941 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 9.6 |
+| analisis_ejemplo | RF-13 | 0.632 | 100 / 0 / 0 | 1.00 | 0 | 11.7 |
+| | RF-13 opción A, todo o nada | 0.571 | 0 / 0 / 100 | 1.00 + 3.00 | 0 | 49.9 |
+| | RF-13 opción A corregida | 0.571 | 0 / 100 / 0 | 1.00 + 1.00 | 0 | 21.6 |
+| | RF-13 opción A + prompt final | 0.571 | 100 / 0 / 0 | 1.00 + 1.00 | 0 | 18.0 |
+
+**De dónde viene la diferencia:**
+
+- **El entorno no cambió.** El prompt de 2 campos, corrido el mismo día con el mismo modelo,
+  reproduce la Fase 4: 0.800 / 0.581 / 0.900.
+- **La caída viene del prompt ampliado.** Al redactar cinco campos por paso, el modelo parte más:
+  30 inicios en lugar de 18 en la cuchilla y 14 en lugar de 11 en el CIP. Sigue sin perder pasos
+  reales, escribe de 3 a 4 veces más tokens y tarda unas 4 veces más.
+- **La confianza `media` no viene de las citas.** Antes del ajuste por responsable, el 100 % de las
+  citas es literal. Lo que baja la confianza es que el modelo escribe "Operador", el ejemplo del
+  prompt, aunque nadie lo diga en el audio. En `analisis_ejemplo` la narradora dice su rol, y por eso
+  sale 100 % `alta`.
+- **El largo de la cita no se cumple siempre.** En el filtro, 14 de 21 citas quedaron fuera de 4 a
+  15 palabras; todavía no se exige.
+
+**Opciones, pendientes de decisión:**
+
+- **A · Dos llamadas (recomendada).** Una para las fronteras, con el prompt de 2 campos que mide
+  0.74, y otra para redactar descripción, responsable y cita con los rangos ya fijados por código.
+  En la segunda se quita el ejemplo de rol que ancla "Operador".
+- **B · Una llamada con dos bloques.** El esquema pide primero los inicios y después la redacción.
+- **C · Dejarlo así y confiar en la fusión de ADR-013.** Solo ayuda cuando hay SOP.
+
+**Opción A, implementada y medida (18 oct):**
+
+- **Las fronteras se recuperan.** La primera llamada usa el prompt v1 sin cambios y da los mismos
+  cortes que la Fase 4: F1 0.741 en las tres transcripciones, con 21 falsos positivos. En
+  `analisis_ejemplo` baja de 0.632 a 0.571.
+- **La redacción falló en las 12 corridas.** Tras 3 intentos, todos los pasos quedaron sin redactar
+  (nombre = título, cita vacía, confianza `baja`). Ninguna corrida cayó a la heurística. Las
+  causas, según el log:
+  - El modelo copia el segmento entero como cita: 16 a 22 palabras, contra el máximo de 15 que exige
+    la validación.
+  - Al reintentar, el historial crece (respuesta anterior + corrección) y la salida se corta
+    (`done_reason=length`) en las transcripciones largas: cuchilla, 60 segmentos; filtro, 29.
+  - La validación es de todo o nada: una sola cita larga invalida los demás pasos.
+- **Tarda más:** 23 a 62 s por transcripción, contra 12 a 23 s de la llamada única. Pesan la segunda
+  llamada y sus reintentos.
+
+**Correcciones aplicadas a la opción A (18 oct):**
+
+1. La redacción se valida paso por paso: los pasos válidos se usan y solo los que fallan quedan sin
+   redactar (`Segmentacion.pasos_sin_redactar`).
+2. Una cita literal de más de 15 palabras se recorta por código a sus primeras 15
+   (`recortar_cita`): sigue siendo literal y se verifica igual. Menos de 4 palabras sigue siendo
+   inválida.
+3. El reintento envía el prompt original más un mensaje con solo los pasos pendientes y su motivo,
+   sin la respuesta anterior, así que el contexto no crece.
+
+**Opción A corregida, medida (18 oct):** fila "RF-13 opción A corregida". Las corridas de la versión
+anterior siguen en `pasos_video.json` con la etiqueta "opción A (todo o nada)".
+
+- **Fronteras:** las mismas de la Fase 4 (F1 0.741, 21 falsos positivos).
+- **Redacción:** funciona. Se redactaron los 151 pasos de las tres transcripciones y los 45 de
+  `analisis_ejemplo`; solo una corrida necesitó reintentar un paso.
+- **Tiempo:** 11 a 53 s por transcripción, contra 12 a 23 s de la llamada única.
+- **Confianza:** el 74 % de los pasos queda en `media` (100 % en `analisis_ejemplo`). La revisión del
+  ejemplo muestra dos problemas nuevos, ajenos a las correcciones:
+  - **El modelo confunde el número de paso con el número de segmento.** Para el paso *n* cita el
+    segmento `[n]`: el paso 3 (segmentos 6–8) cita el segmento 3. Las citas son literales, pero de
+    otra parte del video, y por eso quedan en `media`. Viene de que el prompt de redacción muestra
+    los segmentos con su número entre corchetes, y esos números chocan con los de los pasos.
+  - **Sin ejemplo de rol, el modelo pone "No identificado" casi siempre**, aunque la narradora diga
+    su puesto en la introducción ("técnica de mantenimiento"). Además, una vez escribió su nombre
+    ("Laura") en lugar del puesto. Un nombre de trabajador es un dato personal (LFPDPPP).
+
+**Prompt de redacción final (18 oct):** fila "RF-13 opción A + prompt de redacción final". Las
+corridas anteriores siguen en `pasos_video.json` con la etiqueta "opción A (segmentos numerados)".
+
+1. Los segmentos van sin `[n]` en el prompt de redacción: cada paso lleva solo su texto.
+2. El responsable se pide como puesto, nunca como nombre de persona. Si quien narra dice su puesto y
+   describe los pasos en primera persona, ese puesto es el responsable de esos pasos.
+
+Resultado:
+
+- **Confianza:** 100 % de los pasos en `alta` en las cuatro transcripciones (antes, 26 %). Todas las
+  citas son literales y de su propio paso.
+- **Redacción:** ningún paso sin redactar y ningún reintento (1 llamada de redacción por corrida).
+- **Tiempo:** 10 a 23 s por transcripción, parecido a la llamada única (12 a 23 s), con las fronteras
+  de la Fase 4.
+- **Responsable:**
+  - En `analisis_ejemplo` sale "Técnica de mantenimiento de la línea de enjuague", el puesto que dice
+    la narradora, y ya no su nombre.
+  - En las otras tres transcripciones sale "No identificado", y es correcto en casi todos los pasos:
+    quien narra nunca dice su puesto, y el supervisor solo aparece como alguien a quien avisar.
+  - Caso dudoso: en el CIP, "el supervisor de calidad firma la liberación del tanque" (segmento 25)
+    podría hacer del supervisor de calidad el responsable del último paso.
+- **Fronteras:** la llamada 1 no cambió. El CIP da 0.941 en lugar de 0.900 por la variación entre
+  corridas que ya se veía en la Fase 4 (la repetición 1 a veces difiere de la 2 y la 3).
+
+**Pendiente:**
+
+- Los pasos de más que propone `gemma4:e4b` siguen ahí (19 falsos positivos en 30 pasos reales).
+  Con SOP los absorbe la fusión de ADR-013; al generar un SOP, el supervisor los corrige (RF-26).
+- Decidir con el patrocinador lo de la sección "Pendiente con el patrocinador" (modelo mayor o
+  excepción para `qwen3.5`).
+
+El ADR sigue **Propuesto**: la extracción en dos llamadas queda como el método por defecto de RF-13.

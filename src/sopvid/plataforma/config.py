@@ -58,10 +58,20 @@ class Settings(BaseSettings):
     llm_num_ctx: int = 8192
     llm_health_timeout_s: float = 2.0
 
+    # MiniLM para emparejar pasos (ADR-012), siempre en CPU. Los pesos se descargan la primera
+    # vez a esta carpeta (ignorada por git; en Docker, el volumen "modelos").
+    embedder_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedder_cache_dir: Path = Path("models/embedder")
+
     @property
     def data_path(self) -> Path:
         """`data_dir` absoluto; si es relativo, se resuelve contra la raíz del proyecto."""
-        return self.data_dir if self.data_dir.is_absolute() else PROJECT_ROOT / self.data_dir
+        return _absoluta(self.data_dir)
+
+    @property
+    def embedder_cache_path(self) -> Path:
+        """`embedder_cache_dir` absoluto; si es relativo, contra la raíz del proyecto."""
+        return _absoluta(self.embedder_cache_dir)
 
     @property
     def sqlalchemy_url(self) -> URL:
@@ -77,6 +87,10 @@ class Settings(BaseSettings):
             port=self.postgres_port,
             database=self.postgres_db,
         )
+
+
+def _absoluta(ruta: Path) -> Path:
+    return ruta if ruta.is_absolute() else PROJECT_ROOT / ruta
 
 
 @lru_cache

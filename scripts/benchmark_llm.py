@@ -39,7 +39,12 @@ from typing import Any
 import httpx
 
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
-from sopvid.percepcion.segmentacion import ESQUEMA_PASOS, construir_mensajes, f1_fronteras
+from sopvid.percepcion.segmentacion import (
+    ESQUEMA_FRONTERAS,
+    cargar_transcripcion_prueba,
+    construir_mensajes_fronteras,
+    f1_fronteras,
+)
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
 
 FIXTURE = PROJECT_ROOT / "tests/fixtures/transcripciones/cambio_cuchilla.json"
@@ -95,7 +100,9 @@ def tareas(fx: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Mensajes, esquema y evaluador de cada tarea."""
     texto = " ".join(s["texto"] for s in fx["segmentos"])
     # (b) usa el prompt del benchmark original de ADR-006: sin la regla de aclaraciones.
-    segmentar_msgs = construir_mensajes(fx["segmentos"], fx["etiquetas"], regla_aclaraciones=False)
+    segmentar_msgs = construir_mensajes_fronteras(
+        cargar_transcripcion_prueba(FIXTURE), fx["etiquetas"], regla_aclaraciones=False
+    )
     por_id = {s["id"]: s for s in fx["segmentos"]}
     fragmentos = "\n".join(f"[id {i}] {por_id[i]['texto']}" for i in FRAGMENTOS_RAG)
 
@@ -115,7 +122,7 @@ def tareas(fx: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "b_segmentar": {
             "sistema": segmentar_msgs[0]["content"],
             "usuario": segmentar_msgs[1]["content"],
-            "esquema": ESQUEMA_PASOS,
+            "esquema": ESQUEMA_FRONTERAS,
             "evaluar": lambda salida: evaluar_segmentacion(salida, fx),
         },
         "c_rag": {

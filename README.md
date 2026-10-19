@@ -109,11 +109,14 @@ La base sigue corriendo en Docker y el código corre en tu máquina, contra `loc
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1             # bash: source .venv/bin/activate
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu   # solo CPU, antes que lo demás
 pip install -e ".[dev]"                  # editable: los notebooks hacen `import sopvid`
 docker compose up -d db                  # solo la base
 alembic upgrade head
 pytest
 ```
+
+`torch` (lo usa MiniLM para emparejar pasos) va primero y desde el índice CPU de PyTorch, con la misma versión que `pyproject.toml`: queda `torch 2.13.0+cpu` y `pip install -e` ya no lo reemplaza. En Windows el wheel de PyPI también es solo CPU; en Linux arrastraría CUDA (varios GB). Los pesos de MiniLM (~470 MB) se descargan la primera vez a `EMBEDDER_CACHE_DIR` (por defecto `models/embedder`, ignorada por Git).
 
 Para los notebooks de `docs/entregables/`, selecciona el kernel del `.venv`. `sopvid` encuentra el `.env` de la raíz aunque el notebook corra en una subcarpeta. Las anotaciones públicas de CaptainCook4D se descargan solas a `DATA_DIR` (por defecto `data/raw/captaincook4d`, ignorada por Git) la primera vez que se ejecuta un avance.
 

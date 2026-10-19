@@ -44,7 +44,11 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Instalar dependencias
-        run: pip install -e ".[dev]"
+        # torch primero y solo CPU (en Linux, el de PyPI arrastra CUDA); versión de pyproject.toml.
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+            "$(grep -o 'torch==[0-9.]*' pyproject.toml)"
+          pip install -e ".[dev]"
 
       - name: Ruff (lint y formato)
         run: |

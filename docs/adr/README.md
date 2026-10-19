@@ -14,7 +14,7 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 | [ADR-006](ADR-006-llm-local.md) | LLM local servido con Ollama en Docker: Gemma 4 E4B. Desde el 17 oct también describe fotogramas | Propuesto | 2026-10-11 |
 | [ADR-008](ADR-008-revision-humana.md) | Mantener la revisión humana dentro de 1.0; dejar roles, firmas y versiones fuera | Aprobado (documento SOP V1.0) | 2026-10-17 |
 | [ADR-009](ADR-009-tarea-ml.md) | Mantener `has_errors` como tarea de ML académica | Aprobado por el equipo; falta el asesor | 2026-10-10 |
-| [ADR-010](ADR-010-segmentacion-pasos-llm.md) | Segmentar la narración en pasos con un LLM local que elige segmentos. En 1.0 extrae los pasos del video (RF-13) | Propuesto | 2026-10-10 |
+| [ADR-010](ADR-010-segmentacion-pasos-llm.md) | Segmentar la narración en pasos con un LLM local que elige segmentos. En 1.0 extrae los pasos del video (RF-13); ampliado el 19 oct con `PasoVideo`, cita verificada y contrato de análisis | Propuesto | 2026-10-10 |
 | [ADR-011](ADR-011-costo-cero-local.md) | Ejecutar todo local y a costo cero (opción B) | Aprobado | 2026-10-17 |
 | [ADR-012](ADR-012-emparejamiento-cascada.md) | Emparejar pasos con una cascada MiniLM → Gemma 4 | Propuesto | 2026-10-17 |
 | [ADR-013](ADR-013-fusion-sobresegmentacion.md) | Fusionar pasos consecutivos del video antes de emparejar | Propuesto | 2026-10-17 |
