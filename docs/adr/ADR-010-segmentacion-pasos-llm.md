@@ -129,7 +129,7 @@ y parte de más en otra). **Se descarta como valor por defecto**: el prototipo u
 
 ## Ampliación 19 oct (RF-13)
 
-Implementado en la rama `feat/pasos-video`. El contrato vive en
+Implementado en `main`. El contrato vive en
 [src/sopvid/contrato.py](../../src/sopvid/contrato.py) y el esquema de entrada en
 [docs/contrato/analisis.schema.json](../contrato/analisis.schema.json), generado con
 `python scripts/exportar_contrato.py` (un test falla si deja de coincidir con el modelo).
