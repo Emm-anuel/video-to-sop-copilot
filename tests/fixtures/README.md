@@ -59,3 +59,33 @@ distingue por el contenido.
 | `f02.jpg` | 58.0 | 3 (botón de purga, cubeta) |
 | `f03.jpg` | 84.0 | 4 (vaso retirado con el cartucho usado) |
 | `f04.jpg` | 149.0 | 6 (manómetro cerca de 4 bar) |
+
+## `sop_filtro_agua.md`, `sop_filtro_agua_simple.txt` y `sop_ejemplo.json`
+
+El SOP de referencia del ejemplo anterior, "Cambio del cartucho del filtro de agua". Lo escribió
+el equipo y es **INVENTADO**, igual que el video: no hay ningún SOP del cliente detrás. Sirve
+para probar la conversión de RF-03 (`sopvid.lenguaje.sop_markdown`, ADR-015).
+
+- **`sop_filtro_agua.md`:** la plantilla completa de `docs/contrato/plantilla_sop.md`: resumen,
+  2 roles, 7 elementos de equipo, 2 riesgos (pasos 3 y 4), 2 fallas y, en cada paso, responsable,
+  equipo, validación y 0.5 min (suman la duración total de 3 min). Convierte sin advertencias.
+- **`sop_filtro_agua_simple.txt`:** lo mínimo en TXT: título en la primera línea, un
+  "Responsable:" suelto y una lista numerada. Los pasos heredan el responsable con confianza media.
+- **`sop_ejemplo.json`:** el SOP del contrato (`sopvid.contrato.SOP`, esquema en
+  `docs/contrato/sop.schema.json`) que da `sop_filtro_agua.md`. No se edita a mano; si cambia el
+  `.md` o el parser, se regenera con:
+
+  ```powershell
+  python scripts/convertir_sop.py tests/fixtures/sop_filtro_agua.md --salida tests/fixtures/sop_ejemplo.json
+  ```
+
+  `tests/test_sop_markdown.py` falla si el script deja de dar exactamente este archivo.
+
+**Alineación con `analisis_ejemplo.json`, paso por paso.** El paso N del SOP es la fila N de la
+tabla "Inicios de paso reales": mismo nombre, y empieza en el segmento anotado ahí (4, 6, 9, 12, 17
+y 21). Los dos riesgos citan los pasos 3 y 4, los mismos en los que caen `f02.jpg` y `f03.jpg`.
+`tests/test_sop_markdown.py` lee esa tabla y comprueba que los nombres y el número de pasos
+coincidan.
+
+Se guardan en el repo con LF; las pruebas leen con `encoding="utf-8"` y construyen en memoria las
+variantes con CRLF y BOM.

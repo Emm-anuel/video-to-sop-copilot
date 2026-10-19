@@ -65,7 +65,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Contenedores | Docker Compose, versiones fijadas, configuración por variables de entorno |
 | Medios | ffmpeg: duración, audio mp3 mono 16 kHz, fotogramas (máx. 20), miniaturas |
 | Transcripción | faster-whisper `large-v3-turbo` en GPU (float16) o `small` en CPU (int8); tiempo por palabra, VAD, detección de idioma |
-| LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir el SOP, describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
+| LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir SOP sin plantilla (S5, [ADR-015](docs/adr/ADR-015-sop-plantilla-markdown.md)), describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
 | Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
 | ML académico | pandas, scikit-learn, LightGBM |
@@ -112,14 +112,17 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 17 oct 2026:
+> Estado al 19 oct 2026:
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
-> - **En la rama `feat/llm-spike` (sin fusionar):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
+> - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
 >   en Docker, estado del LLM en `/health`, ADR-006 con su benchmark y el prototipo de segmentación
 >   (`percepcion/segmentacion.py`, ADR-010). Se reutilizan en 1.0.
+> - **Lectura del SOP en Markdown/TXT:** con código, sin LLM, según la plantilla de
+>   `docs/contrato/plantilla_sop.md` (`lenguaje/sop_markdown.py`, `scripts/convertir_sop.py`,
+>   ADR-015). PDF y Word siguen pendientes (S5).
 > - **Sin código todavía:** subida, ffmpeg, transcripción y fotogramas (`percepcion/`); lectura del
->   SOP, emparejamiento, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
+>   SOP en PDF y Word, emparejamiento, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
@@ -168,8 +171,9 @@ Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versi�
 - **Tarea de ML de los avances 2–5 ([ADR-009](docs/adr/ADR-009-tarea-ml.md)):** `has_errors` sobre
   CaptainCook4D. El clasificador de inicio de paso NO es tarea académica: se probó el 10 oct con
   CrossTask, HT-Step + ASR de HowTo100M y HT-Step + `.vtt` completos, y las etiquetas públicas no
-  siguen a la narración (marcan la acción visual). El código de esa exploración vive en la rama
-  `avance2-inicio-paso`; no traigas más de él sin un ADR nuevo. Excepción: `features/pasos.py` y
+  siguen a la narración (marcan la acción visual). El código de esa exploración está en el commit
+  `30f2b40` (ya en `main`, tag `exploracion-inicio-paso`), no en la rama `avance2-inicio-paso`; no
+  lo retomes ni lo amplíes sin un ADR nuevo. Excepción: `features/pasos.py` y
   `scripts/preparar_htstep*.py` ya están en `main` y se conservan para reutilizarlos al detectar
   inicios de paso (`scripts/evaluar_segmentacion.py` usa `pasos.label_phrases` para el F1 en tiempo).
   No los borres.

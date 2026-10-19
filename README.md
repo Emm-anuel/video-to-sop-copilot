@@ -49,7 +49,7 @@ Dominios de IA: voz, visión y lenguaje (multimodal), con modelos pequeños loca
 
 ## 4. Estructura del repositorio
 
-Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`), `features/` implementado para los avances académicos 1 y 2, y en la rama `feat/llm-spike` el cliente del LLM con Ollama y el prototipo de segmentación en pasos. El resto de la versión 1.0 está por construir.
+Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`), `features/` implementado para los avances académicos 1 y 2, y, desde `feat/llm-spike` (ya fusionada en `main`, merge `936af6f`), el cliente del LLM con Ollama y el prototipo de segmentación en pasos. El resto de la versión 1.0 está por construir.
 
 ```
 ├── README.md
@@ -127,6 +127,19 @@ jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana 4/A
 ```
 
 Los tests de `tests/test_features_avance1.py` comparan contra los resultados del avance 1 y se saltan si los datos no están descargados (por ejemplo, en CI).
+
+### Escribir un SOP de referencia (Markdown o TXT)
+
+Un SOP en Markdown o TXT se convierte con código, sin LLM, si sigue la plantilla
+[docs/contrato/plantilla_sop.md](docs/contrato/plantilla_sop.md) ([ADR-015](docs/adr/ADR-015-sop-plantilla-markdown.md)).
+Solo son obligatorios `# Título` y `## Pasos` (con `### 1. Nombre` o una lista `1. Nombre`); el resumen, los roles, el equipo, los riesgos y "En caso de falla" son opcionales. Hay un ejemplo completo en [tests/fixtures/sop_filtro_agua.md](tests/fixtures/sop_filtro_agua.md) y uno mínimo en [tests/fixtures/sop_filtro_agua_simple.txt](tests/fixtures/sop_filtro_agua_simple.txt).
+
+```powershell
+python scripts/convertir_sop.py mi_sop.md --salida data/interim/mi_sop.json   # JSON del esquema SOP
+python scripts/convertir_sop.py mi_sop.txt > mi_sop.json                      # sin --salida: a la salida estándar
+```
+
+El archivo se lee en UTF-8. Las advertencias (numeración, claves desconocidas, tiempos…) salen en la salida de errores y no detienen la conversión. Si falta el título o los pasos, el script sale con código 1 y dice el formato esperado. Un SOP del cliente nunca se copia al repo (NDA): se convierte desde el almacenamiento aprobado. PDF, Word y texto libre se convierten con Gemma 4 en S5.
 
 ### Targets del Makefile y su equivalente en PowerShell
 

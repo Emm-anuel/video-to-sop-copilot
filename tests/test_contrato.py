@@ -1,4 +1,4 @@
-"""Contrato del análisis de video y de los pasos del video (`sopvid.contrato`)."""
+"""Contratos del análisis de video, de los pasos del video y del SOP (`sopvid.contrato`)."""
 
 import copy
 import json
@@ -7,11 +7,22 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from sopvid.contrato import Analisis, Fotograma, Idioma, Palabra, PasoVideo, esquema_analisis
+from sopvid.contrato import (
+    SOP,
+    Analisis,
+    Dato,
+    Fotograma,
+    Idioma,
+    Palabra,
+    PasoSOP,
+    PasoVideo,
+    esquema_analisis,
+    esquema_sop,
+)
 
 RAIZ = Path(__file__).resolve().parents[1]
 EJEMPLO = RAIZ / "tests" / "fixtures" / "analisis_ejemplo.json"
-ESQUEMA = RAIZ / "docs" / "contrato" / "analisis.schema.json"
+DIR_ESQUEMAS = RAIZ / "docs" / "contrato"
 INICIOS_PASO = [4, 6, 9, 12, 17, 21]  # anotados a mano en tests/fixtures/README.md
 
 PASO = {
@@ -24,6 +35,17 @@ PASO = {
     "cita": "Primero me pongo los guantes de nitrilo y los lentes de seguridad.",
     "fuente": "audio",
     "confianza": "alta",
+}
+
+# SOP inventado "Cambio del cartucho del filtro de agua" (tests/fixtures/README.md), solo título y
+# pasos: lo mínimo que exige el contrato.
+SOP_MINIMO = {
+    "titulo": "Cambio del cartucho del filtro de agua",
+    "pasos": [
+        {"numero": 1, "nombre": "Ponerse guantes y lentes", "responsable": "Técnica"},
+        {"numero": 2, "nombre": "Cerrar la llave de paso", "responsable": "Técnica"},
+        {"numero": 3, "nombre": "Liberar la presión", "responsable": "Técnica"},
+    ],
 }
 
 
@@ -183,16 +205,133 @@ def test_campo_extra_en_paso_falla():
     _falla(PasoVideo, {**PASO, "t_inicio_llm": 999}, "t_inicio_llm")
 
 
+# ── SOP ──────────────────────────────────────────────────────────────────────────────────────
+
+
+def _sop(**cambios) -> dict:
+    return {**copy.deepcopy(SOP_MINIMO), **cambios}
+
+
+def test_sop_minimo_valida_con_valores_por_defecto():
+    s = SOP.model_validate(SOP_MINIMO)
+
+    assert s.version_contrato == 1
+    assert [p.numero for p in s.pasos] == [1, 2, 3]
+    assert s.resumen.objetivo == Dato(valor=None, confianza="alta", fuente="documento", t=None)
+    assert s.resumen.duracion_total_min is None
+    paso = s.pasos[0]
+    assert paso.descripcion == "" and paso.tiempo_esperado_min is None
+    assert paso.t_inicio is None and paso.t_fin is None and paso.confianza == "alta"
+    assert SOP.model_validate(s.model_dump(mode="json")) == s  # ida y vuelta
+
+
+def test_numeracion_de_pasos_con_hueco_falla():
+    datos = _sop()
+    datos["pasos"][1]["numero"] = 3
+    datos["pasos"][2]["numero"] = 4
+    _falla(SOP, datos, "se esperaba el paso 2 y llegó el 3")
+
+
+@pytest.mark.parametrize("numeros", [[2, 3, 4], [1, 1, 2], [1, 3, 2]])
+def test_numeracion_que_no_es_1_2_3_falla(numeros):
+    datos = _sop()
+    for paso, n in zip(datos["pasos"], numeros, strict=True):
+        paso["numero"] = n
+    _falla(SOP, datos, "numeración de pasos")
+
+
+def test_sop_sin_pasos_falla():
+    _falla(SOP, _sop(pasos=[]), "pasos")
+    _falla(SOP, {"titulo": SOP_MINIMO["titulo"]}, "pasos")
+
+
+def test_sop_sin_titulo_falla():
+    _falla(SOP, _sop(titulo=""), "titulo")
+
+
+def test_el_error_de_numeracion_no_cita_el_sop():
+    datos = _sop()
+    datos["pasos"][1]["numero"] = 5
+    with pytest.raises(ValidationError) as exc:
+        SOP.model_validate(datos)
+    mensajes = " ".join(e["msg"] for e in exc.value.errors())
+    assert "numeración" in mensajes
+    assert all(p["nombre"] not in mensajes for p in datos["pasos"])
+    assert SOP_MINIMO["titulo"] not in mensajes and "Técnica" not in mensajes
+
+
+def test_tiempos_del_paso_sop():
+    base = SOP_MINIMO["pasos"][0]
+    assert PasoSOP.model_validate({**base, "t_inicio": 20.45}).t_fin is None  # solo uno: válido
+    assert PasoSOP.model_validate({**base, "t_inicio": 20.45, "t_fin": 31.64}).t_fin == 31.64
+    _falla(PasoSOP, {**base, "t_inicio": 31.64, "t_fin": 20.45}, "menor que el inicio")
+    _falla(PasoSOP, {**base, "t_inicio": -1.0}, "t_inicio")
+
+
+def test_fuente_documento_vale_en_el_sop_pero_no_en_el_video():
+    assert Dato(valor="Cambiar el cartucho", fuente="documento").fuente == "documento"
+    _falla(PasoVideo, {**PASO, "fuente": "documento"}, "fuente")
+
+
+def test_listas_vacias_del_sop_salen_vacias_y_nunca_null():
+    dump = SOP.model_validate(SOP_MINIMO).model_dump(mode="json")
+
+    assert dump["puntos_clave"] == [] and dump["palabras_clave"] == []
+    for campo in ("equipo_operacion", "roles", "riesgos", "en_caso_de_falla"):
+        assert dump["resumen"][campo] == []
+    for campo in ("equipo", "puntos_validacion", "campos_inferidos"):
+        assert dump["pasos"][0][campo] == []
+
+    _falla(SOP, _sop(puntos_clave=None), "puntos_clave")
+    datos = _sop()
+    datos["pasos"][0]["equipo"] = None
+    _falla(SOP, datos, "equipo")
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [("confianza", "muy alta"), ("fuente", "llm"), ("t", -1.0)],
+)
+def test_dato_con_valor_fuera_del_contrato_falla(campo, valor):
+    _falla(Dato, {campo: valor}, campo)
+
+
+def test_campo_extra_en_la_raiz_del_sop_falla():
+    _falla(SOP, _sop(_comentario="inventado"), "_comentario")
+
+
+@pytest.mark.parametrize("ruta", [("resumen",), ("resumen", "objetivo"), ("pasos", 0)])
+def test_campo_extra_anidado_en_el_sop_falla(ruta):
+    datos = _sop(resumen={"objetivo": {"valor": "Cambiar el cartucho"}})
+    nodo = datos
+    for paso in ruta:
+        nodo = nodo[paso]
+    nodo["extra"] = 1
+    _falla(SOP, datos, "extra")
+
+
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────
 
 
-def test_el_esquema_exportado_coincide_con_el_modelo():
-    exportado = json.loads(ESQUEMA.read_text(encoding="utf-8"))
-    assert exportado == esquema_analisis(), "corre: python scripts/exportar_contrato.py"
+@pytest.mark.parametrize(
+    ("archivo", "esquema"),
+    [("analisis.schema.json", esquema_analisis), ("sop.schema.json", esquema_sop)],
+)
+def test_el_esquema_exportado_coincide_con_el_modelo(archivo, esquema):
+    exportado = json.loads((DIR_ESQUEMAS / archivo).read_text(encoding="utf-8"))
+    assert exportado == esquema(), "corre: python scripts/exportar_contrato.py"
 
 
 def test_el_esquema_prohibe_extras_y_exige_la_transcripcion():
     esquema = esquema_analisis()
     assert esquema["additionalProperties"] is False
     assert {"video_id", "duracion_s", "idioma", "transcripcion"} <= set(esquema["required"])
+    assert all(d["additionalProperties"] is False for d in esquema["$defs"].values())
+
+
+def test_el_esquema_sop_prohibe_extras_y_exige_titulo_y_pasos():
+    esquema = esquema_sop()
+    assert esquema["additionalProperties"] is False
+    assert set(esquema["required"]) == {"titulo", "pasos"}
+    assert esquema["properties"]["pasos"]["minItems"] == 1
     assert all(d["additionalProperties"] is False for d in esquema["$defs"].values())

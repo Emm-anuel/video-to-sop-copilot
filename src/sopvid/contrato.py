@@ -1,16 +1,20 @@
-"""Contrato entre el pipeline de video y la extracción de pasos del video (RF-13).
+"""Contratos del pipeline: análisis del video, pasos del video (RF-13) y SOP (RF-03).
 
 `Analisis` es el JSON que produce el pipeline de video: idioma, transcripción con tiempo por
-palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él. Todo
-tiempo de este contrato sale de la transcripción o del video, nunca del LLM (regla 4 de
-CLAUDE.md).
+palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él.
 
-Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fin ≥ inicio, y las listas
-vacías se escriben `[]`, nunca `null`. Los mensajes de error solo citan ids y tiempos, nunca
-texto de la transcripción (puede ser material del cliente).
+`SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
+lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un SOP cargado no
+tiene tiempos; los llena el SOP generado desde el video) y todo el resumen tiene valores por
+defecto, para que un SOP mínimo (título y pasos) valide.
 
-El JSON Schema de `Analisis` se exporta a docs/contrato/analisis.schema.json con
-`python scripts/exportar_contrato.py`; no se edita a mano.
+Todo tiempo de estos contratos sale de la transcripción o del video, nunca del LLM (regla 4 de
+CLAUDE.md). Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fin ≥ inicio, y las
+listas vacías se escriben `[]`, nunca `null`. Los mensajes de error solo citan ids, números de
+paso y tiempos, nunca texto de la transcripción ni del SOP (puede ser material del cliente).
+
+Los JSON Schema se exportan a docs/contrato/ (analisis.schema.json y sop.schema.json) con
+`python scripts/exportar_contrato.py`; no se editan a mano.
 """
 
 from itertools import pairwise
@@ -123,6 +127,111 @@ class PasoVideo(_Modelo):
         return self
 
 
+# ── SOP (sección 10 del documento SOP V1.0) ─────────────────────────────────────────────────
+
+# A diferencia de `Fuente`, un dato del SOP también puede venir del documento cargado.
+FuenteSOP = Literal["documento", "audio", "visual", "inferido"]
+
+
+class Dato(_Modelo):
+    """Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo."""
+
+    valor: str | None = None
+    confianza: Confianza = "alta"
+    fuente: FuenteSOP = "documento"
+    t: Tiempo | None = None
+
+
+class Elemento(_Modelo):
+    """Equipo de operación o rol del SOP."""
+
+    nombre: str = Field(min_length=1)
+    descripcion: str = ""
+
+
+class Riesgo(_Modelo):
+    descripcion: str
+    nivel: Literal["alto", "medio", "bajo"]
+    paso: int | None = None
+    control: str = ""
+
+
+class Falla(_Modelo):
+    situacion: str
+    accion: str
+
+
+class Resumen(_Modelo):
+    objetivo: Dato = Dato()
+    alcance: Dato = Dato()
+    responsable: Dato = Dato()
+    lugar: Dato = Dato()
+    horario_frecuencia: Dato = Dato()
+    duracion_total_min: float | None = Field(default=None, ge=0)
+    equipo_operacion: list[Elemento] = []
+    roles: list[Elemento] = []
+    riesgos: list[Riesgo] = []
+    en_caso_de_falla: list[Falla] = []
+
+
+class PasoSOP(_Modelo):
+    """Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video."""
+
+    numero: int = Field(ge=1)
+    nombre: str = Field(min_length=1)
+    descripcion: str = ""
+    responsable: str
+    equipo: list[str] = []
+    puntos_validacion: list[str] = []
+    tiempo_esperado_min: float | None = Field(default=None, ge=0)
+    t_inicio: Tiempo | None = None
+    t_fin: Tiempo | None = None
+    confianza: Confianza = "alta"
+    campos_inferidos: list[str] = []
+
+    @model_validator(mode="after")
+    def _rango(self) -> Self:
+        if self.t_inicio is not None and self.t_fin is not None:
+            _verificar_rango(self.t_inicio, self.t_fin)
+        return self
+
+
+class PuntoClave(_Modelo):
+    texto: str
+    t: Tiempo | None = None
+
+
+class PalabraClave(_Modelo):
+    termino: str
+    categoria: Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
+
+
+class SOP(_Modelo):
+    """SOP de referencia (cargado) o generado desde el video."""
+
+    version_contrato: Literal[1] = 1
+    titulo: str = Field(min_length=1)
+    resumen: Resumen = Resumen()
+    pasos: list[PasoSOP] = Field(min_length=1)
+    puntos_clave: list[PuntoClave] = []
+    palabras_clave: list[PalabraClave] = []
+
+    @model_validator(mode="after")
+    def _pasos_numerados(self) -> Self:
+        """Los pasos se numeran 1, 2, 3… en el orden en que aparecen."""
+        for esperado, paso in enumerate(self.pasos, start=1):
+            if paso.numero != esperado:
+                raise ValueError(
+                    f"numeración de pasos: se esperaba el paso {esperado} y llegó el {paso.numero}"
+                )
+        return self
+
+
 def esquema_analisis() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `Analisis`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **Analisis.model_json_schema()}
+
+
+def esquema_sop() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `SOP`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **SOP.model_json_schema()}

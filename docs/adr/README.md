@@ -19,6 +19,7 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 | [ADR-012](ADR-012-emparejamiento-cascada.md) | Emparejar pasos con una cascada MiniLM → Gemma 4 | Propuesto | 2026-10-17 |
 | [ADR-013](ADR-013-fusion-sobresegmentacion.md) | Fusionar pasos consecutivos del video antes de emparejar | Propuesto | 2026-10-17 |
 | [ADR-014](ADR-014-hardware-referencia.md) | Usar la PC del equipo como hardware de referencia y correr los modelos en secuencia | Aprobado por el equipo | 2026-10-17 |
+| [ADR-015](ADR-015-sop-plantilla-markdown.md) | Convertir el SOP de referencia con una plantilla y un parser; Gemma 4 solo para SOP sin plantilla en S5 | Propuesto | 2026-10-19 |
 
 Los ADR-002, 003 y 008 se aprueban con el documento "Requerimientos técnicos y funcionales de proyecto
 SOP V1.0", escrito por el patrocinador (16 oct 2026), que deja fuera de la versión 1.0 lo que el NDA

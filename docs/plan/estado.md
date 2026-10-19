@@ -21,7 +21,7 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
 **Repositorio**
 - **`main`:** F0 (API con `/health`, Postgres 16 con pgvector vía Alembic, Docker, tests, CI) y
   `sopvid.features`.
-- **`feat/llm-spike` (sin fusionar):** cliente del LLM, Ollama 0.40.2 en Docker, benchmark de modelos
+- **`feat/llm-spike` (fusionada en `main`, merge `936af6f`):** cliente del LLM, Ollama 0.40.2 en Docker, benchmark de modelos
   (ADR-006) y prototipo de segmentación por segmentos numerados (ADR-010). Ambos se reutilizan en 1.0:
   el cliente para todas las tareas de Gemma 4 y la segmentación para extraer los pasos del video (RF-13).
 
@@ -34,7 +34,7 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 |---|---|
 | **Dom 18 oct, 23:59** | **Avance 3** (baseline) desde `build_features` |
 | Lun 19 oct | Junta con Jorge: informar decisiones y preguntar la fecha de la demo ([plan §10](plan.md#10-para-la-junta-del-lunes-19-oct)) |
-| S2 | Fusionar `feat/llm-spike` a `main`; repo privado; tablas `videos`, `sops`, `reportes`; grabar videos A–E |
+| S2 | ✓ `feat/llm-spike` fusionada a `main` (merge `936af6f`); repo privado; tablas `videos`, `sops`, `reportes`; grabar videos A–E |
 | Dom 25 oct | Avance 4 |
 | Dom 1 nov | Avance 5 |
 | Dom 8 nov | ✓ **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)) |

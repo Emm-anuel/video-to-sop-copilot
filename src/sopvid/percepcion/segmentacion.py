@@ -20,7 +20,6 @@ Este módulo es Python puro (sin pandas) porque corre en la API.
 import json
 import logging
 import re
-import unicodedata
 from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
@@ -31,10 +30,9 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_
 
 from sopvid.contrato import Analisis, Confianza, Fuente, PasoVideo, Segmento
 from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMRespuestaInvalida
+from sopvid.texto import NO_IDENTIFICADO, normalizar
 
 logger = logging.getLogger(__name__)
-
-NO_IDENTIFICADO = "No identificado"  # responsable cuando nadie lo dice en el audio (ADR-008)
 
 
 @dataclass(frozen=True)
@@ -490,7 +488,7 @@ def _registrar(construidos: Sequence[_PasoConRango]) -> list[PasoVideo]:
 
 def _texto_comparable(texto: str) -> str:
     """Minúsculas, sin acentos ni puntuación y con espacios colapsados (como la heurística)."""
-    return " ".join(_normalizar(texto).split())
+    return " ".join(normalizar(texto).split())
 
 
 def recortar_cita(cita: str, max_palabras: int = PALABRAS_CITA[1]) -> str:
@@ -884,14 +882,9 @@ _PALABRAS_CITA = 15  # máximo de la cita heurística, como la del LLM (4 a 15)
 _CARACTERES_DESCRIPCION = 300
 
 
-def _normalizar(texto: str) -> str:
-    sin_acentos = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9 ]+", " ", sin_acentos.lower())
-
-
 def empieza_con_marcador(texto: str, palabras_iniciales: int = PALABRAS_INICIALES) -> bool:
     """True si un marcador de transición aparece entre las primeras palabras del texto."""
-    inicio = " ".join(_normalizar(texto).split()[:palabras_iniciales])
+    inicio = " ".join(normalizar(texto).split()[:palabras_iniciales])
     return any(re.search(rf"\b{m}\b", inicio) for m in MARCADORES)
 
 
