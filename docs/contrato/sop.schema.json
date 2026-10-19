@@ -1,0 +1,486 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Dato": {
+      "additionalProperties": false,
+      "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.",
+      "properties": {
+        "valor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valor"
+        },
+        "confianza": {
+          "default": "alta",
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
+        },
+        "fuente": {
+          "default": "documento",
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
+        }
+      },
+      "title": "Dato",
+      "type": "object"
+    },
+    "Elemento": {
+      "additionalProperties": false,
+      "description": "Equipo de operación o rol del SOP.",
+      "properties": {
+        "nombre": {
+          "minLength": 1,
+          "title": "Nombre",
+          "type": "string"
+        },
+        "descripcion": {
+          "default": "",
+          "title": "Descripcion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nombre"
+      ],
+      "title": "Elemento",
+      "type": "object"
+    },
+    "Falla": {
+      "additionalProperties": false,
+      "properties": {
+        "situacion": {
+          "title": "Situacion",
+          "type": "string"
+        },
+        "accion": {
+          "title": "Accion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "situacion",
+        "accion"
+      ],
+      "title": "Falla",
+      "type": "object"
+    },
+    "PalabraClave": {
+      "additionalProperties": false,
+      "properties": {
+        "termino": {
+          "title": "Termino",
+          "type": "string"
+        },
+        "categoria": {
+          "enum": [
+            "equipo",
+            "accion",
+            "seguridad",
+            "calidad",
+            "lugar",
+            "material",
+            "otro"
+          ],
+          "title": "Categoria",
+          "type": "string"
+        }
+      },
+      "required": [
+        "termino",
+        "categoria"
+      ],
+      "title": "PalabraClave",
+      "type": "object"
+    },
+    "PasoSOP": {
+      "additionalProperties": false,
+      "description": "Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.",
+      "properties": {
+        "numero": {
+          "minimum": 1,
+          "title": "Numero",
+          "type": "integer"
+        },
+        "nombre": {
+          "minLength": 1,
+          "title": "Nombre",
+          "type": "string"
+        },
+        "descripcion": {
+          "default": "",
+          "title": "Descripcion",
+          "type": "string"
+        },
+        "responsable": {
+          "title": "Responsable",
+          "type": "string"
+        },
+        "equipo": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Equipo",
+          "type": "array"
+        },
+        "puntos_validacion": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Puntos Validacion",
+          "type": "array"
+        },
+        "tiempo_esperado_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tiempo Esperado Min"
+        },
+        "t_inicio": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T Inicio"
+        },
+        "t_fin": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T Fin"
+        },
+        "confianza": {
+          "default": "alta",
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
+        },
+        "campos_inferidos": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Campos Inferidos",
+          "type": "array"
+        }
+      },
+      "required": [
+        "numero",
+        "nombre",
+        "responsable"
+      ],
+      "title": "PasoSOP",
+      "type": "object"
+    },
+    "PuntoClave": {
+      "additionalProperties": false,
+      "properties": {
+        "texto": {
+          "title": "Texto",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
+        }
+      },
+      "required": [
+        "texto"
+      ],
+      "title": "PuntoClave",
+      "type": "object"
+    },
+    "Resumen": {
+      "additionalProperties": false,
+      "properties": {
+        "objetivo": {
+          "$ref": "#/$defs/Dato",
+          "default": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          }
+        },
+        "alcance": {
+          "$ref": "#/$defs/Dato",
+          "default": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          }
+        },
+        "responsable": {
+          "$ref": "#/$defs/Dato",
+          "default": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          }
+        },
+        "lugar": {
+          "$ref": "#/$defs/Dato",
+          "default": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          }
+        },
+        "horario_frecuencia": {
+          "$ref": "#/$defs/Dato",
+          "default": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          }
+        },
+        "duracion_total_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duracion Total Min"
+        },
+        "equipo_operacion": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Elemento"
+          },
+          "title": "Equipo Operacion",
+          "type": "array"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Elemento"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "riesgos": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Riesgo"
+          },
+          "title": "Riesgos",
+          "type": "array"
+        },
+        "en_caso_de_falla": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Falla"
+          },
+          "title": "En Caso De Falla",
+          "type": "array"
+        }
+      },
+      "title": "Resumen",
+      "type": "object"
+    },
+    "Riesgo": {
+      "additionalProperties": false,
+      "properties": {
+        "descripcion": {
+          "title": "Descripcion",
+          "type": "string"
+        },
+        "nivel": {
+          "enum": [
+            "alto",
+            "medio",
+            "bajo"
+          ],
+          "title": "Nivel",
+          "type": "string"
+        },
+        "paso": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paso"
+        },
+        "control": {
+          "default": "",
+          "title": "Control",
+          "type": "string"
+        }
+      },
+      "required": [
+        "descripcion",
+        "nivel"
+      ],
+      "title": "Riesgo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "SOP de referencia (cargado) o generado desde el video.",
+  "properties": {
+    "version_contrato": {
+      "const": 1,
+      "default": 1,
+      "title": "Version Contrato",
+      "type": "integer"
+    },
+    "titulo": {
+      "minLength": 1,
+      "title": "Titulo",
+      "type": "string"
+    },
+    "resumen": {
+      "$ref": "#/$defs/Resumen",
+      "default": {
+        "objetivo": {
+          "confianza": "alta",
+          "fuente": "documento",
+          "t": null,
+          "valor": null
+        },
+        "alcance": {
+          "confianza": "alta",
+          "fuente": "documento",
+          "t": null,
+          "valor": null
+        },
+        "responsable": {
+          "confianza": "alta",
+          "fuente": "documento",
+          "t": null,
+          "valor": null
+        },
+        "lugar": {
+          "confianza": "alta",
+          "fuente": "documento",
+          "t": null,
+          "valor": null
+        },
+        "horario_frecuencia": {
+          "confianza": "alta",
+          "fuente": "documento",
+          "t": null,
+          "valor": null
+        },
+        "duracion_total_min": null,
+        "equipo_operacion": [],
+        "roles": [],
+        "riesgos": [],
+        "en_caso_de_falla": []
+      }
+    },
+    "pasos": {
+      "items": {
+        "$ref": "#/$defs/PasoSOP"
+      },
+      "minItems": 1,
+      "title": "Pasos",
+      "type": "array"
+    },
+    "puntos_clave": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PuntoClave"
+      },
+      "title": "Puntos Clave",
+      "type": "array"
+    },
+    "palabras_clave": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PalabraClave"
+      },
+      "title": "Palabras Clave",
+      "type": "array"
+    }
+  },
+  "required": [
+    "titulo",
+    "pasos"
+  ],
+  "title": "SOP",
+  "type": "object"
+}
