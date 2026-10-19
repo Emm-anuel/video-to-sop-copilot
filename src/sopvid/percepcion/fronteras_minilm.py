@@ -128,14 +128,20 @@ def inicios_texttiling(
 # ── M2 · Fusión de cortes del LLM ────────────────────────────────────────────────────────────
 
 
+def cosenos_entre_pasos(x: np.ndarray, inicios: Sequence[int]) -> list[float]:
+    """Coseno entre el embedding medio de cada paso y el del siguiente; el elemento j es el del
+    corte `inicios[j + 1]`. `inicios`: posiciones (desde 0) en orden creciente."""
+    limites = [*inicios, len(x)]
+    medias = [x[a:b].mean(axis=0) for a, b in zip(limites, limites[1:], strict=False)]
+    return [_coseno(medias[j - 1], medias[j]) for j in range(1, len(medias))]
+
+
 def fusionar_cortes(x: np.ndarray, inicios: Sequence[int], *, u: float = U_FUSION) -> list[int]:
     """Posiciones de inicio tras unir pasos consecutivos parecidos (M2). `inicios` son
     posiciones (desde 0) en `x`; el resultado es un subconjunto ordenado que conserva el primero."""
     actuales = sorted(set(inicios))
     while len(actuales) > 1:
-        limites = [*actuales, len(x)]
-        medias = [x[a:b].mean(axis=0) for a, b in zip(limites, limites[1:], strict=False)]
-        sims = [_coseno(medias[j - 1], medias[j]) for j in range(1, len(medias))]
+        sims = cosenos_entre_pasos(x, actuales)
         j = int(np.argmax(sims))  # el primero en caso de empate
         if sims[j] <= u:
             break
