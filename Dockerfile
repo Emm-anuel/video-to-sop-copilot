@@ -9,14 +9,25 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
+# torch solo CPU (MiniLM, ADR-012): el wheel de PyPI para Linux arrastra CUDA (varios GB). Se
+# instala primero desde el índice CPU de PyTorch, con la versión fijada en pyproject.toml; después
+# `pip install .` lo da por cumplido (2.13.0+cpu satisface torch==2.13.0).
+RUN pip install --index-url https://download.pytorch.org/whl/cpu \
+        "$(grep -o 'torch==[0-9.]*' pyproject.toml)"
 COPY src ./src
-RUN pip install .
+RUN pip install . \
+    && ! pip list 2>/dev/null | grep -i -E '^(nvidia|cuda|triton)'
 
 COPY alembic.ini ./
 COPY migrations ./migrations
 
-RUN useradd --create-home --uid 1000 app
+RUN useradd --create-home --uid 1000 app \
+    && mkdir -p /app/models \
+    && chown app:app /app/models
 USER app
+
+# Pesos de MiniLM: se descargan la primera vez al volumen montado aquí, no a la imagen.
+ENV EMBEDDER_CACHE_DIR=/app/models/embedder
 
 EXPOSE 8000
 

@@ -37,6 +37,10 @@ services:
       # Ollama visto desde la red de compose. Sin el profile "llm" el nombre no resuelve
       # y /health informa "llm": "no_disponible" sin afectar a la API.
       LLM_BASE_URL: ${LLM_BASE_URL_API:-http://ollama:11434}
+      # Pesos de MiniLM en el volumen "modelos": se descargan una vez y sobreviven a la imagen.
+      EMBEDDER_CACHE_DIR: /app/models/embedder
+    volumes:
+      - modelos:/app/models
     ports:
       - "${APP_PORT:-8000}:8000"
     depends_on:
@@ -109,3 +113,4 @@ services:
 volumes:
   pgdata:
   ollama:
+  modelos:

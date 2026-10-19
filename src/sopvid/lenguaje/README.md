@@ -10,5 +10,7 @@ Frente de **lenguaje**: a partir de los pasos indexados, encuentra, conversa y r
 
 **Estado:** `llm.py` es el cliente del LLM local (Ollama, `/api/chat` con JSON Schema); cómo
 levantarlo en [docs/dev/llm.md](../../../docs/dev/llm.md). La segmentación en pasos que lo usa
-vive en `sopvid.percepcion.segmentacion`. Búsqueda, chat y SOP siguen reservados. La
+vive en `sopvid.percepcion.segmentacion`. `emparejamiento.py` tiene la base de MiniLM (ADR-012):
+`Embedder` (CPU, pesos en `EMBEDDER_CACHE_DIR`) y `similitud`; la fusión, el húngaro y los
+umbrales llegan en S3. Búsqueda, chat y SOP siguen reservados. La
 extensión `vector` ya queda habilitada en la base desde la primera migración.

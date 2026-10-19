@@ -25,6 +25,15 @@ dependencies = [
     "pydantic-settings==2.15.0",
     # Cliente del LLM local (Ollama) y TestClient de FastAPI.
     "httpx==0.28.1",
+    # Emparejamiento con MiniLM en CPU (ADR-012, plan §5.3). torch debe instalarse desde el
+    # índice CPU de PyTorch (https://download.pytorch.org/whl/cpu): en Linux, el wheel de PyPI
+    # arrastra CUDA. El Dockerfile y el CI lo hacen antes de `pip install`; ver el README (venv).
+    # transformers se fija aparte: sentence-transformers solo pide >=5,<6 y sale cada semana.
+    "numpy==2.4.6",
+    "scipy==1.17.1",
+    "torch==2.13.0",
+    "transformers==5.19.0",
+    "sentence-transformers==6.1.0",
 ]
 
 [project.optional-dependencies]
@@ -32,8 +41,7 @@ dependencies = [
 # Van aparte para que la imagen Docker de la API no cargue pandas ni scikit-learn.
 ml = [
     "pandas==3.0.6",
-    "numpy==2.4.6",
-    "scipy==1.17.1",
+    # numpy y scipy, en las dependencias base (emparejamiento).
     "scikit-learn==1.9.1",
     # Lectura de data/interim/htstep/*.parquet (26.0.0 salió el 9 oct 2026; se fija la anterior).
     "pyarrow==25.0.1",
@@ -56,7 +64,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+# Los tests "lento" se saltan por defecto; se corren con `pytest -m lento`.
+addopts = "-ra -m 'not lento'"
+markers = [
+    "lento: descarga o carga modelos reales (p. ej. MiniLM, ~470 MB la primera vez)",
+]
 
 [tool.ruff]
 line-length = 100
