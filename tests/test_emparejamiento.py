@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from sopvid.contrato import PasoSOP, PasoVideo
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.plataforma import config
 
@@ -200,6 +201,75 @@ def test_similitud_acepta_un_solo_vector():
 def test_similitud_rechaza_dimensiones_distintas():
     with pytest.raises(ValueError, match="dimensiones"):
         emp.similitud(np.ones((2, 3)), np.ones((2, 4)))
+
+
+# ── texto_para_embeber ───────────────────────────────────────────────────────────────────────
+
+
+def _paso_sop(**cambios: Any) -> PasoSOP:
+    datos = {"numero": 2, "nombre": "Cerrar la llave de paso", "responsable": "Técnico"}
+    return PasoSOP.model_validate({**datos, **cambios})
+
+
+def _paso_video(**cambios: Any) -> PasoVideo:
+    datos = {
+        "numero": 2,
+        "nombre": "Cerrar la llave de paso",
+        "descripcion": "",
+        "responsable": "Técnica",
+        "t_inicio": 33.44,
+        "t_fin": 54.2,
+        "cita": "Ahora cierro la llave de paso",
+        "fuente": "audio",
+        "confianza": "alta",
+    }
+    return PasoVideo.model_validate({**datos, **cambios})
+
+
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+def test_texto_para_embeber_une_nombre_y_descripcion(crear):
+    paso = crear(descripcion="Girar la llave a la derecha hasta el tope.")
+    assert emp.texto_para_embeber(paso) == (
+        "Cerrar la llave de paso. Girar la llave a la derecha hasta el tope."
+    )
+
+
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+@pytest.mark.parametrize("descripcion", ["", "   ", "\n\t"])
+def test_texto_para_embeber_sin_descripcion_es_solo_el_nombre(crear, descripcion):
+    assert emp.texto_para_embeber(crear(descripcion=descripcion)) == "Cerrar la llave de paso"
+
+
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+def test_texto_para_embeber_colapsa_espacios(crear):
+    paso = crear(nombre="  Cerrar   la llave\tde paso ", descripcion="Girar\na la  derecha. ")
+    assert emp.texto_para_embeber(paso) == "Cerrar la llave de paso. Girar a la derecha."
+
+
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+@pytest.mark.parametrize(
+    ("nombre", "esperado"),
+    [
+        ("Cerrar la llave de paso.", "Cerrar la llave de paso. Girar a la derecha."),
+        ("¿Cerró la llave?", "¿Cerró la llave? Girar a la derecha."),
+        ("¡Cerrar la llave!", "¡Cerrar la llave! Girar a la derecha."),
+        ("Cerrar la llave de paso. ", "Cerrar la llave de paso. Girar a la derecha."),
+    ],
+)
+def test_texto_para_embeber_no_duplica_el_cierre_del_nombre(crear, nombre, esperado):
+    paso = crear(nombre=nombre, descripcion="Girar a la derecha.")
+    assert emp.texto_para_embeber(paso) == esperado
+    assert ".." not in emp.texto_para_embeber(paso)
+
+
+def test_texto_para_embeber_no_usa_la_cita_ni_el_responsable():
+    texto = emp.texto_para_embeber(_paso_video(descripcion="Girar a la derecha."))
+    assert "Ahora cierro" not in texto and "Técnica" not in texto
+
+
+def test_texto_para_embeber_no_carga_el_modelo(embedder, cargas):
+    emp.texto_para_embeber(_paso_sop())
+    assert cargas == [] and not embedder.cargado
 
 
 # ── Modelo real (lento) ──────────────────────────────────────────────────────────────────────

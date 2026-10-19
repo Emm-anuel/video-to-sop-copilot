@@ -11,7 +11,13 @@ from pathlib import Path
 import pytest
 
 from sopvid.contrato import SOP, Dato, Riesgo
-from sopvid.lenguaje.sop_markdown import Advertencia, ErrorSOP, ResultadoConversion, convertir_sop
+from sopvid.lenguaje.sop_markdown import (
+    Advertencia,
+    ErrorSOP,
+    ResultadoConversion,
+    convertir_sop,
+    sop_a_markdown,
+)
 from sopvid.texto import NO_IDENTIFICADO
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -486,3 +492,196 @@ def test_el_log_solo_cuenta(md, caplog):
     assert "6 pasos" in log and "0 advertencias" in log
     assert TITULO not in log and RESPONSABLE not in log
     assert not any(p.nombre in log for p in sop.pasos)
+
+
+# ── SOP → Markdown ───────────────────────────────────────────────────────────────────────────
+
+
+def _dato(valor: str) -> dict:
+    return {"valor": valor, "confianza": "alta", "fuente": "documento", "t": None}
+
+
+# Un SOP inventado con todos los campos que lleva la plantilla, y metadatos por defecto.
+SOP_COMPLETO = {
+    "titulo": "Purga del compresor de aire",
+    "resumen": {
+        "objetivo": _dato("Sacar el agua condensada del tanque del compresor."),
+        "alcance": _dato("Compresor de pistón del taller; no incluye el secador."),
+        "responsable": _dato("Técnico de turno"),
+        "lugar": _dato("Taller, junto a la puerta norte"),
+        "horario_frecuencia": _dato("Diario, al final del turno"),
+        "duracion_total_min": 4.5,
+        "equipo_operacion": [
+            {"nombre": "Guantes", "descripcion": "Protección de manos."},
+            {"nombre": "Cubeta", "descripcion": ""},
+        ],
+        "roles": [
+            {"nombre": "Técnico de turno", "descripcion": "Hace la purga."},
+            {"nombre": "Jefe de taller", "descripcion": ""},
+        ],
+        "riesgos": [
+            {
+                "descripcion": "Aire a presión",
+                "nivel": "alto",
+                "paso": 2,
+                "control": "Abrir despacio.",
+            },
+            {"descripcion": "Ruido", "nivel": "medio", "paso": None, "control": "Tapones."},
+            {"descripcion": "Piso mojado", "nivel": "bajo", "paso": 3, "control": ""},
+            {"descripcion": "", "nivel": "bajo", "paso": None, "control": ""},
+        ],
+        "en_caso_de_falla": [
+            {"situacion": "La válvula no abre", "accion": "Avisar al jefe de taller."},
+            {"situacion": "Sale aceite", "accion": ""},
+        ],
+    },
+    "pasos": [
+        {
+            "numero": 1,
+            "nombre": "Apagar el compresor",
+            "descripcion": "Apagar con el interruptor y esperar a que pare el motor.",
+            "responsable": "Jefe de taller",
+            "equipo": ["Interruptor", "Etiqueta de bloqueo"],
+            "puntos_validacion": ["Motor detenido", "Etiqueta puesta"],
+            "tiempo_esperado_min": 1.25,
+        },
+        {
+            "numero": 2,
+            "nombre": "Abrir la válvula de purga",
+            "responsable": "Técnico de turno",
+            "tiempo_esperado_min": 2.0,
+            "confianza": "media",
+            "campos_inferidos": ["responsable"],
+        },
+        {
+            "numero": 3,
+            "nombre": "Cerrar la válvula",
+            "descripcion": "Cerrar cuando salga solo aire.",
+            "responsable": "Técnico de turno",
+            "equipo": ["Cubeta"],
+            "tiempo_esperado_min": 1.25,
+            "confianza": "media",
+            "campos_inferidos": ["responsable"],
+        },
+    ],
+}
+
+SOP_SIN_RESPONSABLE = {
+    "titulo": "Prueba sin responsable",
+    "resumen": {"duracion_total_min": 0.00001},
+    "pasos": [
+        {
+            "numero": 1,
+            "nombre": "Revisar el nivel",
+            "responsable": NO_IDENTIFICADO,
+            "confianza": "baja",
+            "tiempo_esperado_min": 0.00001,
+        }
+    ],
+}
+
+
+def _ida_y_vuelta(sop: SOP) -> ResultadoConversion:
+    return convertir_sop(sop_a_markdown(sop))
+
+
+@pytest.mark.parametrize("archivo", [MD, TXT])
+def test_sop_a_markdown_ida_y_vuelta_de_los_fixtures(archivo):
+    sop = convertir_sop(_leer(FIXTURES / archivo)).sop
+    r = _ida_y_vuelta(sop)
+    assert r.sop == sop
+    assert r.advertencias == []
+
+
+@pytest.mark.parametrize("datos", [SOP_COMPLETO, SOP_SIN_RESPONSABLE], ids=["completo", "sin_resp"])
+def test_sop_a_markdown_ida_y_vuelta_con_todos_los_campos(datos):
+    sop = SOP.model_validate(datos)
+    r = _ida_y_vuelta(sop)
+    assert r.sop == sop
+    assert r.advertencias == []
+
+
+def test_sop_a_markdown_es_estable(md):
+    texto = sop_a_markdown(convertir_sop(md).sop)
+    assert sop_a_markdown(convertir_sop(texto).sop) == texto
+
+
+def test_sop_a_markdown_solo_escribe_secciones_con_contenido(txt):
+    texto = sop_a_markdown(convertir_sop(txt).sop)
+    assert texto == (
+        f"# {TITULO}\n\n## Resumen\n- Responsable: {RESPONSABLE}\n\n## Pasos\n\n"
+        + "\n\n".join(f"### {n}. {x}" for n, x in enumerate(_nombres_readme(), 1))
+        + "\n"
+    )
+
+
+def test_sop_a_markdown_escribe_los_riesgos_en_forma_canonica(md):
+    lineas = sop_a_markdown(SOP.model_validate(SOP_COMPLETO)).splitlines()
+    assert "- Alto: Aire a presión. Paso: 2. Control: Abrir despacio." in lineas
+    assert "- Medio: Ruido. Control: Tapones." in lineas
+    assert "- Bajo: Piso mojado. Paso: 3." in lineas
+    assert "- Bajo:" in lineas
+    assert not any(".." in linea for linea in lineas)
+    # La línea del fixture ya está en forma canónica: sale igual.
+    linea_fixture = next(x for x in md.splitlines() if x.startswith("- Alto:"))
+    assert linea_fixture in sop_a_markdown(convertir_sop(md).sop).splitlines()
+
+
+@pytest.mark.parametrize("descripcion", ["Ruido.", "Ruido", "Ruido. ", "Ruido..", "  Ruido . "])
+@pytest.mark.parametrize("paso", [None, 1])
+def test_la_descripcion_del_riesgo_se_normaliza_sin_punto_final(descripcion, paso):
+    # Normalización documentada en sop_a_markdown: "Ruido." vuelve como "Ruido".
+    datos = {
+        "titulo": "Prueba de riesgos",
+        "resumen": {
+            "riesgos": [
+                {"descripcion": descripcion, "nivel": "medio", "paso": paso, "control": "Tapones"}
+            ]
+        },
+        "pasos": [{"numero": 1, "nombre": "Cerrar la llave", "responsable": "Técnico"}],
+    }
+    texto = sop_a_markdown(SOP.model_validate(datos))
+    assert ".." not in texto
+    (riesgo,) = convertir_sop(texto).sop.resumen.riesgos
+    assert (riesgo.descripcion, riesgo.paso, riesgo.control) == ("Ruido", paso, "Tapones")
+
+
+@pytest.mark.parametrize(
+    "linea",
+    ["- Medio: Ruido.", "- Medio: Ruido", "- Medio: Ruido. Paso: 1.", "- Medio: Ruido. Control: X"],
+)
+def test_el_parser_guarda_la_descripcion_del_riesgo_sin_punto_final(linea):
+    r = convertir_sop(_sop("1. Cerrar la llave\n", f"## Riesgos\n{linea}\n\n"))
+    assert r.sop.resumen.riesgos[0].descripcion == "Ruido"
+
+
+def test_sop_a_markdown_escribe_numeros_sin_exponente():
+    texto = sop_a_markdown(SOP.model_validate(SOP_SIN_RESPONSABLE))
+    assert "0.00001" in texto and "e-" not in texto
+    assert "- Responsable:" not in texto  # NO_IDENTIFICADO con confianza baja no se escribe
+
+
+def test_sop_a_markdown_no_lleva_metadatos():
+    # Documentado en sop_a_markdown: confianza, fuente, t y tiempos de paso no viajan.
+    datos = {
+        "titulo": "Prueba de metadatos",
+        "resumen": {
+            "objetivo": {"valor": "Probar", "confianza": "media", "fuente": "audio", "t": 12.5}
+        },
+        "pasos": [
+            {
+                "numero": 1,
+                "nombre": "Cerrar la llave",
+                "responsable": "Técnico",
+                "t_inicio": 3.0,
+                "t_fin": 9.5,
+                "confianza": "baja",
+            }
+        ],
+        "puntos_clave": [{"texto": "No forzar la llave", "t": 4.0}],
+    }
+    vuelta = _ida_y_vuelta(SOP.model_validate(datos)).sop
+    assert vuelta.resumen.objetivo == Dato(valor="Probar")
+    p = vuelta.pasos[0]
+    assert (p.t_inicio, p.t_fin, p.confianza) == (None, None, "alta")
+    assert vuelta.puntos_clave == []

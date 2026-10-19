@@ -12,6 +12,9 @@ confianza "media" (y "responsable" en `campos_inferidos`) o, si tampoco hay, que
 
 Los errores (`ErrorSOP`) y las advertencias citan números de paso y de línea, nunca texto del SOP
 (puede ser material del cliente). El log solo registra conteos.
+
+`sop_a_markdown` hace el camino inverso: escribe un `SOP` con la misma plantilla, para mostrarlo
+o editarlo. El JSON sigue siendo la fuente de verdad; ver en su docstring qué no viaja.
 """
 
 import logging
@@ -19,6 +22,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Literal
 
 from sopvid.contrato import SOP, Confianza, Dato, Elemento, Falla, PasoSOP, Resumen, Riesgo
@@ -336,7 +340,7 @@ def _leer_riesgos(lineas: Sequence[tuple[int, str]], avisos: _Avisos) -> list[_R
                 avisos.agregar(
                     "valor_invalido", n, "el paso del riesgo no es un número; quedó vacío"
                 )
-        riesgos.append(_RiesgoLeido(n, nivel, partes[0].strip(), paso, control))
+        riesgos.append(_RiesgoLeido(n, nivel, _sin_punto_final(partes[0]), paso, control))
     return riesgos
 
 
@@ -507,6 +511,11 @@ def _revisar_infinitivos(pasos: Sequence[_PasoLeido], avisos: _Avisos) -> None:
 # ── Valores ──────────────────────────────────────────────────────────────────────────────────
 
 
+def _sin_punto_final(texto: str) -> str:
+    """Descripción de un riesgo en forma canónica: sin espacios a los lados ni punto final."""
+    return texto.strip().rstrip(". ")
+
+
 def _lista(valor: str) -> list[str]:
     return [x.strip() for x in _SEPARADOR_LISTA.split(valor) if x.strip()]
 
@@ -520,3 +529,93 @@ def _minutos(valor: str, linea: int, avisos: _Avisos, que: str) -> float | None:
         avisos.agregar("valor_invalido", linea, f"{que} no es un número de minutos; quedó vacío")
         return None
     return float(m.group(1).replace(",", "."))
+
+
+# ── Escritura: SOP → Markdown ────────────────────────────────────────────────────────────────
+
+
+def sop_a_markdown(sop: SOP) -> str:
+    """Escribe el SOP con la plantilla de docs/contrato/plantilla_sop.md, solo con las secciones
+    que tienen contenido. `convertir_sop(sop_a_markdown(sop)).sop == sop` para todo SOP que
+    `convertir_sop` puede producir.
+
+    No viaja lo que la plantilla no lleva: confianza, fuente y `t` de cada dato del resumen
+    (vuelven "alta", "documento" y None); `t_inicio`, `t_fin`, confianza y `campos_inferidos` de
+    cada paso (el parser los vuelve a calcular), y `puntos_clave` y `palabras_clave`. El
+    responsable heredado del resumen y el `NO_IDENTIFICADO` con confianza "baja" no se escriben,
+    para que el parser los vuelva a inferir igual.
+
+    Se normaliza la descripción de un riesgo: el parser la guarda sin punto final, así que
+    "Ruido." vuelve como "Ruido".
+
+    Tampoco se escapa el texto que choca con los separadores de la plantilla: ":" en el nombre de
+    un rol, de un equipo o en la situación de una falla; "," o ";" dentro de un elemento de una
+    lista; "Paso:" o "Control:" en la descripción de un riesgo; saltos de línea, o una
+    descripción que empieza como clave ("- X:") o como subtítulo. Ese texto no vuelve igual.
+    """
+    r = sop.resumen
+    bloques = [f"# {sop.titulo}"]
+
+    datos = [
+        ("Objetivo", r.objetivo.valor),
+        ("Alcance", r.alcance.valor),
+        ("Responsable", r.responsable.valor),
+        ("Lugar", r.lugar.valor),
+        ("Horario", r.horario_frecuencia.valor),
+    ]
+    resumen = [f"- {clave}: {valor}" for clave, valor in datos if valor is not None]
+    if r.duracion_total_min is not None:
+        resumen.append(f"- Duración total (min): {_escribir_numero(r.duracion_total_min)}")
+    bloques += _seccion("Resumen", resumen)
+    bloques += _seccion("Roles", [_escribir_elemento(e) for e in r.roles])
+    bloques += _seccion("Equipo", [_escribir_elemento(e) for e in r.equipo_operacion])
+    bloques += _seccion("Riesgos", [_escribir_riesgo(x) for x in r.riesgos])
+    bloques += _seccion(
+        "En caso de falla", [f"- {f.situacion}: {f.accion}".rstrip() for f in r.en_caso_de_falla]
+    )
+    bloques.append("## Pasos")
+    bloques += [_escribir_paso(p) for p in sop.pasos]
+    return "\n\n".join(bloques) + "\n"
+
+
+def _seccion(nombre: str, lineas: list[str]) -> list[str]:
+    return ["\n".join([f"## {nombre}", *lineas])] if lineas else []
+
+
+def _escribir_numero(x: float) -> str:
+    """Decimal sin exponente ("0.00001", no "1e-05") y sin ceros de sobra: vuelve exacto."""
+    texto = format(Decimal(repr(x)), "f")
+    return texto.rstrip("0").rstrip(".") if "." in texto else texto
+
+
+def _escribir_elemento(e: Elemento) -> str:
+    return f"- {e.nombre}: {e.descripcion}" if e.descripcion else f"- {e.nombre}"
+
+
+def _escribir_riesgo(r: Riesgo) -> str:
+    """Forma canónica: "- Nivel: descripción. Paso: N. Control: X", sin "..". El control va tal
+    cual (con su punto si lo trae), porque el parser lo conserva así."""
+    descripcion = _sin_punto_final(r.descripcion)
+    piezas = [f"{descripcion}."] if descripcion else []
+    if r.paso is not None:
+        piezas.append(f"Paso: {r.paso}.")
+    if r.control:
+        piezas.append(f"Control: {r.control}")
+    return f"- {r.nivel.capitalize()}: {' '.join(piezas)}".rstrip()
+
+
+def _escribir_paso(p: PasoSOP) -> str:
+    lineas = [f"### {p.numero}. {p.nombre}"]
+    if p.descripcion:
+        lineas.append(p.descripcion)
+    heredado = "responsable" in p.campos_inferidos
+    no_identificado = p.responsable == NO_IDENTIFICADO and p.confianza == "baja"
+    if not (heredado or no_identificado):
+        lineas.append(f"- Responsable: {p.responsable}")
+    if p.equipo:
+        lineas.append(f"- Equipo: {', '.join(p.equipo)}")
+    if p.puntos_validacion:
+        lineas.append(f"- Validación: {'; '.join(p.puntos_validacion)}")
+    if p.tiempo_esperado_min is not None:
+        lineas.append(f"- Tiempo (min): {_escribir_numero(p.tiempo_esperado_min)}")
+    return "\n".join(lineas)

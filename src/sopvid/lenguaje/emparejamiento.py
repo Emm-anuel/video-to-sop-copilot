@@ -3,7 +3,8 @@
 Base de S2: `Embedder`, que vectoriza textos con MiniLM multilingüe
 (`paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensiones) siempre en CPU para no competir por
 la VRAM con faster-whisper ni con Gemma 4, y `similitud`, la matriz de coseno entre dos grupos
-de vectores. La fusión (ADR-013), el algoritmo húngaro, los umbrales y el orden llegan en S3.
+de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video. La
+fusión (ADR-013), el algoritmo húngaro, los umbrales y el orden llegan en S3.
 
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
@@ -18,6 +19,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from sopvid.contrato import PasoSOP, PasoVideo
 from sopvid.plataforma.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -114,3 +116,15 @@ def similitud(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     if a.ndim != 2 or b.ndim != 2 or a.shape[1] != b.shape[1]:
         raise ValueError(f"dimensiones incompatibles: {a.shape} y {b.shape}")
     return np.clip(_normalizar_filas(a) @ _normalizar_filas(b).T, -1.0, 1.0)
+
+
+def texto_para_embeber(paso: PasoSOP | PasoVideo) -> str:
+    """Texto que se vectoriza de un paso: "nombre. descripción", o solo el nombre si no hay
+    descripción, con los espacios colapsados. Si el nombre ya cierra con ".", "?" o "!", no se
+    agrega otro punto. Igual para los pasos del SOP y los del video."""
+    nombre = " ".join(paso.nombre.split())
+    descripcion = " ".join(paso.descripcion.split())
+    if not descripcion:
+        return nombre
+    separador = " " if nombre.endswith((".", "?", "!")) else ". "
+    return f"{nombre}{separador}{descripcion}"
