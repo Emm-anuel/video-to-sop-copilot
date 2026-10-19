@@ -59,3 +59,19 @@ distingue por el contenido.
 | `f02.jpg` | 58.0 | 3 (botón de purga, cubeta) |
 | `f03.jpg` | 84.0 | 4 (vaso retirado con el cartucho usado) |
 | `f04.jpg` | 149.0 | 6 (manómetro cerca de 4 bar) |
+
+## `sop_filtro_agua.md` y `sop_filtro_agua_simple.txt`
+
+El SOP de referencia del ejemplo anterior, "Cambio del cartucho del filtro de agua", escrito por
+el equipo (INVENTADO, igual que el video) para probar la conversión de RF-03
+(`sopvid.lenguaje.sop_markdown`). Sus 6 pasos tienen los nombres de la tabla de inicios de paso,
+y `tests/test_sop_markdown.py` lo comprueba leyendo esa tabla.
+
+- **`sop_filtro_agua.md`:** la plantilla completa de `docs/contrato/plantilla_sop.md`: resumen,
+  2 roles, 7 elementos de equipo, 2 riesgos (pasos 3 y 4), 2 fallas y, en cada paso, responsable,
+  equipo, validación y 0.5 min (suman la duración total de 3 min). Convierte sin advertencias.
+- **`sop_filtro_agua_simple.txt`:** lo mínimo en TXT: título en la primera línea, un
+  "Responsable:" suelto y una lista numerada. Los pasos heredan el responsable con confianza media.
+
+Se guardan en el repo con LF; las pruebas leen con `encoding="utf-8"` y construyen en memoria las
+variantes con CRLF y BOM.
