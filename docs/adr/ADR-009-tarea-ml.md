@@ -51,3 +51,13 @@ corrección del experto). La segmentación del producto se decide en [ADR-010](A
   [HowTo100M_llama3_refined_caption](https://huggingface.co/datasets/Jazzcharles/HowTo100M_llama3_refined_caption) ·
   [TornadoLabs/howto100m](https://huggingface.co/datasets/TornadoLabs/howto100m)
 - Rama `avance2-inicio-paso`: código de la exploración. `docs/plan/estado.md`: resumen del 10 oct.
+
+## Corrección 19 oct: referencia de git
+
+Las Consecuencias y las Referencias ubican el código de la exploración en la rama
+`avance2-inicio-paso`. No es así: la rama apunta a `6adf1ee`, anterior a la exploración, y no tiene
+ningún commit que no esté en `main`. El código está en el commit `30f2b40` ("wip: exploración
+clasificador de inicio de paso (descartada, ver ADR-009)"), que ya está en `main` y se marca con el
+tag `exploracion-inicio-paso`. De él se conservan `src/sopvid/features/pasos.py`,
+`scripts/preparar_htstep.py`, `scripts/preparar_htstep_vtt.py` y `tests/test_features_pasos.py`.
+La segmentación de habla por pausas no quedó en ningún commit. La decisión no cambia.

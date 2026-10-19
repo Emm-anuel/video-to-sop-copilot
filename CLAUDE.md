@@ -115,7 +115,7 @@ docs/
 > Estado al 19 oct 2026:
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
-> - **En la rama `feat/llm-spike` (sin fusionar):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
+> - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
 >   en Docker, estado del LLM en `/health`, ADR-006 con su benchmark y el prototipo de segmentación
 >   (`percepcion/segmentacion.py`, ADR-010). Se reutilizan en 1.0.
 > - **Lectura del SOP en Markdown/TXT:** con código, sin LLM, según la plantilla de
@@ -171,8 +171,9 @@ Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versi�
 - **Tarea de ML de los avances 2–5 ([ADR-009](docs/adr/ADR-009-tarea-ml.md)):** `has_errors` sobre
   CaptainCook4D. El clasificador de inicio de paso NO es tarea académica: se probó el 10 oct con
   CrossTask, HT-Step + ASR de HowTo100M y HT-Step + `.vtt` completos, y las etiquetas públicas no
-  siguen a la narración (marcan la acción visual). El código de esa exploración vive en la rama
-  `avance2-inicio-paso`; no traigas más de él sin un ADR nuevo. Excepción: `features/pasos.py` y
+  siguen a la narración (marcan la acción visual). El código de esa exploración está en el commit
+  `30f2b40` (ya en `main`, tag `exploracion-inicio-paso`), no en la rama `avance2-inicio-paso`; no
+  lo retomes ni lo amplíes sin un ADR nuevo. Excepción: `features/pasos.py` y
   `scripts/preparar_htstep*.py` ya están en `main` y se conservan para reutilizarlos al detectar
   inicios de paso (`scripts/evaluar_segmentacion.py` usa `pasos.label_phrases` para el F1 en tiempo).
   No los borres.

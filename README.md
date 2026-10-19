@@ -49,7 +49,7 @@ Dominios de IA: voz, visión y lenguaje (multimodal), con modelos pequeños loca
 
 ## 4. Estructura del repositorio
 
-Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`), `features/` implementado para los avances académicos 1 y 2, y en la rama `feat/llm-spike` el cliente del LLM con Ollama y el prototipo de segmentación en pasos. El resto de la versión 1.0 está por construir.
+Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`), `features/` implementado para los avances académicos 1 y 2, y, desde `feat/llm-spike` (ya fusionada en `main`, merge `936af6f`), el cliente del LLM con Ollama y el prototipo de segmentación en pasos. El resto de la versión 1.0 está por construir.
 
 ```
 ├── README.md
