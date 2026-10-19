@@ -4,7 +4,10 @@ Todo el texto es inventado (tests/fixtures/README.md). Ninguna prueba usa la bas
 """
 
 import logging
+import os
 import re
+import subprocess
+import sys
 import unicodedata
 from pathlib import Path
 
@@ -685,3 +688,85 @@ def test_sop_a_markdown_no_lleva_metadatos():
     p = vuelta.pasos[0]
     assert (p.t_inicio, p.t_fin, p.confianza) == (None, None, "alta")
     assert vuelta.puntos_clave == []
+
+
+# ── scripts/convertir_sop.py ─────────────────────────────────────────────────────────────────
+
+SCRIPT = RAIZ / "scripts" / "convertir_sop.py"
+SOP_EJEMPLO = FIXTURES / "sop_ejemplo.json"
+
+
+def _correr_script(*args: str) -> subprocess.CompletedProcess[bytes]:
+    entorno = {**os.environ, "PYTHONIOENCODING": "utf-8"}  # stderr legible en cualquier consola
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args], cwd=RAIZ, capture_output=True, env=entorno
+    )
+
+
+def test_el_script_reproduce_sop_ejemplo_json(tmp_path):
+    salida = tmp_path / "sop.json"
+    r = _correr_script(str(FIXTURES / MD), "--salida", str(salida))
+    assert r.returncode == 0, r.stderr.decode("utf-8")
+    assert b"\r" not in salida.read_bytes()  # el script siempre escribe LF
+    # El fixture versionado se compara como texto: con core.autocrlf=true, git lo saca con CRLF
+    # en Windows, y read_text (newline=None) lo deja en LF, igual que exportar_contrato.py.
+    assert salida.read_text(encoding="utf-8") == _leer(SOP_EJEMPLO), (
+        "corre: python scripts/convertir_sop.py tests/fixtures/sop_filtro_agua.md "
+        "--salida tests/fixtures/sop_ejemplo.json"
+    )
+    assert r.stdout == b""
+
+
+def test_sop_ejemplo_json_es_el_sop_del_fixture(md):
+    texto = _leer(SOP_EJEMPLO)
+    assert SOP.model_validate_json(texto) == convertir_sop(md).sop
+    assert "\\u00" not in texto  # ensure_ascii=False: los acentos van tal cual
+
+
+def test_el_script_sin_salida_escribe_el_json_en_stdout():
+    r = _correr_script(str(FIXTURES / MD))
+    assert r.returncode == 0
+    assert b"\r" not in r.stdout  # LF también en Windows: el script escribe bytes
+    assert r.stdout.decode("utf-8") == _leer(SOP_EJEMPLO)
+    assert "6 pasos, 0 advertencias" in r.stderr.decode("utf-8")
+
+
+def test_el_script_imprime_las_advertencias(tmp_path):
+    archivo = tmp_path / "sop.txt"
+    archivo.write_text(
+        "Prueba inventada\n\nPasos:\n1. Cerrar la llave\n3. Abrir la llave\n", "utf-8"
+    )
+    r = _correr_script(str(archivo))
+    errores = r.stderr.decode("utf-8")
+    assert r.returncode == 0
+    assert "advertencia: numeracion (línea 5)" in errores
+    assert [p["numero"] for p in SOP.model_validate_json(r.stdout).model_dump()["pasos"]] == [1, 2]
+
+
+def test_el_script_con_error_sop_sale_con_1_sin_citar_el_sop(tmp_path):
+    archivo = tmp_path / "sop.md"
+    archivo.write_text("# Válvula secreta\n\nNota confidencial sin pasos.\n", encoding="utf-8")
+    r = _correr_script(str(archivo))
+    errores = r.stderr.decode("utf-8")
+    assert r.returncode == 1
+    assert r.stdout == b""
+    assert errores.startswith("error: El SOP no tiene pasos") and "## Pasos" in errores
+    assert "secreta" not in errores and "confidencial" not in errores
+
+
+def test_el_script_rechaza_archivos_que_no_son_utf8(tmp_path):
+    archivo = tmp_path / "sop.txt"
+    archivo.write_bytes("Válvula\n\nPasos:\n1. Cerrar la llave\n".encode("cp1252"))
+    r = _correr_script(str(archivo))
+    assert r.returncode == 1
+    assert "no está en UTF-8" in r.stderr.decode("utf-8")
+
+
+@pytest.mark.parametrize("nombre", ["sop.pdf", "no_existe.md"])
+def test_el_script_rechaza_otra_extension_o_un_archivo_que_no_existe(tmp_path, nombre):
+    archivo = tmp_path / nombre
+    if archivo.suffix == ".pdf":
+        archivo.write_bytes(b"%PDF-1.4")
+    r = _correr_script(str(archivo))
+    assert r.returncode == 2  # error de argumentos (argparse)
+    assert r.stdout == b""

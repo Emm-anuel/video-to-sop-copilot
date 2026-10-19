@@ -200,7 +200,8 @@ v1, FA encendido; indicativo, n=3). Detalle en ADR-010.
 - **El proyector de visión ahora sí se usa:** el mismo `gemma4:e4b` describe los fotogramas (RF-11),
   así que no hace falta un segundo modelo de visión. Pendiente: medir la calidad con fotogramas de los
   videos propios y el tiempo por lote de imágenes.
-- **Nuevos usos con JSON Schema:** convertir el SOP al esquema (sección 10 del documento), ficha de
-  contexto, juez de pares dudosos (ADR-012) y redacción del SOP.
+- **Nuevos usos con JSON Schema:** convertir el SOP al esquema (sección 10 del documento) (solo
+  texto libre, PDF y Word; Markdown/TXT con plantilla por código, ADR-015), ficha de contexto, juez
+  de pares dudosos (ADR-012) y redacción del SOP.
 - faster-whisper y Gemma 4 no caben juntos en 8 GB (~1.3 GB libres con `e4b` cargado): la
   transcripción termina y libera la GPU antes de cargar el LLM.

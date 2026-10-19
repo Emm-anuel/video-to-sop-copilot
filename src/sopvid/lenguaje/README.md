@@ -12,8 +12,16 @@ Frente de **lenguaje**: a partir de los pasos indexados, encuentra, conversa y r
 levantarlo en [docs/dev/llm.md](../../../docs/dev/llm.md). La segmentación en pasos que lo usa
 vive en `sopvid.percepcion.segmentacion`. `emparejamiento.py` tiene la base de MiniLM (ADR-012):
 `Embedder` (CPU, pesos en `EMBEDDER_CACHE_DIR`) y `similitud`; la fusión, el húngaro y los
-umbrales llegan en S3. `sop_markdown.py` convierte un SOP de referencia en Markdown o TXT al
-esquema `SOP` (RF-03) con código, sin LLM, según la plantilla de
-[docs/contrato/plantilla_sop.md](../../../docs/contrato/plantilla_sop.md); PDF, Word y texto libre
-con Gemma 4 quedan para S5. Búsqueda, chat y la redacción del SOP siguen reservados. La
-extensión `vector` ya queda habilitada en la base desde la primera migración.
+umbrales llegan en S3; `texto_para_embeber` arma el mismo texto ("nombre. descripción") para
+un paso del SOP y uno del video.
+
+`sop_markdown.py` (RF-03, [ADR-015](../../../docs/adr/ADR-015-sop-plantilla-markdown.md)) convierte
+un SOP de referencia en Markdown o TXT al contrato `SOP` con código, sin LLM, según la plantilla
+de [docs/contrato/plantilla_sop.md](../../../docs/contrato/plantilla_sop.md). `convertir_sop`
+devuelve el SOP y las advertencias con tipo y línea; `ErrorSOP` si falta el título o los pasos, o
+un paso no tiene nombre. `sop_a_markdown` escribe un SOP con la misma plantilla (sin metadatos:
+la fuente de verdad es el JSON). Desde la terminal: `python scripts/convertir_sop.py ARCHIVO
+[--salida RUTA]`. PDF, Word y texto libre con Gemma 4 quedan para S5.
+
+Búsqueda, chat y la redacción del SOP siguen reservados. La extensión `vector` ya queda
+habilitada en la base desde la primera migración.

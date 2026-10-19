@@ -54,6 +54,7 @@ la diarización y Colab como worker. Pasan a versión 2.
 | ADR-012 | Emparejar pasos por cascada: MiniLM + algoritmo húngaro; solo la zona gris va a Gemma 4 como juez; orden con subsecuencia creciente más larga | Equipo |
 | ADR-013 | Antes de emparejar, fusionar pasos del video consecutivos que caen en el mismo paso del SOP (mitiga la sobre-segmentación de `e4b`) | Equipo |
 | ADR-014 | Hardware de referencia: PC de Emmanuel (RTX 2070 SUPER 8 GB). faster-whisper y Gemma 4 en secuencia, un modelo en GPU a la vez | Equipo |
+| [ADR-015](../adr/ADR-015-sop-plantilla-markdown.md) | SOP de referencia en Markdown/TXT con plantilla y parser por código (RF-03); Gemma 4 solo para texto libre, PDF y Word en S5 | Propuesto (19 oct) |
 
 Los ADR-002, 003 y 008 estaban pendientes de aprobación escrita del patrocinador porque el NDA (cl. 1)
 nombra V-JEPA 2, el grafo y el HITL de tres bucles. El documento SOP V1.0, escrito por el patrocinador,
@@ -146,7 +147,7 @@ agrega la redacción; la búsqueda exacta no usa IA.
 | Entra en el MVP | Después del MVP |
 |---|---|
 | Subir un video completo (sin partes) | Subida por partes de 16 MB con reintentos (RF-06) |
-| SOP en TXT o Markdown escrito por el equipo, convertido al esquema (RF-03) | Leer PDF y Word (RF-01), biblioteca (RF-05), corregir la conversión (RF-04) |
+| SOP en TXT o Markdown escrito por el equipo, convertido al esquema con plantilla y código (RF-03, ADR-015) ✓ | Leer PDF y Word (RF-01), biblioteca (RF-05), corregir la conversión (RF-04) |
 | Idioma y transcripción con tiempo por palabra (RF-09, RF-10) | Avance en vivo (RF-08), fotogramas (RF-11) |
 | Pasos del video con Gemma 4 sin ver el SOP (RF-13) | Ficha de contexto (RF-12) y afinidad (RF-17) |
 | Fusión, cascada y orden: Cumple / Parcial / Falta / Sobra / Fuera de orden (RF-14, ADR-012, ADR-013) | Personas (RF-15) y tiempos (RF-16) |
@@ -166,7 +167,7 @@ agrega la redacción; la búsqueda exacta no usa IA.
 |---|---|---|---|
 | Subida, idioma, transcripción | RF-06 (simple), 09, 10 · RF-06 (partes), 08 | Sara | S2 · S5 |
 | Fotogramas | RF-11 | Sara | S5 |
-| SOP de referencia | RF-03 (TXT/MD) · RF-01, 02 (PDF/Word) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
+| SOP de referencia | RF-03 (TXT/MD, ADR-015) · RF-01, 02 (PDF/Word) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
 | Pasos del video y contexto | RF-13 · RF-12 | Emmanuel | S2–S3 · S5 |
 | Validación | RF-14, 19 · RF-15, 16, 17 | Emmanuel | S3–S4 · S5 |
 | Evidencia y revisión | RF-20 · RF-21 | Sara | S3–S4 · S7 |
@@ -217,7 +218,7 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | Semana | Emmanuel | Sara | Compartido / checkpoint | Académico |
 |---|---|---|---|---|
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
-| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; conversión del SOP en Markdown; fixture del contrato; **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; tablas `videos`, `sops`, `reportes`; SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
+| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); fixture del contrato; **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; tablas `videos`, `sops`, `reportes`; SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
 | S4 · 2–8 nov | Juez Gemma 4 en la zona gris; porcentaje; **calibrar umbrales MiniLM** con A y B | Integrar la pantalla con la API | ✓ **MVP de validación** (videos A y B) | — |
 | S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
