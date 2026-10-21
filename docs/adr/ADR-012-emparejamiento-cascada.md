@@ -43,6 +43,7 @@ Los umbrales viven en la configuración (RNF-14).
 - **Positivas:** la mayoría de los pares se resuelve sin LLM; es el experimento central del paper.
 - **Negativas / riesgos:** umbrales mal calibrados mueven pares a la categoría equivocada.
 - **Seguimiento:** calibrar con los videos A–D anotados a mano; comparar A, B y C en el paper.
+  Base S2 (`Embedder`, `similitud`) implementada en ca82b10; cascada completa en S3–S4.
 
 ## Referencias
 

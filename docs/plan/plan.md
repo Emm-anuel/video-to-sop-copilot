@@ -104,24 +104,35 @@ que Ollama cargue el modelo (`OLLAMA_MAX_LOADED_MODELS=1`, descarga explícita e
 
 ## 4. Contrato entre módulos
 
-Sara entrega el análisis del video; Emmanuel lo consume. Mientras el pipeline no exista, Emmanuel
-trabaja con un archivo de ejemplo en `tests/fixtures/` con este formato (datos inventados).
+Sara entrega el análisis del video; Emmanuel lo consume. El contrato es el modelo `Analisis` de
+`src/sopvid/contrato.py`; su JSON Schema se exporta a `docs/contrato/analisis.schema.json` con
+`python scripts/exportar_contrato.py` (no se edita a mano). Mientras el pipeline no exista, Emmanuel
+trabaja con `tests/fixtures/analisis_ejemplo.json` (datos inventados, documentados en
+`tests/fixtures/README.md`). Forma resumida:
 
 ```json
 {
-  "video_id": 7,
-  "duracion_s": 412.6,
-  "idioma": {"codigo": "es", "confianza": 0.97, "fijado_a_mano": false},
-  "segmentos": [
-    {"i": 12, "t_inicio": 118.40, "t_fin": 124.95, "texto": "Ahora retiramos la tapa del filtro.",
-     "palabras": [{"w": "Ahora", "t": 118.40, "t_fin": 118.71}]}
+  "version_contrato": 1,
+  "video_id": 1,
+  "duracion_s": 157.8,
+  "idioma": {"codigo": "es", "confianza": 0.98, "fijado_a_mano": false},
+  "transcripcion": [
+    {"id": 4, "t_inicio": 20.45, "t_fin": 25.54,
+     "texto": "Primero me pongo los guantes de nitrilo y los lentes de seguridad.",
+     "palabras": [{"w": "Primero", "t": 20.45, "t_fin": 20.96}]}
   ],
   "fotogramas": [
-    {"t": 120.0, "archivo": "f_0120.jpg", "descripcion": "Operador con guantes sostiene una carcasa",
-     "equipos": ["llave de carcasa"], "personas": 1, "texto_visible": [], "riesgos": []}
+    {"t": 23.0, "archivo": "fotogramas/f01.jpg",
+     "descripcion": "Persona con guantes azules y lentes de seguridad frente a un filtro de cartucho montado en la pared.",
+     "equipos": ["filtro de cartucho", "manómetro"], "personas": 1, "texto_visible": [], "riesgos": []}
   ]
 }
 ```
+
+Reglas que el pipeline debe cumplir (las valida el modelo): campos extra prohibidos; ids de segmento
+estrictamente crecientes y segmentos sin solaparse; tiempos finitos, ≥ 0 y fin ≥ inicio; palabras en
+orden; listas vacías como `[]`, nunca `null`. Para comprobar una salida:
+`Analisis.model_validate_json(Path(ruta).read_text(encoding="utf-8"))`.
 
 El SOP y el reporte usan los esquemas de la sección 10 del documento SOP V1.0 sin cambios.
 
@@ -186,8 +197,9 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 
 | Pieza | Qué hace | Entrada → salida |
 |---|---|---|
-| `Embedder` | Carga MiniLM una sola vez y vectoriza textos (normalizados) | `list[str]` → matriz `n × 384` |
-| `similitud(sop, video)` | Texto de cada paso = `nombre + ". " + descripción`; coseno entre todos los pares | pasos SOP y video → matriz `m × n` |
+| `Embedder` | Carga MiniLM una sola vez, en CPU, y vectoriza textos (filas de norma 1) | `list[str]` → matriz `n × 384` float32 |
+| `texto_para_embeber(paso)` | Texto de cada paso del SOP o del video = `nombre + ". " + descripción` (solo el nombre si no hay descripción; sin punto doble) | paso → `str` |
+| `similitud(a, b)` | Coseno entre cada fila de dos matrices de vectores (los de los pasos del SOP y los del video) | matrices `m × d` y `n × d` → matriz `m × n` en [-1, 1] |
 | `fusionar(pasos_video, S)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ 0.55 | pasos del video → pasos fusionados |
 | `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` sobre `-S`) | matriz → pares |
 | `clasificar(pares, S)` | < 0.55 sin pareja · 0.55–0.75 zona gris (va a Gemma 4) · ≥ 0.75 pareja aceptada | pares → estado preliminar |
@@ -197,7 +209,8 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 
 **Dependencias:** `sentence-transformers` con versión exacta en `pyproject.toml` (la conservadora al
 agregarla) y `torch` en su build de CPU para no inflar la imagen. `scipy` ya está fijado (1.17.1).
-Los pesos (~470 MB) se descargan la primera vez a un volumen de caché (`HF_HOME`), no a la imagen.
+Los pesos (~470 MB) se descargan la primera vez a `EMBEDDER_CACHE_DIR` (por defecto `models/embedder`,
+ignorada por Git; en Docker, el volumen `modelos`), no a la imagen.
 
 **Umbrales en configuración** (RNF-14): `PARECIDO_MIN=0.55`, `PARECIDO_ACEPTA=0.75`,
 `AFINIDAD_MIN=60`. Se calibran con `scripts/calibrar_umbrales.py` sobre los videos A–D anotados a mano:
@@ -218,7 +231,7 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | Semana | Emmanuel | Sara | Compartido / checkpoint | Académico |
 |---|---|---|---|---|
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
-| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); fixture del contrato; **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; tablas `videos`, `sops`, `reportes`; SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
+| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct) | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; tablas `videos`, `sops`, `reportes`; SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
 | S4 · 2–8 nov | Juez Gemma 4 en la zona gris; porcentaje; **calibrar umbrales MiniLM** con A y B | Integrar la pantalla con la API | ✓ **MVP de validación** (videos A y B) | — |
 | S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
