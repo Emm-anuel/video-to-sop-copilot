@@ -4,6 +4,7 @@ from logging.config import fileConfig
 
 from alembic import context
 
+from sopvid.plataforma import modelos  # noqa: F401  (registra las tablas en Base.metadata)
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import Base, get_engine
 

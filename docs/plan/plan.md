@@ -84,7 +84,7 @@ Subida (partes de 16 MB, reintentos) ── SOP nuevo: pdfplumber / python-docx 
 |---|---|---|
 | Web | Angular, servido por FastAPI | Vistas `/carga` (6 pantallas) y `/buscar` (1), clave de acceso por vista en variables de entorno |
 | API y tareas | FastAPI (Python 3.11) + `ThreadPoolExecutor` | Avance por etapa 0–100 %; estado `error` con reprocesar |
-| Base | PostgreSQL 16 (imagen pgvector de F0) | Tablas `sops`, `videos`, `reportes`, `palabras`, `busquedas` del documento |
+| Base | PostgreSQL 16 (imagen pgvector de F0) | Tablas `sops`, `videos`, `reportes`, `palabras`, `busquedas` de la sección 10 del documento, en Postgres con JSONB para SOP, análisis y reporte (ADR-005). Ya creadas: `plataforma/modelos.py`, migración `0002` (21 oct) |
 | Archivos | Volumen de medios | Videos, SOP originales, fotogramas, miniaturas, PDF |
 | Transcripción | faster-whisper `large-v3-turbo` (GPU, float16); `small` (CPU, int8) | Tiempo por palabra, VAD |
 | LLM y visión | Ollama 0.40.2 · `gemma4:e4b-it-q4_K_M` · JSON Schema · temperatura 0 · semilla 42 | Mismo modelo para texto e imágenes |
@@ -231,11 +231,11 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | Semana | Emmanuel | Sara | Compartido / checkpoint | Académico |
 |---|---|---|---|---|
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
-| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct) | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; tablas `videos`, `sops`, `reportes`; SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
+| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct) | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
 | S4 · 2–8 nov | Juez Gemma 4 en la zona gris; porcentaje; **calibrar umbrales MiniLM** con A y B | Integrar la pantalla con la API | ✓ **MVP de validación** (videos A y B) | — |
 | S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
-| S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta; pantallas restantes; descargas | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
+| S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta (tablas `palabras` y `busquedas` ya existen desde S2: solo falta la lógica de publicar y buscar); pantallas restantes; descargas | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
 | S7 · 23–29 nov | Experimentos del paper; si da tiempo RF-18 | Ajustes; si da tiempo RF-21 | Demo con el patrocinador (*Por confirmar*) | Resumen ejecutivo (*Por confirmar*) |
 | S8 · 30 nov–6 dic | Borrador del paper | Informe de pruebas y README | Documento de requerimientos actualizado | Presentación final (*Por confirmar*) |
 | S9 · 7–13 dic | — | — | Imagen 1.0 y release (NDA cl. 8) | Cierre |

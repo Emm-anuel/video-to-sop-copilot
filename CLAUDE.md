@@ -121,6 +121,9 @@ docs/
 > - **Lectura del SOP en Markdown/TXT:** con código, sin LLM, según la plantilla de
 >   `docs/contrato/plantilla_sop.md` (`lenguaje/sop_markdown.py`, `scripts/convertir_sop.py`,
 >   ADR-015). PDF y Word siguen pendientes (S5).
+> - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
+>   `palabras`, `busquedas`) en `plataforma/modelos.py` y la migración `0002`; `sops.codigo` es
+>   una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
 > - **Sin código todavía:** subida, ffmpeg, transcripción y fotogramas (`percepcion/`); lectura del
 >   SOP en PDF y Word, emparejamiento, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
