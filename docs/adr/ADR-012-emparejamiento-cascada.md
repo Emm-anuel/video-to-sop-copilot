@@ -45,7 +45,10 @@ Los umbrales viven en la configuración (RNF-14).
 - **Seguimiento:** calibrar con los videos A–D anotados a mano; comparar A, B y C en el paper.
   Base S2 (`Embedder`, `similitud`) implementada en ca82b10; cascada completa en S3–S4.
   `asignar` (húngaro con `maximize=True`; en empate, la asignación más cercana al orden, la de
-  menor suma de (i − j)²) implementada en 83793f3.
+  menor suma de (i − j)²) implementada en 83793f3. `clasificar` (puntos 2–4 sin LLM: bajo
+  `UMBRAL_BAJO` el par se rompe en *Falta* + *Sobra*; la zona gris queda marcada como estado
+  interno `zona_gris` para el juez de S4; desde `UMBRAL_ALTO`, *Cumple* provisional; resumen con
+  el % de pares que irían al LLM) implementada en a027ad2.
 
 ## Referencias
 
