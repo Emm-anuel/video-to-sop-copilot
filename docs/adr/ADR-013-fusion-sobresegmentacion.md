@@ -33,6 +33,8 @@ las citas de ambos. Solo aplica con SOP; al generar un SOP los pasos del video s
 - **Negativas / riesgos:** dos pasos del SOP muy parecidos y seguidos podrían fusionarse mal; se
   revisa con el video C.
 - **Seguimiento:** medir *Sobra* falsos con y sin fusión en los videos A–D.
+  `fusionar` implementada en 972abc6, con el umbral en la configuración (`UMBRAL_FUSION`) y el
+  registro `Fusion` (números originales, paso del SOP, citas y cosenos) para el reporte y el paper.
 
 ## Referencias
 
