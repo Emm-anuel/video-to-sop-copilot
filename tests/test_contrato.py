@@ -15,6 +15,7 @@ from sopvid.contrato import (
     Fusion,
     Idioma,
     Palabra,
+    Par,
     PasoSOP,
     PasoVideo,
     esquema_analisis,
@@ -354,6 +355,27 @@ def test_el_error_de_la_fusion_no_cita_el_texto():
     mensajes = " ".join(e["msg"] for e in exc.value.errors())
     assert "1 similitudes" in mensajes
     assert all(c not in mensajes for c in FUSION["citas"])
+
+
+# ── Par del algoritmo húngaro (ADR-012) ──────────────────────────────────────────────────────
+
+
+def test_par_valida():
+    par = Par(indice_sop=0, indice_video=3, similitud=0.82)
+    assert (par.indice_sop, par.indice_video, par.similitud) == (0, 3, 0.82)
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [("indice_sop", -1), ("indice_video", -1), ("similitud", 1.01), ("similitud", float("nan"))],
+)
+def test_par_fuera_del_contrato_falla(campo, valor):
+    datos = {"indice_sop": 0, "indice_video": 0, "similitud": 0.5, campo: valor}
+    _falla(Par, datos, campo)
+
+
+def test_campo_extra_en_par_falla():
+    _falla(Par, {"indice_sop": 0, "indice_video": 0, "similitud": 0.5, "extra": 1}, "extra")
 
 
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────

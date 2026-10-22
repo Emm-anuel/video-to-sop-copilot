@@ -2,7 +2,8 @@
 
 `Analisis` es el JSON que produce el pipeline de video: idioma, transcripción con tiempo por
 palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él;
-`Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013).
+`Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013) y `Par`, cada
+pareja que elige el algoritmo húngaro (ADR-012).
 
 `SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
 lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un SOP cargado no
@@ -164,6 +165,18 @@ class Fusion(_Modelo):
                 f"valores sin repetir (llegaron {len(distintos)})"
             )
         return self
+
+
+class Par(_Modelo):
+    """Pareja que elige el algoritmo húngaro (ADR-012): un paso del SOP con uno del video.
+
+    Los índices son posiciones desde 0 en las listas que se emparejaron (filas y columnas de la
+    matriz de similitud), no el `numero` de los pasos.
+    """
+
+    indice_sop: int = Field(ge=0)
+    indice_video: int = Field(ge=0)
+    similitud: float = Field(ge=-1, le=1, description="Coseno MiniLM entre los dos pasos.")
 
 
 # ── SOP (sección 10 del documento SOP V1.0) ─────────────────────────────────────────────────

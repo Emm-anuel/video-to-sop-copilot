@@ -201,7 +201,7 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 | `texto_para_embeber(paso)` | Texto de cada paso del SOP o del video = `nombre + ". " + descripción` (solo el nombre si no hay descripción; sin punto doble) | paso → `str` |
 | `similitud(a, b)` | Coseno entre cada fila de dos matrices de vectores (los de los pasos del SOP y los del video) | matrices `m × d` y `n × d` → matriz `m × n` en [-1, 1] |
 | `fusionar(pasos_sop, pasos_video, embedder)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ `UMBRAL_FUSION` (0.55) | pasos del video → pasos fusionados + registro `Fusion` |
-| `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` sobre `-S`) | matriz → pares |
+| `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` con `maximize=True`); en empate, la asignación que respeta el orden | matriz SOP × video → pares (`Par`) y los índices sin pareja |
 | `clasificar(pares, S)` | < 0.55 sin pareja · 0.55–0.75 zona gris (va a Gemma 4) · ≥ 0.75 pareja aceptada | pares → estado preliminar |
 | `orden(pares)` | Subsecuencia creciente más larga; el resto *Fuera de orden* | pares → estado final de orden |
 | `afinidad(sop, contexto)` | Coseno entre objetivo + alcance + equipo del SOP y la ficha de contexto, × 100 (RF-17, umbral 60) | SOP, contexto → 0–100 |

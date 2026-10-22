@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 import pytest
 from pydantic import ValidationError
+from scipy.optimize import linear_sum_assignment
 
 from sopvid.contrato import PasoSOP, PasoVideo
 from sopvid.lenguaje import emparejamiento as emp
@@ -562,6 +563,170 @@ def test_fusionar_pasos_del_video_fuera_de_orden_falla(embedder):
     cerrar, desenroscar = _video("cerrar", "desenroscar")
     with pytest.raises(ValueError, match="fuera de orden"):
         emp.fusionar(SOP_FILTRO, [desenroscar, cerrar], embedder)
+
+
+# ── asignar (algoritmo húngaro, ADR-012) ─────────────────────────────────────────────────────
+
+# Los 6 pasos completos del SOP inventado del cambio de cartucho, como texto para embeber.
+PASOS_CARTUCHO = [
+    "Cerrar la llave de paso. Girar la llave de paso del agua hasta cerrarla.",
+    "Liberar la presión. Abrir el grifo de la cocina hasta que deje de salir agua.",
+    "Retirar el cartucho usado. Desenroscar el vaso del filtro y sacar el cartucho usado.",
+    "Limpiar el vaso. Lavar el vaso con agua y revisar el empaque.",
+    "Colocar el cartucho nuevo. Meter el cartucho nuevo en el vaso y enroscar el vaso.",
+    "Abrir la llave y purgar. Abrir la llave de paso y dejar correr el agua un minuto.",
+]
+PASO_EXTRA = "Anotar la fecha. Escribir la fecha del cambio en la etiqueta del filtro."
+
+
+def _matriz(embedder, sop: list[str], video: list[str]) -> np.ndarray:
+    return emp.similitud(embedder.embed(sop), embedder.embed(video))
+
+
+def _parejas(asignacion: emp.Asignacion) -> list[tuple[int, int]]:
+    return [(p.indice_sop, p.indice_video) for p in asignacion.pares]
+
+
+def test_seis_pasos_identicos_dan_la_diagonal(embedder):
+    asignacion = emp.asignar(_matriz(embedder, PASOS_CARTUCHO, PASOS_CARTUCHO))
+    assert _parejas(asignacion) == [(i, i) for i in range(6)]
+    assert [p.similitud for p in asignacion.pares] == pytest.approx([1.0] * 6)
+    assert asignacion.sop_sin_pareja == asignacion.video_sin_pareja == []
+
+
+def test_dos_pasos_omitidos_quedan_sin_pareja_en_el_sop(embedder):
+    video = [t for i, t in enumerate(PASOS_CARTUCHO) if i not in (1, 3)]
+    asignacion = emp.asignar(_matriz(embedder, PASOS_CARTUCHO, video))
+    assert _parejas(asignacion) == [(0, 0), (2, 1), (4, 2), (5, 3)]
+    assert asignacion.sop_sin_pareja == [1, 3]
+    assert asignacion.video_sin_pareja == []
+
+
+def test_un_paso_extra_queda_sin_pareja_en_el_video(embedder):
+    video = [*PASOS_CARTUCHO[:3], PASO_EXTRA, *PASOS_CARTUCHO[3:]]
+    asignacion = emp.asignar(_matriz(embedder, PASOS_CARTUCHO, video))
+    assert _parejas(asignacion) == [(0, 0), (1, 1), (2, 2), (3, 4), (4, 5), (5, 6)]
+    assert asignacion.sop_sin_pareja == []
+    assert asignacion.video_sin_pareja == [3]
+
+
+def _voraz(s: np.ndarray) -> list[tuple[int, int]]:
+    """Toma la pareja más parecida que quede libre, una y otra vez."""
+    libres_sop, libres_video, parejas = set(range(s.shape[0])), set(range(s.shape[1])), []
+    while libres_sop and libres_video:
+        i, j = max(
+            ((i, j) for i in libres_sop for j in libres_video), key=lambda par: s[par[0], par[1]]
+        )
+        parejas.append((i, j))
+        libres_sop.remove(i)
+        libres_video.remove(j)
+    return sorted(parejas)
+
+
+def test_el_hungaro_acierta_donde_el_voraz_falla():
+    """El SOP tiene "Cerrar la llave de paso" (fila 0) y "Cerrar la llave del filtro" (fila 1).
+    En el video, el paso 0 ("Cierro la llave") se parece a los dos (0.90 y 0.85), pero el paso 1
+    ("Cierro la llave de paso del agua") solo al primero (0.85; con el segundo, 0.20). La fila 2
+    ("Purgar") empareja sin ambigüedad con el paso 2 (0.80).
+
+    El voraz toma primero el 0.90 (fila 0 con paso 0) y deja la fila 1 con el paso 1 a 0.20:
+    total 1.90, y bajo el umbral de 0.55 eso sería un *Falta* y un *Sobra* falsos. El húngaro
+    cruza las dos primeras parejas (0.85 + 0.85) y suma 2.50: las tres parejas pasan el umbral.
+    """
+    s = np.array(
+        [
+            [0.90, 0.85, 0.10],
+            [0.85, 0.20, 0.10],
+            [0.10, 0.10, 0.80],
+        ]
+    )
+    voraz = _voraz(s)
+    asignacion = emp.asignar(s)
+    assert voraz == [(0, 0), (1, 1), (2, 2)]
+    assert _parejas(asignacion) == [(0, 1), (1, 0), (2, 2)]
+    assert sum(s[i, j] for i, j in voraz) == pytest.approx(1.90)
+    assert sum(p.similitud for p in asignacion.pares) == pytest.approx(2.50)
+    assert all(p.similitud >= 0.55 for p in asignacion.pares)
+
+
+def test_asignar_es_determinista(embedder):
+    rng = np.random.default_rng(7)
+    s = np.round(rng.uniform(-1, 1, size=(7, 5)), 1)  # redondeada: con muchos empates
+    assert emp.asignar(s) == emp.asignar(s.copy())
+    video = [*PASOS_CARTUCHO[:3], PASO_EXTRA, *PASOS_CARTUCHO[3:]]
+    m = _matriz(embedder, PASOS_CARTUCHO, video)
+    assert emp.asignar(m) == emp.asignar(m)
+
+
+@pytest.mark.parametrize(
+    ("s", "esperado"),
+    [
+        (np.ones((2, 2)), [(0, 0), (1, 1)]),
+        (np.full((3, 3), 0.7), [(0, 0), (1, 1), (2, 2)]),
+        (np.full((2, 4), 0.6), [(0, 0), (1, 1)]),
+        (np.full((4, 2), 0.6), [(0, 0), (1, 1)]),
+        # Un paso del SOP repetido (filas 0 y 2 iguales) y dos pasos del video iguales: gana
+        # la asignación que no cruza el orden.
+        (np.array([[0.9, 0.2, 0.9], [0.2, 0.8, 0.2], [0.9, 0.2, 0.9]]), [(0, 0), (1, 1), (2, 2)]),
+    ],
+)
+def test_en_empate_gana_la_asignacion_que_respeta_el_orden(s, esperado):
+    assert _parejas(emp.asignar(s)) == esperado
+
+
+@pytest.mark.parametrize(
+    ("s", "esperado"),
+    [
+        # Filas 0 y 1 iguales (un paso del SOP repetido): scipy solo las cruza.
+        (
+            [
+                [0.2, 0.9, 0.2, 0.9],
+                [0.2, 0.9, 0.2, 0.9],
+                [0.2, 0.9, 0.9, 0.9],
+                [0.2, 0.9, 0.9, 0.9],
+            ],
+            [(0, 0), (1, 1), (2, 2), (3, 3)],
+        ),
+        # La fila 1 empata entre los pasos 0 y 1 del video: gana el más cercano en posición.
+        ([[0.2, 0.2, 0.9], [0.9, 0.9, 0.2]], [(0, 2), (1, 1)]),
+    ],
+)
+def test_el_desempate_decide_donde_scipy_solo_cruzaria_el_orden(s, esperado):
+    s = np.array(s)
+    sop, video = linear_sum_assignment(s, maximize=True)
+    sin_desempate = list(zip(sop.tolist(), video.tolist(), strict=True))
+    asignacion = emp.asignar(s)
+    assert sin_desempate != esperado  # el caso de verdad depende del desempate
+    assert _parejas(asignacion) == esperado
+    assert sum(p.similitud for p in asignacion.pares) == pytest.approx(
+        sum(s[i, j] for i, j in sin_desempate)
+    )
+
+
+def test_el_desempate_no_le_gana_a_una_diferencia_real_de_similitud():
+    # Cruzar suma 1.2 + 0.0000020 más que no cruzar: gana cruzar aunque rompa el orden.
+    s = np.array([[0.5, 0.600002], [0.6, 0.5]])
+    assert _parejas(emp.asignar(s)) == [(0, 1), (1, 0)]
+
+
+def test_la_similitud_del_par_es_la_de_la_matriz_sin_redondear():
+    s = np.array([[0.123456789, -0.5], [-0.5, 0.987654321]])
+    assert [p.similitud for p in emp.asignar(s).pares] == [0.123456789, 0.987654321]
+
+
+@pytest.mark.parametrize(("m", "n"), [(0, 3), (3, 0), (0, 0)])
+def test_asignar_sin_pasos_de_un_lado_deja_todo_sin_pareja(m, n):
+    assert emp.asignar(np.zeros((m, n))) == emp.Asignacion([], list(range(m)), list(range(n)))
+
+
+@pytest.mark.parametrize(
+    "matriz",
+    [np.ones(3), np.ones((2, 2, 2)), np.array([[0.5, np.nan]]), np.array([[1.5, 0.2]])],
+    ids=["1d", "3d", "nan", "fuera_de_rango"],
+)
+def test_asignar_rechaza_matrices_invalidas(matriz):
+    with pytest.raises(ValueError):
+        emp.asignar(matriz)
 
 
 # ── Modelo real (lento) ──────────────────────────────────────────────────────────────────────

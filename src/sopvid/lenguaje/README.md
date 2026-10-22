@@ -15,8 +15,10 @@ vive en `sopvid.percepcion.segmentacion`. `emparejamiento.py` tiene la base de M
 mismo texto ("nombre. descripción") para un paso del SOP y uno del video. `fusionar`
 ([ADR-013](../../../docs/adr/ADR-013-fusion-sobresegmentacion.md)) une los pasos consecutivos del
 video que caen en el mismo paso del SOP (coseno ≥ `UMBRAL_FUSION`) y devuelve el registro
-`Fusion` de qué pasos originales se unieron. Los umbrales (`UMBRAL_BAJO`, `UMBRAL_ALTO`,
-`UMBRAL_FUSION`) viven en la configuración; el húngaro, la cascada y el orden llegan en S3–S4.
+`Fusion` de qué pasos originales se unieron. `asignar` elige las parejas SOP–video con el
+algoritmo húngaro (`Par`, más los índices sin pareja; en empate, la asignación que respeta el
+orden). Los umbrales (`UMBRAL_BAJO`, `UMBRAL_ALTO`, `UMBRAL_FUSION`) viven en la configuración;
+la cascada y el orden llegan en S3–S4.
 
 `sop_markdown.py` (RF-03, [ADR-015](../../../docs/adr/ADR-015-sop-plantilla-markdown.md)) convierte
 un SOP de referencia en Markdown o TXT al contrato `SOP` con código, sin LLM, según la plantilla

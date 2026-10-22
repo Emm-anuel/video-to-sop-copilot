@@ -6,7 +6,8 @@ la VRAM con faster-whisper ni con Gemma 4, y `similitud`, la matriz de coseno en
 de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video.
 
 S3: `fusionar` une los pasos consecutivos del video que caen en el mismo paso del SOP
-(ADR-013). El algoritmo húngaro, la cascada con Gemma 4 y el orden llegan después.
+(ADR-013) y `asignar` elige las parejas SOP–video con el algoritmo húngaro (ADR-012). La
+cascada con Gemma 4 y el orden llegan después.
 
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
@@ -18,11 +19,12 @@ from collections.abc import Callable, Sequence
 from functools import lru_cache
 from itertools import pairwise
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 
-from sopvid.contrato import Confianza, Fuente, Fusion, PasoSOP, PasoVideo
+from sopvid.contrato import Confianza, Fuente, Fusion, Par, PasoSOP, PasoVideo
 from sopvid.plataforma.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -237,3 +239,64 @@ def _responsables_distintos(originales: Sequence[PasoVideo]) -> list[str]:
     """Los responsables de `originales` sin repetir, en orden; vacía si todos coinciden."""
     distintos = list(dict.fromkeys(p.responsable for p in originales))
     return distintos if len(distintos) > 1 else []
+
+
+# ── Asignación con el algoritmo húngaro (ADR-012) ────────────────────────────────────────────
+
+# Resolución del desempate: dos asignaciones cuya similitud total difiere en menos de ~1e-6 por
+# pareja cuentan como empate (float32, el tipo de los vectores, no da más precisión).
+_ESCALA = 10**6
+
+
+class Asignacion(NamedTuple):
+    """Resultado de `asignar`: las parejas y los índices (desde 0) que quedaron sin pareja."""
+
+    pares: list[Par]
+    sop_sin_pareja: list[int]
+    video_sin_pareja: list[int]
+
+
+def asignar(matriz: np.ndarray) -> Asignacion:
+    """Parejas SOP–video que maximizan la similitud total (algoritmo húngaro, ADR-012).
+
+    `matriz` es m × n: filas = pasos del SOP, columnas = pasos del video, valores en [-1, 1]
+    (p. ej. `similitud(vectores_sop, vectores_video)`). Puede ser rectangular: se forman
+    min(m, n) parejas y el resto de filas o columnas queda sin pareja. Aquí no se aplica ningún
+    umbral; una pareja con similitud baja la descarta después la cascada.
+
+    Desempate, para que el resultado no dependa de detalles internos de scipy: entre
+    asignaciones con la misma similitud total (redondeada a 1e-6 por pareja) gana la de menor
+    suma de (indice_sop − indice_video)², que prefiere las parejas que respetan el orden (dos
+    parejas que se cruzan siempre suman más que las mismas sin cruzar). Se implementa con pesos
+    enteros, así que nunca le gana a una diferencia real de similitud. Si aun así empatan,
+    decide `linear_sum_assignment`, que es determinista para la misma matriz.
+
+    `pares` va ordenada por `indice_sop`; las listas sin pareja, en orden creciente.
+    """
+    s = np.asarray(matriz, dtype=np.float64)
+    if s.ndim != 2:
+        raise ValueError(f"se esperaba una matriz 2-D y llegó una de forma {s.shape}")
+    if not np.all(np.isfinite(s)) or np.any(np.abs(s) > 1):
+        raise ValueError("la matriz debe tener solo valores finitos entre -1 y 1")
+    m, n = s.shape
+    if m == 0 or n == 0:
+        return Asignacion([], list(range(m)), list(range(n)))
+
+    filas, columnas = np.indices(s.shape)
+    distancia = (filas - columnas) ** 2
+    # Mayor que cualquier suma de distancias de una asignación: el orden solo desempata.
+    peso_similitud = min(m, n) * int(distancia.max()) + 1
+    if min(m, n) * (_ESCALA + 1) * peso_similitud >= 2**53:  # sumas exactas en float64
+        raise ValueError(f"matriz demasiado grande para el desempate exacto: {m} × {n}")
+    pesos = np.rint(s * _ESCALA) * peso_similitud - distancia
+
+    sop, video = linear_sum_assignment(pesos, maximize=True)
+    pares = [
+        Par(indice_sop=int(i), indice_video=int(j), similitud=float(s[i, j]))
+        for i, j in zip(sop, video, strict=True)
+    ]
+    return Asignacion(
+        pares,
+        sorted(set(range(m)) - {p.indice_sop for p in pares}),
+        sorted(set(range(n)) - {p.indice_video for p in pares}),
+    )
