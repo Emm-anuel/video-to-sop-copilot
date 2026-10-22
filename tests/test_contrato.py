@@ -20,6 +20,7 @@ from sopvid.contrato import (
     Par,
     PasoSOP,
     PasoVideo,
+    ResultadoEmparejamiento,
     ResultadoPaso,
     ResumenClasificacion,
     esquema_analisis,
@@ -472,6 +473,105 @@ def test_clasificacion_con_resumen_que_no_cuadra_falla():
     _falla(Clasificacion, {"pasos": [CUMPLE], "resumen": resumen}, "Cumple")
     resumen["conteo"] = _conteo(Cumple=1)
     assert len(Clasificacion.model_validate({"pasos": [CUMPLE], "resumen": resumen}).pasos) == 1
+
+
+# ── Marca de fuera de orden y resultado de emparejar (ADR-012) ───────────────────────────────
+
+MARCA = {"fuera_de_orden": True, "posicion_esperada": 1, "posicion_observada": 2}
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [{**CUMPLE, **MARCA}, {**CUMPLE, "estado": "zona_gris", "similitud": 0.6, **MARCA}],
+    ids=["cumple", "zona_gris"],
+)
+def test_cumple_y_zona_gris_pueden_ir_fuera_de_orden(datos):
+    paso = ResultadoPaso.model_validate(datos)
+    assert (paso.fuera_de_orden, paso.posicion_esperada, paso.posicion_observada) == (True, 1, 2)
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        {"estado": "Falta", "indice_sop": 0, **MARCA},
+        {**SOBRA, **MARCA},
+        {**CUMPLE, "estado": "Parcial", **MARCA},
+    ],
+    ids=["falta", "sobra", "parcial"],
+)
+def test_otros_estados_no_pueden_ir_fuera_de_orden(datos):
+    _falla(ResultadoPaso, datos, "solo Cumple y zona_gris")
+
+
+@pytest.mark.parametrize(
+    "cambios",
+    [
+        {"fuera_de_orden": True},
+        {"fuera_de_orden": True, "posicion_esperada": 1},
+        {"fuera_de_orden": True, "posicion_observada": 2},
+        {"posicion_esperada": 1, "posicion_observada": 2},
+        {"posicion_observada": 2},
+    ],
+    ids=["marca_sin_posiciones", "sin_observada", "sin_esperada", "posiciones_sin_marca", "una"],
+)
+def test_las_posiciones_van_si_y_solo_si_hay_marca(cambios):
+    _falla(ResultadoPaso, {**CUMPLE, **cambios}, "posiciones")
+
+
+def test_posicion_negativa_falla():
+    _falla(ResultadoPaso, {**CUMPLE, **MARCA, "posicion_esperada": -1}, "posicion_esperada")
+
+
+def test_clasificacion_con_fuera_de_orden_que_no_cuadra_falla():
+    resumen = {"conteo": _conteo(Cumple=1), "pares": 1, "pares_llm": 0, "pct_pares_llm": 0.0}
+    pasos = [{**CUMPLE, **MARCA}]
+    _falla(Clasificacion, {"pasos": pasos, "resumen": resumen}, "fuera de orden")
+    clasificacion = Clasificacion.model_validate(
+        {"pasos": pasos, "resumen": {**resumen, "fuera_de_orden": 1}}
+    )
+    assert clasificacion.resumen.fuera_de_orden == 1
+    assert clasificacion.resumen.conteo["Cumple"] == 1  # la marca no toca el conteo por estado
+
+
+def _resultado_emparejamiento(**cambios) -> dict:
+    paso_video = {**PASO, "numero": 1, "cita": CUMPLE["cita"], "t_inicio": 33.44, "t_fin": 40.0}
+    datos = {
+        "clasificacion": {
+            "pasos": [{**CUMPLE, "indice_video": 0}],
+            "resumen": {
+                "conteo": _conteo(Cumple=1),
+                "pares": 1,
+                "pares_llm": 0,
+                "pct_pares_llm": 0.0,
+            },
+        },
+        "fusiones": [
+            {**FUSION, "numero": 1, "originales": [1], "citas": ["c"], "similitudes": [0.8]}
+        ],
+        "pasos_video": [paso_video],
+    }
+    return datos | cambios
+
+
+def test_resultado_emparejamiento_valido():
+    resultado = ResultadoEmparejamiento.model_validate(_resultado_emparejamiento())
+    assert resultado.clasificacion.pasos[0].indice_video == 0
+
+
+def test_resultado_emparejamiento_sin_fusion_por_paso_falla():
+    _falla(ResultadoEmparejamiento, _resultado_emparejamiento(fusiones=[]), "registros de fusión")
+
+
+def test_resultado_emparejamiento_con_tiempo_ajeno_al_paso_del_video_falla():
+    datos = _resultado_emparejamiento()
+    datos["pasos_video"][0]["t_inicio"] = 30.0
+    _falla(ResultadoEmparejamiento, datos, "regla 4")
+
+
+def test_resultado_emparejamiento_con_indice_fuera_de_rango_falla():
+    datos = _resultado_emparejamiento()
+    datos["clasificacion"]["pasos"][0]["indice_video"] = 3
+    _falla(ResultadoEmparejamiento, datos, "indice_video 3")
 
 
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────

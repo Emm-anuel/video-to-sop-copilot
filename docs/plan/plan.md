@@ -203,7 +203,8 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 | `fusionar(pasos_sop, pasos_video, embedder)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ `UMBRAL_FUSION` (0.55) | pasos del video → pasos fusionados + registro `Fusion` |
 | `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` con `maximize=True`); en empate, la asignación que respeta el orden | matriz SOP × video → pares (`Par`) y los índices sin pareja |
 | `clasificar(asignacion, pasos_sop, pasos_video)` | < 0.55 el par se rompe (*Falta* + *Sobra*) · 0.55–0.75 `zona_gris` (va a Gemma 4) · ≥ 0.75 *Cumple* provisional; tiempo y cita del paso del video | asignación → `Clasificacion` (estado por paso + conteo y % de pares al LLM) |
-| `orden(pares)` | Subsecuencia creciente más larga; el resto *Fuera de orden* | pares → estado final de orden |
+| `orden(clasificacion)` | Cumple y zona gris ordenados por `t_inicio`; subsecuencia creciente más larga de `indice_sop` en O(n log n) (en empate, la que deja fuera lo más tardío del video); el resto lleva la marca `fuera_de_orden` (no es un estado) con su posición esperada y observada | `Clasificacion` → `Clasificacion` nueva con el orden revisado |
+| `emparejar(sop, pasos_video)` | Cascada completa sin juez: `fusionar` → similitud sobre los pasos fusionados → `asignar` → `clasificar` → `orden`; `EmparejadorMiniLM` cumple `Emparejador` | SOP + pasos del video → `ResultadoEmparejamiento` (clasificación, fusiones, pasos fusionados) |
 | `afinidad(sop, contexto)` | Coseno entre objetivo + alcance + equipo del SOP y la ficha de contexto, × 100 (RF-17, umbral 60) | SOP, contexto → 0–100 |
 | `emparejar_roles(roles, personas)` | Mejor coincidencia de cada rol del SOP entre las personas identificadas (RF-15) | roles, personas → *Presente / Mencionado / Ausente* |
 

@@ -22,9 +22,16 @@ orden). `clasificar` da a cada paso un estado preliminar con los umbrales de la 
 `UMBRAL_BAJO` se rompe en *Falta* (SOP) y *Sobra* (video); de `UMBRAL_BAJO` a `UMBRAL_ALTO`
 queda en `zona_gris`, estado interno pendiente del juez Gemma 4 (S4); desde `UMBRAL_ALTO`,
 *Cumple* provisional. Tiempo, cita y confianza salen solo del paso del video (sin cita,
-confianza "baja"); el resumen cuenta los estados y el % de pares que irían al LLM. Los umbrales
-(`UMBRAL_BAJO`, `UMBRAL_ALTO`, `UMBRAL_FUSION`) viven en la configuración; el juez de la zona
-gris y el orden llegan en S4.
+confianza "baja"); el resumen cuenta los estados y el % de pares que irían al LLM. `orden`
+revisa el orden con código (regla 5): ordena los Cumple y zona_gris por `t_inicio` y calcula la
+subsecuencia creciente más larga de `indice_sop` (O(n log n); en empate, la que deja fuera lo
+que aparece más tarde en el video). Los demás reciben la marca `fuera_de_orden` (no es un
+estado: un paso puede ser Cumple y estar fuera de orden) con su posición esperada y observada.
+`emparejar(sop, pasos_video)` encadena la cascada completa sin juez (fusionar → similitud sobre
+los pasos fusionados → asignar → clasificar → orden; el SOP se vectoriza una vez) y devuelve
+`ResultadoEmparejamiento`; `EmparejadorMiniLM` la ofrece detrás de la interfaz `Emparejador`
+(`afinidad` llega en S5). Los umbrales (`UMBRAL_BAJO`, `UMBRAL_ALTO`, `UMBRAL_FUSION`) viven en
+la configuración; el juez Gemma 4 de la zona gris llega en S4.
 
 `sop_markdown.py` (RF-03, [ADR-015](../../../docs/adr/ADR-015-sop-plantilla-markdown.md)) convierte
 un SOP de referencia en Markdown o TXT al contrato `SOP` con código, sin LLM, según la plantilla

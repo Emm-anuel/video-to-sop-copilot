@@ -1,6 +1,6 @@
 """Base de MiniLM (S2): `Embedder` y `similitud`; fusión de pasos del video (S3, ADR-013),
-asignación con el algoritmo húngaro y clasificación por umbrales (S3, ADR-012), y los
-umbrales en la configuración.
+asignación con el algoritmo húngaro, clasificación por umbrales, orden y `emparejar` (S3,
+ADR-012), y los umbrales en la configuración.
 
 Todas las pruebas usan un vectorizador simulado y no descargan nada, salvo la marcada como
 "lento" (se corre con `pytest -m lento`; la primera vez baja ~470 MB a EMBEDDER_CACHE_DIR).
@@ -10,6 +10,7 @@ import hashlib
 import subprocess
 import sys
 import types
+from itertools import combinations, pairwise
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,7 @@ import pytest
 from pydantic import ValidationError
 from scipy.optimize import linear_sum_assignment
 
-from sopvid.contrato import Par, PasoSOP, PasoVideo, ResultadoPaso
+from sopvid.contrato import SOP, Clasificacion, Par, PasoSOP, PasoVideo, ResultadoPaso
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.plataforma import config
 from sopvid.texto import NO_IDENTIFICADO
@@ -735,11 +736,13 @@ def test_asignar_rechaza_matrices_invalidas(matriz):
 
 @pytest.fixture
 def umbrales(monkeypatch):
-    """Fija UMBRAL_BAJO y UMBRAL_ALTO (por defecto 0.55 y 0.75, sin importar el `.env`)."""
+    """Fija UMBRAL_BAJO, UMBRAL_ALTO y UMBRAL_FUSION (por defecto 0.55, 0.75 y 0.55, sin
+    importar el `.env`)."""
 
-    def fijar(bajo: float, alto: float) -> None:
+    def fijar(bajo: float, alto: float, fusion: float = 0.55) -> None:
         monkeypatch.setenv("UMBRAL_BAJO", str(bajo))
         monkeypatch.setenv("UMBRAL_ALTO", str(alto))
+        monkeypatch.setenv("UMBRAL_FUSION", str(fusion))
         config.get_settings.cache_clear()
 
     fijar(0.55, 0.75)
@@ -921,6 +924,300 @@ def test_clasificar_rechaza_una_asignacion_de_otra_matriz(umbrales, asignacion):
         emp.clasificar(asignacion, _sop_n(2), _video_n(1))
 
 
+# ── orden (ADR-012, punto 5) ─────────────────────────────────────────────────────────────────
+
+
+def _en_orden_del_video(*orden_sop: int) -> Clasificacion:
+    """Todos los pasos emparejados (Cumple): el paso j del video es el `orden_sop[j]` del SOP."""
+    n = len(orden_sop)
+    pares = sorted(
+        (Par(indice_sop=i, indice_video=j, similitud=0.9) for j, i in enumerate(orden_sop)),
+        key=lambda p: p.indice_sop,
+    )
+    return emp.clasificar(emp.Asignacion(pares, [], []), _sop_n(n), _video_n(n))
+
+
+def _marcados(clasificacion: Clasificacion) -> list[tuple[int | None, int | None, int | None]]:
+    """(indice_sop, posición esperada, posición observada) de los pasos fuera de orden."""
+    return [
+        (p.indice_sop, p.posicion_esperada, p.posicion_observada)
+        for p in clasificacion.pasos
+        if p.fuera_de_orden
+    ]
+
+
+def test_orden_correcto_no_marca_ninguno(umbrales):
+    resultado = emp.orden(_en_orden_del_video(0, 1, 2, 3, 4))
+    assert _marcados(resultado) == []
+    assert resultado.resumen.fuera_de_orden == 0
+
+
+def test_dos_pasos_invertidos_marcan_exactamente_uno(umbrales):
+    clasificacion = _en_orden_del_video(0, 2, 1, 3)
+    resultado = emp.orden(clasificacion)
+    # Entre [0, 2, 3] y [0, 1, 3] se conserva la que deja fuera lo que llegó más tarde: el 1.
+    assert _marcados(resultado) == [(1, 1, 2)]
+    assert resultado.resumen.fuera_de_orden == 1
+    assert resultado.resumen.conteo == clasificacion.resumen.conteo
+
+
+def test_un_paso_movido_al_final_marca_solo_ese(umbrales):
+    assert _marcados(emp.orden(_en_orden_del_video(0, 2, 3, 4, 1))) == [(1, 1, 4)]
+
+
+def test_un_paso_movido_al_principio_marca_solo_ese(umbrales):
+    assert _marcados(emp.orden(_en_orden_del_video(3, 0, 1, 2))) == [(3, 3, 0)]
+
+
+def test_entre_subsecuencias_del_mismo_largo_quedan_fuera_las_mas_tardias(umbrales):
+    # [1, 0, 3, 2] tiene cuatro de largo 2; se conserva la de las posiciones 0 y 2 (pasos 1 y 3).
+    assert _marcados(emp.orden(_en_orden_del_video(1, 0, 3, 2))) == [(0, 0, 1), (2, 2, 3)]
+
+
+def test_falta_y_sobra_no_participan_en_el_orden(umbrales):
+    """SOP de 4 y video de 4: el paso 0 del SOP (zona gris) va en el video después del 1; el
+    par (2, 3) se rompe, el paso 3 del SOP no tiene pareja y el paso 0 del video sobra."""
+    asignacion = emp.Asignacion(
+        [
+            Par(indice_sop=0, indice_video=2, similitud=0.6),
+            Par(indice_sop=1, indice_video=1, similitud=0.9),
+            Par(indice_sop=2, indice_video=3, similitud=0.3),
+        ],
+        [3],
+        [0],
+    )
+    resultado = emp.orden(emp.clasificar(asignacion, _sop_n(4), _video_n(4)))
+    assert [(p.estado, p.fuera_de_orden) for p in resultado.pasos] == [
+        ("zona_gris", True),
+        ("Cumple", False),
+        ("Falta", False),
+        ("Falta", False),
+        ("Sobra", False),
+        ("Sobra", False),
+    ]
+    assert _marcados(resultado) == [(0, 0, 1)]
+    for p in resultado.pasos:
+        if p.estado in ("Falta", "Sobra"):
+            assert (p.posicion_esperada, p.posicion_observada) == (None, None)
+
+
+def test_empate_en_t_inicio_lo_decide_indice_video(umbrales):
+    video = [_paso_video(numero=n, t_inicio=5.0, t_fin=9.0, cita=f"Cita {n}") for n in (1, 2)]
+    cruzados = emp.Asignacion(
+        [
+            Par(indice_sop=0, indice_video=1, similitud=0.9),
+            Par(indice_sop=1, indice_video=0, similitud=0.9),
+        ],
+        [],
+        [],
+    )
+    derechos = emp.Asignacion(
+        [
+            Par(indice_sop=0, indice_video=0, similitud=0.9),
+            Par(indice_sop=1, indice_video=1, similitud=0.9),
+        ],
+        [],
+        [],
+    )
+    assert _marcados(emp.orden(emp.clasificar(cruzados, _sop_n(2), video))) == [(0, 0, 1)]
+    assert _marcados(emp.orden(emp.clasificar(derechos, _sop_n(2), video))) == []
+
+
+def test_orden_es_determinista_y_no_modifica_la_entrada(umbrales):
+    clasificacion = _en_orden_del_video(2, 0, 3, 1, 4)
+    antes = clasificacion.model_dump()
+    resultado = emp.orden(clasificacion)
+    assert resultado == emp.orden(clasificacion)
+    assert emp.orden(resultado) == resultado  # recalcula la marca desde cero
+    assert resultado is not clasificacion
+    assert clasificacion.model_dump() == antes
+    assert [(p.estado, p.similitud) for p in resultado.pasos] == [
+        (p.estado, p.similitud) for p in clasificacion.pasos
+    ]
+
+
+def _subsecuencias_maximas(secuencia: list[int]) -> list[tuple[int, ...]]:
+    """Todas las subsecuencias estrictamente crecientes de largo máximo (fuerza bruta)."""
+    for largo in range(len(secuencia), -1, -1):
+        crecientes = [
+            posiciones
+            for posiciones in combinations(range(len(secuencia)), largo)
+            if all(secuencia[a] < secuencia[b] for a, b in pairwise(posiciones))
+        ]
+        if crecientes:
+            return crecientes
+    return [()]
+
+
+def test_subsecuencia_creciente_es_la_mas_larga_y_la_menor_por_posicion():
+    rng = np.random.default_rng(42)
+    for n in [0, 1, 2, 3, 5, 8] * 20:
+        secuencia = rng.permutation(n).tolist()
+        assert tuple(emp._subsecuencia_creciente(secuencia)) == min(
+            _subsecuencias_maximas(secuencia)
+        ), secuencia
+
+
+def test_subsecuencia_creciente_larga_coincide_con_la_programacion_dinamica():
+    secuencia = np.random.default_rng(7).permutation(400).tolist()
+    largo = [1] * len(secuencia)  # O(n²): largo de la más larga que termina en i
+    for i in range(len(secuencia)):
+        for j in range(i):
+            if secuencia[j] < secuencia[i]:
+                largo[i] = max(largo[i], largo[j] + 1)
+    elegidas = emp._subsecuencia_creciente(secuencia)
+    assert len(elegidas) == max(largo)
+    assert all(secuencia[a] < secuencia[b] for a, b in pairwise(elegidas))
+
+
+# ── emparejar: la cascada completa sin juez ──────────────────────────────────────────────────
+
+SOP_CARTUCHO = SOP(
+    titulo="Cambio del cartucho del filtro de agua",
+    pasos=[
+        _paso_sop(numero=i, nombre=nombre, descripcion=descripcion)
+        for i, (nombre, descripcion) in enumerate(
+            (texto.split(". ", 1) for texto in PASOS_CARTUCHO), start=1
+        )
+    ],
+)
+# Pasos del video sobre SOP_CARTUCHO: (nombre, descripción, cita).
+VIDEO_CARTUCHO = {
+    "cerrar": (
+        "Cerrar la llave de paso",
+        "Giro la llave de paso del agua hasta cerrarla.",
+        "Primero cierro la llave de paso",
+    ),
+    "liberar": (
+        "Liberar la presión",
+        "Abro el grifo de la cocina hasta que deja de salir agua.",
+        "Abro el grifo para sacar la presión",
+    ),
+    "retirar": (
+        "Retirar el cartucho usado",
+        "Desenrosco el vaso del filtro y saco el cartucho usado.",
+        "Desenrosco el vaso y saco el cartucho",
+    ),
+    "desenroscar": (
+        "Desenroscar el vaso del filtro",
+        "Desenroscar el vaso del filtro para sacar el cartucho.",
+        "Ahora desenrosco el vaso del filtro",
+    ),
+    "sacar": (
+        "Sacar el cartucho usado",
+        "Sacar el cartucho usado del vaso del filtro.",
+        "Saco el cartucho usado del vaso",
+    ),
+    "limpiar": (
+        "Limpiar el vaso",
+        "Lavo el vaso con agua y reviso el empaque.",
+        "Lavo el vaso y reviso el empaque",
+    ),
+    "carcasa": (
+        "Limpiar la carcasa",
+        "Pasar un trapo seco por la carcasa exterior hasta quitar el polvo.",
+        "Le paso un trapo a la carcasa",
+    ),
+    "colocar": (
+        "Colocar el cartucho nuevo",
+        "Meto el cartucho nuevo en el vaso y enrosco el vaso.",
+        "Meto el cartucho nuevo",
+    ),
+    "abrir": (
+        "Abrir la llave y purgar",
+        "Abro la llave de paso y dejo correr el agua un minuto.",
+        "Abro la llave y dejo correr el agua",
+    ),
+}
+# Video B del plan (§7): omite los pasos 2 y 6, agrega "limpiar la carcasa" y parte el 3 en dos.
+VIDEO_B = ("cerrar", "desenroscar", "sacar", "limpiar", "carcasa", "colocar")
+# Video C reducido: solo la inversión de dos pasos (el 4 antes que el 3).
+VIDEO_C = ("cerrar", "liberar", "limpiar", "retirar", "colocar", "abrir")
+
+
+def _video_cartucho(*claves: str) -> list[PasoVideo]:
+    """Pasos del video en el orden dado: el paso n va del segundo 10n al 10n + 8."""
+    return [
+        _paso_video(
+            numero=n,
+            nombre=VIDEO_CARTUCHO[clave][0],
+            descripcion=VIDEO_CARTUCHO[clave][1],
+            cita=VIDEO_CARTUCHO[clave][2],
+            t_inicio=10.0 * n,
+            t_fin=10.0 * n + 8,
+        )
+        for n, clave in enumerate(claves, start=1)
+    ]
+
+
+def test_video_b_da_dos_falta_un_sobra_y_una_fusion(embedder, umbrales):
+    video = _video_cartucho(*VIDEO_B)
+    resultado = emp.emparejar(SOP_CARTUCHO, video, embedder)
+    clasificacion = resultado.clasificacion
+
+    assert [f.originales for f in resultado.fusiones] == [[1], [2, 3], [4], [5], [6]]
+    assert sum(len(f.originales) > 1 for f in resultado.fusiones) == 1
+    assert resultado.fusiones[1].paso_sop == 3
+    assert clasificacion.resumen.conteo["Falta"] == 2
+    assert clasificacion.resumen.conteo["Sobra"] == 1
+    assert clasificacion.resumen.fuera_de_orden == 0
+    assert [p.indice_sop for p in clasificacion.pasos if p.estado == "Falta"] == [1, 5]
+    (sobra,) = [p for p in clasificacion.pasos if p.estado == "Sobra"]
+    assert (sobra.t_inicio, sobra.cita) == (video[4].t_inicio, video[4].cita)  # la carcasa
+    # El paso partido empieza donde empieza la primera mitad (regla 4).
+    (retirar,) = [p for p in clasificacion.pasos if p.indice_sop == 2]
+    assert retirar.t_inicio == video[1].t_inicio
+    assert resultado.pasos_video[retirar.indice_video].t_fin == video[2].t_fin
+
+
+def test_video_c_con_dos_pasos_invertidos_marca_uno_fuera_de_orden(embedder, umbrales):
+    resultado = emp.emparejar(SOP_CARTUCHO, _video_cartucho(*VIDEO_C), embedder)
+    clasificacion = resultado.clasificacion
+    assert all(len(f.originales) == 1 for f in resultado.fusiones)
+    assert clasificacion.resumen.conteo["Cumple"] == 6
+    assert clasificacion.resumen.fuera_de_orden == 1
+    assert _marcados(clasificacion) == [(2, 2, 3)]  # "Retirar el cartucho", hecho después
+
+
+def test_emparejar_vectoriza_el_sop_una_sola_vez(embedder, falso, umbrales):
+    emp.emparejar(SOP_CARTUCHO, _video_cartucho(*VIDEO_B), embedder)
+    textos = [t for llamada in falso.llamadas for t in llamada]
+    for paso in SOP_CARTUCHO.pasos:
+        assert textos.count(emp.texto_para_embeber(paso)) == 1
+    # Una llamada para fusionar (SOP + video) y otra para los pasos ya fusionados.
+    assert len(falso.llamadas) == 2
+
+
+def test_emparejar_sin_embedder_usa_el_del_proceso(monkeypatch, embedder, umbrales):
+    monkeypatch.setattr(emp, "get_embedder", lambda: embedder)
+    video = _video_cartucho(*VIDEO_C)
+    assert emp.emparejar(SOP_CARTUCHO, video) == emp.emparejar(SOP_CARTUCHO, video, embedder)
+
+
+def test_emparejar_sin_pasos_del_video_deja_todo_en_falta(embedder, cargas, umbrales):
+    resultado = emp.emparejar(SOP_CARTUCHO, [], embedder)
+    assert [p.estado for p in resultado.clasificacion.pasos] == ["Falta"] * 6
+    assert (resultado.fusiones, resultado.pasos_video) == ([], [])
+    assert cargas == []
+
+
+def test_emparejar_es_determinista(embedder, umbrales):
+    video = _video_cartucho(*VIDEO_B)
+    assert emp.emparejar(SOP_CARTUCHO, video, embedder) == emp.emparejar(
+        SOP_CARTUCHO, video, embedder
+    )
+
+
+def test_emparejador_minilm_cumple_la_interfaz(embedder, cargas, umbrales):
+    emparejador: emp.Emparejador = emp.EmparejadorMiniLM(embedder)
+    video = _video_cartucho(*VIDEO_C)
+    assert emparejador.emparejar(SOP_CARTUCHO, video) == emp.emparejar(
+        SOP_CARTUCHO, video, embedder
+    )
+    emp.EmparejadorMiniLM()  # sin embedder no carga nada al crearse
+    assert len(cargas) == 1
+
+
 # ── Modelo real (lento) ──────────────────────────────────────────────────────────────────────
 
 
@@ -942,3 +1239,13 @@ def test_minilm_real_fusiona_el_paso_partido():
     assert [r.paso_sop for r in registro] == [1, 2, 3, 4]
     assert (pasos[1].t_inicio, pasos[1].t_fin) == (video[1].t_inicio, video[2].t_fin)
     assert pasos[1].cita in (video[1].cita, video[2].cita)
+
+
+@pytest.mark.lento
+def test_minilm_real_empareja_el_video_c(umbrales):
+    """Video C reducido con MiniLM real: todos Cumple, ninguna fusión, uno fuera de orden."""
+    resultado = emp.emparejar(SOP_CARTUCHO, _video_cartucho(*VIDEO_C), emp.Embedder())
+    clasificacion = resultado.clasificacion
+    assert all(len(f.originales) == 1 for f in resultado.fusiones), resultado.fusiones
+    assert clasificacion.resumen.conteo["Cumple"] == 6, clasificacion.resumen
+    assert _marcados(clasificacion) == [(2, 2, 3)]

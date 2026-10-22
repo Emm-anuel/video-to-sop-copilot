@@ -6,9 +6,11 @@ la VRAM con faster-whisper ni con Gemma 4, y `similitud`, la matriz de coseno en
 de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video.
 
 S3: `fusionar` une los pasos consecutivos del video que caen en el mismo paso del SOP
-(ADR-013), `asignar` elige las parejas SOP–video con el algoritmo húngaro y `clasificar` les da
-un estado preliminar con los umbrales de la cascada (ADR-012). El juez Gemma 4 de la zona gris
-y el orden llegan después.
+(ADR-013), `asignar` elige las parejas SOP–video con el algoritmo húngaro, `clasificar` les da
+un estado preliminar con los umbrales de la cascada y `orden` marca con código los pasos fuera
+de orden (ADR-012). `emparejar` encadena todo (la cascada completa sin juez) y
+`EmparejadorMiniLM` lo ofrece detrás de la interfaz `Emparejador`. El juez Gemma 4 de la zona
+gris llega en S4.
 
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
@@ -16,6 +18,7 @@ módulo, para que la API arranque rápido y las pruebas puedan simular el modelo
 
 import logging
 import time
+from bisect import bisect_left
 from collections.abc import Callable, Sequence
 from functools import lru_cache
 from itertools import pairwise
@@ -27,6 +30,8 @@ from scipy.optimize import linear_sum_assignment
 
 from sopvid.contrato import (
     ESTADOS,
+    ESTADOS_CON_ORDEN,
+    SOP,
     Clasificacion,
     Confianza,
     EstadoPaso,
@@ -35,6 +40,7 @@ from sopvid.contrato import (
     Par,
     PasoSOP,
     PasoVideo,
+    ResultadoEmparejamiento,
     ResultadoPaso,
     ResumenClasificacion,
 )
@@ -183,16 +189,30 @@ def fusionar(
     """
     if not pasos_video:
         return [], []
+    _verificar_fusion(pasos_sop, pasos_video)
+    x = embedder.embed([texto_para_embeber(p) for p in (*pasos_sop, *pasos_video)])
+    return _fusionar(pasos_sop, pasos_video, x[: len(pasos_sop)], x[len(pasos_sop) :], umbral)
+
+
+def _verificar_fusion(pasos_sop: Sequence[PasoSOP], pasos_video: Sequence[PasoVideo]) -> None:
     if not pasos_sop:
         raise ValueError("fusionar necesita al menos un paso del SOP (ADR-013)")
     for a, b in pairwise(pasos_video):
         if b.numero <= a.numero:
             raise ValueError(f"pasos del video fuera de orden: {a.numero} → {b.numero}")
+
+
+def _fusionar(
+    pasos_sop: Sequence[PasoSOP],
+    pasos_video: Sequence[PasoVideo],
+    vectores_sop: np.ndarray,
+    vectores_video: np.ndarray,
+    umbral: float | None,
+) -> tuple[list[PasoVideo], list[Fusion]]:
+    """El cuerpo de `fusionar`, con los vectores ya calculados (lo reutiliza `emparejar`)."""
     if umbral is None:
         umbral = get_settings().umbral_fusion
-
-    x = embedder.embed([texto_para_embeber(p) for p in (*pasos_sop, *pasos_video)])
-    s = similitud(x[len(pasos_sop) :], x[: len(pasos_sop)])  # video × SOP
+    s = similitud(vectores_video, vectores_sop)  # video × SOP
     mejor = s.argmax(axis=1)
     coseno = s[np.arange(len(pasos_video)), mejor]
 
@@ -395,3 +415,147 @@ def _con_video(estado: EstadoPaso, paso: PasoVideo, **indices: Any) -> Resultado
         confianza=paso.confianza if paso.cita.strip() else "baja",
         **indices,
     )
+
+
+# ── Orden (ADR-012, punto 5; regla 5: lo revisa código, no el LLM) ───────────────────────────
+
+
+def orden(clasificacion: Clasificacion) -> Clasificacion:
+    """Marca los pasos emparejados que el video hizo fuera del orden del SOP (ADR-012).
+
+    Participan solo los Cumple y los zona_gris; Falta y Sobra no tienen par que ordenar. Esos
+    pasos se ordenan por `t_inicio` (en empate, por `indice_video`) y, sobre esa secuencia de
+    `indice_sop`, se calcula la subsecuencia creciente más larga (O(n log n)): los pasos que
+    quedan en ella están en orden y los demás reciben `fuera_de_orden=True`, con su posición
+    esperada (lugar de su `indice_sop` entre los emparejados) y la observada (lugar en el video).
+
+    Si hay varias subsecuencias del mismo largo, se conserva la que deja fuera los pasos que
+    aparecen más tarde en el video: la menor en orden lexicográfico de posiciones observadas.
+    Así, con dos pasos seguidos invertidos (el video hace 3 antes que 2), queda marcado el 2,
+    el que llegó tarde.
+
+    No cambia estados ni similitudes, recalcula la marca desde cero (correrla dos veces da lo
+    mismo) y devuelve un objeto nuevo, con `resumen.fuera_de_orden` al día.
+    """
+    emparejados = sorted(
+        (p for p in clasificacion.pasos if p.estado in ESTADOS_CON_ORDEN),
+        key=lambda p: (p.t_inicio, p.indice_video),
+    )
+    secuencia = [p.indice_sop for p in emparejados]
+    en_orden = set(_subsecuencia_creciente(secuencia))
+    esperada = {indice: posicion for posicion, indice in enumerate(sorted(secuencia))}
+    marcas = {
+        p.indice_sop: (esperada[p.indice_sop], observada)
+        for observada, p in enumerate(emparejados)
+        if observada not in en_orden
+    }
+
+    pasos = []
+    for paso in clasificacion.pasos:
+        posiciones = marcas.get(paso.indice_sop) if paso.estado in ESTADOS_CON_ORDEN else None
+        pasos.append(
+            ResultadoPaso.model_validate(
+                {
+                    **paso.model_dump(),
+                    "fuera_de_orden": posiciones is not None,
+                    "posicion_esperada": posiciones[0] if posiciones else None,
+                    "posicion_observada": posiciones[1] if posiciones else None,
+                }
+            )
+        )
+    resumen = clasificacion.resumen.model_dump() | {"fuera_de_orden": len(marcas)}
+    logger.info("Orden: %d de %d pasos emparejados fuera de orden", len(marcas), len(secuencia))
+    return Clasificacion.model_validate({"pasos": pasos, "resumen": resumen})
+
+
+def _subsecuencia_creciente(secuencia: Sequence[int]) -> list[int]:
+    """Posiciones de una subsecuencia estrictamente creciente de largo máximo, en O(n log n).
+
+    Entre todas las de largo máximo devuelve la menor en orden lexicográfico de posiciones (la
+    que conserva lo que aparece antes). `desde[i]` es el largo de la más larga que empieza en
+    `i`; se calcula de derecha a izquierda con búsqueda binaria sobre las colas (paciencia).
+    Después se elige de izquierda a derecha la primera posición que todavía puede completar el
+    largo que falta, en una sola pasada.
+    """
+    desde = [0] * len(secuencia)
+    colas: list[int] = []  # colas[k]: el mayor inicio (negado) de una creciente de largo k + 1
+    for i in range(len(secuencia) - 1, -1, -1):
+        k = bisect_left(colas, -secuencia[i])
+        if k == len(colas):
+            colas.append(-secuencia[i])
+        else:
+            colas[k] = -secuencia[i]
+        desde[i] = k + 1
+
+    elegidas: list[int] = []
+    falta = len(colas)
+    for i, valor in enumerate(secuencia):
+        if falta == 0:
+            break
+        if desde[i] == falta and (not elegidas or valor > secuencia[elegidas[-1]]):
+            elegidas.append(i)
+            falta -= 1
+    return elegidas
+
+
+# ── Cascada completa sin juez (ADR-012, ADR-013) ─────────────────────────────────────────────
+
+
+def emparejar(
+    sop: SOP, pasos_video: Sequence[PasoVideo], embedder: Embedder | None = None
+) -> ResultadoEmparejamiento:
+    """Empareja los pasos del video con los del SOP: fusionar → asignar → clasificar → orden.
+
+    1. `fusionar` (ADR-013) con `UMBRAL_FUSION`.
+    2. Similitud recalculada entre el SOP y los pasos ya fusionados (`texto_para_embeber`). El
+       SOP se vectoriza una sola vez: los mismos vectores sirven para fusionar y para asignar.
+    3. `asignar` (húngaro), `clasificar` (umbrales) y `orden` (subsecuencia creciente).
+
+    Los pasos de zona gris quedan marcados para el juez Gemma 4 (S4); aquí no se llama al LLM.
+    Sin `embedder` usa el del proceso (`get_embedder()`). Los `indice_video` del resultado
+    apuntan a los pasos fusionados, que van en `ResultadoEmparejamiento.pasos_video`.
+    """
+    embedder = embedder or get_embedder()
+    pasos_sop = sop.pasos
+    if pasos_video:
+        _verificar_fusion(pasos_sop, pasos_video)
+        x = embedder.embed([texto_para_embeber(p) for p in (*pasos_sop, *pasos_video)])
+        vectores_sop = x[: len(pasos_sop)]
+        fusionados, fusiones = _fusionar(
+            pasos_sop, pasos_video, vectores_sop, x[len(pasos_sop) :], None
+        )
+        vectores_video = embedder.embed([texto_para_embeber(p) for p in fusionados])
+        matriz = similitud(vectores_sop, vectores_video)
+    else:
+        fusionados, fusiones = [], []
+        matriz = np.zeros((len(pasos_sop), 0))
+
+    asignacion = asignar(matriz)
+    clasificacion = orden(clasificar(asignacion, pasos_sop, fusionados))
+    return ResultadoEmparejamiento(
+        clasificacion=clasificacion, fusiones=fusiones, pasos_video=fusionados
+    )
+
+
+class Emparejador(Protocol):
+    """Interfaz del emparejamiento (plan §3, "Interfaces"), con el proveedor elegido por
+    configuración (RNF-14). Por ahora solo `emparejar`; `afinidad(sop, contexto)` (RF-17) se
+    agrega en S5."""
+
+    def emparejar(self, sop: SOP, pasos_video: Sequence[PasoVideo]) -> ResultadoEmparejamiento:
+        """Clasifica los pasos del video contra el SOP, con el orden revisado."""
+        ...
+
+
+class EmparejadorMiniLM:
+    """`Emparejador` con MiniLM en CPU: la cascada de `emparejar` sin el juez Gemma 4.
+
+    Sin `embedder`, usa el del proceso (`get_embedder()`) en cada llamada; crear el objeto no
+    carga el modelo.
+    """
+
+    def __init__(self, embedder: Embedder | None = None) -> None:
+        self._embedder = embedder
+
+    def emparejar(self, sop: SOP, pasos_video: Sequence[PasoVideo]) -> ResultadoEmparejamiento:
+        return emparejar(sop, pasos_video, self._embedder)

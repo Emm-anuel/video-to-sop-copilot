@@ -3,8 +3,9 @@
 `Analisis` es el JSON que produce el pipeline de video: idioma, transcripción con tiempo por
 palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él;
 `Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013), `Par` es cada
-pareja que elige el algoritmo húngaro (ADR-012) y `Clasificacion`, el estado de cada paso tras
-los umbrales de la cascada (`ResultadoPaso`) con su resumen.
+pareja que elige el algoritmo húngaro (ADR-012), `Clasificacion` es el estado de cada paso tras
+los umbrales de la cascada y la revisión del orden (`ResultadoPaso`) con su resumen, y
+`ResultadoEmparejamiento` junta todo lo que devuelve `emparejar`.
 
 `SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
 lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un SOP cargado no
@@ -188,6 +189,8 @@ class Par(_Modelo):
 # Parcial o en un Falta más un Sobra; ningún "zona_gris" debe llegar al reporte.
 EstadoPaso = Literal["Cumple", "Parcial", "Falta", "Sobra", "zona_gris"]
 ESTADOS: tuple[EstadoPaso, ...] = get_args(EstadoPaso)
+# Los pares que revisa `orden` y los únicos que pueden llevar la marca de fuera de orden.
+ESTADOS_CON_ORDEN: tuple[EstadoPaso, ...] = ("Cumple", "zona_gris")
 
 
 class ResultadoPaso(_Modelo):
@@ -201,6 +204,12 @@ class ResultadoPaso(_Modelo):
     `t_inicio`, `cita` y `confianza` salen del paso del video (regla 4: ningún tiempo nuevo); un
     Falta no tiene paso del video y los deja en `None`, `""` y `None`. Si la cita está vacía, la
     confianza es "baja".
+
+    *Fuera de orden* es una marca, no un estado: un Cumple o un zona_gris puede estar fuera de
+    orden a la vez (lo decide `orden`, con código; regla 5). Con la marca van
+    `posicion_esperada` (lugar del paso en el SOP entre los pasos emparejados) y
+    `posicion_observada` (lugar en el video entre los mismos), ambas desde 0; sin la marca, las
+    dos quedan en `None`.
     """
 
     estado: EstadoPaso
@@ -210,6 +219,26 @@ class ResultadoPaso(_Modelo):
     t_inicio: Tiempo | None = None
     cita: str = ""
     confianza: Confianza | None = None
+    fuera_de_orden: bool = False
+    posicion_esperada: int | None = Field(default=None, ge=0)
+    posicion_observada: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _marca_de_orden(self) -> Self:
+        if self.fuera_de_orden and self.estado not in ESTADOS_CON_ORDEN:
+            raise ValueError(f"{self.estado}: solo Cumple y zona_gris pueden ir fuera de orden")
+        posiciones = (self.posicion_esperada, self.posicion_observada)
+        if self.fuera_de_orden:
+            coherente = all(p is not None for p in posiciones)
+        else:
+            coherente = all(p is None for p in posiciones)
+        if not coherente:
+            raise ValueError(
+                f"{self.estado}: las posiciones van si y solo si el paso está fuera de orden "
+                f"(fuera_de_orden={self.fuera_de_orden}, esperada={self.posicion_esperada}, "
+                f"observada={self.posicion_observada})"
+            )
+        return self
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
@@ -237,13 +266,15 @@ class ResumenClasificacion(_Modelo):
     `pares` son los que formó el algoritmo húngaro, incluidos los que se rompieron por similitud
     baja; `pares_llm`, los de zona gris; `pct_pares_llm` = 100 · pares_llm / pares (0 sin pares),
     la métrica del paper (ADR-012). La revisión de EPP y puntos de validación de los Cumple (S4)
-    no cuenta aquí.
+    no cuenta aquí. `fuera_de_orden` cuenta aparte los pasos con esa marca (0 hasta que corre
+    `orden`); no cambia el conteo por estado.
     """
 
     conteo: dict[EstadoPaso, Annotated[int, Field(ge=0)]]
     pares: int = Field(ge=0)
     pares_llm: int = Field(ge=0)
     pct_pares_llm: float = Field(ge=0, le=100)
+    fuera_de_orden: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
@@ -261,7 +292,7 @@ class ResumenClasificacion(_Modelo):
 
 
 class Clasificacion(_Modelo):
-    """Salida de `clasificar`: un resultado por paso y su resumen.
+    """Salida de `clasificar` y de `orden`: un resultado por paso y su resumen.
 
     Primero un resultado por paso del SOP, en su orden; después los Sobra, en el orden del video.
     """
@@ -276,6 +307,48 @@ class Clasificacion(_Modelo):
             if self.resumen.conteo[estado] != n:
                 raise ValueError(
                     f"el resumen cuenta {self.resumen.conteo[estado]} {estado} y hay {n}"
+                )
+        n = sum(p.fuera_de_orden for p in self.pasos)
+        if self.resumen.fuera_de_orden != n:
+            raise ValueError(
+                f"el resumen cuenta {self.resumen.fuera_de_orden} fuera de orden y hay {n}"
+            )
+        return self
+
+
+class ResultadoEmparejamiento(_Modelo):
+    """Salida de `emparejar`: la clasificación con el orden revisado, el registro de la fusión y
+    los pasos del video ya fusionados.
+
+    Los `indice_video` de la clasificación apuntan a `pasos_video` (los fusionados, no los que
+    llegaron), y hay un `Fusion` por cada uno, en el mismo orden. El tiempo y la cita de cada
+    resultado son los de su paso del video (regla 4).
+    """
+
+    clasificacion: Clasificacion
+    fusiones: list[Fusion]
+    pasos_video: list[PasoVideo]
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        numeros = [p.numero for p in self.pasos_video]
+        if [f.numero for f in self.fusiones] != numeros:
+            raise ValueError(
+                f"{len(self.fusiones)} registros de fusión para {len(numeros)} pasos del video, "
+                "o con números distintos"
+            )
+        for paso in self.clasificacion.pasos:
+            if paso.indice_video is None:
+                continue
+            if paso.indice_video >= len(self.pasos_video):
+                raise ValueError(
+                    f"indice_video {paso.indice_video} fuera de los {len(numeros)} pasos del video"
+                )
+            origen = self.pasos_video[paso.indice_video]
+            if paso.t_inicio != origen.t_inicio or paso.cita != origen.cita:
+                raise ValueError(
+                    f"el resultado del paso del video {paso.indice_video} no lleva su tiempo "
+                    "y su cita (regla 4)"
                 )
         return self
 
