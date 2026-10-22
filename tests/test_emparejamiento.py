@@ -400,8 +400,10 @@ def test_paso_partido_en_dos_se_fusiona(embedder):
     assert fusionado.descripcion == (
         "Desenroscar el vaso del filtro y sacarlo. Sacar el cartucho usado del vaso."
     )
-    assert fusionado.cita == "Ahora desenrosco el vaso del filtro … Saco el cartucho usado del vaso"
+    assert fusionado.cita == video[2].cita  # la cita del más parecido, sin unir
+    assert fusionado.responsable == video[2].responsable
     assert registro[1].citas == [video[1].cita, video[2].cita]
+    assert registro[1].responsables_distintos == []
     assert registro[1].similitudes[1] > registro[1].similitudes[0] >= 0.55
 
 
@@ -451,19 +453,6 @@ def test_tiempos_del_fusionado_en_orden_son_el_inicio_del_primero_y_el_fin_del_u
         ({"confianza": "baja"}, {"confianza": "alta"}, {"confianza": "baja"}),
         ({"fuente": "audio"}, {"fuente": "visual"}, {"fuente": "visual"}),
         ({"fuente": "inferido"}, {"fuente": "audio"}, {"fuente": "inferido"}),
-        ({"responsable": "Técnica"}, {"responsable": "Técnica"}, {"responsable": "Técnica"}),
-        (
-            {"responsable": "Técnica"},
-            {"responsable": "Supervisor"},
-            {"responsable": "Técnica, Supervisor"},
-        ),
-        ({"responsable": NO_IDENTIFICADO}, {}, {"responsable": "Técnica"}),
-        (
-            {"responsable": NO_IDENTIFICADO},
-            {"responsable": NO_IDENTIFICADO},
-            {"responsable": NO_IDENTIFICADO},
-        ),
-        ({"cita": ""}, {}, {"cita": "Saco el cartucho usado del vaso"}),
     ],
 )
 def test_el_fusionado_une_la_evidencia(embedder, primero, segundo, esperado):
@@ -472,6 +461,67 @@ def test_el_fusionado_une_la_evidencia(embedder, primero, segundo, esperado):
     (paso,), (fusion,) = emp.fusionar(SOP_FILTRO, video, embedder, umbral=0.55)
     assert paso.model_dump(include=set(esperado)) == esperado
     assert fusion.citas == [p.cita for p in video]
+
+
+@pytest.mark.parametrize(
+    "claves",
+    [
+        ("cerrar", "desenroscar", "sacar", "colocar", "abrir"),
+        ("desenroscar", "sacar"),
+        ("sacar", "desenroscar"),
+        ("desenroscar", "cerrar", "sacar"),
+    ],
+)
+def test_la_cita_de_cada_paso_es_exactamente_una_de_las_originales(embedder, claves):
+    video = _video(*claves)
+    pasos, registro = emp.fusionar(SOP_FILTRO, video, embedder, umbral=0.55)
+    citas_originales = {p.cita for p in video}
+    for paso, fusion in zip(pasos, registro, strict=True):
+        assert paso.cita in fusion.citas
+        assert paso.cita in citas_originales
+
+
+def test_la_cita_y_el_responsable_salen_del_original_mas_parecido(embedder):
+    desenroscar, sacar = _video("desenroscar", "sacar")  # cosenos 0.64 y 0.77: gana "sacar"
+    video = [
+        desenroscar.model_copy(update={"responsable": "Supervisor"}),
+        sacar.model_copy(update={"responsable": "Técnica"}),
+    ]
+    (paso,), (fusion,) = emp.fusionar(SOP_FILTRO, video, embedder, umbral=0.55)
+    assert (paso.cita, paso.responsable) == (sacar.cita, "Técnica")
+    assert fusion.citas == [desenroscar.cita, sacar.cita]
+
+
+def test_en_empate_de_coseno_la_cita_es_la_del_primero(embedder):
+    primero, segundo = _video("sacar", "sacar")  # mismo texto: mismo coseno
+    segundo = segundo.model_copy(
+        update={"cita": "Y luego saco el cartucho", "responsable": "Ayudante"}
+    )
+    (paso,), (fusion,) = emp.fusionar(SOP_FILTRO, [primero, segundo], embedder, umbral=0.55)
+    assert fusion.similitudes[0] == fusion.similitudes[1]
+    assert (paso.cita, paso.responsable) == (primero.cita, primero.responsable)
+
+
+@pytest.mark.parametrize(
+    ("responsables", "distintos", "responsable"),
+    [
+        (("Técnica", "Técnica"), [], "Técnica"),
+        (("Supervisor", "Técnica"), ["Supervisor", "Técnica"], "Técnica"),
+        ((NO_IDENTIFICADO, "Técnica"), [NO_IDENTIFICADO, "Técnica"], "Técnica"),
+        (("Técnica", NO_IDENTIFICADO), ["Técnica", NO_IDENTIFICADO], NO_IDENTIFICADO),
+    ],
+)
+def test_responsables_distintos_quedan_en_el_registro(
+    embedder, responsables, distintos, responsable
+):
+    video = [
+        p.model_copy(update={"responsable": r})
+        for p, r in zip(_video("desenroscar", "sacar"), responsables, strict=True)
+    ]
+    (paso,), (fusion,) = emp.fusionar(SOP_FILTRO, video, embedder, umbral=0.55)
+    assert fusion.responsables_distintos == distintos
+    assert paso.responsable == responsable  # el de "sacar", el más parecido; nunca concatenado
+    assert "," not in paso.responsable
 
 
 def test_coseno_bajo_el_umbral_no_fusiona(embedder):
@@ -534,3 +584,4 @@ def test_minilm_real_fusiona_el_paso_partido():
     assert [r.originales for r in registro] == [[1], [2, 3], [4], [5]], registro
     assert [r.paso_sop for r in registro] == [1, 2, 3, 4]
     assert (pasos[1].t_inicio, pasos[1].t_fin) == (video[1].t_inicio, video[2].t_fin)
+    assert pasos[1].cita in (video[1].cita, video[2].cita)

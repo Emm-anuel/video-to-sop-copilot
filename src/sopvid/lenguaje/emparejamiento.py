@@ -24,7 +24,6 @@ import numpy as np
 
 from sopvid.contrato import Confianza, Fuente, Fusion, PasoSOP, PasoVideo
 from sopvid.plataforma.config import get_settings
-from sopvid.texto import NO_IDENTIFICADO
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +135,6 @@ def texto_para_embeber(paso: PasoSOP | PasoVideo) -> str:
 
 # ── Fusión de pasos del video (ADR-013) ──────────────────────────────────────────────────────
 
-SEPARADOR_CITAS = " … "  # une las citas de los originales en la `cita` del paso fusionado
 # De la evidencia más sólida a la más débil: el paso fusionado se queda con la más débil.
 _ORDEN_CONFIANZA: dict[Confianza, int] = {"alta": 0, "media": 1, "baja": 2}
 _ORDEN_FUENTE: dict[Fuente, int] = {"audio": 0, "visual": 1, "inferido": 2}
@@ -157,16 +155,16 @@ def fusionar(
 
     - `t_inicio` y `t_fin`: el menor inicio y el mayor fin de los originales (regla 4: ningún
       tiempo nuevo).
-    - `nombre`: el del original más parecido al paso del SOP.
-    - `descripcion` y `cita`: las de los originales, unidas en orden (las citas con
-      `SEPARADOR_CITAS`, así que la cita unida ya no aparece literal en la transcripción; las
-      citas íntegras quedan en el registro).
-    - `responsable`: los distintos, unidos con ", " ("No identificado" solo si no hay otro).
+    - `nombre`, `cita` y `responsable`: los del original más parecido al paso del SOP (en
+      empate, el primero). La cita es una de las originales, así que sigue apareciendo tal
+      cual en la transcripción (regla 4); las demás quedan en el registro.
+    - `descripcion`: las de los originales, unidas en orden.
     - `confianza` y `fuente`: la evidencia más débil del grupo.
     - `numero`: posición desde 1 tras la fusión. Un paso sin grupo solo cambia de número.
 
-    Devuelve los pasos fusionados y un `Fusion` por cada uno. `pasos_video` debe venir en orden
-    (números crecientes); sin pasos del video no carga el modelo.
+    Devuelve los pasos fusionados y un `Fusion` por cada uno, con todas las citas originales y,
+    si los originales no coinciden en el responsable, la lista de los distintos. `pasos_video`
+    debe venir en orden (números crecientes); sin pasos del video no carga el modelo.
     """
     if not pasos_video:
         return [], []
@@ -209,6 +207,7 @@ def fusionar(
                 paso_sop=pasos_sop[mejor[representante]].numero,
                 citas=[p.cita for p in originales],
                 similitudes=[float(coseno[i]) for i in grupo],
+                responsables_distintos=_responsables_distintos(originales),
             )
         )
     logger.info(
@@ -221,17 +220,20 @@ def _unir(originales: Sequence[PasoVideo], representante: PasoVideo, numero: int
     """Un paso con los datos de `originales` (ver `fusionar`); con uno solo, lo renumera."""
     if len(originales) == 1:
         return originales[0].model_copy(update={"numero": numero})
-    responsables = list(dict.fromkeys(p.responsable for p in originales))
-    if len(responsables) > 1 and NO_IDENTIFICADO in responsables:
-        responsables.remove(NO_IDENTIFICADO)
     return PasoVideo(
         numero=numero,
         nombre=representante.nombre,
         descripcion=" ".join(d for p in originales if (d := p.descripcion.strip())),
-        responsable=", ".join(responsables),
+        responsable=representante.responsable,
         t_inicio=min(p.t_inicio for p in originales),
         t_fin=max(p.t_fin for p in originales),
-        cita=SEPARADOR_CITAS.join(c for p in originales if (c := p.cita.strip())),
+        cita=representante.cita,
         fuente=max((p.fuente for p in originales), key=_ORDEN_FUENTE.__getitem__),
         confianza=max((p.confianza for p in originales), key=_ORDEN_CONFIANZA.__getitem__),
     )
+
+
+def _responsables_distintos(originales: Sequence[PasoVideo]) -> list[str]:
+    """Los responsables de `originales` sin repetir, en orden; vacía si todos coinciden."""
+    distintos = list(dict.fromkeys(p.responsable for p in originales))
+    return distintos if len(distintos) > 1 else []

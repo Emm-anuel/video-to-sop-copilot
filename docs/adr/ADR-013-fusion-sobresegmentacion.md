@@ -25,7 +25,10 @@ de prueba exige exactamente un *Sobra*.
 
 **C.** Antes del algoritmo húngaro (ADR-012), los pasos consecutivos del video cuyo paso del SOP más
 parecido es el mismo, con parecido ≥ 0.55, se unen en uno: el inicio del primero, el fin del último y
-las citas de ambos. Solo aplica con SOP; al generar un SOP los pasos del video se usan tal cual.
+la cita y el responsable del original más parecido a ese paso del SOP, para que la cita siga
+apareciendo tal cual en la transcripción (regla 4 de CLAUDE.md). Las citas de todos los originales,
+y los responsables si no coinciden, quedan en el registro de la fusión. Solo aplica con SOP; al
+generar un SOP los pasos del video se usan tal cual.
 
 ## Consecuencias
 
@@ -35,6 +38,8 @@ las citas de ambos. Solo aplica con SOP; al generar un SOP los pasos del video s
 - **Seguimiento:** medir *Sobra* falsos con y sin fusión en los videos A–D.
   `fusionar` implementada en 972abc6, con el umbral en la configuración (`UMBRAL_FUSION`) y el
   registro `Fusion` (números originales, paso del SOP, citas y cosenos) para el reporte y el paper.
+  Después se ajustó para no unir citas ni responsables: el paso fusionado conserva los del original
+  más parecido y `Fusion.responsables_distintos` guarda los que no coinciden.
 
 ## Referencias
 

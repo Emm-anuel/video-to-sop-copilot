@@ -133,7 +133,10 @@ class Fusion(_Modelo):
 
     Hay uno por paso fusionado; si `originales` tiene un solo número, el paso no se unió con
     nada. `citas` y `similitudes` van en el orden de `originales`: la cita íntegra de cada
-    original (la del paso fusionado las une en un solo texto) y su coseno con `paso_sop`.
+    original (el paso fusionado conserva solo una, la del más parecido) y su coseno con
+    `paso_sop`. `responsables_distintos` lista los responsables de los originales, en orden de
+    aparición, cuando no coinciden (el paso fusionado se queda con el del más parecido); si
+    coinciden, va vacía.
     """
 
     numero: int = Field(ge=1, description="Número del paso fusionado.")
@@ -141,6 +144,7 @@ class Fusion(_Modelo):
     paso_sop: int = Field(ge=1, description="Paso del SOP más parecido.")
     citas: list[str]
     similitudes: list[Annotated[float, Field(ge=-1, le=1)]]
+    responsables_distintos: list[str] = []
 
     @model_validator(mode="after")
     def _listas_alineadas(self) -> Self:
@@ -152,6 +156,12 @@ class Fusion(_Modelo):
             raise ValueError(
                 f"paso {self.numero}: {n} originales, {len(self.citas)} citas y "
                 f"{len(self.similitudes)} similitudes"
+            )
+        distintos = self.responsables_distintos
+        if distintos and (len(distintos) < 2 or len(set(distintos)) != len(distintos)):
+            raise ValueError(
+                f"paso {self.numero}: responsables_distintos debe ir vacía o tener dos o más "
+                f"valores sin repetir (llegaron {len(distintos)})"
             )
         return self
 

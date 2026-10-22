@@ -335,6 +335,15 @@ def test_fusion_con_listas_invalidas_falla(campo, valor):
         Fusion.model_validate({**FUSION, campo: valor})
 
 
+def test_fusion_sin_responsables_distintos_los_deja_vacios():
+    assert Fusion.model_validate(FUSION).responsables_distintos == []
+
+
+@pytest.mark.parametrize("distintos", [["Técnica"], ["Técnica", "Técnica"]])
+def test_fusion_con_responsables_distintos_invalidos_falla(distintos):
+    _falla(Fusion, {**FUSION, "responsables_distintos": distintos}, "responsables_distintos")
+
+
 def test_fusion_con_similitud_fuera_de_rango_falla():
     _falla(Fusion, {**FUSION, "similitudes": [0.64, 1.5]}, "similitudes")
 
