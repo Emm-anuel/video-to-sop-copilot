@@ -44,6 +44,8 @@ Los umbrales viven en la configuración (RNF-14).
 - **Negativas / riesgos:** umbrales mal calibrados mueven pares a la categoría equivocada.
 - **Seguimiento:** calibrar con los videos A–D anotados a mano; comparar A, B y C en el paper.
   Base S2 (`Embedder`, `similitud`) implementada en ca82b10; cascada completa en S3–S4.
+  `asignar` (húngaro con `maximize=True`; en empate, la asignación más cercana al orden, la de
+  menor suma de (i − j)²) implementada en 83793f3.
 
 ## Referencias
 
