@@ -12,6 +12,7 @@ from sopvid.contrato import (
     Analisis,
     Dato,
     Fotograma,
+    Fusion,
     Idioma,
     Palabra,
     PasoSOP,
@@ -308,6 +309,42 @@ def test_campo_extra_anidado_en_el_sop_falla(ruta):
         nodo = nodo[paso]
     nodo["extra"] = 1
     _falla(SOP, datos, "extra")
+
+
+# ── Registro de la fusión (ADR-013) ──────────────────────────────────────────────────────────
+
+FUSION = {
+    "numero": 2,
+    "originales": [2, 3],
+    "paso_sop": 2,
+    "citas": ["Desenrosco el vaso del filtro", "Saco el cartucho usado"],
+    "similitudes": [0.64, 0.77],
+}
+
+
+def test_fusion_valida():
+    assert Fusion.model_validate(FUSION).originales == [2, 3]
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [("originales", []), ("originales", [3, 2]), ("originales", [2, 2]), ("citas", ["una"])],
+)
+def test_fusion_con_listas_invalidas_falla(campo, valor):
+    with pytest.raises(ValidationError):
+        Fusion.model_validate({**FUSION, campo: valor})
+
+
+def test_fusion_con_similitud_fuera_de_rango_falla():
+    _falla(Fusion, {**FUSION, "similitudes": [0.64, 1.5]}, "similitudes")
+
+
+def test_el_error_de_la_fusion_no_cita_el_texto():
+    with pytest.raises(ValidationError) as exc:
+        Fusion.model_validate({**FUSION, "similitudes": [0.64]})
+    mensajes = " ".join(e["msg"] for e in exc.value.errors())
+    assert "1 similitudes" in mensajes
+    assert all(c not in mensajes for c in FUSION["citas"])
 
 
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────

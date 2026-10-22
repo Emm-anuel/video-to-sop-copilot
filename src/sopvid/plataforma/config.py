@@ -2,8 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Self
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
@@ -62,6 +63,22 @@ class Settings(BaseSettings):
     # vez a esta carpeta (ignorada por git; en Docker, el volumen "modelos").
     embedder_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedder_cache_dir: Path = Path("models/embedder")
+    # Umbrales de coseno MiniLM (RNF-14). Cascada (ADR-012): por debajo de `umbral_bajo` no hay
+    # pareja; entre `umbral_bajo` y `umbral_alto` decide Gemma 4; desde `umbral_alto` se acepta.
+    # Fusión (ADR-013): pasos consecutivos del video con el mismo paso del SOP más parecido y
+    # coseno ≥ `umbral_fusion` se unen antes de emparejar.
+    umbral_bajo: float = Field(default=0.55, ge=0, le=1)
+    umbral_alto: float = Field(default=0.75, ge=0, le=1)
+    umbral_fusion: float = Field(default=0.55, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _umbrales_ordenados(self) -> Self:
+        if self.umbral_bajo > self.umbral_alto:
+            raise ValueError(
+                f"UMBRAL_BAJO ({self.umbral_bajo}) no puede ser mayor que "
+                f"UMBRAL_ALTO ({self.umbral_alto})"
+            )
+        return self
 
     @property
     def data_path(self) -> Path:

@@ -1,7 +1,8 @@
 """Contratos del pipeline: análisis del video, pasos del video (RF-13) y SOP (RF-03).
 
 `Analisis` es el JSON que produce el pipeline de video: idioma, transcripción con tiempo por
-palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él.
+palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él;
+`Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013).
 
 `SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
 lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un SOP cargado no
@@ -124,6 +125,34 @@ class PasoVideo(_Modelo):
     @model_validator(mode="after")
     def _rango(self) -> Self:
         _verificar_rango(self.t_inicio, self.t_fin)
+        return self
+
+
+class Fusion(_Modelo):
+    """Registro de un paso del video tras la fusión (ADR-013): qué pasos originales lo forman.
+
+    Hay uno por paso fusionado; si `originales` tiene un solo número, el paso no se unió con
+    nada. `citas` y `similitudes` van en el orden de `originales`: la cita íntegra de cada
+    original (la del paso fusionado las une en un solo texto) y su coseno con `paso_sop`.
+    """
+
+    numero: int = Field(ge=1, description="Número del paso fusionado.")
+    originales: list[int] = Field(min_length=1, description="Números de los pasos originales.")
+    paso_sop: int = Field(ge=1, description="Paso del SOP más parecido.")
+    citas: list[str]
+    similitudes: list[Annotated[float, Field(ge=-1, le=1)]]
+
+    @model_validator(mode="after")
+    def _listas_alineadas(self) -> Self:
+        for a, b in pairwise(self.originales):
+            if b <= a:
+                raise ValueError(f"paso {self.numero}: originales no crecientes ({a} → {b})")
+        n = len(self.originales)
+        if len(self.citas) != n or len(self.similitudes) != n:
+            raise ValueError(
+                f"paso {self.numero}: {n} originales, {len(self.citas)} citas y "
+                f"{len(self.similitudes)} similitudes"
+            )
         return self
 
 

@@ -200,7 +200,7 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 | `Embedder` | Carga MiniLM una sola vez, en CPU, y vectoriza textos (filas de norma 1) | `list[str]` → matriz `n × 384` float32 |
 | `texto_para_embeber(paso)` | Texto de cada paso del SOP o del video = `nombre + ". " + descripción` (solo el nombre si no hay descripción; sin punto doble) | paso → `str` |
 | `similitud(a, b)` | Coseno entre cada fila de dos matrices de vectores (los de los pasos del SOP y los del video) | matrices `m × d` y `n × d` → matriz `m × n` en [-1, 1] |
-| `fusionar(pasos_video, S)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ 0.55 | pasos del video → pasos fusionados |
+| `fusionar(pasos_sop, pasos_video, embedder)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ `UMBRAL_FUSION` (0.55) | pasos del video → pasos fusionados + registro `Fusion` |
 | `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` sobre `-S`) | matriz → pares |
 | `clasificar(pares, S)` | < 0.55 sin pareja · 0.55–0.75 zona gris (va a Gemma 4) · ≥ 0.75 pareja aceptada | pares → estado preliminar |
 | `orden(pares)` | Subsecuencia creciente más larga; el resto *Fuera de orden* | pares → estado final de orden |
@@ -212,8 +212,8 @@ agregarla) y `torch` en su build de CPU para no inflar la imagen. `scipy` ya est
 Los pesos (~470 MB) se descargan la primera vez a `EMBEDDER_CACHE_DIR` (por defecto `models/embedder`,
 ignorada por Git; en Docker, el volumen `modelos`), no a la imagen.
 
-**Umbrales en configuración** (RNF-14): `PARECIDO_MIN=0.55`, `PARECIDO_ACEPTA=0.75`,
-`AFINIDAD_MIN=60`. Se calibran con `scripts/calibrar_umbrales.py` sobre los videos A–D anotados a mano:
+**Umbrales en configuración** (RNF-14): `UMBRAL_BAJO=0.55`, `UMBRAL_ALTO=0.75`, `UMBRAL_FUSION=0.55`
+(ya en `Settings`, con `UMBRAL_BAJO ≤ UMBRAL_ALTO`) y `AFINIDAD_MIN=60`. Se calibran con `scripts/calibrar_umbrales.py` sobre los videos A–D anotados a mano:
 elige los valores que maximizan la coincidencia con la anotación y guarda el resultado en
 `docs/adr/datos/emparejamiento/`.
 

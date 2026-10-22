@@ -3,8 +3,10 @@
 Base de S2: `Embedder`, que vectoriza textos con MiniLM multilingüe
 (`paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensiones) siempre en CPU para no competir por
 la VRAM con faster-whisper ni con Gemma 4, y `similitud`, la matriz de coseno entre dos grupos
-de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video. La
-fusión (ADR-013), el algoritmo húngaro, los umbrales y el orden llegan en S3.
+de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video.
+
+S3: `fusionar` une los pasos consecutivos del video que caen en el mismo paso del SOP
+(ADR-013). El algoritmo húngaro, la cascada con Gemma 4 y el orden llegan después.
 
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
@@ -14,13 +16,15 @@ import logging
 import time
 from collections.abc import Callable, Sequence
 from functools import lru_cache
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
 
-from sopvid.contrato import PasoSOP, PasoVideo
+from sopvid.contrato import Confianza, Fuente, Fusion, PasoSOP, PasoVideo
 from sopvid.plataforma.config import get_settings
+from sopvid.texto import NO_IDENTIFICADO
 
 logger = logging.getLogger(__name__)
 
@@ -128,3 +132,106 @@ def texto_para_embeber(paso: PasoSOP | PasoVideo) -> str:
         return nombre
     separador = " " if nombre.endswith((".", "?", "!")) else ". "
     return f"{nombre}{separador}{descripcion}"
+
+
+# ── Fusión de pasos del video (ADR-013) ──────────────────────────────────────────────────────
+
+SEPARADOR_CITAS = " … "  # une las citas de los originales en la `cita` del paso fusionado
+# De la evidencia más sólida a la más débil: el paso fusionado se queda con la más débil.
+_ORDEN_CONFIANZA: dict[Confianza, int] = {"alta": 0, "media": 1, "baja": 2}
+_ORDEN_FUENTE: dict[Fuente, int] = {"audio": 0, "visual": 1, "inferido": 2}
+
+
+def fusionar(
+    pasos_sop: Sequence[PasoSOP],
+    pasos_video: Sequence[PasoVideo],
+    embedder: Embedder,
+    *,
+    umbral: float | None = None,
+) -> tuple[list[PasoVideo], list[Fusion]]:
+    """Une los pasos consecutivos del video que caen en el mismo paso del SOP (ADR-013).
+
+    El mejor paso del SOP de cada paso del video es el de mayor coseno (`texto_para_embeber`;
+    en empate, el primero). Pasos seguidos en `pasos_video` con el mismo mejor paso del SOP y
+    coseno ≥ `umbral` (por defecto `UMBRAL_FUSION`) forman un grupo, que queda en un paso:
+
+    - `t_inicio` y `t_fin`: el menor inicio y el mayor fin de los originales (regla 4: ningún
+      tiempo nuevo).
+    - `nombre`: el del original más parecido al paso del SOP.
+    - `descripcion` y `cita`: las de los originales, unidas en orden (las citas con
+      `SEPARADOR_CITAS`, así que la cita unida ya no aparece literal en la transcripción; las
+      citas íntegras quedan en el registro).
+    - `responsable`: los distintos, unidos con ", " ("No identificado" solo si no hay otro).
+    - `confianza` y `fuente`: la evidencia más débil del grupo.
+    - `numero`: posición desde 1 tras la fusión. Un paso sin grupo solo cambia de número.
+
+    Devuelve los pasos fusionados y un `Fusion` por cada uno. `pasos_video` debe venir en orden
+    (números crecientes); sin pasos del video no carga el modelo.
+    """
+    if not pasos_video:
+        return [], []
+    if not pasos_sop:
+        raise ValueError("fusionar necesita al menos un paso del SOP (ADR-013)")
+    for a, b in pairwise(pasos_video):
+        if b.numero <= a.numero:
+            raise ValueError(f"pasos del video fuera de orden: {a.numero} → {b.numero}")
+    if umbral is None:
+        umbral = get_settings().umbral_fusion
+
+    x = embedder.embed([texto_para_embeber(p) for p in (*pasos_sop, *pasos_video)])
+    s = similitud(x[len(pasos_sop) :], x[: len(pasos_sop)])  # video × SOP
+    mejor = s.argmax(axis=1)
+    coseno = s[np.arange(len(pasos_video)), mejor]
+
+    grupos: list[list[int]] = []
+    for i in range(len(pasos_video)):
+        anterior = grupos[-1][-1] if grupos else None
+        if (
+            anterior is not None
+            and mejor[i] == mejor[anterior]
+            and coseno[i] >= umbral
+            and coseno[anterior] >= umbral
+        ):
+            grupos[-1].append(i)
+        else:
+            grupos.append([i])
+
+    pasos: list[PasoVideo] = []
+    registro: list[Fusion] = []
+    for numero, grupo in enumerate(grupos, start=1):
+        originales = [pasos_video[i] for i in grupo]
+        representante = grupo[int(np.argmax(coseno[grupo]))]
+        pasos.append(_unir(originales, pasos_video[representante], numero))
+        registro.append(
+            Fusion(
+                numero=numero,
+                originales=[p.numero for p in originales],
+                paso_sop=pasos_sop[mejor[representante]].numero,
+                citas=[p.cita for p in originales],
+                similitudes=[float(coseno[i]) for i in grupo],
+            )
+        )
+    logger.info(
+        "Fusión (umbral %.2f): %d pasos del video → %d", umbral, len(pasos_video), len(pasos)
+    )
+    return pasos, registro
+
+
+def _unir(originales: Sequence[PasoVideo], representante: PasoVideo, numero: int) -> PasoVideo:
+    """Un paso con los datos de `originales` (ver `fusionar`); con uno solo, lo renumera."""
+    if len(originales) == 1:
+        return originales[0].model_copy(update={"numero": numero})
+    responsables = list(dict.fromkeys(p.responsable for p in originales))
+    if len(responsables) > 1 and NO_IDENTIFICADO in responsables:
+        responsables.remove(NO_IDENTIFICADO)
+    return PasoVideo(
+        numero=numero,
+        nombre=representante.nombre,
+        descripcion=" ".join(d for p in originales if (d := p.descripcion.strip())),
+        responsable=", ".join(responsables),
+        t_inicio=min(p.t_inicio for p in originales),
+        t_fin=max(p.t_fin for p in originales),
+        cita=SEPARADOR_CITAS.join(c for p in originales if (c := p.cita.strip())),
+        fuente=max((p.fuente for p in originales), key=_ORDEN_FUENTE.__getitem__),
+        confianza=max((p.confianza for p in originales), key=_ORDEN_CONFIANZA.__getitem__),
+    )
