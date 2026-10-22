@@ -256,6 +256,12 @@ anotado a mano antes de programar la comparación. Resuelve la falta de datos na
 | D | Otro procedimiento | Afinidad < 60 y advertencia |
 | E | Sin SOP, narrado en inglés | SOP en español completo |
 
+**Guion del video C:** las dos inversiones son **dos pares separados**, los pasos 2↔3 y 5↔6, no dos
+pasos sueltos. `orden` marca un paso por cada par invertido (el que llega tarde, según la subsecuencia
+creciente más larga de ADR-012), así que dos pares separados dan los 2 *Fuera de orden* que pide la
+sección 14 del documento. Un solo par invertido daría 1. Lo cubren las pruebas del video C reducido
+en `tests/test_emparejamiento.py`, incluida la de MiniLM real (`-m lento`).
+
 | RNF | Meta | Cómo |
 |---|---|---|
 | 01 | 10 min de video en < 5 min | Medido en la PC de referencia (ADR-014); estimado ~4 min |
@@ -306,3 +312,8 @@ versión 2 (diarización, búsqueda semántica, chat que pregunta antes de respo
 QR del PDF. Sin respuesta, la demo corre en red local y los QR apuntan a la IP de la máquina.
 
 **Control de cambios (sección 17 del documento):** registrar ADR-004, 011, 012 y 014 con fecha 19 oct.
+
+> **Nota para la fila del 22 oct:** el video C (sección 14) se graba con dos inversiones separadas
+> (pasos 2↔3 y 5↔6). El resultado esperado sigue igual (2 *Fuera de orden*) y no cambia `orden`: cada
+> par invertido marca un solo paso, el que llega tarde (ADR-012). *Fuera de orden* es una marca sobre
+> el paso y no un estado, así que un paso puede ser *Cumple* y estar fuera de orden a la vez.

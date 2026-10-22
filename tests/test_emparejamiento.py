@@ -1131,8 +1131,12 @@ VIDEO_CARTUCHO = {
 }
 # Video B del plan (§7): omite los pasos 2 y 6, agrega "limpiar la carcasa" y parte el 3 en dos.
 VIDEO_B = ("cerrar", "desenroscar", "sacar", "limpiar", "carcasa", "colocar")
-# Video C reducido: solo la inversión de dos pasos (el 4 antes que el 3).
-VIDEO_C = ("cerrar", "liberar", "limpiar", "retirar", "colocar", "abrir")
+# Video C reducido: solo las inversiones, dos pares separados (2↔3 y 5↔6), como se graba C para
+# dar los 2 *Fuera de orden* de la sección 14 del documento (cada inversión marca un paso).
+VIDEO_C = ("cerrar", "retirar", "liberar", "limpiar", "abrir", "colocar")
+# (indice_sop, posición esperada, posición observada): queda marcado el que llegó tarde de cada
+# par, "Liberar la presión" y "Colocar el cartucho nuevo".
+MARCADOS_C = [(1, 1, 2), (4, 4, 5)]
 
 
 def _video_cartucho(*claves: str) -> list[PasoVideo]:
@@ -1170,13 +1174,13 @@ def test_video_b_da_dos_falta_un_sobra_y_una_fusion(embedder, umbrales):
     assert resultado.pasos_video[retirar.indice_video].t_fin == video[2].t_fin
 
 
-def test_video_c_con_dos_pasos_invertidos_marca_uno_fuera_de_orden(embedder, umbrales):
+def test_video_c_con_dos_inversiones_separadas_marca_dos_fuera_de_orden(embedder, umbrales):
     resultado = emp.emparejar(SOP_CARTUCHO, _video_cartucho(*VIDEO_C), embedder)
     clasificacion = resultado.clasificacion
     assert all(len(f.originales) == 1 for f in resultado.fusiones)
     assert clasificacion.resumen.conteo["Cumple"] == 6
-    assert clasificacion.resumen.fuera_de_orden == 1
-    assert _marcados(clasificacion) == [(2, 2, 3)]  # "Retirar el cartucho", hecho después
+    assert clasificacion.resumen.fuera_de_orden == 2
+    assert _marcados(clasificacion) == MARCADOS_C
 
 
 def test_emparejar_vectoriza_el_sop_una_sola_vez(embedder, falso, umbrales):
@@ -1243,9 +1247,10 @@ def test_minilm_real_fusiona_el_paso_partido():
 
 @pytest.mark.lento
 def test_minilm_real_empareja_el_video_c(umbrales):
-    """Video C reducido con MiniLM real: todos Cumple, ninguna fusión, uno fuera de orden."""
+    """Video C reducido con MiniLM real: todos Cumple, ninguna fusión, dos fuera de orden."""
     resultado = emp.emparejar(SOP_CARTUCHO, _video_cartucho(*VIDEO_C), emp.Embedder())
     clasificacion = resultado.clasificacion
     assert all(len(f.originales) == 1 for f in resultado.fusiones), resultado.fusiones
     assert clasificacion.resumen.conteo["Cumple"] == 6, clasificacion.resumen
-    assert _marcados(clasificacion) == [(2, 2, 3)]
+    assert clasificacion.resumen.fuera_de_orden == 2
+    assert _marcados(clasificacion) == MARCADOS_C
