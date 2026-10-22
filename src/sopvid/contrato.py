@@ -2,8 +2,9 @@
 
 `Analisis` es el JSON que produce el pipeline de video: idioma, transcripción con tiempo por
 palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él;
-`Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013) y `Par`, cada
-pareja que elige el algoritmo húngaro (ADR-012).
+`Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013), `Par` es cada
+pareja que elige el algoritmo húngaro (ADR-012) y `Clasificacion`, el estado de cada paso tras
+los umbrales de la cascada (`ResultadoPaso`) con su resumen.
 
 `SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
 lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un SOP cargado no
@@ -19,8 +20,9 @@ Los JSON Schema se exportan a docs/contrato/ (analisis.schema.json y sop.schema.
 `python scripts/exportar_contrato.py`; no se editan a mano.
 """
 
+import math
 from itertools import pairwise
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal, Self, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -177,6 +179,105 @@ class Par(_Modelo):
     indice_sop: int = Field(ge=0)
     indice_video: int = Field(ge=0)
     similitud: float = Field(ge=-1, le=1, description="Coseno MiniLM entre los dos pasos.")
+
+
+# ── Clasificación por umbrales (cascada, ADR-012) ────────────────────────────────────────────
+
+# Estados del documento SOP V1.0 más "zona_gris", que es interno: un par con similitud entre
+# UMBRAL_BAJO y UMBRAL_ALTO que espera al juez Gemma 4 (S4). El juez lo convertirá en Cumple,
+# Parcial o en un Falta más un Sobra; ningún "zona_gris" debe llegar al reporte.
+EstadoPaso = Literal["Cumple", "Parcial", "Falta", "Sobra", "zona_gris"]
+ESTADOS: tuple[EstadoPaso, ...] = get_args(EstadoPaso)
+
+
+class ResultadoPaso(_Modelo):
+    """Estado de un paso del SOP o del video tras la cascada (ADR-012).
+
+    Cumple, Parcial y zona_gris son un par: llevan los dos índices y la similitud. Falta es un
+    paso del SOP sin pareja (o cuyo par se rompió por similitud baja): solo `indice_sop`. Sobra
+    es un paso del video sin pareja: solo `indice_video`. Los índices son posiciones desde 0,
+    como en `Par`; la similitud es la del par, así que un Falta o un Sobra no la llevan.
+
+    `t_inicio`, `cita` y `confianza` salen del paso del video (regla 4: ningún tiempo nuevo); un
+    Falta no tiene paso del video y los deja en `None`, `""` y `None`. Si la cita está vacía, la
+    confianza es "baja".
+    """
+
+    estado: EstadoPaso
+    indice_sop: int | None = Field(default=None, ge=0)
+    indice_video: int | None = Field(default=None, ge=0)
+    similitud: float | None = Field(default=None, ge=-1, le=1)
+    t_inicio: Tiempo | None = None
+    cita: str = ""
+    confianza: Confianza | None = None
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        con_sop, con_video = self.estado != "Sobra", self.estado != "Falta"
+        if (self.indice_sop is not None) != con_sop or (self.indice_video is not None) != con_video:
+            raise ValueError(
+                f"{self.estado}: índices incompatibles "
+                f"(indice_sop={self.indice_sop}, indice_video={self.indice_video})"
+            )
+        if (self.similitud is not None) != (con_sop and con_video):
+            raise ValueError(f"{self.estado}: la similitud solo va en un par")
+        if not con_video:
+            if self.t_inicio is not None or self.cita or self.confianza is not None:
+                raise ValueError("Falta: sin paso del video no hay t_inicio, cita ni confianza")
+        elif self.t_inicio is None or self.confianza is None:
+            raise ValueError(f"{self.estado}: el paso del video lleva t_inicio y confianza")
+        elif not self.cita.strip() and self.confianza != "baja":
+            raise ValueError(f"{self.estado}: sin cita, la confianza es 'baja'")
+        return self
+
+
+class ResumenClasificacion(_Modelo):
+    """Conteo por estado (todos, aunque sea 0) y cuántos pares irían a Gemma 4.
+
+    `pares` son los que formó el algoritmo húngaro, incluidos los que se rompieron por similitud
+    baja; `pares_llm`, los de zona gris; `pct_pares_llm` = 100 · pares_llm / pares (0 sin pares),
+    la métrica del paper (ADR-012). La revisión de EPP y puntos de validación de los Cumple (S4)
+    no cuenta aquí.
+    """
+
+    conteo: dict[EstadoPaso, Annotated[int, Field(ge=0)]]
+    pares: int = Field(ge=0)
+    pares_llm: int = Field(ge=0)
+    pct_pares_llm: float = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if set(self.conteo) != set(ESTADOS):
+            raise ValueError("el conteo lleva todos los estados, aunque sea en 0")
+        if self.pares_llm != self.conteo["zona_gris"] or self.pares_llm > self.pares:
+            raise ValueError(
+                f"pares_llm ({self.pares_llm}) debe ser el conteo de zona_gris "
+                f"({self.conteo['zona_gris']}) y no más que los pares ({self.pares})"
+            )
+        esperado = 100 * self.pares_llm / self.pares if self.pares else 0.0
+        if not math.isclose(self.pct_pares_llm, esperado, abs_tol=1e-9):
+            raise ValueError(f"pct_pares_llm ({self.pct_pares_llm}) no es {esperado}")
+        return self
+
+
+class Clasificacion(_Modelo):
+    """Salida de `clasificar`: un resultado por paso y su resumen.
+
+    Primero un resultado por paso del SOP, en su orden; después los Sobra, en el orden del video.
+    """
+
+    pasos: list[ResultadoPaso]
+    resumen: ResumenClasificacion
+
+    @model_validator(mode="after")
+    def _resumen_coherente(self) -> Self:
+        for estado in ESTADOS:
+            n = sum(p.estado == estado for p in self.pasos)
+            if self.resumen.conteo[estado] != n:
+                raise ValueError(
+                    f"el resumen cuenta {self.resumen.conteo[estado]} {estado} y hay {n}"
+                )
+        return self
 
 
 # ── SOP (sección 10 del documento SOP V1.0) ─────────────────────────────────────────────────

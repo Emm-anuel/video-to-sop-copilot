@@ -8,8 +8,10 @@ import pytest
 from pydantic import ValidationError
 
 from sopvid.contrato import (
+    ESTADOS,
     SOP,
     Analisis,
+    Clasificacion,
     Dato,
     Fotograma,
     Fusion,
@@ -18,6 +20,8 @@ from sopvid.contrato import (
     Par,
     PasoSOP,
     PasoVideo,
+    ResultadoPaso,
+    ResumenClasificacion,
     esquema_analisis,
     esquema_sop,
 )
@@ -376,6 +380,98 @@ def test_par_fuera_del_contrato_falla(campo, valor):
 
 def test_campo_extra_en_par_falla():
     _falla(Par, {"indice_sop": 0, "indice_video": 0, "similitud": 0.5, "extra": 1}, "extra")
+
+
+# ── Clasificación por umbrales (ADR-012) ─────────────────────────────────────────────────────
+
+CUMPLE = {
+    "estado": "Cumple",
+    "indice_sop": 0,
+    "indice_video": 2,
+    "similitud": 0.81,
+    "t_inicio": 33.44,
+    "cita": "Ahora cierro la llave de paso",
+    "confianza": "alta",
+}
+SOBRA = {k: v for k, v in CUMPLE.items() if k not in ("indice_sop", "similitud")} | {
+    "estado": "Sobra"
+}
+
+
+def _conteo(**cambios: int) -> dict[str, int]:
+    return dict.fromkeys(ESTADOS, 0) | cambios
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        CUMPLE,
+        {**CUMPLE, "estado": "zona_gris", "similitud": 0.6},
+        {**CUMPLE, "estado": "Parcial"},
+        SOBRA,
+        {**SOBRA, "cita": "", "confianza": "baja"},
+        {"estado": "Falta", "indice_sop": 3},
+    ],
+    ids=["cumple", "zona_gris", "parcial", "sobra", "sobra_sin_cita", "falta"],
+)
+def test_resultado_paso_valido(datos):
+    assert ResultadoPaso.model_validate(datos).estado == datos["estado"]
+
+
+@pytest.mark.parametrize(
+    ("datos", "texto"),
+    [
+        ({**CUMPLE, "indice_video": None}, "índices"),
+        ({**SOBRA, "indice_sop": 0}, "índices"),
+        ({"estado": "Falta", "indice_sop": 0, "indice_video": 1}, "índices"),
+        ({**CUMPLE, "similitud": None}, "similitud"),
+        ({**SOBRA, "similitud": 0.4}, "similitud"),
+        ({"estado": "Falta", "indice_sop": 0, "t_inicio": 3.0}, "Falta"),
+        ({"estado": "Falta", "indice_sop": 0, "cita": "cierro"}, "Falta"),
+        ({**SOBRA, "t_inicio": None}, "t_inicio"),
+        ({**SOBRA, "cita": "", "confianza": "media"}, "baja"),
+        ({**CUMPLE, "cita": "  ", "confianza": "alta"}, "baja"),
+        ({**CUMPLE, "estado": "Fuera de orden"}, "estado"),
+    ],
+)
+def test_resultado_paso_incoherente_falla(datos, texto):
+    _falla(ResultadoPaso, datos, texto)
+
+
+def test_el_error_del_resultado_no_cita_el_texto():
+    with pytest.raises(ValidationError) as exc:
+        ResultadoPaso.model_validate({**CUMPLE, "similitud": None})
+    assert CUMPLE["cita"] not in str(exc.value)
+
+
+def test_resumen_de_la_clasificacion_valido():
+    resumen = ResumenClasificacion(
+        conteo=_conteo(Cumple=3, zona_gris=1), pares=4, pares_llm=1, pct_pares_llm=25.0
+    )
+    assert resumen.pct_pares_llm == 25.0
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        {"conteo": {"Cumple": 1}, "pares": 1, "pares_llm": 0, "pct_pares_llm": 0.0},
+        {"conteo": _conteo(zona_gris=1), "pares": 1, "pares_llm": 0, "pct_pares_llm": 0.0},
+        {"conteo": _conteo(zona_gris=2), "pares": 1, "pares_llm": 2, "pct_pares_llm": 100.0},
+        {"conteo": _conteo(zona_gris=1), "pares": 4, "pares_llm": 1, "pct_pares_llm": 0.25},
+        {"conteo": _conteo(Cumple=-1), "pares": 0, "pares_llm": 0, "pct_pares_llm": 0.0},
+    ],
+    ids=["sin_todos_los_estados", "llm_distinto", "llm_mayor", "pct_mal", "negativo"],
+)
+def test_resumen_de_la_clasificacion_incoherente_falla(datos):
+    with pytest.raises(ValidationError):
+        ResumenClasificacion.model_validate(datos)
+
+
+def test_clasificacion_con_resumen_que_no_cuadra_falla():
+    resumen = {"conteo": _conteo(Cumple=2), "pares": 2, "pares_llm": 0, "pct_pares_llm": 0.0}
+    _falla(Clasificacion, {"pasos": [CUMPLE], "resumen": resumen}, "Cumple")
+    resumen["conteo"] = _conteo(Cumple=1)
+    assert len(Clasificacion.model_validate({"pasos": [CUMPLE], "resumen": resumen}).pasos) == 1
 
 
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────

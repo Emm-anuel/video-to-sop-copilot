@@ -1,5 +1,6 @@
-"""Base de MiniLM (S2): `Embedder` y `similitud`; fusión de pasos del video (S3, ADR-013) y
-sus umbrales en la configuración.
+"""Base de MiniLM (S2): `Embedder` y `similitud`; fusión de pasos del video (S3, ADR-013),
+asignación con el algoritmo húngaro y clasificación por umbrales (S3, ADR-012), y los
+umbrales en la configuración.
 
 Todas las pruebas usan un vectorizador simulado y no descargan nada, salvo la marcada como
 "lento" (se corre con `pytest -m lento`; la primera vez baja ~470 MB a EMBEDDER_CACHE_DIR).
@@ -17,7 +18,7 @@ import pytest
 from pydantic import ValidationError
 from scipy.optimize import linear_sum_assignment
 
-from sopvid.contrato import PasoSOP, PasoVideo
+from sopvid.contrato import Par, PasoSOP, PasoVideo, ResultadoPaso
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.plataforma import config
 from sopvid.texto import NO_IDENTIFICADO
@@ -727,6 +728,197 @@ def test_asignar_sin_pasos_de_un_lado_deja_todo_sin_pareja(m, n):
 def test_asignar_rechaza_matrices_invalidas(matriz):
     with pytest.raises(ValueError):
         emp.asignar(matriz)
+
+
+# ── clasificar (cascada, ADR-012) ────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def umbrales(monkeypatch):
+    """Fija UMBRAL_BAJO y UMBRAL_ALTO (por defecto 0.55 y 0.75, sin importar el `.env`)."""
+
+    def fijar(bajo: float, alto: float) -> None:
+        monkeypatch.setenv("UMBRAL_BAJO", str(bajo))
+        monkeypatch.setenv("UMBRAL_ALTO", str(alto))
+        config.get_settings.cache_clear()
+
+    fijar(0.55, 0.75)
+    yield fijar
+    config.get_settings.cache_clear()
+
+
+def _sop_n(m: int) -> list[PasoSOP]:
+    return [_paso_sop(numero=i, nombre=f"Paso {i} del SOP") for i in range(1, m + 1)]
+
+
+def _video_n(n: int, **cambios: Any) -> list[PasoVideo]:
+    """Pasos del video inventados: el paso j (desde 0) empieza en 10j + 3.5 s."""
+    return [
+        _paso_video(
+            numero=j + 1,
+            t_inicio=10.0 * j + 3.5,
+            t_fin=10.0 * j + 9,
+            cita=f"Cita del paso {j + 1}",
+            **cambios,
+        )
+        for j in range(n)
+    ]
+
+
+def _un_par(similitud: float) -> emp.Asignacion:
+    return emp.Asignacion([Par(indice_sop=0, indice_video=0, similitud=similitud)], [], [])
+
+
+@pytest.mark.parametrize(
+    ("similitud", "estado"), [(0.55, "zona_gris"), (0.749, "zona_gris"), (0.75, "Cumple")]
+)
+def test_par_en_el_borde_de_los_umbrales(umbrales, similitud, estado):
+    video = _video_n(1, confianza="media")
+    pasos = emp.clasificar(_un_par(similitud), _sop_n(1), video).pasos
+    assert pasos == [
+        ResultadoPaso(
+            estado=estado,
+            indice_sop=0,
+            indice_video=0,
+            similitud=similitud,
+            t_inicio=video[0].t_inicio,
+            cita=video[0].cita,
+            confianza="media",
+        )
+    ]
+
+
+def test_par_bajo_el_umbral_se_rompe_en_falta_y_sobra(umbrales):
+    video = _video_n(1)
+    clasificacion = emp.clasificar(_un_par(0.549), _sop_n(1), video)
+    assert clasificacion.pasos == [
+        ResultadoPaso(estado="Falta", indice_sop=0),
+        ResultadoPaso(
+            estado="Sobra",
+            indice_video=0,
+            t_inicio=video[0].t_inicio,
+            cita=video[0].cita,
+            confianza="alta",
+        ),
+    ]
+    # El par roto cuenta como par evaluado, pero no va al LLM.
+    assert (clasificacion.resumen.pares, clasificacion.resumen.pares_llm) == (1, 0)
+
+
+def test_paso_del_sop_sin_pareja_falta(umbrales):
+    clasificacion = emp.clasificar(emp.Asignacion([], [0], []), _sop_n(1), [])
+    (falta,) = clasificacion.pasos
+    assert falta == ResultadoPaso(estado="Falta", indice_sop=0)
+    assert (falta.indice_video, falta.similitud, falta.t_inicio, falta.cita) == (
+        None,
+        None,
+        None,
+        "",
+    )
+    assert falta.confianza is None
+
+
+@pytest.mark.parametrize(
+    ("cita", "confianza"),
+    [("Aquí anoto la fecha en la etiqueta", "media"), ("", "baja"), ("   ", "baja")],
+    ids=["con_cita", "sin_cita", "cita_en_blanco"],
+)
+def test_paso_del_video_sin_pareja_sobra(umbrales, cita, confianza):
+    video = [_paso_video(numero=1, t_inicio=72.25, t_fin=80.0, cita=cita, confianza="media")]
+    (sobra,) = emp.clasificar(emp.Asignacion([], [], [0]), [], video).pasos
+    assert sobra == ResultadoPaso(
+        estado="Sobra", indice_video=0, t_inicio=72.25, cita=cita, confianza=confianza
+    )
+
+
+def test_cambiar_los_umbrales_por_entorno_cambia_la_clasificacion(umbrales):
+    sop, video, asignacion = _sop_n(1), _video_n(1), _un_par(0.6)
+
+    def estados() -> list[str]:
+        return [p.estado for p in emp.clasificar(asignacion, sop, video).pasos]
+
+    assert estados() == ["zona_gris"]
+    umbrales(0.65, 0.9)
+    assert estados() == ["Falta", "Sobra"]
+    umbrales(0.3, 0.6)
+    assert estados() == ["Cumple"]
+    umbrales(0.6, 0.6)  # umbrales iguales: no hay zona gris
+    assert estados() == ["Cumple"]
+
+
+def test_clasificar_de_punta_a_punta_desde_una_matriz(umbrales):
+    """4 pasos del SOP y 5 del video. El húngaro forma la diagonal y el paso 4 del video queda
+    sin pareja; la clasificación rompe el par (2, 2) por similitud baja."""
+    s = np.array(
+        [
+            [0.92, 0.10, 0.05, 0.00, 0.10],
+            [0.10, 0.62, 0.10, 0.05, 0.00],
+            [0.05, 0.10, 0.40, 0.10, 0.05],
+            [0.00, 0.05, 0.10, 0.80, 0.20],
+        ]
+    )
+    video = _video_n(5)
+    video[4] = video[4].model_copy(update={"cita": ""})
+    asignacion = emp.asignar(s)
+    assert _parejas(asignacion) == [(0, 0), (1, 1), (2, 2), (3, 3)]
+
+    clasificacion = emp.clasificar(asignacion, _sop_n(4), video)
+
+    estados = [(p.estado, p.indice_sop, p.indice_video) for p in clasificacion.pasos]
+    assert estados == [
+        ("Cumple", 0, 0),
+        ("zona_gris", 1, 1),
+        ("Falta", 2, None),
+        ("Cumple", 3, 3),
+        ("Sobra", None, 2),
+        ("Sobra", None, 4),
+    ]
+    assert [p.similitud for p in clasificacion.pasos] == [0.92, 0.62, None, 0.80, None, None]
+    # Regla 4: cada tiempo y cada cita es la de un paso del video.
+    for p in clasificacion.pasos:
+        if p.indice_video is not None:
+            origen = video[p.indice_video]
+            assert (p.t_inicio, p.cita) == (origen.t_inicio, origen.cita)
+    assert clasificacion.pasos[-1].confianza == "baja"  # Sobra sin cita
+    assert clasificacion.resumen.conteo == {
+        "Cumple": 2,
+        "Parcial": 0,
+        "Falta": 1,
+        "Sobra": 2,
+        "zona_gris": 1,
+    }
+    assert (clasificacion.resumen.pares, clasificacion.resumen.pares_llm) == (4, 1)
+    assert clasificacion.resumen.pct_pares_llm == pytest.approx(25.0)
+
+
+def test_clasificar_el_texto_identico_da_cumple_y_el_extra_sobra(embedder, umbrales):
+    video_textos = [*PASOS_CARTUCHO[:3], PASO_EXTRA, *PASOS_CARTUCHO[3:]]
+    asignacion = emp.asignar(_matriz(embedder, PASOS_CARTUCHO, video_textos))
+    clasificacion = emp.clasificar(asignacion, _sop_n(6), _video_n(7))
+    assert [p.estado for p in clasificacion.pasos] == ["Cumple"] * 6 + ["Sobra"]
+    assert clasificacion.pasos[-1].indice_video == 3
+    assert clasificacion.resumen.pct_pares_llm == 0.0
+
+
+def test_clasificar_sin_pasos_no_divide_entre_cero(umbrales):
+    clasificacion = emp.clasificar(emp.Asignacion([], [], []), [], [])
+    assert clasificacion.pasos == []
+    assert clasificacion.resumen.pares == 0
+    assert clasificacion.resumen.pct_pares_llm == 0.0
+
+
+@pytest.mark.parametrize(
+    "asignacion",
+    [
+        emp.Asignacion([Par(indice_sop=0, indice_video=5, similitud=0.9)], [1], []),
+        emp.Asignacion([Par(indice_sop=0, indice_video=0, similitud=0.9)], [], []),
+        emp.Asignacion([Par(indice_sop=0, indice_video=0, similitud=0.9)], [0, 1], []),
+    ],
+    ids=["indice_fuera_de_rango", "falta_un_paso_del_sop", "paso_repetido"],
+)
+def test_clasificar_rechaza_una_asignacion_de_otra_matriz(umbrales, asignacion):
+    with pytest.raises(ValueError, match="asignación"):
+        emp.clasificar(asignacion, _sop_n(2), _video_n(1))
 
 
 # ── Modelo real (lento) ──────────────────────────────────────────────────────────────────────

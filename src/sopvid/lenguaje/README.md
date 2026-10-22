@@ -17,8 +17,14 @@ mismo texto ("nombre. descripción") para un paso del SOP y uno del video. `fusi
 video que caen en el mismo paso del SOP (coseno ≥ `UMBRAL_FUSION`) y devuelve el registro
 `Fusion` de qué pasos originales se unieron. `asignar` elige las parejas SOP–video con el
 algoritmo húngaro (`Par`, más los índices sin pareja; en empate, la asignación que respeta el
-orden). Los umbrales (`UMBRAL_BAJO`, `UMBRAL_ALTO`, `UMBRAL_FUSION`) viven en la configuración;
-la cascada y el orden llegan en S3–S4.
+orden). `clasificar` da a cada paso un estado preliminar con los umbrales de la configuración
+(`Clasificacion`: un `ResultadoPaso` por paso y su resumen): un par con similitud <
+`UMBRAL_BAJO` se rompe en *Falta* (SOP) y *Sobra* (video); de `UMBRAL_BAJO` a `UMBRAL_ALTO`
+queda en `zona_gris`, estado interno pendiente del juez Gemma 4 (S4); desde `UMBRAL_ALTO`,
+*Cumple* provisional. Tiempo, cita y confianza salen solo del paso del video (sin cita,
+confianza "baja"); el resumen cuenta los estados y el % de pares que irían al LLM. Los umbrales
+(`UMBRAL_BAJO`, `UMBRAL_ALTO`, `UMBRAL_FUSION`) viven en la configuración; el juez de la zona
+gris y el orden llegan en S4.
 
 `sop_markdown.py` (RF-03, [ADR-015](../../../docs/adr/ADR-015-sop-plantilla-markdown.md)) convierte
 un SOP de referencia en Markdown o TXT al contrato `SOP` con código, sin LLM, según la plantilla

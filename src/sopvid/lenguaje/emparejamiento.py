@@ -6,8 +6,9 @@ la VRAM con faster-whisper ni con Gemma 4, y `similitud`, la matriz de coseno en
 de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video.
 
 S3: `fusionar` une los pasos consecutivos del video que caen en el mismo paso del SOP
-(ADR-013) y `asignar` elige las parejas SOP–video con el algoritmo húngaro (ADR-012). La
-cascada con Gemma 4 y el orden llegan después.
+(ADR-013), `asignar` elige las parejas SOP–video con el algoritmo húngaro y `clasificar` les da
+un estado preliminar con los umbrales de la cascada (ADR-012). El juez Gemma 4 de la zona gris
+y el orden llegan después.
 
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
@@ -24,7 +25,19 @@ from typing import Any, NamedTuple, Protocol
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from sopvid.contrato import Confianza, Fuente, Fusion, Par, PasoSOP, PasoVideo
+from sopvid.contrato import (
+    ESTADOS,
+    Clasificacion,
+    Confianza,
+    EstadoPaso,
+    Fuente,
+    Fusion,
+    Par,
+    PasoSOP,
+    PasoVideo,
+    ResultadoPaso,
+    ResumenClasificacion,
+)
 from sopvid.plataforma.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -299,4 +312,86 @@ def asignar(matriz: np.ndarray) -> Asignacion:
         pares,
         sorted(set(range(m)) - {p.indice_sop for p in pares}),
         sorted(set(range(n)) - {p.indice_video for p in pares}),
+    )
+
+
+# ── Clasificación por umbrales (cascada, ADR-012) ────────────────────────────────────────────
+
+
+def clasificar(
+    asignacion: Asignacion, pasos_sop: Sequence[PasoSOP], pasos_video: Sequence[PasoVideo]
+) -> Clasificacion:
+    """Estado preliminar de cada paso según la similitud de su par (ADR-012), sin LLM.
+
+    Con `UMBRAL_BAJO` y `UMBRAL_ALTO` de la configuración, para cada par de `asignacion`:
+
+    - similitud < `UMBRAL_BAJO`: el par se rompe; el paso del SOP queda *Falta* y el del video,
+      *Sobra*.
+    - `UMBRAL_BAJO` ≤ similitud < `UMBRAL_ALTO`: "zona_gris", pendiente del juez Gemma 4 (S4).
+    - similitud ≥ `UMBRAL_ALTO`: *Cumple* provisional (en S4 el juez revisará EPP y puntos de
+      validación, y puede bajarlo a *Parcial*).
+
+    Un paso del SOP sin pareja queda *Falta*; uno del video sin pareja, *Sobra*. `t_inicio`,
+    `cita` y `confianza` salen solo del `PasoVideo` (regla 4); si la cita está vacía, la
+    confianza es "baja". El orden (*Fuera de orden*) se revisa después, con código.
+
+    `asignacion` debe venir de `asignar` sobre la matriz `pasos_sop × pasos_video`: cada índice
+    de los dos lados aparece una sola vez, en un par o sin pareja.
+    """
+    m, n = len(pasos_sop), len(pasos_video)
+    sop = [p.indice_sop for p in asignacion.pares] + list(asignacion.sop_sin_pareja)
+    video = [p.indice_video for p in asignacion.pares] + list(asignacion.video_sin_pareja)
+    if sorted(sop) != list(range(m)) or sorted(video) != list(range(n)):
+        raise ValueError(
+            f"la asignación no cubre una sola vez los {m} pasos del SOP y los {n} del video"
+        )
+    settings = get_settings()
+    bajo, alto = settings.umbral_bajo, settings.umbral_alto
+
+    por_sop = {i: ResultadoPaso(estado="Falta", indice_sop=i) for i in asignacion.sop_sin_pareja}
+    sobran = list(asignacion.video_sin_pareja)
+    for par in asignacion.pares:
+        if par.similitud < bajo:
+            por_sop[par.indice_sop] = ResultadoPaso(estado="Falta", indice_sop=par.indice_sop)
+            sobran.append(par.indice_video)
+        else:
+            por_sop[par.indice_sop] = _con_video(
+                "Cumple" if par.similitud >= alto else "zona_gris",
+                pasos_video[par.indice_video],
+                indice_sop=par.indice_sop,
+                indice_video=par.indice_video,
+                similitud=par.similitud,
+            )
+    pasos = [por_sop[i] for i in range(m)]
+    pasos += [_con_video("Sobra", pasos_video[j], indice_video=j) for j in sorted(sobran)]
+
+    conteo = dict.fromkeys(ESTADOS, 0)
+    for paso in pasos:
+        conteo[paso.estado] += 1
+    pares, llm = len(asignacion.pares), conteo["zona_gris"]
+    resumen = ResumenClasificacion(
+        conteo=conteo,
+        pares=pares,
+        pares_llm=llm,
+        pct_pares_llm=100 * llm / pares if pares else 0.0,
+    )
+    logger.info(
+        "Clasificación (umbrales %.2f / %.2f): %s; %d de %d pares a Gemma 4",
+        bajo,
+        alto,
+        conteo,
+        llm,
+        pares,
+    )
+    return Clasificacion(pasos=pasos, resumen=resumen)
+
+
+def _con_video(estado: EstadoPaso, paso: PasoVideo, **indices: Any) -> ResultadoPaso:
+    """Resultado con la evidencia de `paso`: su inicio y su cita; sin cita, confianza baja."""
+    return ResultadoPaso(
+        estado=estado,
+        t_inicio=paso.t_inicio,
+        cita=paso.cita,
+        confianza=paso.confianza if paso.cita.strip() else "baja",
+        **indices,
     )
