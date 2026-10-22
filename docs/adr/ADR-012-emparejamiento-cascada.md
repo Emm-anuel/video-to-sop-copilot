@@ -48,7 +48,14 @@ Los umbrales viven en la configuración (RNF-14).
   menor suma de (i − j)²) implementada en 83793f3. `clasificar` (puntos 2–4 sin LLM: bajo
   `UMBRAL_BAJO` el par se rompe en *Falta* + *Sobra*; la zona gris queda marcada como estado
   interno `zona_gris` para el juez de S4; desde `UMBRAL_ALTO`, *Cumple* provisional; resumen con
-  el % de pares que irían al LLM) implementada en a027ad2.
+  el % de pares que irían al LLM) implementada en a027ad2. `orden` (punto 5: subsecuencia
+  creciente más larga en O(n log n) sobre los Cumple y zona gris ordenados por `t_inicio`; en
+  empate, la que deja fuera lo más tardío del video) y `emparejar` (fusionar → asignar →
+  clasificar → orden) implementadas en f2c65bc: **la cascada completa, sin el juez Gemma 4**.
+  *Fuera de orden* quedó como marca (`fuera_de_orden` con posición esperada y observada), no como
+  estado, para que un paso pueda ser *Cumple* y estar fuera de orden. Pendiente de S4: el juez de
+  la zona gris, y volver a correr `orden` después del juez, porque con MiniLM real un paso extra
+  puede emparejarse en zona gris con un paso omitido y quedar marcado fuera de orden.
 
 ## Referencias
 
