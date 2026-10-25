@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     # Anotaciones públicas de CaptainCook4D (avances académicos). Nunca se versionan.
     data_dir: Path = Path("data/raw/captaincook4d")
 
+    # Videos subidos, audio extraído, fotogramas y PDF. Ignorada por git (material del cliente).
+    media_dir: Path = Path("media")
+    # Tope por llamada a ffmpeg/ffprobe. Extraer mp3 mono va decenas de veces más rápido que el
+    # tiempo real: 300 s cubre videos de una hora con margen.
+    ffmpeg_timeout_s: float = Field(default=300.0, gt=0)
+
     # LLM local vía Ollama (ADR-006). Desde el host, 127.0.0.1 y no "localhost": en Windows
     # "localhost" prueba ::1 primero y pierde ~2 s por conexión. La API en Docker usa el
     # valor que le pasa docker-compose.yml.
@@ -84,6 +90,11 @@ class Settings(BaseSettings):
     def data_path(self) -> Path:
         """`data_dir` absoluto; si es relativo, se resuelve contra la raíz del proyecto."""
         return _absoluta(self.data_dir)
+
+    @property
+    def media_path(self) -> Path:
+        """`media_dir` absoluto; si es relativo, contra la raíz del proyecto."""
+        return _absoluta(self.media_dir)
 
     @property
     def embedder_cache_path(self) -> Path:

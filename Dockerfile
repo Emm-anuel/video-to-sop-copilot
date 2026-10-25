@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# ffmpeg/ffprobe para la etapa de medios (duración, audio, fotogramas). Versión de Debian bookworm.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml README.md ./
 # torch solo CPU (MiniLM, ADR-012): el wheel de PyPI para Linux arrastra CUDA (varios GB). Se
 # instala primero desde el índice CPU de PyTorch, con la versión fijada en pyproject.toml; después
