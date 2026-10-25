@@ -43,6 +43,12 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Instalar ffmpeg
+        # Sin ffmpeg, tests/test_medios.py se salta en lugar de probar la etapa de medios.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Instalar dependencias
         # torch primero y solo CPU (en Linux, el de PyPI arrastra CUDA); versión de pyproject.toml.
         run: |

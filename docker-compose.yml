@@ -39,6 +39,8 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL_API:-http://ollama:11434}
       # Pesos de MiniLM en el volumen "modelos": se descargan una vez y sobreviven a la imagen.
       EMBEDDER_CACHE_DIR: /app/models/embedder
+      # Pesos de faster-whisper en el mismo volumen. Sin GPU en este servicio: Whisper en CPU.
+      WHISPER_CACHE_DIR: /app/models/whisper
     volumes:
       - modelos:/app/models
     ports:

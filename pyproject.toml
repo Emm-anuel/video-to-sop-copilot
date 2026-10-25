@@ -34,9 +34,24 @@ dependencies = [
     "torch==2.13.0",
     "transformers==5.19.0",
     "sentence-transformers==6.1.0",
+    # Transcripción local (RF-09, RF-10). No usa torch. ctranslate2 se fija aparte: es el motor
+    # de inferencia (reproducibilidad, RNF-07) y 4.8.4 salió el 25 oct 2026; se fija la anterior.
+    "faster-whisper==1.2.1",
+    "ctranslate2==4.8.3",
+    # Dependencias de faster-whisper que cambian la salida: onnxruntime corre el VAD (qué audio
+    # se transcribe) y av decodifica el audio; las dos mueven segmentos y tiempos (RNF-07).
+    "onnxruntime==1.31.0",
+    "av==18.1.0",
 ]
 
 [project.optional-dependencies]
+# cuBLAS (CUDA 12) y cuDNN 9 para faster-whisper en una GPU NVIDIA desde el venv; ~1.25 GB.
+# cuDNN coincide con el cargador cudnn64_9.dll que trae el wheel de ctranslate2 4.8.3 en Windows.
+# Fuera de `dev`: ni el CI ni la imagen Docker los instalan. Ver docs/dev/transcripcion.md.
+gpu = [
+    "nvidia-cublas-cu12==12.9.1.4",
+    "nvidia-cudnn-cu12==9.10.2.21",
+]
 # sopvid.features y los avances académicos; mismas versiones que Avance1.51.ipynb.
 # Van aparte para que la imagen Docker de la API no cargue pandas ni scikit-learn.
 ml = [
