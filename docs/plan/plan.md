@@ -232,7 +232,7 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | Semana | Emmanuel | Sara | Compartido / checkpoint | Académico |
 |---|---|---|---|---|
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
-| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct) | Grabar videos A–E; subida simple; faster-whisper con idioma y tiempos | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
+| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct); ✓ **ingesta de audio y transcripción**, tomadas de Sara (rama `feat/percepcion-transcripcion`, 25 oct): `medios.py` (duración, mp3 mono 16 kHz) y `transcripcion.py` (RF-09, RF-10: idioma, tiempo por palabra, TXT en vivo); GPU en el host, Docker solo CPU (ADR-014) | Grabar videos A–E; subida simple | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
 | S4 · 2–8 nov | Juez Gemma 4 en la zona gris; porcentaje; **calibrar umbrales MiniLM** con A y B | Integrar la pantalla con la API | ✓ **MVP de validación** (videos A y B) | — |
 | S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
@@ -297,6 +297,7 @@ en `tests/test_emparejamiento.py`, incluida la de MiniLM real (`-m lento`).
 | Gemma 4 E4B describe mal los fotogramas | Medio | Media | La voz manda; la imagen solo confirma equipos, EPP y riesgos |
 | Angular consume la ruta crítica | Alto | Media | Pantallas sencillas; la API se prueba sola desde `/docs` |
 | Ruido o varias voces en el audio | Medio | Media | Guion de grabación, micrófono cerca, VAD; video C con dos personas |
+| Whisper corta segmentos a media frase y las fronteras de paso de ADR-010 (que el LLM elige entre segmentos) quedan desplazadas o mezclan dos pasos | Alto | Por medir | Medir con el video A: cuántos segmentos terminan a media frase y el F1 de fronteras contra la anotación a mano. Con la narración sintética del 25 oct salió un segmento por frase, pero con una primera versión mal pronunciada cortó a media frase ("el filtro de / cartucho"); falta habla real. Si afecta, re-cortar los segmentos por puntuación y pausas con los tiempos por palabra antes de segmentar |
 | Solo una PC del equipo tiene GPU | Medio | Media | Sara usa el perfil CPU; Ollama compartido por red privada para pruebas |
 | Repositorio público con material bajo NDA | Alto | Por confirmar | Pasarlo a privado en S2 |
 

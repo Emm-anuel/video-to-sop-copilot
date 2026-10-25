@@ -124,7 +124,13 @@ docs/
 > - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
 >   `palabras`, `busquedas`) en `plataforma/modelos.py` y la migración `0002`; `sops.codigo` es
 >   una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
-> - **Sin código todavía:** subida, ffmpeg, transcripción y fotogramas (`percepcion/`); lectura del
+> - **Ingesta de audio y transcripción (25 oct, rama `feat/percepcion-transcripcion`, sin fusionar):**
+>   `percepcion/medios.py` (duración con ffprobe, audio mp3 mono 16 kHz con ffmpeg) y
+>   `percepcion/transcripcion.py` (RF-09 idioma con confianza o fijado a mano; RF-10 tiempo por
+>   segmento y por palabra, TXT `[mm:ss]` en vivo). faster-whisper con GPU corre en el host, desde el
+>   venv con el extra `gpu`; en Docker, solo CPU (`small`; seguimiento en ADR-014,
+>   `docs/dev/transcripcion.md`).
+> - **Sin código todavía:** subida y fotogramas (`percepcion/`); lectura del
 >   SOP en PDF y Word, emparejamiento, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
