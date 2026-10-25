@@ -5,7 +5,7 @@ Frente de **percepción**: convierte un video en pasos con marca de tiempo.
 | Etapa | Qué hace | Tecnología prevista |
 |---|---|---|
 | Ingesta | Recibe el video (archivo, cámara, teléfono) tras una misma interfaz; mide la duración y extrae el audio en mp3 mono a 16 kHz (`medios.py`) | ffmpeg |
-| Transcripción | Texto con marcas de tiempo por segmento y palabra | faster-whisper |
+| Transcripción (RF-09, RF-10) | Idioma con confianza (o fijado a mano) y texto con tiempo por segmento y por palabra; TXT que se escribe mientras avanza (`transcripcion.py`) | faster-whisper |
 | Pasos del video (RF-13) | Convierte el análisis del video en pasos con nombre, descripción, responsable, tiempos, cita, fuente y confianza, sin ver el SOP | LLM local que elige el segmento donde empieza cada paso y redacta el resto; heurística de transiciones y pausas como respaldo ([ADR-010](../../../docs/adr/ADR-010-segmentacion-pasos-llm.md)) |
 
 ## Contrato
@@ -30,6 +30,22 @@ imprime los metadatos del archivo. Las rutas de destino se arman bajo `MEDIA_DIR
 defecto, ignorada por Git). Las pruebas (`tests/test_medios.py`) generan su propio video con
 `lavfi` y se saltan si ffmpeg no está instalado.
 
+## `transcripcion.py`
+
+| Pieza | Qué hace |
+|---|---|
+| `Transcriptor` (Protocol) | `transcribir(audio, idioma=None, al_segmento=None) -> Transcripcion` |
+| `TranscriptorWhisper(settings=None, fabrica=None)` | faster-whisper con tiempo por palabra, VAD, temperatura 0, beam 5 y sin condicionar en el texto previo (RNF-07). Carga el modelo en cada llamada y lo libera al terminar (ADR-014). Con `idioma` lo fuerza (`fijado_a_mano=True`); si no, usa el detectado y su probabilidad. Con dispositivo `auto`, si cuda falla antes del primer segmento repite en CPU con un aviso |
+| `Transcripcion` | Idioma, segmentos del contrato, duración del audio, modelo, dispositivo y compute type **con los que corrió**, segundos de proceso y `respaldo_cpu` |
+| `normalizar(crudos)` | Segmentos de faster-whisper → `Segmento` del contrato: ids desde 0, sin vacíos ni espacios sobrantes, sin solaparse (recorta el inicio al fin del anterior), palabras no decrecientes y dentro del segmento, tiempos ≥ 0 en milisegundos |
+| `escritor_txt(ruta)` | Context manager que da el callback `al_segmento`: una línea `[mm:ss] texto` por segmento, con flush (RF-10) |
+| `elegir_dispositivo` | `auto` → cuda si hay GPU; compute `auto` → float16 en cuda, int8 en cpu |
+
+Configuración: `WHISPER_MODELO`, `WHISPER_DISPOSITIVO`, `WHISPER_COMPUTE_TYPE`,
+`WHISPER_CACHE_DIR`. Perfiles CPU y gpu, GPU en Windows y Docker: [docs/dev/transcripcion.md](../../../docs/dev/transcripcion.md).
+Los logs solo llevan conteos, tiempos e idioma. Las pruebas simulan el modelo; la marcada `lento`
+usa el audio de `SOPVID_AUDIO_PRUEBA` (fuera del repo).
+
 ## `segmentacion.py`
 
 | Función | Qué hace |
@@ -50,7 +66,7 @@ copian texto de la transcripción.
 **Estado:** la extracción de pasos del video (RF-13) está implementada y probada con un LLM simulado
 (cobertura del 100 %). La evaluación del 18 oct con `gemma4:e4b` da F1 0.645 contra 0.741 de la
 Fase 4; la mejora pendiente está en la sección "Ampliación 19 oct (RF-13)" de ADR-010. De la ingesta ya
-están la duración y el audio (`medios.py`); la subida y la transcripción todavía no tienen código (ver el [plan](../../../docs/plan/plan.md)).
+están la duración y el audio (`medios.py`) y la transcripción con idioma (`transcripcion.py`); la subida todavía no tiene código (ver el [plan](../../../docs/plan/plan.md)).
 
 > El modelo académico de `has_errors` (avances 2–5, `sopvid.features`) es la base de las futuras advertencias del copiloto. Solo usa información que este frente puede producir de un video segmentado: tiempos, orden y tipo de paso.
 

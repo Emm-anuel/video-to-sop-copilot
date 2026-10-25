@@ -38,6 +38,14 @@ secuencia y la transcripción libera la GPU antes de que Ollama cargue el modelo
 - **Negativas / riesgos:** cada cambio de modelo cuesta ~10 s con la caché caliente (36–86 s en frío,
   ADR-006); un solo integrante tiene GPU.
 - **Seguimiento:** medir RNF-01 en S5; si no se cumple, reducir fotogramas o usar Whisper `small`.
+- **Seguimiento (25 oct 2026), faster-whisper fuera del contenedor en el MVP:** el plan (§3) pone
+  la transcripción dentro del contenedor de la API, pero la imagen actual solo la corre en CPU: el
+  servicio `api` no reserva la GPU y la imagen no trae cuBLAS (CUDA 12) ni cuDNN 9. En el MVP,
+  faster-whisper `large-v3-turbo` corre en el host, desde el venv de Windows con el extra `gpu`
+  (medido: 58 s de audio en 6.6 s, ~2.4 GB de VRAM que se liberan al terminar;
+  `docs/dev/transcripcion.md`). Pendiente decidir cómo dar GPU al contenedor (imagen base CUDA o
+  wheels de NVIDIA, +1–2 GB, y reserva de GPU en `api`), o si la transcripción queda en un proceso
+  del host. Mientras tanto, en Docker se usa el perfil CPU (`small`, int8).
 
 ## Referencias
 

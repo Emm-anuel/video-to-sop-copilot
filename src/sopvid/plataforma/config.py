@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -55,6 +55,17 @@ class Settings(BaseSettings):
     # tiempo real: 300 s cubre videos de una hora con margen.
     ffmpeg_timeout_s: float = Field(default=300.0, gt=0)
 
+    # Transcripción con faster-whisper (RF-09, RF-10). Perfil CPU por defecto; perfil gpu:
+    # WHISPER_MODELO=large-v3-turbo, WHISPER_DISPOSITIVO=cuda, WHISPER_COMPUTE_TYPE=float16.
+    # El modelo es un nombre de faster-whisper ("small", "large-v3-turbo") o una carpeta local.
+    whisper_modelo: str = "small"
+    # "auto": cuda si ctranslate2 ve una GPU NVIDIA; si falla antes del primer segmento, CPU.
+    whisper_dispositivo: Literal["auto", "cpu", "cuda"] = "auto"
+    # "auto": float16 en cuda, int8 en cpu. Cualquier otro valor se pasa tal cual a ctranslate2.
+    whisper_compute_type: str = "auto"
+    # Pesos descargados la primera vez (ignorada por git; en Docker, el volumen "modelos").
+    whisper_cache_dir: Path = Path("models/whisper")
+
     # LLM local vía Ollama (ADR-006). Desde el host, 127.0.0.1 y no "localhost": en Windows
     # "localhost" prueba ::1 primero y pierde ~2 s por conexión. La API en Docker usa el
     # valor que le pasa docker-compose.yml.
@@ -95,6 +106,11 @@ class Settings(BaseSettings):
     def media_path(self) -> Path:
         """`media_dir` absoluto; si es relativo, contra la raíz del proyecto."""
         return _absoluta(self.media_dir)
+
+    @property
+    def whisper_cache_path(self) -> Path:
+        """`whisper_cache_dir` absoluto; si es relativo, contra la raíz del proyecto."""
+        return _absoluta(self.whisper_cache_dir)
 
     @property
     def embedder_cache_path(self) -> Path:

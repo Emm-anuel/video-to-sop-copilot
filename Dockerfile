@@ -31,8 +31,10 @@ RUN useradd --create-home --uid 1000 app \
     && chown app:app /app/models
 USER app
 
-# Pesos de MiniLM: se descargan la primera vez al volumen montado aquí, no a la imagen.
-ENV EMBEDDER_CACHE_DIR=/app/models/embedder
+# Pesos de MiniLM y de faster-whisper: se descargan la primera vez al volumen montado aquí, no a
+# la imagen. La imagen no trae cuBLAS ni cuDNN: Whisper corre en CPU (docs/dev/transcripcion.md).
+ENV EMBEDDER_CACHE_DIR=/app/models/embedder \
+    WHISPER_CACHE_DIR=/app/models/whisper
 
 EXPOSE 8000
 
