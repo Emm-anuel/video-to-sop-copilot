@@ -6,6 +6,7 @@ Frente de **percepción**: convierte un video en pasos con marca de tiempo.
 |---|---|---|
 | Ingesta | Recibe el video (archivo, cámara, teléfono) tras una misma interfaz; mide la duración y extrae el audio en mp3 mono a 16 kHz (`medios.py`) | ffmpeg |
 | Transcripción (RF-09, RF-10) | Idioma con confianza (o fijado a mano) y texto con tiempo por segmento y por palabra; TXT que se escribe mientras avanza (`transcripcion.py`) | faster-whisper |
+| Análisis del video | Une ingesta y transcripción en un `Analisis` validado del contrato, con avance por etapa (`pipeline.py`, `scripts/analizar_video.py`) | — |
 | Pasos del video (RF-13) | Convierte el análisis del video en pasos con nombre, descripción, responsable, tiempos, cita, fuente y confianza, sin ver el SOP | LLM local que elige el segmento donde empieza cada paso y redacta el resto; heurística de transiciones y pausas como respaldo ([ADR-010](../../../docs/adr/ADR-010-segmentacion-pasos-llm.md)) |
 
 ## Contrato
@@ -46,6 +47,24 @@ Configuración: `WHISPER_MODELO`, `WHISPER_DISPOSITIVO`, `WHISPER_COMPUTE_TYPE`,
 Los logs solo llevan conteos, tiempos e idioma. Las pruebas simulan el modelo; la marcada `lento`
 usa el audio de `SOPVID_AUDIO_PRUEBA` (fuera del repo).
 
+## `pipeline.py`
+
+`analizar_video(video, video_id, idioma, transcriptor, trabajo_dir, al_avanzar=None) -> Analisis`:
+duración → audio → transcripción, y valida el resultado con `Analisis.model_validate` antes de
+devolverlo. Deja en `trabajo_dir` el `audio.mp3` y el `transcripcion.txt`, que se escribe mientras
+avanza. `duracion_s` va en milisegundos, como los tiempos de la transcripción, y lo que Whisper
+deja más allá del final del video (inicio y fin de segmentos y palabras) se recorta a ella. `fotogramas` va vacía hasta RF-11 (S5).
+
+- El transcriptor se inyecta (RNF-14); el pipeline no crea modelos.
+- `al_avanzar(etapa, porcentaje)`: avance global entero que nunca retrocede y solo se informa
+  cuando cambia. `duracion` 0 → `audio` 5 → `transcripcion` 15–95 (según el fin de cada segmento)
+  → `listo` 100, que solo llega con el `Analisis` validado.
+
+`scripts/analizar_video.py VIDEO [--salida DIR] [--idioma es] [--video-id N] [--sobrescribir]`
+escribe `analisis.json`, el TXT y el audio en `MEDIA_DIR/<nombre del video>/` (o en `--salida`).
+Si ya hay un `analisis.json`, sale con código 1 sin procesar nada, salvo con `--sobrescribir`. El
+JSON entra tal cual a `segmentacion.segmentar` y después al emparejamiento.
+
 ## `segmentacion.py`
 
 | Función | Qué hace |
@@ -65,8 +84,10 @@ copian texto de la transcripción.
 
 **Estado:** la extracción de pasos del video (RF-13) está implementada y probada con un LLM simulado
 (cobertura del 100 %). La evaluación del 18 oct con `gemma4:e4b` da F1 0.645 contra 0.741 de la
-Fase 4; la mejora pendiente está en la sección "Ampliación 19 oct (RF-13)" de ADR-010. De la ingesta ya
-están la duración y el audio (`medios.py`) y la transcripción con idioma (`transcripcion.py`); la subida todavía no tiene código (ver el [plan](../../../docs/plan/plan.md)).
+Fase 4; la mejora pendiente está en la sección "Ampliación 19 oct (RF-13)" de ADR-010. Del video al `Analisis`
+ya están la duración y el audio (`medios.py`), la transcripción con idioma (`transcripcion.py`) y
+su unión con avance por etapa (`pipeline.py`, `scripts/analizar_video.py`); faltan la subida y
+los fotogramas (ver el [plan](../../../docs/plan/plan.md)).
 
 > El modelo académico de `has_errors` (avances 2–5, `sopvid.features`) es la base de las futuras advertencias del copiloto. Solo usa información que este frente puede producir de un video segmentado: tiempos, orden y tipo de paso.
 

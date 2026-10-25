@@ -1,8 +1,8 @@
 """Pruebas de `sopvid.percepcion.medios` (etapa 2: duración y audio).
 
-Cada prueba genera su propio video con ffmpeg (lavfi: testsrc + sine) en `tmp_path`; ningún
-medio se versiona. Las que necesitan ffmpeg real se saltan si no está instalado; las de
-errores de ejecución simulan `subprocess.run` y corren siempre.
+Cada prueba genera su propio video con ffmpeg (fixture `generar_video` de conftest.py) en
+`tmp_path`; ningún medio se versiona. Las que necesitan ffmpeg real se saltan si no está
+instalado; las de errores de ejecución simulan `subprocess.run` y corren siempre.
 """
 
 import json
@@ -31,23 +31,6 @@ requiere_ffmpeg = pytest.mark.skipif(
 SEGUNDOS = 3
 
 
-def _generar_video(destino: Path, con_audio: bool) -> Path:
-    """Video sintético de 3 s con códecs nativos de ffmpeg (no depende de libx264)."""
-    args = [
-        "ffmpeg", "-nostdin", "-v", "error", "-y",
-        "-f", "lavfi", "-i", f"testsrc=duration={SEGUNDOS}:size=160x120:rate=10",
-    ]  # fmt: skip
-    if con_audio:
-        # Estéreo a 44.1 kHz, para que la prueba demuestre la conversión a mono 16 kHz.
-        args += [
-            "-f", "lavfi", "-i", f"sine=frequency=440:duration={SEGUNDOS}:sample_rate=44100",
-            "-c:a", "aac", "-ac", "2",
-        ]  # fmt: skip
-    args += ["-c:v", "mpeg4", "-shortest", str(destino)]
-    subprocess.run(args, check=True, capture_output=True, timeout=60)
-    return destino
-
-
 def _ffprobe(archivo: Path) -> dict:
     salida = subprocess.run(
         ["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", str(archivo)],
@@ -59,13 +42,13 @@ def _ffprobe(archivo: Path) -> dict:
 
 
 @pytest.fixture
-def video_con_audio(tmp_path: Path) -> Path:
-    return _generar_video(tmp_path / "con_audio.mp4", con_audio=True)
+def video_con_audio(generar_video) -> Path:
+    return generar_video("con_audio.mp4", con_audio=True, segundos=SEGUNDOS)
 
 
 @pytest.fixture
-def video_sin_audio(tmp_path: Path) -> Path:
-    return _generar_video(tmp_path / "sin_audio.mp4", con_audio=False)
+def video_sin_audio(generar_video) -> Path:
+    return generar_video("sin_audio.mp4", con_audio=False, segundos=SEGUNDOS)
 
 
 # ── Con ffmpeg real ──────────────────────────────────────────────────────────
