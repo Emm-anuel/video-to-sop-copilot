@@ -192,7 +192,8 @@ Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versi�
 ## 8. Convenciones
 
 - Commits en formato Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `test:`), en español.
-- Ramas por tarea y PR hacia `main`; cada tarea como issue con responsable.
+- Los cambios pueden ir directo a `main` con commits convencionales y el CI en verde; las ramas
+  por tarea (y su PR) son opcionales. Cada tarea como issue con responsable.
 - Decisiones de arquitectura o de alcance → ADR en `docs/adr/` con estado (Propuesto / Aceptado / Reemplazado).
 - Código y comentarios en español o inglés, pero consistentes dentro de cada módulo; nombres de
   dominio en español (`paso`, `video`, `segmento`).
