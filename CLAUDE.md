@@ -124,7 +124,7 @@ docs/
 > - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
 >   `palabras`, `busquedas`) en `plataforma/modelos.py` y la migración `0002`; `sops.codigo` es
 >   una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
-> - **Ingesta de audio y transcripción (25 oct, rama `feat/percepcion-transcripcion`, sin fusionar):**
+> - **Ingesta de audio y transcripción (25 oct, en `main`):**
 >   `percepcion/medios.py` (duración con ffprobe, audio mp3 mono 16 kHz con ffmpeg) y
 >   `percepcion/transcripcion.py` (RF-09 idioma con confianza o fijado a mano; RF-10 tiempo por
 >   segmento y por palabra, TXT `[mm:ss]` en vivo). faster-whisper con GPU corre en el host, desde el
@@ -132,7 +132,13 @@ docs/
 >   `docs/dev/transcripcion.md`).
 > - **Emparejamiento en `main`:** `clasificar`, `orden` y `emparejar` (`lenguaje/emparejamiento.py`):
 >   cascada completa sin el juez de Gemma 4 (ADR-012, ADR-013).
-> - **Sin código todavía:** subida y fotogramas (`percepcion/`); lectura del
+> - **Análisis y API de videos (25 oct):** `percepcion/pipeline.py` (`analizar_video`: duración →
+>   audio → transcripción → `Analisis` validado) y `scripts/analizar_video.py`. API:
+>   `POST /videos` (subida simple, RF-06 del MVP), `GET /videos/{id}`, `…/transcripcion.txt` (en
+>   vivo) y `…/analisis`, con una cola de un trabajador (`plataforma/procesamiento.py`). El
+>   `Analisis` se guarda sin migración (idioma completo y segmentos en `videos.transcripcion`). La
+>   demo corre la API en el host con la GPU (`docs/dev/api.md`); en Docker, Whisper en CPU.
+> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
 >   SOP en PDF y Word, juez de la zona gris, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
