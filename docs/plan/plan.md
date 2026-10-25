@@ -176,7 +176,10 @@ agrega la redacción; la búsqueda exacta no usa IA.
 
 | Módulo | RF | Responsable | Semana |
 |---|---|---|---|
-| Subida, idioma, transcripción | RF-06 (simple), 09, 10 · RF-06 (partes), 08 | Sara | S2 · S5 |
+| Ingesta de audio (ffmpeg: duración y mp3) | RF-06 (simple), etapa de ffmpeg | Emmanuel (tomada el 25 oct; hecha) | S2 |
+| Subida simple | RF-06 (simple), subida | Sara (pendiente) | S2 |
+| Idioma y transcripción | RF-09, 10 | Emmanuel (tomados el 25 oct) | S2 |
+| Subida por partes y avance en vivo | RF-06 (partes), 08 | Sara | S5 |
 | Fotogramas | RF-11 | Sara | S5 |
 | SOP de referencia | RF-03 (TXT/MD, ADR-015) · RF-01, 02 (PDF/Word) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
 | Pasos del video y contexto | RF-13 · RF-12 | Emmanuel | S2–S3 · S5 |

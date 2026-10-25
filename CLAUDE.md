@@ -130,8 +130,10 @@ docs/
 >   segmento y por palabra, TXT `[mm:ss]` en vivo). faster-whisper con GPU corre en el host, desde el
 >   venv con el extra `gpu`; en Docker, solo CPU (`small`; seguimiento en ADR-014,
 >   `docs/dev/transcripcion.md`).
+> - **Emparejamiento en `main`:** `clasificar`, `orden` y `emparejar` (`lenguaje/emparejamiento.py`):
+>   cascada completa sin el juez de Gemma 4 (ADR-012, ADR-013).
 > - **Sin código todavía:** subida y fotogramas (`percepcion/`); lectura del
->   SOP en PDF y Word, emparejamiento, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
+>   SOP en PDF y Word, juez de la zona gris, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
