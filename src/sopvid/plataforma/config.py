@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     # Tope por llamada a ffmpeg/ffprobe. Extraer mp3 mono va decenas de veces más rápido que el
     # tiempo real: 300 s cubre videos de una hora con margen.
     ffmpeg_timeout_s: float = Field(default=300.0, gt=0)
+    # Tamaño máximo de un video en POST /videos (subida completa, RF-06 del MVP).
+    subida_max_mb: int = Field(default=1024, gt=0)
 
     # Transcripción con faster-whisper (RF-09, RF-10). Perfil CPU por defecto; perfil gpu:
     # WHISPER_MODELO=large-v3-turbo, WHISPER_DISPOSITIVO=cuda, WHISPER_COMPUTE_TYPE=float16.
@@ -106,6 +108,10 @@ class Settings(BaseSettings):
     def media_path(self) -> Path:
         """`media_dir` absoluto; si es relativo, contra la raíz del proyecto."""
         return _absoluta(self.media_dir)
+
+    @property
+    def subida_max_bytes(self) -> int:
+        return self.subida_max_mb * 1024 * 1024
 
     @property
     def whisper_cache_path(self) -> Path:

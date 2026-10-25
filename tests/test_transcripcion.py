@@ -95,7 +95,10 @@ def audio(tmp_path: Path) -> Path:
 
 
 def ajustes(tmp_path: Path, **valores) -> Settings:
+    """Ajustes de Whisper fijos: no dependen del perfil que tenga el `.env` de quien corre."""
+    valores.setdefault("whisper_modelo", "small")
     valores.setdefault("whisper_dispositivo", "cpu")
+    valores.setdefault("whisper_compute_type", "auto")
     return Settings(whisper_cache_dir=tmp_path / "whisper", **valores)
 
 

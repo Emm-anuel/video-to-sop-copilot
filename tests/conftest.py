@@ -45,7 +45,8 @@ def db_session(engine: Engine) -> Iterator[Session]:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    app = create_app()
+    # Sin marcar videos interrumpidos: el lifespan no debe tocar filas de la base de desarrollo.
+    app = create_app(recuperar_interrumpidos=False)
     with TestClient(app) as test_client:
         yield test_client
 

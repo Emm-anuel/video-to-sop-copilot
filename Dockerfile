@@ -27,8 +27,8 @@ COPY alembic.ini ./
 COPY migrations ./migrations
 
 RUN useradd --create-home --uid 1000 app \
-    && mkdir -p /app/models \
-    && chown app:app /app/models
+    && mkdir -p /app/models /app/media \
+    && chown app:app /app/models /app/media
 USER app
 
 # Pesos de MiniLM y de faster-whisper: se descargan la primera vez al volumen montado aquí, no a

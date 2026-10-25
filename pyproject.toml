@@ -25,6 +25,8 @@ dependencies = [
     "pydantic-settings==2.15.0",
     # Cliente del LLM local (Ollama) y TestClient de FastAPI.
     "httpx==0.28.1",
+    # Formularios multipart de FastAPI (POST /videos).
+    "python-multipart==0.0.32",
     # Emparejamiento con MiniLM en CPU (ADR-012, plan §5.3). torch debe instalarse desde el
     # índice CPU de PyTorch (https://download.pytorch.org/whl/cpu): en Linux, el wheel de PyPI
     # arrastra CUDA. El Dockerfile y el CI lo hacen antes de `pip install`; ver el README (venv).

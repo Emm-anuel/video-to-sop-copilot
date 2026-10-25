@@ -41,8 +41,15 @@ services:
       EMBEDDER_CACHE_DIR: /app/models/embedder
       # Pesos de faster-whisper en el mismo volumen. Sin GPU en este servicio: Whisper en CPU.
       WHISPER_CACHE_DIR: /app/models/whisper
+      # El contenedor no tiene GPU (ADR-014): perfil CPU aunque .env traiga el perfil gpu del host.
+      WHISPER_MODELO: ${WHISPER_MODELO_API:-small}
+      WHISPER_DISPOSITIVO: cpu
+      WHISPER_COMPUTE_TYPE: auto
+      # Videos subidos, audio y TXT (material del cliente): en el volumen "media", no en la imagen.
+      MEDIA_DIR: /app/media
     volumes:
       - modelos:/app/models
+      - media:/app/media
     ports:
       - "${APP_PORT:-8000}:8000"
     depends_on:
@@ -116,3 +123,4 @@ volumes:
   pgdata:
   ollama:
   modelos:
+  media:
