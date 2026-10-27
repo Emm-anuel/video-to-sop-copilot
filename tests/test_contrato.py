@@ -26,6 +26,7 @@ from sopvid.contrato import (
     ResultadoPaso,
     ResumenClasificacion,
     esquema_analisis,
+    esquema_reporte,
     esquema_sop,
 )
 
@@ -781,7 +782,11 @@ def test_el_sobra_con_marco_no_cuenta_en_el_conteo_de_sobra():
 
 @pytest.mark.parametrize(
     ("archivo", "esquema"),
-    [("analisis.schema.json", esquema_analisis), ("sop.schema.json", esquema_sop)],
+    [
+        ("analisis.schema.json", esquema_analisis),
+        ("sop.schema.json", esquema_sop),
+        ("reporte.schema.json", esquema_reporte),
+    ],
 )
 def test_el_esquema_exportado_coincide_con_el_modelo(archivo, esquema):
     exportado = json.loads((DIR_ESQUEMAS / archivo).read_text(encoding="utf-8"))

@@ -1,18 +1,38 @@
-# API de videos (desarrollo y demo)
+# API de SOP y videos (desarrollo y demo)
 
-Subida de un video completo (RF-06 del MVP; la subida por partes es de S5), análisis en una cola
-de un trabajador (un modelo en GPU a la vez, ADR-014) y consulta del avance, el TXT en vivo
-(RF-10) y el `Analisis` del contrato. Código: `sopvid.plataforma.api.videos` y
-`sopvid.plataforma.procesamiento`.
+Carga del SOP de referencia (RF-03), subida de un video completo (RF-06 del MVP; la subida por
+partes es de S5), análisis y validación en una cola de un trabajador (un modelo en memoria a la
+vez, ADR-014) y consulta del avance, el TXT en vivo (RF-10), el `Analisis` y el reporte (RF-14,
+RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.procesamiento` y
+`sopvid.lenguaje.validacion`.
 
 | Método y ruta | Qué hace |
 |---|---|
-| `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola"}` y `Location: /videos/<id>`. 415 si la extensión no está permitida, 422 si el formulario no es válido, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
-| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`, `listo`), `progreso` (0–100), duración, idioma y `error` |
+| `POST /sops` | Multipart: `archivo` (.md o .txt, UTF-8, hasta 1 MB) con la plantilla de `docs/contrato/plantilla_sop.md` (ADR-015). Responde **201** con `{"id", "codigo", "titulo", "advertencias"}`. 415 si la extensión no está permitida, 413 si pasa de 1 MB, 422 si no es UTF-8, si la conversión falla (`ErrorSOP`, con su mensaje) o si el título pasa de 300 caracteres |
+| `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "sop"}` con el `SOP` del contrato; 404 si no existe |
+| `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`), `sop_id` (obligatorio con `validar`, prohibido con `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola"}` y `Location: /videos/<id>`. 415 si la extensión no está permitida, 422 si el formulario no es válido, 404 si el SOP no existe, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
+| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`; en modo validar también `segmentacion`, `emparejamiento`, `reporte`; al final `listo`), `progreso` (0–100), duración, idioma y `error` |
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
+| `GET /videos/{id}/reporte` | El `ReporteValidacion` (esquema en `docs/contrato/reporte.schema.json`; ejemplos en `tests/fixtures/reporte_ejemplo*.json`). **409** si no está listo, 404 si el video no tiene reporte (p. ej. modo generar) |
+| `POST /videos/{id}/validar` | Repite solo la validación con la transcripción guardada, sin Whisper (ADR-017). **202**; 422 si el video no es de modo validar; 409 si está en cola o procesando, o si no tiene análisis guardado |
 
-Todas las rutas con `{id}` responden 404 si el video no existe.
+Todas las rutas con `{id}` responden 404 si el video (o el SOP) no existe.
+
+## Validación (modo validar)
+
+Después de guardar el `Analisis`: revisión de Ollama (`/api/tags`) → pasos del video con Gemma 4
+(ADR-010) → fusión, emparejamiento y juez de la zona gris (ADR-012, ADR-013) → orden y marco del
+operador (ADR-016) → porcentaje y semáforo (RF-19). El reporte se guarda en `reportes` y los pasos
+del video en `videos.pasos_video`. El avance: el análisis va de 0 a 45, `segmentacion` 45,
+`emparejamiento` 80, `reporte` 95 y `listo` 100.
+
+- **Ollama no responde al empezar:** `proceso="error"` con "LLM no disponible: el análisis quedó
+  guardado…". Cuando Ollama responda, `POST /videos/{id}/validar` (ADR-017).
+- **Ollama se cae a medias:** el reporte se guarda con `provisional: true` y
+  `metadatos.avisos` (`segmentacion_heuristica`, `juez_sin_revisar`, `pasos_sin_redactar`).
+- Al terminar la etapa del LLM se pide a Ollama que suelte el modelo (`keep_alive: 0`), en GPU o
+  en CPU, para que el siguiente Whisper tenga la memoria libre.
 
 ## Dónde queda cada cosa
 
@@ -31,11 +51,14 @@ que quedaron en `en_cola` o `procesando`. Se vuelven a subir.
 ## Probar con curl
 
 ```powershell
-curl.exe -F archivo=@video_a.mp4 -F "titulo=Cambio de filtro" -F modo=validar -F idioma=es http://127.0.0.1:8000/videos
+curl.exe -F archivo=@tests/fixtures/sop_filtro_agua.md http://127.0.0.1:8000/sops
+# {"id":3,"codigo":"SOP-0003","titulo":"Cambio del cartucho del filtro de agua","advertencias":[]}
+curl.exe -F archivo=@video_a.mp4 -F "titulo=Cambio de filtro" -F modo=validar -F sop_id=3 -F idioma=es http://127.0.0.1:8000/videos
 # {"id":12,"proceso":"en_cola"}
 curl.exe http://127.0.0.1:8000/videos/12                    # avance
 curl.exe http://127.0.0.1:8000/videos/12/transcripcion.txt  # TXT en vivo
 curl.exe -o analisis.json http://127.0.0.1:8000/videos/12/analisis
+curl.exe -o reporte.json http://127.0.0.1:8000/videos/12/reporte
 ```
 
 `analisis.json` es el mismo que escribe `scripts/analizar_video.py` y entra tal cual a

@@ -64,7 +64,18 @@ una sola vez. Los *Sobra* no restan (tampoco la intro y el cierre del operador),
 `zona_gris` valen 0. Los pasos del SOP se cuentan desde la clasificación (`indice_sop` de 0 a n-1
 sin repetir; si no, `ValueError`). `semaforo` da verde, amarillo o rojo con los cortes
 `SEMAFORO_VERDE` (90) y `SEMAFORO_AMARILLO` (70) de la configuración, siempre sobre el porcentaje
-sin redondear.
+sin redondear. `armar_reporte` arma la respuesta de `GET /videos/{id}/reporte`
+(`ReporteValidacion`) con lo guardado (`ResultadoValidacion`) y el SOP: una fila por resultado
+con el nombre del paso del SOP y del video, el segundo, la cita, la marca de orden, el marco del
+operador y la justificación del juez; el conteo y `provisional` (si hay avisos, ADR-017).
+
+`validacion.py` encadena la validación de un video sin tocar la base: `validar(analisis, sop,
+deps)` revisa que Ollama responda (si no, `LLMNoDisponible`: error reprocesable, ADR-017),
+segmenta (`segmentar`), empareja con el juez (`emparejar`), pide a Ollama que suelte el modelo
+(`ClienteLLM.descargar`, en un `finally`) y devuelve los pasos del video y el
+`ResultadoValidacion` con el porcentaje, el semáforo y los metadatos (segmentación, modelo,
+embedder, umbrales, segundos por etapa y avisos). Las dependencias (`DependenciasValidacion`: LLM,
+juez y embedder) se inyectan; el procesador de la API las crea con una fábrica.
 
 Búsqueda, chat y la redacción del SOP siguen reservados. La extensión `vector` ya queda
 habilitada en la base desde la primera migración.

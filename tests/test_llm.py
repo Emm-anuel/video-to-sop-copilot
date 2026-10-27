@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from sopvid.lenguaje.llm import (
+    PLAZO_DESCARGA_S,
     SEMILLA,
     ClienteLLM,
     LLMError,
@@ -279,3 +280,35 @@ def test_cuerpo_para_streaming_conserva_las_opciones_fijas():
     assert cuerpo["format"] == ESQUEMA
     assert cuerpo["think"] is False
     assert cuerpo["options"] == {"num_ctx": 8192, "temperature": 0, "seed": SEMILLA}
+
+
+# ── descargar (ADR-014, ADR-017) ─────────────────────────────────────────────────────────────
+
+
+def test_descargar_pide_keep_alive_cero_con_el_plazo_corto():
+    peticiones = []
+
+    def manejador(request):
+        peticiones.append(request)
+        return httpx.Response(200, json={"model": MODELO, "done": True})
+
+    with cliente_con(manejador) as cliente:
+        assert cliente.descargar() is True
+
+    [peticion] = peticiones
+    assert peticion.url.path == "/api/generate"
+    assert json.loads(peticion.content) == {"model": MODELO, "keep_alive": 0}
+    assert peticion.extensions["timeout"]["read"] == PLAZO_DESCARGA_S
+
+
+@pytest.mark.parametrize(
+    "manejador",
+    [
+        lambda r: httpx.Response(500, json={"error": "falla"}),
+        lambda r: (_ for _ in ()).throw(httpx.ConnectError("apagado", request=r)),
+    ],
+    ids=["500", "sin_conexion"],
+)
+def test_descargar_nunca_lanza(manejador):
+    with cliente_con(manejador) as cliente:
+        assert cliente.descargar() is False

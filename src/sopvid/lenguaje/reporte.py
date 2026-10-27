@@ -5,9 +5,25 @@
 suma a la penalización del Parcial). Falta y zona_gris ("sin revisar") valen 0. Los Sobra no
 restan, tampoco los marcados como intro o cierre del operador (ADR-016). `semaforo` traduce el
 porcentaje a verde, amarillo o rojo con los cortes de la configuración (RNF-14).
+
+`armar_reporte` arma la respuesta de `GET /videos/{id}/reporte` (`ReporteValidacion`) a partir
+de lo guardado (`ResultadoValidacion`) y del SOP: una fila por resultado, con el nombre del paso
+del SOP y del video, el segundo y la cita (siempre de la transcripción, regla 4).
 """
 
-from sopvid.contrato import ResultadoEmparejamiento, Semaforo
+from datetime import datetime
+
+from sopvid.contrato import (
+    SOP,
+    ConteoReporte,
+    FilaReporte,
+    PasoSOPReporte,
+    ReporteValidacion,
+    ResultadoEmparejamiento,
+    ResultadoValidacion,
+    Semaforo,
+    SOPReporte,
+)
 from sopvid.plataforma.config import Settings, get_settings
 
 
@@ -51,3 +67,70 @@ def semaforo(pct: float, settings: Settings | None = None) -> Semaforo:
     if pct >= settings.semaforo_amarillo:
         return "amarillo"
     return "rojo"
+
+
+def armar_reporte(
+    validacion: ResultadoValidacion,
+    sop: SOP,
+    *,
+    video_id: int,
+    sop_id: int,
+    codigo: str,
+    cumplimiento: float,
+    creado: datetime,
+) -> ReporteValidacion:
+    """La respuesta de la API con lo guardado. `cumplimiento` es el de la columna (dos decimales).
+
+    Las filas siguen el orden de la clasificación: primero los pasos del SOP y después los Sobra,
+    en el orden del video. El conteo sale del resumen de la clasificación.
+    """
+    resultado = validacion.resultado
+    filas = []
+    for paso in resultado.clasificacion.pasos:
+        video = None if paso.indice_video is None else resultado.pasos_video[paso.indice_video]
+        del_sop = None if paso.indice_sop is None else sop.pasos[paso.indice_sop]
+        juicio = paso.juicio
+        filas.append(
+            FilaReporte(
+                estado=paso.estado,
+                paso_sop=None if del_sop is None else del_sop.numero,
+                nombre_sop=None if del_sop is None else del_sop.nombre,
+                paso_video=None if video is None else video.numero,
+                nombre_video=None if video is None else video.nombre,
+                t_inicio=paso.t_inicio,
+                cita=paso.cita,
+                confianza=paso.confianza,
+                fuera_de_orden=paso.fuera_de_orden,
+                marco_operador=paso.marco_operador,
+                justificacion=juicio.justificacion if juicio and juicio.justificacion else None,
+            )
+        )
+    resumen = resultado.clasificacion.resumen
+    conteo = ConteoReporte(
+        cumple=resumen.conteo["Cumple"],
+        parcial=resumen.conteo["Parcial"],
+        fuera_de_orden=resumen.fuera_de_orden,
+        falta=resumen.conteo["Falta"],
+        sobra=resumen.conteo["Sobra"],
+        sin_revisar=resumen.conteo["zona_gris"],
+        marco_operador=resumen.marco_operador,
+    )
+    return ReporteValidacion(
+        video_id=video_id,
+        sop=SOPReporte(
+            id=sop_id,
+            codigo=codigo,
+            titulo=sop.titulo,
+            pasos=[
+                PasoSOPReporte(numero=p.numero, nombre=p.nombre, descripcion=p.descripcion)
+                for p in sop.pasos
+            ],
+        ),
+        cumplimiento=cumplimiento,
+        semaforo=validacion.semaforo,
+        provisional=bool(validacion.metadatos.avisos),
+        conteo=conteo,
+        filas=filas,
+        metadatos=validacion.metadatos,
+        creado=creado,
+    )

@@ -3,7 +3,12 @@
 Los resultados se arman a mano con pasos inventados: no hace falta MiniLM ni el juez.
 """
 
+import importlib.util
+import json
+from pathlib import Path
+
 import pytest
+from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
 from sopvid.contrato import (
@@ -13,6 +18,7 @@ from sopvid.contrato import (
     Juicio,
     MarcoOperador,
     PasoVideo,
+    ReporteValidacion,
     ResultadoEmparejamiento,
     ResultadoPaso,
     ResumenClasificacion,
@@ -263,3 +269,68 @@ def test_verde_no_mayor_que_amarillo_falla(cortes):
 def test_cortes_fuera_de_0_a_100_fallan(cortes):
     with pytest.raises(ValidationError):
         config.Settings(_env_file=None, **cortes)
+
+
+# ── Ejemplos para la pantalla del reporte (scripts/ejemplo_reporte.py) ───────────────────────
+
+RAIZ = Path(__file__).resolve().parents[1]
+ESQUEMA_REPORTE = RAIZ / "docs" / "contrato" / "reporte.schema.json"
+
+
+def _script_ejemplo():
+    ruta = RAIZ / "scripts" / "ejemplo_reporte.py"
+    spec = importlib.util.spec_from_file_location("ejemplo_reporte", ruta)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+@pytest.fixture(scope="module")
+def ejemplo():
+    return _script_ejemplo()
+
+
+@pytest.mark.parametrize("clave", ["definitivo", "provisional"])
+def test_el_ejemplo_esta_al_dia_y_cumple_el_esquema(ejemplo, clave):
+    # Se compara como texto: con core.autocrlf=true, read_text deja el archivo en LF.
+    texto = ejemplo.SALIDAS[clave].read_text(encoding="utf-8")
+    assert texto == ejemplo.textos()[clave], "corre: python scripts/ejemplo_reporte.py"
+    datos = json.loads(texto)
+    esquema = json.loads(ESQUEMA_REPORTE.read_text(encoding="utf-8"))
+    assert sorted(Draft202012Validator(esquema).iter_errors(datos), key=str) == []
+    ReporteValidacion.model_validate(datos)
+
+
+def test_el_ejemplo_definitivo_cubre_todos_los_casos(ejemplo):
+    r = ReporteValidacion.model_validate_json(ejemplo.SALIDAS["definitivo"].read_text("utf-8"))
+    assert r.provisional is False and r.metadatos.avisos == []
+    assert {f.estado for f in r.filas} == {"Cumple", "Parcial", "Falta", "Sobra"}
+    assert any(f.fuera_de_orden for f in r.filas)
+    assert {f.marco_operador for f in r.filas} == {None, "intro", "cierre"}
+    assert any(f.estado == "Sobra" and f.marco_operador is None for f in r.filas)
+    assert any(f.justificacion for f in r.filas if f.estado == "Parcial")
+    assert all(f.t_inicio is None and f.cita == "" for f in r.filas if f.estado == "Falta")
+    assert all(p.descripcion for p in r.sop.pasos)
+    assert r.afinidad is None
+
+
+def test_el_ejemplo_provisional_marca_sin_revisar_y_el_aviso(ejemplo):
+    r = ReporteValidacion.model_validate_json(ejemplo.SALIDAS["provisional"].read_text("utf-8"))
+    assert r.provisional is True
+    assert [a.tipo for a in r.metadatos.avisos] == ["juez_sin_revisar"]
+    assert r.conteo.sin_revisar == 1
+    assert [f.paso_sop for f in r.filas if f.estado == "zona_gris"] == [3]
+
+
+def test_reporte_provisional_sin_avisos_no_valida(ejemplo):
+    datos = json.loads(ejemplo.SALIDAS["definitivo"].read_text(encoding="utf-8"))
+    datos["provisional"] = True
+    with pytest.raises(ValidationError, match="provisional"):
+        ReporteValidacion.model_validate(datos)
+
+
+def test_reporte_con_conteo_distinto_de_las_filas_no_valida(ejemplo):
+    datos = json.loads(ejemplo.SALIDAS["definitivo"].read_text(encoding="utf-8"))
+    datos["conteo"]["cumple"] += 1
+    with pytest.raises(ValidationError, match="conteo"):
+        ReporteValidacion.model_validate(datos)

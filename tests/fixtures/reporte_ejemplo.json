@@ -1,0 +1,213 @@
+{
+  "version_contrato": 1,
+  "video_id": 1,
+  "sop": {
+    "id": 1,
+    "codigo": "SOP-0001",
+    "titulo": "Cambio del cartucho del filtro de agua",
+    "pasos": [
+      {
+        "numero": 1,
+        "nombre": "Cerrar la llave de paso",
+        "descripcion": "Girar la llave de paso que está antes del filtro a la derecha hasta el tope. La manija debe quedar atravesada a la tubería."
+      },
+      {
+        "numero": 2,
+        "nombre": "Ponerse guantes y lentes",
+        "descripcion": "Colocarse los guantes de nitrilo y los lentes de seguridad antes de tocar el filtro."
+      },
+      {
+        "numero": 3,
+        "nombre": "Liberar la presión",
+        "descripcion": "Mantener presionado el botón rojo de la carcasa hasta que deje de salir aire y el manómetro marque cero. Colocar la cubeta debajo del filtro."
+      },
+      {
+        "numero": 4,
+        "nombre": "Retirar la carcasa y el cartucho usado",
+        "descripcion": "Aflojar el vaso con la llave de carcasa girando a la izquierda, bajarlo con cuidado y sacar el cartucho usado a la bolsa de residuos. Revisar el anillo de hule y cambiarlo si está aplastado o cuarteado."
+      },
+      {
+        "numero": 5,
+        "nombre": "Colocar el cartucho nuevo",
+        "descripcion": "Quitar el plástico al cartucho nuevo, meterlo centrado en el vaso con la ranura hacia arriba, enroscar el vaso a mano y dar un cuarto de vuelta con la llave, sin apretar de más."
+      },
+      {
+        "numero": 6,
+        "nombre": "Abrir la llave y revisar fugas",
+        "descripcion": "Abrir la llave de paso despacio, purgar el aire con el botón rojo hasta que salga solo agua y revisar la unión del vaso y las conexiones con una toalla de papel."
+      },
+      {
+        "numero": 7,
+        "nombre": "Registrar el cambio en la bitácora",
+        "descripcion": "Anotar la fecha, el cartucho instalado y la presión final."
+      }
+    ]
+  },
+  "cumplimiento": 71.43,
+  "semaforo": "amarillo",
+  "provisional": false,
+  "afinidad": null,
+  "conteo": {
+    "cumple": 5,
+    "parcial": 1,
+    "fuera_de_orden": 1,
+    "falta": 1,
+    "sobra": 1,
+    "sin_revisar": 0,
+    "marco_operador": 2
+  },
+  "filas": [
+    {
+      "estado": "Cumple",
+      "paso_sop": 1,
+      "nombre_sop": "Cerrar la llave de paso",
+      "paso_video": 3,
+      "nombre_video": "Cierre de la llave de paso",
+      "t_inicio": 33.44,
+      "cita": "cierro la llave de paso que está antes del filtro",
+      "confianza": "alta",
+      "fuera_de_orden": true,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Cumple",
+      "paso_sop": 2,
+      "nombre_sop": "Ponerse guantes y lentes",
+      "paso_video": 2,
+      "nombre_video": "Guantes y lentes de seguridad",
+      "t_inicio": 20.45,
+      "cita": "me pongo los guantes de nitrilo y los lentes",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Parcial",
+      "paso_sop": 3,
+      "nombre_sop": "Liberar la presión",
+      "paso_video": 5,
+      "nombre_video": "Liberación de la presión",
+      "t_inicio": 55.51,
+      "cita": "libero la presión con el botón rojo",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": "Libera la presión con el botón rojo, pero no menciona colocar la cubeta debajo del filtro."
+    },
+    {
+      "estado": "Cumple",
+      "paso_sop": 4,
+      "nombre_sop": "Retirar la carcasa y el cartucho usado",
+      "paso_video": 6,
+      "nombre_video": "Retiro del vaso y del cartucho usado",
+      "t_inicio": 68.76,
+      "cita": "giro el vaso hacia la izquierda",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Cumple",
+      "paso_sop": 5,
+      "nombre_sop": "Colocar el cartucho nuevo",
+      "paso_video": 7,
+      "nombre_video": "Colocación del cartucho nuevo",
+      "t_inicio": 104.9,
+      "cita": "tomo el cartucho nuevo y le quito el plástico",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Cumple",
+      "paso_sop": 6,
+      "nombre_sop": "Abrir la llave y revisar fugas",
+      "paso_video": 8,
+      "nombre_video": "Apertura de la llave y revisión de fugas",
+      "t_inicio": 127.32,
+      "cita": "abro la llave de paso despacio",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Falta",
+      "paso_sop": 7,
+      "nombre_sop": "Registrar el cambio en la bitácora",
+      "paso_video": null,
+      "nombre_video": null,
+      "t_inicio": null,
+      "cita": "",
+      "confianza": null,
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Sobra",
+      "paso_sop": null,
+      "nombre_sop": null,
+      "paso_video": 1,
+      "nombre_video": "Presentación del cambio de cartucho",
+      "t_inicio": 0.4,
+      "cita": "les muestro cómo se cambia el cartucho",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": "intro",
+      "justificacion": null
+    },
+    {
+      "estado": "Sobra",
+      "paso_sop": null,
+      "nombre_sop": null,
+      "paso_video": 4,
+      "nombre_video": "Aviso al supervisor si la llave está dura",
+      "t_inicio": 47.68,
+      "cita": "mejor avisen al supervisor de turno",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": null,
+      "justificacion": null
+    },
+    {
+      "estado": "Sobra",
+      "paso_sop": null,
+      "nombre_sop": null,
+      "paso_video": 9,
+      "nombre_video": "Cierre del video",
+      "t_inicio": 152.16,
+      "cita": "con eso queda listo el cambio del cartucho",
+      "confianza": "alta",
+      "fuera_de_orden": false,
+      "marco_operador": "cierre",
+      "justificacion": null
+    }
+  ],
+  "metadatos": {
+    "segmentacion": "llm",
+    "motivo_respaldo": null,
+    "modelo_llm": "gemma4:e4b-it-q4_K_M",
+    "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "umbrales": {
+      "bajo": 0.55,
+      "alto": 0.75,
+      "fusion": 0.55,
+      "semaforo_verde": 90.0,
+      "semaforo_amarillo": 70.0
+    },
+    "segundos": {
+      "duracion": 0.2,
+      "audio": 0.6,
+      "transcripcion": 11.8,
+      "segmentacion": 74.3,
+      "emparejamiento": 9.6
+    },
+    "avisos": []
+  },
+  "creado": "2026-10-27T12:00:00Z"
+}

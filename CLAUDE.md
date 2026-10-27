@@ -139,7 +139,15 @@ docs/
 >   (ADR-016). Diagnóstico de A y B: `scripts/diagnosticar_emparejamiento.py`.
 > - **Porcentaje y semáforo (RF-19, 27 oct):** `lenguaje/reporte.py` (`porcentaje` del
 >   `ResultadoEmparejamiento` según §5.6 y `semaforo` con `SEMAFORO_VERDE`/`SEMAFORO_AMARILLO`
->   en `Settings`). Todavía no está conectado a la API ni a `reportes`.
+>   en `Settings`).
+> - **Validación en la API (27 oct, ADR-017):** `POST /sops` (RF-03) y `GET /sops/{id}`
+>   (`plataforma/api/sops.py`); `POST /videos` con `sop_id` en modo validar; el `Procesador`
+>   encadena análisis → `lenguaje/validacion.py` (`segmentar` → `emparejar` con `JuezGemma` →
+>   porcentaje) y guarda `reportes` y `videos.pasos_video`; `GET /videos/{id}/reporte`
+>   (`ReporteValidacion` en el contrato, `docs/contrato/reporte.schema.json`) y
+>   `POST /videos/{id}/validar` (repite la validación sin Whisper si Ollama estaba caído).
+>   `ClienteLLM.descargar()` suelta el modelo de Ollama al terminar (GPU o CPU). Ejemplos para la
+>   pantalla: `tests/fixtures/reporte_ejemplo*.json` (`scripts/ejemplo_reporte.py`).
 > - **Análisis y API de videos (25 oct):** `percepcion/pipeline.py` (`analizar_video`: duración →
 >   audio → transcripción → `Analisis` validado) y `scripts/analizar_video.py`. API:
 >   `POST /videos` (subida simple, RF-06 del MVP), `GET /videos/{id}`, `…/transcripcion.txt` (en
@@ -147,7 +155,7 @@ docs/
 >   `Analisis` se guarda sin migración (idioma completo y segmentos en `videos.transcripcion`). La
 >   demo corre la API en el host con la GPU (`docs/dev/api.md`); en Docker, Whisper en CPU.
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
->   SOP en PDF y Word, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
+>   SOP en PDF y Word, SOP generado, PDF del reporte y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

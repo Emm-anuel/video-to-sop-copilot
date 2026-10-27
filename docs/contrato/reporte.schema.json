@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Aviso": {
+      "additionalProperties": false,
+      "description": "Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP.",
+      "properties": {
+        "tipo": {
+          "enum": [
+            "segmentacion_heuristica",
+            "juez_sin_revisar",
+            "pasos_sin_redactar"
+          ],
+          "title": "Tipo",
+          "type": "string"
+        },
+        "detalle": {
+          "title": "Detalle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "detalle"
+      ],
+      "title": "Aviso",
+      "type": "object"
+    },
+    "ConteoReporte": {
+      "additionalProperties": false,
+      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).",
+      "properties": {
+        "cumple": {
+          "minimum": 0,
+          "title": "Cumple",
+          "type": "integer"
+        },
+        "parcial": {
+          "minimum": 0,
+          "title": "Parcial",
+          "type": "integer"
+        },
+        "fuera_de_orden": {
+          "minimum": 0,
+          "title": "Fuera De Orden",
+          "type": "integer"
+        },
+        "falta": {
+          "minimum": 0,
+          "title": "Falta",
+          "type": "integer"
+        },
+        "sobra": {
+          "minimum": 0,
+          "title": "Sobra",
+          "type": "integer"
+        },
+        "sin_revisar": {
+          "minimum": 0,
+          "title": "Sin Revisar",
+          "type": "integer"
+        },
+        "marco_operador": {
+          "minimum": 0,
+          "title": "Marco Operador",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cumple",
+        "parcial",
+        "fuera_de_orden",
+        "falta",
+        "sobra",
+        "sin_revisar",
+        "marco_operador"
+      ],
+      "title": "ConteoReporte",
+      "type": "object"
+    },
+    "FilaReporte": {
+      "additionalProperties": false,
+      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.",
+      "properties": {
+        "estado": {
+          "enum": [
+            "Cumple",
+            "Parcial",
+            "Falta",
+            "Sobra",
+            "zona_gris"
+          ],
+          "title": "Estado",
+          "type": "string"
+        },
+        "paso_sop": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paso Sop"
+        },
+        "nombre_sop": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nombre Sop"
+        },
+        "paso_video": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paso Video"
+        },
+        "nombre_video": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nombre Video"
+        },
+        "t_inicio": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T Inicio"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "confianza": {
+          "anyOf": [
+            {
+              "enum": [
+                "alta",
+                "media",
+                "baja"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confianza"
+        },
+        "fuera_de_orden": {
+          "default": false,
+          "title": "Fuera De Orden",
+          "type": "boolean"
+        },
+        "marco_operador": {
+          "anyOf": [
+            {
+              "enum": [
+                "intro",
+                "cierre"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marco Operador"
+        },
+        "justificacion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Justificacion"
+        }
+      },
+      "required": [
+        "estado"
+      ],
+      "title": "FilaReporte",
+      "type": "object"
+    },
+    "MetadatosValidacion": {
+      "additionalProperties": false,
+      "description": "Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.\n\n`segundos` lleva lo que tardó cada etapa (duracion, audio, transcripcion, segmentacion,\nemparejamiento); al repetir solo la validación (ADR-017) no trae las del análisis. Lo que\ntardó el juez va aparte, en `resultado.clasificacion.resumen.segundos_juez`.",
+      "properties": {
+        "segmentacion": {
+          "enum": [
+            "llm",
+            "heuristica"
+          ],
+          "title": "Segmentacion",
+          "type": "string"
+        },
+        "motivo_respaldo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motivo Respaldo"
+        },
+        "modelo_llm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modelo Llm"
+        },
+        "embedder": {
+          "title": "Embedder",
+          "type": "string"
+        },
+        "umbrales": {
+          "$ref": "#/$defs/Umbrales"
+        },
+        "segundos": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "Segundos",
+          "type": "object"
+        },
+        "avisos": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Aviso"
+          },
+          "title": "Avisos",
+          "type": "array"
+        }
+      },
+      "required": [
+        "segmentacion",
+        "embedder",
+        "umbrales",
+        "segundos"
+      ],
+      "title": "MetadatosValidacion",
+      "type": "object"
+    },
+    "PasoSOPReporte": {
+      "additionalProperties": false,
+      "properties": {
+        "numero": {
+          "minimum": 1,
+          "title": "Numero",
+          "type": "integer"
+        },
+        "nombre": {
+          "minLength": 1,
+          "title": "Nombre",
+          "type": "string"
+        },
+        "descripcion": {
+          "default": "",
+          "title": "Descripcion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "numero",
+        "nombre"
+      ],
+      "title": "PasoSOPReporte",
+      "type": "object"
+    },
+    "SOPReporte": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "codigo": {
+          "title": "Codigo",
+          "type": "string"
+        },
+        "titulo": {
+          "title": "Titulo",
+          "type": "string"
+        },
+        "pasos": {
+          "items": {
+            "$ref": "#/$defs/PasoSOPReporte"
+          },
+          "title": "Pasos",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "codigo",
+        "titulo",
+        "pasos"
+      ],
+      "title": "SOPReporte",
+      "type": "object"
+    },
+    "Umbrales": {
+      "additionalProperties": false,
+      "description": "Los umbrales de la configuración con que se calculó el reporte (RNF-14).",
+      "properties": {
+        "bajo": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Bajo",
+          "type": "number"
+        },
+        "alto": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Alto",
+          "type": "number"
+        },
+        "fusion": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Fusion",
+          "type": "number"
+        },
+        "semaforo_verde": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Semaforo Verde",
+          "type": "number"
+        },
+        "semaforo_amarillo": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Semaforo Amarillo",
+          "type": "number"
+        }
+      },
+      "required": [
+        "bajo",
+        "alto",
+        "fusion",
+        "semaforo_verde",
+        "semaforo_amarillo"
+      ],
+      "title": "Umbrales",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-017). `afinidad` queda en `None` hasta\nRF-17 (post-MVP).",
+  "properties": {
+    "version_contrato": {
+      "const": 1,
+      "default": 1,
+      "title": "Version Contrato",
+      "type": "integer"
+    },
+    "video_id": {
+      "title": "Video Id",
+      "type": "integer"
+    },
+    "sop": {
+      "$ref": "#/$defs/SOPReporte"
+    },
+    "cumplimiento": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Cumplimiento",
+      "type": "number"
+    },
+    "semaforo": {
+      "enum": [
+        "verde",
+        "amarillo",
+        "rojo"
+      ],
+      "title": "Semaforo",
+      "type": "string"
+    },
+    "provisional": {
+      "title": "Provisional",
+      "type": "boolean"
+    },
+    "afinidad": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Afinidad"
+    },
+    "conteo": {
+      "$ref": "#/$defs/ConteoReporte"
+    },
+    "filas": {
+      "items": {
+        "$ref": "#/$defs/FilaReporte"
+      },
+      "title": "Filas",
+      "type": "array"
+    },
+    "metadatos": {
+      "$ref": "#/$defs/MetadatosValidacion"
+    },
+    "creado": {
+      "format": "date-time",
+      "title": "Creado",
+      "type": "string"
+    }
+  },
+  "required": [
+    "video_id",
+    "sop",
+    "cumplimiento",
+    "semaforo",
+    "provisional",
+    "conteo",
+    "filas",
+    "metadatos",
+    "creado"
+  ],
+  "title": "ReporteValidacion",
+  "type": "object"
+}

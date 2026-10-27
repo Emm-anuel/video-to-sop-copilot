@@ -89,3 +89,33 @@ coincidan.
 
 Se guardan en el repo con LF; las pruebas leen con `encoding="utf-8"` y construyen en memoria las
 variantes con CRLF y BOM.
+
+## `reporte_ejemplo.json` y `reporte_ejemplo_provisional.json`
+
+Ejemplos de `ReporteValidacion` (la respuesta de `GET /videos/{id}/reporte`, esquema en
+`docs/contrato/reporte.schema.json`) para la pantalla del reporte (RF-20). Todo es **INVENTADO**:
+la transcripción de `analisis_ejemplo.json` (Laura) y el SOP de `sop_ejemplo.json` con dos
+cambios para que salgan todos los casos:
+
+- los pasos 1 y 2 intercambiados ("Cerrar la llave de paso" antes de "Ponerse guantes y lentes"):
+  Laura se pone los guantes primero, así que "Cerrar la llave" sale *Cumple* fuera de orden;
+- un paso 7 que Laura no narra ("Registrar el cambio en la bitácora"): *Falta*.
+
+Los pasos del video son 9 tramos de la transcripción con cita literal: la intro (1–3, marco
+"intro"), el aviso al supervisor (8, *Sobra* real) y el cierre (25, marco "cierre") no emparejan;
+"Liberar la presión" queda en zona gris y el juez lo marca *Parcial* (no menciona la cubeta).
+
+| Archivo | Cumplimiento | Qué cubre |
+|---|---|---|
+| `reporte_ejemplo.json` | 71.43 % amarillo | Cumple, Cumple fuera de orden, Parcial con justificación, Falta, Sobra, intro y cierre |
+| `reporte_ejemplo_provisional.json` | 64.29 % rojo | El mismo video con el juez caído: "Liberar la presión" sin revisar, `provisional: true` y el aviso `juez_sin_revisar` (ADR-017) |
+
+No se editan a mano. `scripts/ejemplo_reporte.py` corre el código real de `emparejar`,
+`porcentaje` y `armar_reporte` con un vectorizador y un juez guionados (sin Gemma 4 ni MiniLM);
+si cambia el contrato o la cascada, se regeneran con:
+
+```powershell
+python scripts/ejemplo_reporte.py
+```
+
+`tests/test_reporte.py` falla si el script deja de dar exactamente estos archivos.

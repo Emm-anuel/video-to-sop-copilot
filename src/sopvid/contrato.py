@@ -6,7 +6,9 @@ palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obti
 pareja que elige el algoritmo húngaro (ADR-012), `Clasificacion` es el estado de cada paso tras
 los umbrales de la cascada, el juez de la zona gris (`Juicio`) y la revisión del orden
 (`ResultadoPaso`) con su resumen, y
-`ResultadoEmparejamiento` junta todo lo que devuelve `emparejar`.
+`ResultadoEmparejamiento` junta todo lo que devuelve `emparejar`. `ResultadoValidacion` es lo que
+se guarda del reporte (con el porcentaje, el semáforo y los metadatos) y `ReporteValidacion`, lo
+que responde la API con una fila por paso.
 
 `SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
 lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un SOP cargado no
@@ -18,11 +20,12 @@ CLAUDE.md). Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fi
 listas vacías se escriben `[]`, nunca `null`. Los mensajes de error solo citan ids, números de
 paso y tiempos, nunca texto de la transcripción ni del SOP (puede ser material del cliente).
 
-Los JSON Schema se exportan a docs/contrato/ (analisis.schema.json y sop.schema.json) con
+Los JSON Schema se exportan a docs/contrato/ (analisis, sop y reporte .schema.json) con
 `python scripts/exportar_contrato.py`; no se editan a mano.
 """
 
 import math
+from datetime import datetime
 from itertools import pairwise
 from typing import Annotated, Any, Literal, Self, get_args
 
@@ -586,6 +589,153 @@ class SOP(_Modelo):
         return self
 
 
+# ── Reporte de validación (RF-14, RF-19, base de RF-20; ADR-017) ────────────────────────────
+
+# Por qué un reporte es provisional (ADR-017): Ollama falló después de la revisión inicial.
+# "segmentacion_heuristica": los pasos del video salieron de la heurística de respaldo;
+# "juez_sin_revisar": quedaron pares en zona_gris; "pasos_sin_redactar": respondió la llamada de
+# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja).
+TipoAviso = Literal["segmentacion_heuristica", "juez_sin_revisar", "pasos_sin_redactar"]
+
+
+class Aviso(_Modelo):
+    """Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP."""
+
+    tipo: TipoAviso
+    detalle: str
+
+
+class Umbrales(_Modelo):
+    """Los umbrales de la configuración con que se calculó el reporte (RNF-14)."""
+
+    bajo: float = Field(ge=0, le=1)
+    alto: float = Field(ge=0, le=1)
+    fusion: float = Field(ge=0, le=1)
+    semaforo_verde: float = Field(ge=0, le=100)
+    semaforo_amarillo: float = Field(ge=0, le=100)
+
+
+class MetadatosValidacion(_Modelo):
+    """Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.
+
+    `segundos` lleva lo que tardó cada etapa (duracion, audio, transcripcion, segmentacion,
+    emparejamiento); al repetir solo la validación (ADR-017) no trae las del análisis. Lo que
+    tardó el juez va aparte, en `resultado.clasificacion.resumen.segundos_juez`.
+    """
+
+    segmentacion: Literal["llm", "heuristica"]
+    motivo_respaldo: str | None = None
+    modelo_llm: str | None = None  # el de la segmentación; el del juez va en cada `Juicio`
+    embedder: str
+    umbrales: Umbrales
+    segundos: dict[str, Annotated[float, Field(ge=0)]]
+    avisos: list[Aviso] = []
+
+
+class ResultadoValidacion(_Modelo):
+    """Lo que se guarda en `reportes.resultado` (JSONB).
+
+    `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
+    decimales) y `semaforo` se calculó con él, nunca con el redondeado.
+    """
+
+    version_contrato: Literal[1] = 1
+    resultado: ResultadoEmparejamiento
+    cumplimiento: float = Field(ge=0, le=100)
+    semaforo: Semaforo
+    metadatos: MetadatosValidacion
+
+
+class PasoSOPReporte(_Modelo):
+    numero: int = Field(ge=1)
+    nombre: str = Field(min_length=1)
+    descripcion: str = ""
+
+
+class SOPReporte(_Modelo):
+    id: int
+    codigo: str
+    titulo: str
+    pasos: list[PasoSOPReporte]
+
+
+class FilaReporte(_Modelo):
+    """Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.
+
+    `paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el
+    número del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de
+    la transcripción (regla 4). Un zona_gris se muestra como "sin revisar". `justificacion` es la
+    del juez cuando decidió el par.
+    """
+
+    estado: EstadoPaso
+    paso_sop: int | None = Field(default=None, ge=1)
+    nombre_sop: str | None = None
+    paso_video: int | None = Field(default=None, ge=1)
+    nombre_video: str | None = None
+    t_inicio: Tiempo | None = None
+    cita: str = ""
+    confianza: Confianza | None = None
+    fuera_de_orden: bool = False
+    marco_operador: MarcoOperador | None = None
+    justificacion: str | None = None
+
+
+class ConteoReporte(_Modelo):
+    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016)."""
+
+    cumple: int = Field(ge=0)
+    parcial: int = Field(ge=0)
+    fuera_de_orden: int = Field(ge=0)
+    falta: int = Field(ge=0)
+    sobra: int = Field(ge=0)
+    sin_revisar: int = Field(ge=0)
+    marco_operador: int = Field(ge=0)
+
+
+class ReporteValidacion(_Modelo):
+    """Respuesta de `GET /videos/{id}/reporte`.
+
+    `cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin
+    redondear. `provisional` es true si hay avisos (ADR-017). `afinidad` queda en `None` hasta
+    RF-17 (post-MVP).
+    """
+
+    version_contrato: Literal[1] = 1
+    video_id: int
+    sop: SOPReporte
+    cumplimiento: float = Field(ge=0, le=100)
+    semaforo: Semaforo
+    provisional: bool
+    afinidad: int | None = Field(default=None, ge=0, le=100)
+    conteo: ConteoReporte
+    filas: list[FilaReporte]
+    metadatos: MetadatosValidacion
+    creado: datetime
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.provisional != bool(self.metadatos.avisos):
+            raise ValueError("provisional va en true si y solo si hay avisos")
+        filas = self.filas
+        esperado = ConteoReporte(
+            cumple=sum(f.estado == "Cumple" for f in filas),
+            parcial=sum(f.estado == "Parcial" for f in filas),
+            fuera_de_orden=sum(f.fuera_de_orden for f in filas),
+            falta=sum(f.estado == "Falta" for f in filas),
+            sobra=sum(f.estado == "Sobra" and f.marco_operador is None for f in filas),
+            sin_revisar=sum(f.estado == "zona_gris" for f in filas),
+            marco_operador=sum(f.marco_operador is not None for f in filas),
+        )
+        if self.conteo != esperado:
+            raise ValueError("el conteo no coincide con las filas")
+        n_sop = len(self.sop.pasos)
+        for fila in filas:
+            if fila.paso_sop is not None and fila.paso_sop > n_sop:
+                raise ValueError(f"paso_sop {fila.paso_sop} fuera de los {n_sop} pasos del SOP")
+        return self
+
+
 def esquema_analisis() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `Analisis`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **Analisis.model_json_schema()}
@@ -594,3 +744,8 @@ def esquema_analisis() -> dict[str, Any]:
 def esquema_sop() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `SOP`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **SOP.model_json_schema()}
+
+
+def esquema_reporte() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `ReporteValidacion`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **ReporteValidacion.model_json_schema()}

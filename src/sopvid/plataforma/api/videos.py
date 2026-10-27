@@ -1,10 +1,14 @@
-"""Subida de videos completos (RF-06 del MVP) y consulta del análisis.
+"""Subida de videos completos (RF-06 del MVP), consulta del análisis y del reporte.
 
 `POST /videos` guarda el archivo en `MEDIA_DIR/videos/<id>/video.<ext>`, crea la fila con
 `proceso="en_cola"` y encola el análisis; responde 202 con el id. El archivo se copia por
 bloques; en la fila va la ruta relativa a `MEDIA_DIR`, nunca el nombre original. El tamaño se
 limita dos veces: `limitar_content_length` rechaza la petición antes de recibirla si el
 `Content-Length` ya excede el límite, y la copia cuenta los bytes reales.
+
+En modo validar, `sop_id` es obligatorio y el trabajo sigue con la validación (pasos del video,
+emparejamiento y reporte). `POST /videos/{id}/validar` la repite sin volver a transcribir
+(ADR-017) y `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
@@ -22,13 +26,21 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import Analisis
+from sopvid.contrato import SOP, Analisis, ReporteValidacion, ResultadoValidacion
+from sopvid.lenguaje.reporte import armar_reporte
+from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
-from sopvid.plataforma.modelos import MODOS_VIDEO, Video
-from sopvid.plataforma.procesamiento import EN_COLA, LISTO, Procesador, leer_analisis
+from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
+from sopvid.plataforma.procesamiento import (
+    EN_COLA,
+    LISTO,
+    PROCESANDO,
+    Procesador,
+    leer_analisis,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +80,14 @@ def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Tr
     return TranscriptorWhisper(settings)
 
 
+def get_validacion(settings: Annotated[Settings, Depends(get_settings)]) -> FabricaValidacion:
+    """Fábrica de las dependencias de la validación (Gemma 4 por Ollama, juez y MiniLM).
+
+    Se llama dentro del trabajo, solo en modo validar; el procesador cierra el cliente.
+    """
+    return lambda: DependenciasValidacion.desde_settings(settings)
+
+
 async def limitar_content_length(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
@@ -91,7 +111,11 @@ def subir_video(
     settings: Annotated[Settings, Depends(get_settings)],
     procesador: Annotated[Procesador, Depends(get_procesador)],
     transcriptor: Annotated[Transcriptor, Depends(get_transcriptor)],
+    validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
     idioma: Annotated[str | None, Form(description="ISO 639-1 para fijarlo (p. ej. es)")] = None,
+    sop_id: Annotated[
+        int | None, Form(description="SOP de referencia; obligatorio con modo=validar")
+    ] = None,
 ) -> VideoCreado:
     extension = Path(archivo.filename or "").suffix.lower()
     if extension not in EXTENSIONES:
@@ -104,8 +128,16 @@ def subir_video(
     idioma = (idioma or "").strip().lower() or None
     if idioma is not None and not _IDIOMA.match(idioma):
         raise HTTPException(422, "idioma debe ser un código ISO 639-1, p. ej. 'es'")
+    if modo == "validar" and sop_id is None:
+        raise HTTPException(422, "sop_id es obligatorio con modo=validar")
+    if modo == "generar" and sop_id is not None:
+        raise HTTPException(422, "sop_id no va con modo=generar: el SOP sale del video")
+    if sop_id is not None and session.get(Sop, sop_id) is None:
+        raise HTTPException(404, "SOP no encontrado")
 
-    video = Video(titulo=titulo, archivo="", modo=modo, idioma=idioma, proceso=EN_COLA)
+    video = Video(
+        titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
+    )
     session.add(video)
     session.flush()  # asigna el id
     relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
@@ -126,8 +158,29 @@ def subir_video(
         "Video %d recibido (%s, %.1f MB)", video.id, extension, destino.stat().st_size / 1e6
     )
 
-    procesador.encolar(video.id, idioma, transcriptor)
+    procesador.encolar(video.id, idioma, transcriptor, validacion if modo == "validar" else None)
     response.headers["Location"] = f"/videos/{video.id}"
+    return VideoCreado(id=video.id, proceso=video.proceso)
+
+
+@router.post("/videos/{video_id}/validar", status_code=202, response_model=VideoCreado)
+def revalidar_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    procesador: Annotated[Procesador, Depends(get_procesador)],
+    validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+) -> VideoCreado:
+    """Repite solo la validación con la transcripción guardada (ADR-017)."""
+    video = _buscar(session, video_id)
+    if video.modo != "validar":
+        raise HTTPException(422, "solo un video de modo validar tiene validación")
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(409, {"mensaje": "el video está en proceso", "proceso": video.proceso})
+    if video.transcripcion is None:
+        raise HTTPException(409, "el video no tiene análisis guardado: vuelve a subirlo")
+    video.proceso, video.error = EN_COLA, None
+    session.commit()
+    procesador.revalidar(video.id, validacion)
     return VideoCreado(id=video.id, proceso=video.proceso)
 
 
@@ -162,6 +215,28 @@ def analisis_video(video_id: int, session: Annotated[Session, Depends(get_sessio
             409, {"mensaje": "el análisis no ha terminado", "proceso": video.proceso}
         )
     return leer_analisis(video)
+
+
+@router.get("/videos/{video_id}/reporte", response_model=ReporteValidacion)
+def reporte_video(
+    video_id: int, session: Annotated[Session, Depends(get_session)]
+) -> ReporteValidacion:
+    """Reporte de validación (RF-14, RF-19, base de RF-20): 409 si no está listo."""
+    video = _buscar(session, video_id)
+    if video.proceso != LISTO:
+        raise HTTPException(409, {"mensaje": "el reporte no está listo", "proceso": video.proceso})
+    reporte = video.reporte
+    if reporte is None:
+        raise HTTPException(404, "el video no tiene reporte")
+    return armar_reporte(
+        ResultadoValidacion.model_validate(reporte.resultado),
+        SOP.model_validate(reporte.sop.contenido),
+        video_id=video.id,
+        sop_id=reporte.sop_id,
+        codigo=reporte.sop.codigo,
+        cumplimiento=float(reporte.cumplimiento),
+        creado=reporte.creado,
+    )
 
 
 def _buscar(session: Session, video_id: int) -> Video:

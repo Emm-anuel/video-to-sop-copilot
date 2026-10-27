@@ -36,6 +36,8 @@ CAMPOS_METRICAS = (
 
 # Solo se reintenta cuando la petición pudo no haber llegado o no haber terminado.
 _ERRORES_REINTENTABLES = (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)
+# Plazo para pedir que Ollama suelte el modelo: no carga nada, así que responde rápido.
+PLAZO_DESCARGA_S = 10.0
 
 
 class LLMError(Exception):
@@ -155,6 +157,25 @@ class ClienteLLM:
             return False
         finally:
             ejecutor.shutdown(wait=False)
+
+    def descargar(self, timeout_s: float = PLAZO_DESCARGA_S) -> bool:
+        """Pide a Ollama que suelte `modelo` de la memoria ya (`keep_alive: 0`). Nunca lanza.
+
+        Libera la VRAM si Ollama corre en GPU y la RAM si corre en CPU: no depende de que haya
+        GPU. Sin esto, el modelo se queda cargado `OLLAMA_KEEP_ALIVE` (30 min en docker compose)
+        y el siguiente Whisper no tendría dónde cargar (ADR-014, ADR-017). Devuelve True si
+        Ollama aceptó la petición; si no responde, solo lo registra.
+        """
+        try:
+            respuesta = self._http.post(
+                "/api/generate", json={"model": self.modelo, "keep_alive": 0}, timeout=timeout_s
+            )
+            respuesta.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("LLM: no se pudo descargar %s (%s)", self.modelo, type(exc).__name__)
+            return False
+        logger.info("LLM: %s descargado de la memoria", self.modelo)
+        return True
 
     def _modelo_descargado(self, timeout_s: float) -> bool:
         respuesta = self._http.get("/api/tags", timeout=timeout_s)
