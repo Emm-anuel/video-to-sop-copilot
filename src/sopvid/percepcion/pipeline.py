@@ -1,8 +1,9 @@
 """Pipeline de video, etapas 2 y 3: duración → audio → transcripción → `Analisis` del contrato.
 
 `analizar_video` deja en `trabajo_dir` el audio (`audio.mp3`) y el TXT de la transcripción, que
-se escribe mientras avanza (RF-10), y devuelve el `Analisis` ya validado. Los fotogramas (RF-11)
-llegan en S5; por ahora la lista va vacía.
+se escribe mientras avanza (RF-10), y devuelve el `Analisis` ya validado, con la transcripción
+re-cortada por frases y pausas (`resegmentar`). Los fotogramas (RF-11) llegan en S5; por
+ahora la lista va vacía.
 
 El transcriptor se inyecta (RNF-14): este módulo no crea modelos. `al_avanzar(etapa, porcentaje)`
 recibe el avance global, de 0 a 100 y sin retrocesos, para guardarlo después en la tabla
@@ -17,7 +18,12 @@ from typing import Any
 
 from sopvid.contrato import Analisis, Segmento
 from sopvid.percepcion.medios import duracion, extraer_audio
-from sopvid.percepcion.transcripcion import DECIMALES, Transcriptor, escritor_txt
+from sopvid.percepcion.transcripcion import (
+    DECIMALES,
+    Transcriptor,
+    escritor_txt,
+    resegmentar,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +75,9 @@ def analizar_video(
 
         transcripcion = transcriptor.transcribir(audio, idioma, al_segmento=al_segmento)
 
-    segmentos = [s.model_dump() for s in transcripcion.segmentos]
+    # Frases y pausas en vez de las ventanas de Whisper (ver `resegmentar`); el TXT en vivo
+    # conserva los segmentos tal como salieron.
+    segmentos = [s.model_dump() for s in resegmentar(transcripcion.segmentos)]
     recortados = _recortar_a_duracion(segmentos, duracion_s)
     analisis = Analisis.model_validate(
         {

@@ -116,6 +116,30 @@ voz en español de Windows (`System.Speech`, voz "Microsoft Sabina Desktop", es-
 `extraer_audio`. **Guarda el `.ps1` en UTF-8 con BOM:** Windows PowerShell 5.1 lee un archivo
 sin BOM como ANSI y la voz pronuncia "é" como "A copyright" y "ó" como "super índice 3".
 
+## Re-corte por frases y pausas
+
+Whisper agrupa por ventanas de audio, no por frases. Con habla real (videos A y B, 26 oct) dejó un
+segmento de 35 s con la intro y los pasos 1 y 2, y marcó pausas de 4 a 7 s solo con una coma; también
+corta a media frase ("Ahora | retiro la carcasa"). Como el LLM elige las fronteras de paso *entre*
+segmentos (ADR-010), un segmento que mezcla dos pasos ya no se puede separar.
+
+`resegmentar` (en `percepcion/transcripcion.py`, llamado por `analizar_video`) junta las palabras de
+todos los segmentos y corta después de `. ? ! …` o en un silencio ≥ `PAUSA_CORTE_S` (1.5 s); una coma
+sola no corta. Un fragmento de una palabra ("Siguiente.", un "Ahora" dicho antes de la pausa) se une
+al segmento siguiente. Los tiempos son los de las palabras (regla 4). Si un segmento no trae palabras
+que reproduzcan su texto, o si los segmentos se enciman, la transcripción se deja igual. El TXT en vivo
+conserva los segmentos de Whisper; el `Analisis` lleva los re-cortados.
+
+Efecto en A y B (anotación a mano, F1 de inicios de paso a ±2 s, después de la fusión de ADR-013):
+
+| Video | Segmentos Whisper → re-corte | F1 antes | F1 después | Inicios no detectados |
+|---|---|---|---|---|
+| A | 12 → 24 | 0.46 | 0.67 | 3 → 0 |
+| B | 14 → 14 | 0.40 | 0.91 | 3 → 0 |
+
+En A el recall ya es 1.0; lo que queda es sobre-segmentación de Gemma 4 (12 pasos para 6), que la
+fusión no junta porque los fragmentos se parecen a pasos distintos del SOP.
+
 ## Mediciones (25 oct 2026, RTX 2070 SUPER, i7-10700K)
 
 Narración sintética de 58.3 s (9 frases, 14.4 s de silencio que quita el VAD), modelo ya en caché.

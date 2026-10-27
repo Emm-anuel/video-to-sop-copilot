@@ -157,7 +157,8 @@ def test_tiempos_recortados_a_la_duracion(
     """
     monkeypatch.setattr(pipeline, "duracion", lambda _video: 2.9876543)
     largo = _segmento(2, 2.0, 3.4, "Por último anoto la lectura.")
-    fuera = _segmento(3, 3.5, 3.6, "Fin.")  # empieza después del final
+    # Empieza después del final. Dos palabras: una sola se uniría al anterior (`resegmentar`).
+    fuera = _segmento(3, 3.5, 3.6, "Fin registrado.")
     transcriptor = TranscriptorFalso([*SEGMENTOS[:2], largo, fuera])
 
     analisis = analizar_video(video, 1, None, transcriptor, tmp_path / "trabajo")

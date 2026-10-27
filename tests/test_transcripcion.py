@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from sopvid.contrato import Analisis, Idioma
+from sopvid.contrato import Analisis, Idioma, Palabra, Segmento
 from sopvid.percepcion import transcripcion as tr
 from sopvid.percepcion.medios import MedioInvalido
 from sopvid.percepcion.transcripcion import (
@@ -25,6 +25,7 @@ from sopvid.percepcion.transcripcion import (
     escritor_txt,
     marca_tiempo,
     normalizar,
+    resegmentar,
 )
 from sopvid.plataforma.config import PROJECT_ROOT, Settings
 
@@ -371,3 +372,159 @@ def test_whisper_real(tmp_path: Path) -> None:
     if esperado:
         assert t.dispositivo == esperado
         assert not t.respaldo_cpu
+
+
+# ── resegmentar ──────────────────────────────────────────────────────────────
+
+
+def _hablado(id_: int, *palabras: tuple[str, float, float]) -> Segmento:
+    """Segmento como los de Whisper ya normalizados: el texto son sus palabras."""
+    return Segmento(
+        id=id_,
+        t_inicio=palabras[0][1],
+        t_fin=palabras[-1][2],
+        texto=" ".join(w for w, _, _ in palabras),
+        palabras=[Palabra(w=w, t=t, t_fin=f) for w, t, f in palabras],
+    )
+
+
+def _textos(segmentos: list[Segmento]) -> list[str]:
+    return [s.texto for s in segmentos]
+
+
+def test_resegmentar_corta_en_pausas_aunque_whisper_ponga_coma() -> None:
+    # Un solo segmento de Whisper con dos pasos; la pausa de 4 s quedó como coma.
+    largo = _hablado(
+        0,
+        ("me", 0.0, 0.2),
+        ("pongo", 0.2, 0.5),
+        ("los", 0.5, 0.6),
+        ("guantes,", 0.6, 1.0),
+        ("ahora", 5.0, 5.3),
+        ("cierro", 5.3, 5.6),
+        ("la", 5.6, 5.7),
+        ("llave,", 5.7, 6.0),
+        ("la", 6.5, 6.6),
+        ("giro", 6.6, 7.0),
+    )
+
+    resultado = resegmentar([largo])
+
+    assert _textos(resultado) == ["me pongo los guantes,", "ahora cierro la llave, la giro"]
+    assert [(s.id, s.t_inicio, s.t_fin) for s in resultado] == [(0, 0.0, 1.0), (1, 5.0, 7.0)]
+
+
+def test_resegmentar_une_frases_partidas_entre_segmentos() -> None:
+    whisper = [
+        _hablado(0, ("El", 0.0, 0.2), ("manómetro", 0.2, 0.7), ("marca", 0.7, 1.0)),
+        _hablado(1, ("cero.", 1.0, 1.4), ("Ahora", 1.6, 1.9)),
+        _hablado(2, ("retiro", 1.9, 2.2), ("la", 2.2, 2.3), ("carcasa.", 2.3, 2.8)),
+    ]
+
+    resultado = resegmentar(whisper)
+
+    assert _textos(resultado) == ["El manómetro marca cero.", "Ahora retiro la carcasa."]
+    assert resultado[1].t_inicio == 1.6  # el de "Ahora", no el del segmento de Whisper
+
+
+def test_resegmentar_une_fragmentos_de_una_palabra() -> None:
+    whisper = [
+        _hablado(
+            0,
+            ("Listo.", 0.0, 0.4),
+            ("Siguiente.", 3.0, 3.5),
+            ("Libero", 3.8, 4.1),
+            ("la", 4.1, 4.2),
+            ("presión.", 4.2, 4.7),
+            ("Ahora", 5.0, 5.3),
+            ("coloco", 9.0, 9.4),
+            ("el", 9.4, 9.5),
+            ("cartucho.", 9.5, 10.0),
+            ("Terminé.", 12.0, 12.5),
+        )
+    ]
+
+    resultado = resegmentar(whisper)
+
+    # El primero y "Siguiente." van con lo que sigue; "Ahora" pasa la pausa; el último, atrás.
+    assert _textos(resultado) == [
+        "Listo. Siguiente. Libero la presión.",
+        "Ahora coloco el cartucho. Terminé.",
+    ]
+    assert [s.id for s in resultado] == [0, 1]
+
+
+def test_resegmentar_no_corta_en_comas_ni_pausas_cortas() -> None:
+    frase = _hablado(
+        0,
+        ("enrosco", 0.0, 0.4),
+        ("el", 0.4, 0.5),
+        ("vaso,", 0.5, 0.9),
+        ("y", 1.5, 1.6),  # 0.6 s: una pausa normal dentro de la frase
+        ("aprieto", 1.6, 2.0),
+    )
+
+    assert _textos(resegmentar([frase])) == ["enrosco el vaso, y aprieto"]
+
+
+def test_resegmentar_reconoce_fin_de_frase_entre_comillas() -> None:
+    frase = _hablado(
+        0, ("Dice", 0.0, 0.2), ('"cerrado."', 0.2, 0.8), ("Ahora", 0.9, 1.1), ("abro", 1.1, 1.4)
+    )
+
+    assert _textos(resegmentar([frase])) == ['Dice "cerrado."', "Ahora abro"]
+
+
+def test_resegmentar_sin_palabras_completas_devuelve_lo_mismo() -> None:
+    sin_palabras = Segmento(id=0, t_inicio=0.0, t_fin=2.0, texto="Cierro la llave. Abro.")
+    incompleto = Segmento(
+        id=1,
+        t_inicio=2.0,
+        t_fin=3.0,
+        texto="Reviso la presión.",
+        palabras=[Palabra(w="Reviso", t=2.0, t_fin=2.4)],
+    )
+
+    assert resegmentar([sin_palabras]) == [sin_palabras]
+    assert resegmentar([incompleto]) == [incompleto]
+    assert resegmentar([]) == []
+
+
+def test_resegmentar_no_oculta_segmentos_encimados() -> None:
+    encimados = [
+        _hablado(0, ("uno", 0.0, 0.5), ("dos", 0.5, 1.5)),
+        _hablado(1, ("tres", 1.0, 1.4), ("cuatro", 1.4, 2.0)),
+    ]
+
+    assert resegmentar(encimados) == encimados
+
+
+def test_resegmentar_cumple_el_contrato() -> None:
+    whisper = normalizar(
+        [
+            segmento(
+                0.0,
+                6.0,
+                " Primero reviso. Después cierro",
+                [
+                    palabra(" Primero", 0.0, 0.5),
+                    palabra(" reviso.", 0.5, 1.0),
+                    palabra(" Después", 3.0, 3.4),
+                    palabra(" cierro", 3.4, 6.0),
+                ],
+            ),
+            segmento(
+                6.0, 7.0, " la válvula.", [palabra(" la", 6.0, 6.2), palabra(" válvula.", 6.2, 7.0)]
+            ),
+        ]
+    )
+
+    resultado = resegmentar(whisper)
+
+    assert _textos(resultado) == ["Primero reviso.", "Después cierro la válvula."]
+    Analisis(
+        video_id=1,
+        duracion_s=7.0,
+        idioma=Idioma(codigo="es", confianza=1.0),
+        transcripcion=resultado,
+    )

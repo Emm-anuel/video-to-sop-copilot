@@ -17,9 +17,10 @@ import math
 import os
 import sys
 import time
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -33,6 +34,11 @@ BEAM = 5
 DECIMALES = 3
 # Lo que se usa al caer a CPU, sea cual sea WHISPER_COMPUTE_TYPE (float16 no corre en CPU).
 COMPUTE_TYPE_CPU = "int8"
+# Re-corte de la transcripción (`resegmentar`): silencio que por sí solo cierra un segmento,
+# signos que cierran una frase y mínimo de palabras de un segmento (los fragmentos se unen).
+PAUSA_CORTE_S = 1.5
+FIN_DE_FRASE = (".", "?", "!", "…")
+MIN_PALABRAS_SEGMENTO = 2
 
 AlSegmento = Callable[[Segmento], None]
 # (modelo, dispositivo, compute_type, carpeta de caché) -> objeto con `transcribe`, como
@@ -182,6 +188,80 @@ def normalizar(crudos: Iterable[Any]) -> list[Segmento]:
     palabras en orden, dentro de su segmento y con fin ≥ inicio.
     """
     return list(_normalizar_flujo(crudos))
+
+
+def resegmentar(segmentos: Sequence[Segmento]) -> list[Segmento]:
+    """Vuelve a cortar la transcripción por frases y pausas, con los tiempos por palabra.
+
+    Whisper agrupa por ventanas de audio, no por frases: con habla real deja segmentos de 30 s
+    que juntan dos pasos y marca las pausas largas solo con una coma, o corta a media frase
+    ("Ahora | retiro la carcasa"). Como el LLM elige las fronteras de paso entre segmentos
+    (ADR-010), un segmento que mezcla dos pasos ya no se puede separar. Aquí se juntan las
+    palabras de todos los segmentos y se corta después de un fin de frase (`FIN_DE_FRASE`) o en
+    un silencio ≥ `PAUSA_CORTE_S`; una coma sola no corta. Un fragmento de menos de
+    `MIN_PALABRAS_SEGMENTO` palabras ("Siguiente.", un "Ahora" dicho antes de la pausa) se une
+    al segmento siguiente, y si es el último, al anterior.
+
+    Ningún tiempo nuevo (regla 4): cada segmento va del inicio de su primera palabra al fin de
+    la última, y su texto son sus palabras. Ids seguidos desde 0. Si algún segmento no trae
+    palabras que reproduzcan su texto, o si los segmentos se enciman, se devuelven sin cambios.
+    """
+    if not segmentos or not all(_palabras_cubren_texto(s) for s in segmentos):
+        return list(segmentos)
+    if any(b.t_inicio < a.t_fin for a, b in pairwise(segmentos)):
+        return list(segmentos)  # fuera del contrato: que lo rechace la validación, no ocultarlo
+    palabras = [p for s in segmentos for p in s.palabras]
+    grupos: list[list[Palabra]] = [[]]
+    for actual, siguiente in zip(palabras, [*palabras[1:], None], strict=True):
+        grupos[-1].append(actual)
+        if siguiente is not None and (
+            _cierra_frase(actual.w) or siguiente.t - actual.t_fin >= PAUSA_CORTE_S
+        ):
+            grupos.append([])
+    resultado: list[Segmento] = []
+    fin_anterior = 0.0
+    for id_, grupo in enumerate(_unir_fragmentos(grupos)):
+        t_inicio = max(grupo[0].t, fin_anterior)
+        t_fin = max(grupo[-1].t_fin, t_inicio)
+        resultado.append(
+            Segmento(
+                id=id_,
+                t_inicio=t_inicio,
+                t_fin=t_fin,
+                texto=" ".join(p.w for p in grupo),
+                palabras=grupo,
+            )
+        )
+        fin_anterior = t_fin
+    logger.info("Transcripción re-cortada: %d → %d segmentos", len(segmentos), len(resultado))
+    return resultado
+
+
+def _palabras_cubren_texto(segmento: Segmento) -> bool:
+    return " ".join(p.w for p in segmento.palabras).split() == segmento.texto.split()
+
+
+def _cierra_frase(palabra: str) -> bool:
+    return palabra.rstrip("\"'”»)").endswith(FIN_DE_FRASE)
+
+
+def _unir_fragmentos(grupos: list[list[Palabra]]) -> list[list[Palabra]]:
+    unidos: list[list[Palabra]] = []
+    pendiente: list[Palabra] = []
+    for grupo in grupos:
+        # Se mide el fragmento solo, sin lo pendiente: dos fragmentos seguidos no forman
+        # un segmento ("Listo. Siguiente."), van juntos al siguiente.
+        if len(grupo) < MIN_PALABRAS_SEGMENTO:
+            pendiente += grupo
+            continue
+        unidos.append(pendiente + grupo)
+        pendiente = []
+    if pendiente:
+        if unidos:
+            unidos[-1].extend(pendiente)
+        else:
+            unidos.append(pendiente)
+    return unidos
 
 
 def _normalizar_flujo(crudos: Iterable[Any]) -> Iterator[Segmento]:
