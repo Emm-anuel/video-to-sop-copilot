@@ -72,6 +72,19 @@ Los umbrales viven en la configuración (RNF-14).
   `UMBRAL_ALTO` (que podría bajar un *Cumple* a *Parcial*) queda fuera de 1.0 junto con RF-18
   (CLAUDE.md §4); hasta entonces, esos pares quedan *Cumple* sin LLM. Pendiente: medir el juez
   con los videos A y B y calibrar los umbrales.
+  **Texto del paso del video con su cita (27 oct):** el diagnóstico de A y B
+  (`scripts/diagnosticar_emparejamiento.py`) mostró que el texto vectorizado del paso del video
+  era solo el nombre y la descripción que redacta Gemma, y que la descripción puede perder las
+  palabras concretas que dijo el operador y que el SOP usa. En A, el paso 2 ("me pongo los
+  guantes de nitrilo y los lentes de seguridad") quedó como "equipo de protección personal
+  necesario": 0.52 con *Ponerse guantes y lentes*, bajo `UMBRAL_BAJO`, y salía *Falta* +
+  *Sobra* (A en 83.3 %). Ahora `texto_para_embeber` arma "nombre. descripción. cita" para un
+  paso del video; el del paso del SOP no cambia. Con MiniLM real, A 2 con SOP 1 pasa de
+  **0.52 → 0.86** y A queda en 6 *Cumple* (100 %). Otros cambios medidos: B 5 (limpiar la
+  carcasa, el *Sobra* real) con SOP 6 sube de 0.57 a 0.66, sigue en zona gris y el juez lo
+  rompe igual; el mejor paso del SOP de A 12 pasa de 6 a 3 (empate en 0.72). **Hay que
+  recalibrar los umbrales** (0.55 / 0.75 / fusión 0.55) con el texto nuevo: se fijaron con el
+  texto anterior y los cosenos de los pasos del video cambian (además de A 2, B 5 sube 0.09).
 
 ## Referencias
 

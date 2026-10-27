@@ -232,7 +232,12 @@ def _paso_video(**cambios: Any) -> PasoVideo:
     return PasoVideo.model_validate({**datos, **cambios})
 
 
-@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+def _paso_video_sin_cita(**cambios: Any) -> PasoVideo:
+    """Paso del video sin cita: su texto se arma igual que el de un paso del SOP."""
+    return _paso_video(**{"cita": "", "confianza": "baja", **cambios})
+
+
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video_sin_cita], ids=["sop", "video"])
 def test_texto_para_embeber_une_nombre_y_descripcion(crear):
     paso = crear(descripcion="Girar la llave a la derecha hasta el tope.")
     assert emp.texto_para_embeber(paso) == (
@@ -240,19 +245,19 @@ def test_texto_para_embeber_une_nombre_y_descripcion(crear):
     )
 
 
-@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video_sin_cita], ids=["sop", "video"])
 @pytest.mark.parametrize("descripcion", ["", "   ", "\n\t"])
 def test_texto_para_embeber_sin_descripcion_es_solo_el_nombre(crear, descripcion):
     assert emp.texto_para_embeber(crear(descripcion=descripcion)) == "Cerrar la llave de paso"
 
 
-@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video_sin_cita], ids=["sop", "video"])
 def test_texto_para_embeber_colapsa_espacios(crear):
     paso = crear(nombre="  Cerrar   la llave\tde paso ", descripcion="Girar\na la  derecha. ")
     assert emp.texto_para_embeber(paso) == "Cerrar la llave de paso. Girar a la derecha."
 
 
-@pytest.mark.parametrize("crear", [_paso_sop, _paso_video], ids=["sop", "video"])
+@pytest.mark.parametrize("crear", [_paso_sop, _paso_video_sin_cita], ids=["sop", "video"])
 @pytest.mark.parametrize(
     ("nombre", "esperado"),
     [
@@ -268,9 +273,64 @@ def test_texto_para_embeber_no_duplica_el_cierre_del_nombre(crear, nombre, esper
     assert ".." not in emp.texto_para_embeber(paso)
 
 
-def test_texto_para_embeber_no_usa_la_cita_ni_el_responsable():
-    texto = emp.texto_para_embeber(_paso_video(descripcion="Girar a la derecha."))
-    assert "Ahora cierro" not in texto and "Técnica" not in texto
+def test_texto_del_paso_del_video_agrega_la_cita():
+    paso = _paso_video(descripcion="Girar a la derecha.")
+    assert emp.texto_para_embeber(paso) == (
+        "Cerrar la llave de paso. Girar a la derecha. Ahora cierro la llave de paso"
+    )
+
+
+def test_texto_del_paso_del_video_sin_descripcion_es_nombre_y_cita():
+    assert emp.texto_para_embeber(_paso_video()) == (
+        "Cerrar la llave de paso. Ahora cierro la llave de paso"
+    )
+
+
+@pytest.mark.parametrize(
+    ("descripcion", "cita", "esperado"),
+    [
+        (
+            "Girar a la derecha",
+            "¿La cerré?",
+            "Cerrar la llave de paso. Girar a la derecha. ¿La cerré?",
+        ),
+        ("¡Girar!", "  Ya   la cerré.  ", "Cerrar la llave de paso. ¡Girar! Ya la cerré."),
+    ],
+)
+def test_texto_del_paso_del_video_no_duplica_puntos_y_colapsa_espacios(descripcion, cita, esperado):
+    texto = emp.texto_para_embeber(_paso_video(descripcion=descripcion, cita=cita))
+    assert texto == esperado
+    assert ".." not in texto
+
+
+def test_texto_para_embeber_no_usa_el_responsable():
+    assert "Técnica" not in emp.texto_para_embeber(_paso_video(descripcion="Girar a la derecha."))
+
+
+def test_la_cita_acerca_un_paso_con_descripcion_generica_a_su_paso_del_sop(embedder):
+    # Caso del video A (ADR-012): Gemma resumió "me pongo los guantes de nitrilo y los lentes"
+    # como "equipo de protección personal"; solo la cita trae las palabras que usa el SOP.
+    epp = _paso_sop(
+        numero=1,
+        nombre="Ponerse guantes y lentes",
+        descripcion="Colocarse los guantes de nitrilo y los lentes de seguridad.",
+    )
+    llave = _paso_sop(descripcion="Girar la llave de paso a la derecha hasta el tope.")
+    paso = _paso_video(
+        numero=1,
+        nombre="Puesta de equipo de protección",
+        descripcion="Colocarse el equipo de protección personal necesario.",
+        cita="me pongo los guantes de nitrilo y los lentes de seguridad",
+    )
+    vectores_sop = embedder.embed([emp.texto_para_embeber(p) for p in (epp, llave)])
+
+    def coseno(p: PasoVideo) -> np.ndarray:
+        return emp.similitud(embedder.embed([emp.texto_para_embeber(p)]), vectores_sop)[0]
+
+    sin_cita = coseno(paso.model_copy(update={"cita": ""}))
+    con_cita = coseno(paso)
+    assert con_cita[0] > sin_cita[0]
+    assert con_cita.argmax() == 0  # el paso del SOP más parecido es el de EPP
 
 
 def test_texto_para_embeber_no_carga_el_modelo(embedder, cargas):
@@ -497,9 +557,9 @@ def test_la_cita_y_el_responsable_salen_del_original_mas_parecido(embedder):
 
 def test_en_empate_de_coseno_la_cita_es_la_del_primero(embedder):
     primero, segundo = _video("sacar", "sacar")  # mismo texto: mismo coseno
-    segundo = segundo.model_copy(
-        update={"cita": "Y luego saco el cartucho", "responsable": "Ayudante"}
-    )
+    # La cita también se vectoriza: la del segundo difiere solo en mayúsculas, que el
+    # vectorizador falso ignora, así que el coseno sigue empatado.
+    segundo = segundo.model_copy(update={"cita": primero.cita.upper(), "responsable": "Ayudante"})
     (paso,), (fusion,) = emp.fusionar(SOP_FILTRO, [primero, segundo], embedder, umbral=0.55)
     assert fusion.similitudes[0] == fusion.similitudes[1]
     assert (paso.cita, paso.responsable) == (primero.cita, primero.responsable)
@@ -1243,6 +1303,31 @@ def test_minilm_real_fusiona_el_paso_partido():
     assert [r.paso_sop for r in registro] == [1, 2, 3, 4]
     assert (pasos[1].t_inicio, pasos[1].t_fin) == (video[1].t_inicio, video[2].t_fin)
     assert pasos[1].cita in (video[1].cita, video[2].cita)
+
+
+@pytest.mark.lento
+def test_minilm_real_la_cita_lleva_al_paso_de_epp():
+    """Paso 2 del video A (ADR-012): sin la cita, 0.52 con "Ponerse guantes y lentes" (bajo
+    UMBRAL_BAJO, Falta + Sobra); con la cita, 0.86."""
+    from sopvid.lenguaje.sop_markdown import convertir_sop
+
+    ruta = Path(__file__).parent / "fixtures" / "sop_filtro_agua.md"
+    epp = convertir_sop(ruta.read_text("utf-8")).sop.pasos[0]
+    paso = _paso_video(
+        numero=2,
+        nombre="Puesta de equipo de protección",
+        descripcion=(
+            "Colocarse el equipo de protección personal necesario antes de manipular el filtro."
+        ),
+        cita="me pongo los guantes de nitrilo y los lentes de seguridad",
+    )
+    e = emp.Embedder()
+    sop = e.embed([emp.texto_para_embeber(epp)])
+    sin_cita = paso.model_copy(update={"cita": "", "confianza": "baja"})
+    antes = emp.similitud(e.embed([emp.texto_para_embeber(sin_cita)]), sop)[0, 0]
+    despues = emp.similitud(e.embed([emp.texto_para_embeber(paso)]), sop)[0, 0]
+    assert antes == pytest.approx(0.52, abs=0.01)
+    assert despues == pytest.approx(0.86, abs=0.01)
 
 
 @pytest.mark.lento

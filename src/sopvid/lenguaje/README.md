@@ -11,8 +11,9 @@ Frente de **lenguaje**: a partir de los pasos indexados, encuentra, conversa y r
 **Estado:** `llm.py` es el cliente del LLM local (Ollama, `/api/chat` con JSON Schema); cómo
 levantarlo en [docs/dev/llm.md](../../../docs/dev/llm.md). La segmentación en pasos que lo usa
 vive en `sopvid.percepcion.segmentacion`. `emparejamiento.py` tiene la base de MiniLM (ADR-012):
-`Embedder` (CPU, pesos en `EMBEDDER_CACHE_DIR`) y `similitud`; `texto_para_embeber` arma el
-mismo texto ("nombre. descripción") para un paso del SOP y uno del video. `fusionar`
+`Embedder` (CPU, pesos en `EMBEDDER_CACHE_DIR`) y `similitud`; `texto_para_embeber` arma
+"nombre. descripción" para un paso del SOP y "nombre. descripción. cita" para uno del video
+(la cita trae las palabras que dijo el operador; ADR-012). `fusionar`
 ([ADR-013](../../../docs/adr/ADR-013-fusion-sobresegmentacion.md)) une los pasos consecutivos del
 video que caen en el mismo paso del SOP (coseno ≥ `UMBRAL_FUSION`) y devuelve el registro
 `Fusion` de qué pasos originales se unieron. `asignar` elige las parejas SOP–video con el

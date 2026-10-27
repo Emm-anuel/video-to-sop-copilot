@@ -3,7 +3,8 @@
 Base de S2: `Embedder`, que vectoriza textos con MiniLM multilingüe
 (`paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensiones) siempre en CPU para no competir por
 la VRAM con faster-whisper ni con Gemma 4, y `similitud`, la matriz de coseno entre dos grupos
-de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno del video.
+de vectores. `texto_para_embeber` arma el texto de cada paso: nombre y descripción, y en un
+paso del video también su cita (lo que dijo el operador).
 
 S3: `fusionar` une los pasos consecutivos del video que caen en el mismo paso del SOP
 (ADR-013), `asignar` elige las parejas SOP–video con el algoritmo húngaro, `clasificar` les da
@@ -147,15 +148,27 @@ def similitud(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def texto_para_embeber(paso: PasoSOP | PasoVideo) -> str:
-    """Texto que se vectoriza de un paso: "nombre. descripción", o solo el nombre si no hay
-    descripción, con los espacios colapsados. Si el nombre ya cierra con ".", "?" o "!", no se
-    agrega otro punto. Igual para los pasos del SOP y los del video."""
-    nombre = " ".join(paso.nombre.split())
-    descripcion = " ".join(paso.descripcion.split())
-    if not descripcion:
-        return nombre
-    separador = " " if nombre.endswith((".", "?", "!")) else ". "
-    return f"{nombre}{separador}{descripcion}"
+    """Texto que se vectoriza de un paso, con los espacios colapsados.
+
+    - Paso del SOP: "nombre. descripción".
+    - Paso del video: "nombre. descripción. cita".
+
+    Las partes vacías se omiten y, si una parte ya cierra con ".", "?" o "!", no se agrega otro
+    punto. La cita va en el paso del video porque la descripción la redacta Gemma y puede
+    perder las palabras concretas que dijo el operador y que el SOP usa (ADR-012: en el video
+    A, "me pongo los guantes de nitrilo" quedó como "equipo de protección personal").
+    """
+    partes = [paso.nombre, paso.descripcion]
+    if isinstance(paso, PasoVideo):
+        partes.append(paso.cita)
+    texto = ""
+    for parte in (" ".join(p.split()) for p in partes):
+        if not parte:
+            continue
+        if texto:
+            texto += " " if texto.endswith((".", "?", "!")) else ". "
+        texto += parte
+    return texto
 
 
 # ── Fusión de pasos del video (ADR-013) ──────────────────────────────────────────────────────

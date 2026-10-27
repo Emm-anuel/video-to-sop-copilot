@@ -201,7 +201,7 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 | Pieza | Qué hace | Entrada → salida |
 |---|---|---|
 | `Embedder` | Carga MiniLM una sola vez, en CPU, y vectoriza textos (filas de norma 1) | `list[str]` → matriz `n × 384` float32 |
-| `texto_para_embeber(paso)` | Texto de cada paso del SOP o del video = `nombre + ". " + descripción` (solo el nombre si no hay descripción; sin punto doble) | paso → `str` |
+| `texto_para_embeber(paso)` | Paso del SOP = `nombre + ". " + descripción`; paso del video = `nombre + ". " + descripción + ". " + cita` (ADR-012, 27 oct); las partes vacías se omiten, sin punto doble | paso → `str` |
 | `similitud(a, b)` | Coseno entre cada fila de dos matrices de vectores (los de los pasos del SOP y los del video) | matrices `m × d` y `n × d` → matriz `m × n` en [-1, 1] |
 | `fusionar(pasos_sop, pasos_video, embedder)` | ADR-013: une pasos consecutivos cuyo mejor paso del SOP es el mismo con parecido ≥ `UMBRAL_FUSION` (0.55) | pasos del video → pasos fusionados + registro `Fusion` |
 | `asignar(S)` | Algoritmo húngaro (`scipy.optimize.linear_sum_assignment` con `maximize=True`); en empate, la asignación que respeta el orden | matriz SOP × video → pares (`Par`) y los índices sin pareja |
