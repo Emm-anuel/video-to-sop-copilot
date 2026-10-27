@@ -4,7 +4,8 @@
 palabra y fotogramas descritos. `PasoVideo` es cada paso que la extracción obtiene de él;
 `Fusion` registra qué pasos del video se unieron antes de emparejar (ADR-013), `Par` es cada
 pareja que elige el algoritmo húngaro (ADR-012), `Clasificacion` es el estado de cada paso tras
-los umbrales de la cascada y la revisión del orden (`ResultadoPaso`) con su resumen, y
+los umbrales de la cascada, el juez de la zona gris (`Juicio`) y la revisión del orden
+(`ResultadoPaso`) con su resumen, y
 `ResultadoEmparejamiento` junta todo lo que devuelve `emparejar`.
 
 `SOP` es el esquema de la sección 10 del documento SOP V1.0, con tres diferencias deliberadas:
@@ -185,12 +186,61 @@ class Par(_Modelo):
 # ── Clasificación por umbrales (cascada, ADR-012) ────────────────────────────────────────────
 
 # Estados del documento SOP V1.0 más "zona_gris", que es interno: un par con similitud entre
-# UMBRAL_BAJO y UMBRAL_ALTO que espera al juez Gemma 4 (S4). El juez lo convertirá en Cumple,
-# Parcial o en un Falta más un Sobra; ningún "zona_gris" debe llegar al reporte.
+# UMBRAL_BAJO y UMBRAL_ALTO que espera al juez Gemma 4 (`lenguaje/juez.py`). El juez lo
+# convierte en Cumple, Parcial o en un Falta más un Sobra. Un "zona_gris" solo llega al reporte
+# si el juez no pudo decidir (Ollama caído o respuestas inválidas): lleva un `Juicio` de
+# respaldo y el reporte lo muestra como "sin revisar", nunca como un estado inventado.
 EstadoPaso = Literal["Cumple", "Parcial", "Falta", "Sobra", "zona_gris"]
 ESTADOS: tuple[EstadoPaso, ...] = get_args(EstadoPaso)
 # Los pares que revisa `orden` y los únicos que pueden llevar la marca de fuera de orden.
-ESTADOS_CON_ORDEN: tuple[EstadoPaso, ...] = ("Cumple", "zona_gris")
+ESTADOS_CON_ORDEN: tuple[EstadoPaso, ...] = ("Cumple", "Parcial", "zona_gris")
+
+# Lo que decide el juez de un par de la zona gris (ADR-012, punto 3); "no_corresponde" rompe el
+# par en un Falta (paso del SOP) más un Sobra (paso del video).
+Veredicto = Literal["Cumple", "Parcial", "no_corresponde"]
+VEREDICTOS: tuple[Veredicto, ...] = get_args(Veredicto)
+# "llm": el juez decidió con una cita verificada; "respaldo": no pudo decidir y el par sigue en
+# zona gris.
+OrigenJuicio = Literal["llm", "respaldo"]
+# Por qué un juicio es de respaldo: Ollama no responde o rechazó la petición, el modelo no dio
+# una respuesta válida tras los reintentos, o el paso del video no tiene narración que citar.
+MotivoRespaldo = Literal["llm_no_disponible", "respuesta_invalida", "sin_narracion"]
+# Claves de `ResumenClasificacion.juez`: los veredictos más los pares que quedaron en respaldo.
+ResultadoJuez = Literal["Cumple", "Parcial", "no_corresponde", "respaldo"]
+RESULTADOS_JUEZ: tuple[ResultadoJuez, ...] = get_args(ResultadoJuez)
+
+
+class Juicio(_Modelo):
+    """Decisión del juez sobre un par de la zona gris (ADR-012, punto 3).
+
+    Con `origen="llm"` lleva veredicto, justificación y una cita que el código verificó contra
+    la narración del paso del video (regla 4: aparece tal cual en la transcripción). Con
+    `origen="respaldo"` el juez no pudo decidir: sin veredicto, justificación ni cita, y con
+    `motivo`. `similitud` es el coseno del par, que se conserva aunque el par se rompa.
+    `prompt` es la versión del prompt (p. ej. "juez_zona_gris_v1") e `intentos`, las llamadas
+    al LLM (0 si no se llamó).
+    """
+
+    origen: OrigenJuicio
+    veredicto: Veredicto | None = None
+    justificacion: str = ""
+    cita: str = ""
+    similitud: float = Field(ge=-1, le=1)
+    prompt: str = Field(min_length=1)
+    modelo: str | None = None
+    intentos: int = Field(ge=0)
+    motivo: MotivoRespaldo | None = None
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.origen == "llm":
+            if self.veredicto is None or not self.cita.strip() or not self.justificacion.strip():
+                raise ValueError("juicio del LLM: lleva veredicto, justificación y cita")
+            if self.motivo is not None or self.intentos < 1:
+                raise ValueError("juicio del LLM: sin motivo de respaldo y con al menos 1 intento")
+        elif self.veredicto is not None or self.cita or self.justificacion or self.motivo is None:
+            raise ValueError("juicio de respaldo: sin veredicto, justificación ni cita; con motivo")
+        return self
 
 
 class ResultadoPaso(_Modelo):
@@ -205,11 +255,16 @@ class ResultadoPaso(_Modelo):
     Falta no tiene paso del video y los deja en `None`, `""` y `None`. Si la cita está vacía, la
     confianza es "baja".
 
-    *Fuera de orden* es una marca, no un estado: un Cumple o un zona_gris puede estar fuera de
-    orden a la vez (lo decide `orden`, con código; regla 5). Con la marca van
+    *Fuera de orden* es una marca, no un estado: un Cumple, Parcial o zona_gris puede estar fuera
+    de orden a la vez (lo decide `orden`, con código; regla 5). Con la marca van
     `posicion_esperada` (lugar del paso en el SOP entre los pasos emparejados) y
     `posicion_observada` (lugar en el video entre los mismos), ambas desde 0; sin la marca, las
     dos quedan en `None`.
+
+    `juicio` es la decisión del juez de la zona gris, si el par pasó por él: un Cumple o Parcial
+    lleva su mismo veredicto, un Falta y un Sobra que salen de romper el par llevan
+    "no_corresponde", y un zona_gris solo puede llevar un juicio de respaldo. Parcial siempre
+    lleva juicio (solo el juez lo asigna).
     """
 
     estado: EstadoPaso
@@ -222,11 +277,33 @@ class ResultadoPaso(_Modelo):
     fuera_de_orden: bool = False
     posicion_esperada: int | None = Field(default=None, ge=0)
     posicion_observada: int | None = Field(default=None, ge=0)
+    juicio: Juicio | None = None
+
+    @model_validator(mode="after")
+    def _juicio_coherente(self) -> Self:
+        j = self.juicio
+        if j is None:
+            if self.estado == "Parcial":
+                raise ValueError("Parcial: solo lo asigna el juez, así que lleva juicio")
+            return self
+        if j.origen == "respaldo":
+            esperado: tuple[EstadoPaso, ...] = ("zona_gris",)
+        elif j.veredicto == "no_corresponde":
+            esperado = ("Falta", "Sobra")
+        else:
+            esperado = (j.veredicto,) if j.veredicto else ()
+        if self.estado not in esperado:
+            raise ValueError(
+                f"{self.estado}: no concuerda con el juicio ({j.origen}, {j.veredicto})"
+            )
+        return self
 
     @model_validator(mode="after")
     def _marca_de_orden(self) -> Self:
         if self.fuera_de_orden and self.estado not in ESTADOS_CON_ORDEN:
-            raise ValueError(f"{self.estado}: solo Cumple y zona_gris pueden ir fuera de orden")
+            raise ValueError(
+                f"{self.estado}: solo Cumple, Parcial y zona_gris pueden ir fuera de orden"
+            )
         posiciones = (self.posicion_esperada, self.posicion_observada)
         if self.fuera_de_orden:
             coherente = all(p is not None for p in posiciones)
@@ -265,9 +342,14 @@ class ResumenClasificacion(_Modelo):
 
     `pares` son los que formó el algoritmo húngaro, incluidos los que se rompieron por similitud
     baja; `pares_llm`, los de zona gris; `pct_pares_llm` = 100 · pares_llm / pares (0 sin pares),
-    la métrica del paper (ADR-012). La revisión de EPP y puntos de validación de los Cumple (S4)
-    no cuenta aquí. `fuera_de_orden` cuenta aparte los pasos con esa marca (0 hasta que corre
-    `orden`); no cambia el conteo por estado.
+    la métrica del paper (ADR-012). La revisión de EPP y puntos de validación de los Cumple
+    (punto 4 de ADR-012, diferida con RF-18) no cuenta aquí. `fuera_de_orden` cuenta aparte los
+    pasos con esa marca (0 hasta que corre `orden`); no cambia el conteo por estado.
+
+    `juez` queda en `None` hasta que corre el juez de la zona gris; después cuenta qué decidió
+    en cada par que le llegó (todos los `RESULTADOS_JUEZ`, aunque sea 0): su suma es
+    `pares_llm` y "respaldo" es el conteo de zona_gris que quedó. Sin juez, `pares_llm` es el
+    conteo de zona_gris.
     """
 
     conteo: dict[EstadoPaso, Annotated[int, Field(ge=0)]]
@@ -275,16 +357,35 @@ class ResumenClasificacion(_Modelo):
     pares_llm: int = Field(ge=0)
     pct_pares_llm: float = Field(ge=0, le=100)
     fuera_de_orden: int = Field(default=0, ge=0)
+    juez: dict[ResultadoJuez, Annotated[int, Field(ge=0)]] | None = None
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
         if set(self.conteo) != set(ESTADOS):
             raise ValueError("el conteo lleva todos los estados, aunque sea en 0")
-        if self.pares_llm != self.conteo["zona_gris"] or self.pares_llm > self.pares:
+        if self.pares_llm > self.pares:
             raise ValueError(
-                f"pares_llm ({self.pares_llm}) debe ser el conteo de zona_gris "
-                f"({self.conteo['zona_gris']}) y no más que los pares ({self.pares})"
+                f"pares_llm ({self.pares_llm}) no puede ser más que los pares ({self.pares})"
             )
+        if self.juez is None:
+            if self.pares_llm != self.conteo["zona_gris"]:
+                raise ValueError(
+                    f"pares_llm ({self.pares_llm}) debe ser el conteo de zona_gris "
+                    f"({self.conteo['zona_gris']})"
+                )
+        else:
+            if set(self.juez) != set(RESULTADOS_JUEZ):
+                raise ValueError("el resumen del juez lleva todos sus resultados, aunque sea en 0")
+            if sum(self.juez.values()) != self.pares_llm:
+                raise ValueError(
+                    f"el juez decidió {sum(self.juez.values())} pares y fueron "
+                    f"{self.pares_llm} al LLM"
+                )
+            if self.juez["respaldo"] != self.conteo["zona_gris"]:
+                raise ValueError(
+                    f"{self.juez['respaldo']} pares en respaldo y "
+                    f"{self.conteo['zona_gris']} zona_gris"
+                )
         esperado = 100 * self.pares_llm / self.pares if self.pares else 0.0
         if not math.isclose(self.pct_pares_llm, esperado, abs_tol=1e-9):
             raise ValueError(f"pct_pares_llm ({self.pct_pares_llm}) no es {esperado}")

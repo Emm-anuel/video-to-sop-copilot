@@ -53,9 +53,22 @@ Los umbrales viven en la configuración (RNF-14).
   empate, la que deja fuera lo más tardío del video) y `emparejar` (fusionar → asignar →
   clasificar → orden) implementadas en f2c65bc: **la cascada completa, sin el juez Gemma 4**.
   *Fuera de orden* quedó como marca (`fuera_de_orden` con posición esperada y observada), no como
-  estado, para que un paso pueda ser *Cumple* y estar fuera de orden. Pendiente de S4: el juez de
-  la zona gris, y volver a correr `orden` después del juez, porque con MiniLM real un paso extra
-  puede emparejarse en zona gris con un paso omitido y quedar marcado fuera de orden.
+  estado, para que un paso pueda ser *Cumple* y estar fuera de orden. **Juez de la zona gris
+  (punto 3), 27 oct:** `lenguaje/juez.py` (`Juez`, `JuezGemma`, `aplicar_juez`), con el prompt
+  versionado en `lenguaje/prompts/juez_zona_gris_v1.md`. Recibe el paso del SOP, el del video y
+  la narración de ese paso, cortada por palabra (un segmento de Whisper que cruza la frontera
+  no deja entrar texto del vecino); el coseno no va en el prompt. Devuelve un `Juicio` con
+  veredicto, justificación y una cita que el código verifica contra la narración (regla 4).
+  Salida JSON restringida, `SEMILLA`, hasta 3 intentos ante JSON roto o cita inventada. Si no
+  hay respuesta válida u Ollama no responde, el par queda en `zona_gris` con un juicio de
+  respaldo y llega al reporte como "sin revisar"; si Ollama está caído, no se le vuelve a llamar
+  en esa corrida. "no_corresponde" rompe el par en *Falta* + *Sobra*. `emparejar` corre `orden`
+  una sola vez, después del juez, y `orden` revisa también los *Parcial*.
+  `ResumenClasificacion.juez` cuenta los veredictos; `pares_llm` sigue siendo la métrica del
+  paper. **Punto 4 diferido:** la revisión de EPP y puntos de validación en los pares ≥
+  `UMBRAL_ALTO` (que podría bajar un *Cumple* a *Parcial*) queda fuera de 1.0 junto con RF-18
+  (CLAUDE.md §4); hasta entonces, esos pares quedan *Cumple* sin LLM. Pendiente: medir el juez
+  con los videos A y B y calibrar los umbrales.
 
 ## Referencias
 

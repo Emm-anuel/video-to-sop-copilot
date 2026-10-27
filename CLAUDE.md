@@ -131,7 +131,10 @@ docs/
 >   venv con el extra `gpu`; en Docker, solo CPU (`small`; seguimiento en ADR-014,
 >   `docs/dev/transcripcion.md`).
 > - **Emparejamiento en `main`:** `clasificar`, `orden` y `emparejar` (`lenguaje/emparejamiento.py`):
->   cascada completa sin el juez de Gemma 4 (ADR-012, ADR-013).
+>   cascada completa (ADR-012, ADR-013). Juez Gemma 4 de la zona gris (27 oct) en `lenguaje/juez.py`,
+>   con el prompt versionado en `lenguaje/prompts/`; cita verificada contra la narración del paso y
+>   respaldo en `zona_gris` ("sin revisar") si Ollama no responde. El punto 4 de ADR-012 (EPP en
+>   pares ≥ 0.75) queda diferido con RF-18.
 > - **Análisis y API de videos (25 oct):** `percepcion/pipeline.py` (`analizar_video`: duración →
 >   audio → transcripción → `Analisis` validado) y `scripts/analizar_video.py`. API:
 >   `POST /videos` (subida simple, RF-06 del MVP), `GET /videos/{id}`, `…/transcripcion.txt` (en
@@ -139,7 +142,7 @@ docs/
 >   `Analisis` se guarda sin migración (idioma completo y segmentos en `videos.transcripcion`). La
 >   demo corre la API en el host con la GPU (`docs/dev/api.md`); en Docker, Whisper en CPU.
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
->   SOP en PDF y Word, juez de la zona gris, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
+>   SOP en PDF y Word, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

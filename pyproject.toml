@@ -82,6 +82,10 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Prompts versionados del LLM: sin esto, `pip install .` (Docker) no copia los .md.
+[tool.setuptools.package-data]
+"sopvid.lenguaje" = ["prompts/*.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Los tests "lento" se saltan por defecto; se corren con `pytest -m lento`.

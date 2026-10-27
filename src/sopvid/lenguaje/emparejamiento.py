@@ -8,9 +8,11 @@ de vectores. `texto_para_embeber` arma el mismo texto para un paso del SOP y uno
 S3: `fusionar` une los pasos consecutivos del video que caen en el mismo paso del SOP
 (ADR-013), `asignar` elige las parejas SOP–video con el algoritmo húngaro, `clasificar` les da
 un estado preliminar con los umbrales de la cascada y `orden` marca con código los pasos fuera
-de orden (ADR-012). `emparejar` encadena todo (la cascada completa sin juez) y
-`EmparejadorMiniLM` lo ofrece detrás de la interfaz `Emparejador`. El juez Gemma 4 de la zona
-gris llega en S4.
+de orden (ADR-012). `emparejar` encadena todo y `EmparejadorMiniLM` lo ofrece detrás de la
+interfaz `Emparejador`.
+
+S4: con un `Juez` (`lenguaje/juez.py`), `emparejar` pasa los pares de la zona gris por el juez
+Gemma 4 antes de revisar el orden; sin juez, la cascada queda como en S3.
 
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
@@ -43,7 +45,9 @@ from sopvid.contrato import (
     ResultadoEmparejamiento,
     ResultadoPaso,
     ResumenClasificacion,
+    Segmento,
 )
+from sopvid.lenguaje.juez import Juez, aplicar_juez
 from sopvid.plataforma.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -347,9 +351,10 @@ def clasificar(
 
     - similitud < `UMBRAL_BAJO`: el par se rompe; el paso del SOP queda *Falta* y el del video,
       *Sobra*.
-    - `UMBRAL_BAJO` ≤ similitud < `UMBRAL_ALTO`: "zona_gris", pendiente del juez Gemma 4 (S4).
-    - similitud ≥ `UMBRAL_ALTO`: *Cumple* provisional (en S4 el juez revisará EPP y puntos de
-      validación, y puede bajarlo a *Parcial*).
+    - `UMBRAL_BAJO` ≤ similitud < `UMBRAL_ALTO`: "zona_gris", pendiente del juez Gemma 4
+      (`aplicar_juez`).
+    - similitud ≥ `UMBRAL_ALTO`: *Cumple* (la revisión de EPP y puntos de validación del punto
+      4 de ADR-012, que podría bajarlo a *Parcial*, queda diferida con RF-18).
 
     Un paso del SOP sin pareja queda *Falta*; uno del video sin pareja, *Sobra*. `t_inicio`,
     `cita` y `confianza` salen solo del `PasoVideo` (regla 4); si la cita está vacía, la
@@ -498,23 +503,35 @@ def _subsecuencia_creciente(secuencia: Sequence[int]) -> list[int]:
     return elegidas
 
 
-# ── Cascada completa sin juez (ADR-012, ADR-013) ─────────────────────────────────────────────
+# ── Cascada completa (ADR-012, ADR-013) ──────────────────────────────────────────────────────
 
 
 def emparejar(
-    sop: SOP, pasos_video: Sequence[PasoVideo], embedder: Embedder | None = None
+    sop: SOP,
+    pasos_video: Sequence[PasoVideo],
+    embedder: Embedder | None = None,
+    *,
+    juez: Juez | None = None,
+    transcripcion: Sequence[Segmento] = (),
 ) -> ResultadoEmparejamiento:
-    """Empareja los pasos del video con los del SOP: fusionar → asignar → clasificar → orden.
+    """Empareja los pasos del video con los del SOP: fusionar → asignar → clasificar → juez →
+    orden.
 
     1. `fusionar` (ADR-013) con `UMBRAL_FUSION`.
     2. Similitud recalculada entre el SOP y los pasos ya fusionados (`texto_para_embeber`). El
        SOP se vectoriza una sola vez: los mismos vectores sirven para fusionar y para asignar.
-    3. `asignar` (húngaro), `clasificar` (umbrales) y `orden` (subsecuencia creciente).
+    3. `asignar` (húngaro) y `clasificar` (umbrales).
+    4. Con `juez`, `aplicar_juez` decide los pares de la zona gris leyendo la narración de cada
+       paso en `transcripcion` (la del mismo video). Sin juez, quedan en zona_gris y no se
+       llama al LLM.
+    5. `orden` (subsecuencia creciente), una sola vez y después del juez, porque un par roto
+       por el juez ya no cuenta para el orden.
 
-    Los pasos de zona gris quedan marcados para el juez Gemma 4 (S4); aquí no se llama al LLM.
     Sin `embedder` usa el del proceso (`get_embedder()`). Los `indice_video` del resultado
     apuntan a los pasos fusionados, que van en `ResultadoEmparejamiento.pasos_video`.
     """
+    if juez is not None and not transcripcion:
+        raise ValueError("el juez necesita la transcripción para leer la narración de cada paso")
     embedder = embedder or get_embedder()
     pasos_sop = sop.pasos
     if pasos_video:
@@ -531,7 +548,10 @@ def emparejar(
         matriz = np.zeros((len(pasos_sop), 0))
 
     asignacion = asignar(matriz)
-    clasificacion = orden(clasificar(asignacion, pasos_sop, fusionados))
+    clasificacion = clasificar(asignacion, pasos_sop, fusionados)
+    if juez is not None:
+        clasificacion = aplicar_juez(clasificacion, pasos_sop, fusionados, transcripcion, juez)
+    clasificacion = orden(clasificacion)
     return ResultadoEmparejamiento(
         clasificacion=clasificacion, fusiones=fusiones, pasos_video=fusionados
     )
@@ -542,20 +562,37 @@ class Emparejador(Protocol):
     configuración (RNF-14). Por ahora solo `emparejar`; `afinidad(sop, contexto)` (RF-17) se
     agrega en S5."""
 
-    def emparejar(self, sop: SOP, pasos_video: Sequence[PasoVideo]) -> ResultadoEmparejamiento:
-        """Clasifica los pasos del video contra el SOP, con el orden revisado."""
+    def emparejar(
+        self,
+        sop: SOP,
+        pasos_video: Sequence[PasoVideo],
+        *,
+        transcripcion: Sequence[Segmento] = (),
+    ) -> ResultadoEmparejamiento:
+        """Clasifica los pasos del video contra el SOP, con el orden revisado. `transcripcion`
+        es la del mismo video; la necesita el juez de la zona gris, si lo hay."""
         ...
 
 
 class EmparejadorMiniLM:
-    """`Emparejador` con MiniLM en CPU: la cascada de `emparejar` sin el juez Gemma 4.
+    """`Emparejador` con MiniLM en CPU: la cascada de `emparejar`, con el juez de la zona gris
+    si se le da uno (sin `juez`, los pares de la zona gris quedan en zona_gris).
 
     Sin `embedder`, usa el del proceso (`get_embedder()`) en cada llamada; crear el objeto no
     carga el modelo.
     """
 
-    def __init__(self, embedder: Embedder | None = None) -> None:
+    def __init__(self, embedder: Embedder | None = None, juez: Juez | None = None) -> None:
         self._embedder = embedder
+        self._juez = juez
 
-    def emparejar(self, sop: SOP, pasos_video: Sequence[PasoVideo]) -> ResultadoEmparejamiento:
-        return emparejar(sop, pasos_video, self._embedder)
+    def emparejar(
+        self,
+        sop: SOP,
+        pasos_video: Sequence[PasoVideo],
+        *,
+        transcripcion: Sequence[Segmento] = (),
+    ) -> ResultadoEmparejamiento:
+        return emparejar(
+            sop, pasos_video, self._embedder, juez=self._juez, transcripcion=transcripcion
+        )

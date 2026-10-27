@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from sopvid.contrato import (
     ESTADOS,
+    RESULTADOS_JUEZ,
     SOP,
     Analisis,
     Clasificacion,
@@ -16,6 +17,7 @@ from sopvid.contrato import (
     Fotograma,
     Fusion,
     Idioma,
+    Juicio,
     Palabra,
     Par,
     PasoSOP,
@@ -397,6 +399,24 @@ CUMPLE = {
 SOBRA = {k: v for k, v in CUMPLE.items() if k not in ("indice_sop", "similitud")} | {
     "estado": "Sobra"
 }
+JUICIO = {
+    "origen": "llm",
+    "veredicto": "Parcial",
+    "justificacion": "Cierra la llave, pero no confirma que el manómetro marque cero.",
+    "cita": "Ahora cierro la llave de paso",
+    "similitud": 0.62,
+    "prompt": "juez_zona_gris_v1",
+    "modelo": "falso",
+    "intentos": 1,
+}
+RESPALDO = {
+    "origen": "respaldo",
+    "similitud": 0.62,
+    "prompt": "juez_zona_gris_v1",
+    "intentos": 0,
+    "motivo": "llm_no_disponible",
+}
+PARCIAL = {**CUMPLE, "estado": "Parcial", "similitud": 0.62, "juicio": JUICIO}
 
 
 def _conteo(**cambios: int) -> dict[str, int]:
@@ -408,7 +428,7 @@ def _conteo(**cambios: int) -> dict[str, int]:
     [
         CUMPLE,
         {**CUMPLE, "estado": "zona_gris", "similitud": 0.6},
-        {**CUMPLE, "estado": "Parcial"},
+        PARCIAL,
         SOBRA,
         {**SOBRA, "cita": "", "confianza": "baja"},
         {"estado": "Falta", "indice_sop": 3},
@@ -482,10 +502,14 @@ MARCA = {"fuera_de_orden": True, "posicion_esperada": 1, "posicion_observada": 2
 
 @pytest.mark.parametrize(
     "datos",
-    [{**CUMPLE, **MARCA}, {**CUMPLE, "estado": "zona_gris", "similitud": 0.6, **MARCA}],
-    ids=["cumple", "zona_gris"],
+    [
+        {**CUMPLE, **MARCA},
+        {**CUMPLE, "estado": "zona_gris", "similitud": 0.6, **MARCA},
+        {**PARCIAL, **MARCA},
+    ],
+    ids=["cumple", "zona_gris", "parcial"],
 )
-def test_cumple_y_zona_gris_pueden_ir_fuera_de_orden(datos):
+def test_cumple_parcial_y_zona_gris_pueden_ir_fuera_de_orden(datos):
     paso = ResultadoPaso.model_validate(datos)
     assert (paso.fuera_de_orden, paso.posicion_esperada, paso.posicion_observada) == (True, 1, 2)
 
@@ -495,12 +519,11 @@ def test_cumple_y_zona_gris_pueden_ir_fuera_de_orden(datos):
     [
         {"estado": "Falta", "indice_sop": 0, **MARCA},
         {**SOBRA, **MARCA},
-        {**CUMPLE, "estado": "Parcial", **MARCA},
     ],
-    ids=["falta", "sobra", "parcial"],
+    ids=["falta", "sobra"],
 )
 def test_otros_estados_no_pueden_ir_fuera_de_orden(datos):
-    _falla(ResultadoPaso, datos, "solo Cumple y zona_gris")
+    _falla(ResultadoPaso, datos, "solo Cumple, Parcial y zona_gris")
 
 
 @pytest.mark.parametrize(
@@ -572,6 +595,123 @@ def test_resultado_emparejamiento_con_indice_fuera_de_rango_falla():
     datos = _resultado_emparejamiento()
     datos["clasificacion"]["pasos"][0]["indice_video"] = 3
     _falla(ResultadoEmparejamiento, datos, "indice_video 3")
+
+
+# ── Juez de la zona gris (ADR-012, punto 3) ──────────────────────────────────────────────────
+
+
+def test_juicio_del_llm_y_de_respaldo_validan():
+    assert Juicio.model_validate(JUICIO).veredicto == "Parcial"
+    assert Juicio.model_validate(RESPALDO).veredicto is None
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        {**JUICIO, "veredicto": None},
+        {**JUICIO, "cita": " "},
+        {**JUICIO, "justificacion": ""},
+        {**JUICIO, "motivo": "respuesta_invalida"},
+        {**JUICIO, "intentos": 0},
+        {**RESPALDO, "veredicto": "Cumple"},
+        {**RESPALDO, "cita": "Ahora cierro la llave de paso"},
+        {**RESPALDO, "motivo": None},
+        {**RESPALDO, "motivo": "otro"},
+        {**RESPALDO, "prompt": ""},
+    ],
+    ids=[
+        "llm_sin_veredicto",
+        "llm_sin_cita",
+        "llm_sin_justificacion",
+        "llm_con_motivo",
+        "llm_sin_intentos",
+        "respaldo_con_veredicto",
+        "respaldo_con_cita",
+        "respaldo_sin_motivo",
+        "motivo_desconocido",
+        "sin_prompt",
+    ],
+)
+def test_juicio_incoherente_falla(datos):
+    with pytest.raises(ValidationError):
+        Juicio.model_validate(datos)
+
+
+NO_CORRESPONDE = {**JUICIO, "veredicto": "no_corresponde"}
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        {**CUMPLE, "juicio": {**JUICIO, "veredicto": "Cumple"}},
+        PARCIAL,
+        {**CUMPLE, "estado": "zona_gris", "similitud": 0.62, "juicio": RESPALDO},
+        {"estado": "Falta", "indice_sop": 0, "juicio": NO_CORRESPONDE},
+        {**SOBRA, "juicio": NO_CORRESPONDE},
+    ],
+    ids=["cumple", "parcial", "zona_gris_respaldo", "falta_roto", "sobra_roto"],
+)
+def test_resultado_con_juicio_coherente_valida(datos):
+    assert ResultadoPaso.model_validate(datos).juicio is not None
+
+
+@pytest.mark.parametrize(
+    ("datos", "texto"),
+    [
+        ({**PARCIAL, "juicio": None}, "Parcial"),
+        ({**CUMPLE, "juicio": JUICIO}, "no concuerda"),
+        ({**CUMPLE, "juicio": RESPALDO}, "no concuerda"),
+        ({**CUMPLE, "estado": "zona_gris", "similitud": 0.6, "juicio": JUICIO}, "no concuerda"),
+        ({**CUMPLE, "juicio": NO_CORRESPONDE}, "no concuerda"),
+        ({"estado": "Falta", "indice_sop": 0, "juicio": RESPALDO}, "no concuerda"),
+    ],
+    ids=[
+        "parcial_sin_juicio",
+        "cumple_con_parcial",
+        "cumple_con_respaldo",
+        "zona_gris_con_veredicto",
+        "cumple_no_corresponde",
+        "falta_con_respaldo",
+    ],
+)
+def test_resultado_con_juicio_incoherente_falla(datos, texto):
+    _falla(ResultadoPaso, datos, texto)
+
+
+def _juez(**cambios: int) -> dict[str, int]:
+    return dict.fromkeys(RESULTADOS_JUEZ, 0) | cambios
+
+
+def test_resumen_con_juez_cuenta_los_pares_que_fueron_al_llm():
+    # 4 pares en zona gris: 1 Cumple, 1 Parcial, 1 roto (Falta + Sobra) y 1 sin revisar.
+    resumen = ResumenClasificacion(
+        conteo=_conteo(Cumple=1, Parcial=1, Falta=1, Sobra=1, zona_gris=1),
+        pares=4,
+        pares_llm=4,
+        pct_pares_llm=100.0,
+        juez=_juez(Cumple=1, Parcial=1, no_corresponde=1, respaldo=1),
+    )
+    assert resumen.juez is not None and resumen.juez["respaldo"] == 1
+
+
+@pytest.mark.parametrize(
+    ("juez", "zona_gris", "texto"),
+    [
+        (_juez(Cumple=1, Parcial=1, no_corresponde=1), 1, "respaldo"),
+        (_juez(Cumple=1, Parcial=1, no_corresponde=1, respaldo=2), 2, "decidió 5"),
+        ({"Cumple": 4}, 0, "todos sus resultados"),
+    ],
+    ids=["respaldo_distinto", "suma_distinta", "sin_todos"],
+)
+def test_resumen_con_juez_incoherente_falla(juez, zona_gris, texto):
+    datos = {
+        "conteo": _conteo(Cumple=1, Parcial=1, Falta=1, Sobra=1, zona_gris=zona_gris),
+        "pares": 4,
+        "pares_llm": 4,
+        "pct_pares_llm": 100.0,
+        "juez": juez,
+    }
+    _falla(ResumenClasificacion, datos, texto)
 
 
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_
 
 from sopvid.contrato import Analisis, Confianza, Fuente, PasoVideo, Segmento
 from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMRespuestaInvalida
-from sopvid.texto import NO_IDENTIFICADO, normalizar
+from sopvid.texto import NO_IDENTIFICADO, comparable, contiene_cita, normalizar, recortar_palabras
 
 logger = logging.getLogger(__name__)
 
@@ -488,21 +488,13 @@ def _registrar(construidos: Sequence[_PasoConRango]) -> list[PasoVideo]:
 
 def _texto_comparable(texto: str) -> str:
     """Minúsculas, sin acentos ni puntuación y con espacios colapsados (como la heurística)."""
-    return " ".join(normalizar(texto).split())
+    return comparable(texto)
 
 
 def recortar_cita(cita: str, max_palabras: int = PALABRAS_CITA[1]) -> str:
     """Primeras `max_palabras` palabras de la cita, contadas como en la verificación (la
     puntuación sola no cuenta). Si la cita era literal, el recorte también lo es."""
-    tomadas: list[str] = []
-    n = 0
-    for token in cita.split():
-        cuenta = len(_texto_comparable(token).split())
-        if n + cuenta > max_palabras:
-            break
-        tomadas.append(token)
-        n += cuenta
-    return " ".join(tomadas)
+    return recortar_palabras(cita, max_palabras)
 
 
 def verificar_cita(
@@ -520,15 +512,12 @@ def verificar_cita(
 
     "visual" queda reservado para la evidencia de fotogramas.
     """
-    buscada = _texto_comparable(cita)
-    if not buscada:
-        return "baja", "inferido"
     primer_id, ultimo_id = rango_ids
     del_paso = " ".join(s.texto for s in analisis.transcripcion if primer_id <= s.id <= ultimo_id)
     completa = " ".join(s.texto for s in analisis.transcripcion)
-    if f" {buscada} " in f" {_texto_comparable(del_paso)} ":
+    if contiene_cita(del_paso, cita):
         return "alta", "audio"
-    if f" {buscada} " in f" {_texto_comparable(completa)} ":
+    if contiene_cita(completa, cita):
         return "media", "audio"
     return "baja", "inferido"
 
