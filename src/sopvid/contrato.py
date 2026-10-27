@@ -211,6 +211,8 @@ RESULTADOS_JUEZ: tuple[ResultadoJuez, ...] = get_args(ResultadoJuez)
 # Marca de un Sobra que es el marco de la narración (ADR-016): empieza antes del primer paso
 # emparejado ("intro") o después del último ("cierre").
 MarcoOperador = Literal["intro", "cierre"]
+# Color del cumplimiento en el reporte (RF-19); los cortes viven en la configuración.
+Semaforo = Literal["verde", "amarillo", "rojo"]
 
 
 class Juicio(_Modelo):

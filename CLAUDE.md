@@ -137,6 +137,9 @@ docs/
 >   pares ≥ 0.75) queda diferido con RF-18. El texto vectorizado del paso del video lleva su cita
 >   (27 oct, ADR-012); la intro y el cierre del operador se marcan y no cuentan como *Sobra*
 >   (ADR-016). Diagnóstico de A y B: `scripts/diagnosticar_emparejamiento.py`.
+> - **Porcentaje y semáforo (RF-19, 27 oct):** `lenguaje/reporte.py` (`porcentaje` del
+>   `ResultadoEmparejamiento` según §5.6 y `semaforo` con `SEMAFORO_VERDE`/`SEMAFORO_AMARILLO`
+>   en `Settings`). Todavía no está conectado a la API ni a `reportes`.
 > - **Análisis y API de videos (25 oct):** `percepcion/pipeline.py` (`analizar_video`: duración →
 >   audio → transcripción → `Analisis` validado) y `scripts/analizar_video.py`. API:
 >   `POST /videos` (subida simple, RF-06 del MVP), `GET /videos/{id}`, `…/transcripcion.txt` (en

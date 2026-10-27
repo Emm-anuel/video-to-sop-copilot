@@ -90,12 +90,26 @@ class Settings(BaseSettings):
     umbral_alto: float = Field(default=0.75, ge=0, le=1)
     umbral_fusion: float = Field(default=0.55, ge=0, le=1)
 
+    # Cortes del semáforo de cumplimiento (RF-19, RNF-14; SOP V1.0 §5.6): verde desde
+    # `semaforo_verde`, amarillo desde `semaforo_amarillo`, rojo por debajo.
+    semaforo_verde: float = Field(default=90, ge=0, le=100)
+    semaforo_amarillo: float = Field(default=70, ge=0, le=100)
+
     @model_validator(mode="after")
     def _umbrales_ordenados(self) -> Self:
         if self.umbral_bajo > self.umbral_alto:
             raise ValueError(
                 f"UMBRAL_BAJO ({self.umbral_bajo}) no puede ser mayor que "
                 f"UMBRAL_ALTO ({self.umbral_alto})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _cortes_ordenados(self) -> Self:
+        if self.semaforo_verde <= self.semaforo_amarillo:
+            raise ValueError(
+                f"SEMAFORO_VERDE ({self.semaforo_verde}) debe ser mayor que "
+                f"SEMAFORO_AMARILLO ({self.semaforo_amarillo})"
             )
         return self
 

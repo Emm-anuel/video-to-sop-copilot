@@ -57,5 +57,14 @@ un paso no tiene nombre. `sop_a_markdown` escribe un SOP con la misma plantilla 
 la fuente de verdad es el JSON). Desde la terminal: `python scripts/convertir_sop.py ARCHIVO
 [--salida RUTA]`. PDF, Word y texto libre con Gemma 4 quedan para S5.
 
+`reporte.py` (RF-19, documento SOP V1.0 §5.6) calcula el cumplimiento de un
+`ResultadoEmparejamiento`: `porcentaje` = (Cumple + 0.5 × (Parcial + Fuera de orden)) / pasos del
+SOP × 100, sin redondear. Fuera de orden es una marca: un Cumple o un Parcial marcado vale 0.5
+una sola vez. Los *Sobra* no restan (tampoco la intro y el cierre del operador), y *Falta* y
+`zona_gris` valen 0. Los pasos del SOP se cuentan desde la clasificación (`indice_sop` de 0 a n-1
+sin repetir; si no, `ValueError`). `semaforo` da verde, amarillo o rojo con los cortes
+`SEMAFORO_VERDE` (90) y `SEMAFORO_AMARILLO` (70) de la configuración, siempre sobre el porcentaje
+sin redondear.
+
 Búsqueda, chat y la redacción del SOP siguen reservados. La extensión `vector` ya queda
 habilitada en la base desde la primera migración.

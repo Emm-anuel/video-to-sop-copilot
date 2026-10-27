@@ -38,32 +38,11 @@ from sopvid.contrato import SOP, Analisis, PasoVideo, ResultadoEmparejamiento, R
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.lenguaje.juez import JuezGemma, narracion_de
 from sopvid.lenguaje.llm import ClienteLLM
+from sopvid.lenguaje.reporte import porcentaje, semaforo
 from sopvid.lenguaje.sop_markdown import convertir_sop
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
 
 SALIDA = PROJECT_ROOT / "data" / "interim" / "diagnostico"
-
-
-# ── Porcentaje de cumplimiento (documento SOP V1.0, sección 5.6) ─────────────────────────────
-
-
-def porcentaje(resultado: ResultadoEmparejamiento, n_sop: int) -> float:
-    """(Cumple + 0.5 × (Parcial + Fuera de orden)) / pasos del SOP × 100.
-
-    Fuera de orden es una marca: un Cumple o Parcial marcado cuenta 0.5 una sola vez. Los Sobra
-    no restan; Falta y los zona_gris (con o sin respaldo) cuentan 0.
-    """
-    puntos = 0.0
-    for p in resultado.clasificacion.pasos:
-        if p.estado == "Cumple":
-            puntos += 0.5 if p.fuera_de_orden else 1.0
-        elif p.estado == "Parcial":
-            puntos += 0.5
-    return 100 * puntos / n_sop
-
-
-def semaforo(pct: float) -> str:
-    return "verde" if pct >= 90 else "amarillo" if pct >= 70 else "rojo"
 
 
 # ── Tramos de la anotación manual ────────────────────────────────────────────────────────────
@@ -256,7 +235,7 @@ def diagnosticar(
     for c in corridas:
         r = c.resultado
         resumen = r.clasificacion.resumen
-        pct = porcentaje(r, n)
+        pct = porcentaje(r)
         lineas += [
             "",
             f"## Corrida {c.nombre}",
@@ -451,7 +430,7 @@ def experimentos(
                     if p.fuera_de_orden and p.indice_sop is not None
                 ]
                 conteo = ", ".join(f"{e} {v}" for e, v in clas.resumen.conteo.items() if v)
-                pct = porcentaje(r, len(sop.pasos))
+                pct = porcentaje(r)
                 lineas.append(
                     f"| {clave} | {variante} | {'sí' if con_juez else 'no'} | {conteo} | "
                     f"{pct:.1f} ({semaforo(pct)}) | {faltas or '–'} | "
