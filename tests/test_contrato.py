@@ -690,14 +690,16 @@ def test_resumen_con_juez_cuenta_los_pares_que_fueron_al_llm():
         pares_llm=4,
         pct_pares_llm=100.0,
         juez=_juez(Cumple=1, Parcial=1, no_corresponde=1, respaldo=1),
+        segundos_juez=12.5,
     )
     assert resumen.juez is not None and resumen.juez["respaldo"] == 1
+    assert resumen.segundos_juez == 12.5
 
 
 @pytest.mark.parametrize(
     ("juez", "zona_gris", "texto"),
     [
-        (_juez(Cumple=1, Parcial=1, no_corresponde=1), 1, "respaldo"),
+        (_juez(Cumple=1, Parcial=1, no_corresponde=1, respaldo=1), 2, "pares en respaldo"),
         (_juez(Cumple=1, Parcial=1, no_corresponde=1, respaldo=2), 2, "decidió 5"),
         ({"Cumple": 4}, 0, "todos sus resultados"),
     ],
@@ -710,8 +712,39 @@ def test_resumen_con_juez_incoherente_falla(juez, zona_gris, texto):
         "pares_llm": 4,
         "pct_pares_llm": 100.0,
         "juez": juez,
+        "segundos_juez": 12.5,
     }
     _falla(ResumenClasificacion, datos, texto)
+
+
+@pytest.mark.parametrize(
+    "cambios",
+    [{"juez": None}, {"segundos_juez": None}],
+    ids=["segundos_sin_juez", "juez_sin_segundos"],
+)
+def test_juez_y_sus_segundos_van_juntos(cambios):
+    datos = {
+        "conteo": _conteo(Cumple=1),
+        "pares": 1,
+        "pares_llm": 0,
+        "pct_pares_llm": 0.0,
+        "juez": _juez(),
+        "segundos_juez": 0.0,
+    }
+    assert ResumenClasificacion.model_validate(datos).segundos_juez == 0.0
+    _falla(ResumenClasificacion, datos | cambios, "van juntos")
+
+
+def test_segundos_del_juez_negativos_fallan():
+    datos = {
+        "conteo": _conteo(Cumple=1),
+        "pares": 1,
+        "pares_llm": 0,
+        "pct_pares_llm": 0.0,
+        "juez": _juez(),
+        "segundos_juez": -0.1,
+    }
+    _falla(ResumenClasificacion, datos, "segundos_juez")
 
 
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────

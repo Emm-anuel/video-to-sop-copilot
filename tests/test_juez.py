@@ -600,6 +600,111 @@ def test_emparejar_con_juez_revisa_el_orden_despues(tmp_path: Path):
     assert sin_juez.clasificacion.resumen.juez is None
 
 
+def _embedder_tabla(tmp_path: Path, tabla: dict[str, np.ndarray]) -> emp.Embedder:
+    return emp.Embedder("tabla", tmp_path, cargador=lambda _m, _c: VectorizadorTabla(tabla))
+
+
+def test_paso_extra_en_zona_gris_con_un_paso_omitido_deja_de_ir_fuera_de_orden(tmp_path: Path):
+    # Caso de ADR-012: el SOP pide EPP → purgar → cerrar; el video hace EPP, cierra y al final
+    # anota la lectura (un paso extra) sin purgar. MiniLM empareja "anotar" con "purgar" en zona
+    # gris y, como llega al final, `orden` lo marca fuera de orden. El juez dice que no
+    # corresponde: el par se rompe en Falta (purgar) + Sobra (anotar) y ya nada va fuera de orden.
+    purgar = PasoSOP(
+        numero=2, nombre="Purgar la línea", descripcion="Abrir el purgador.", responsable="Técnico"
+    )
+    sop = SOP(
+        titulo="SOP inventado",
+        pasos=[PASOS_SOP[0], purgar, PASOS_SOP[1].model_copy(update={"numero": 3})],
+    )
+    epp, llave, extra = PASOS_VIDEO  # t = 0, 4 y 12 s
+    tabla = {
+        emp.texto_para_embeber(sop.pasos[0]): _base(0),
+        emp.texto_para_embeber(sop.pasos[1]): _base(1),
+        emp.texto_para_embeber(sop.pasos[2]): _base(2),
+        emp.texto_para_embeber(epp): _base(0),
+        emp.texto_para_embeber(llave): _base(2),
+        emp.texto_para_embeber(extra): 0.6 * _base(1) + 0.8 * _base(3),  # coseno 0.6 con purgar
+    }
+    embedder = _embedder_tabla(tmp_path, tabla)
+
+    sin_juez = emp.emparejar(sop, PASOS_VIDEO, embedder).clasificacion
+    purgado = sin_juez.pasos[1]
+    assert (purgado.estado, purgado.indice_video) == ("zona_gris", 2)
+    assert (purgado.fuera_de_orden, purgado.posicion_esperada, purgado.posicion_observada) == (
+        True,
+        1,
+        2,
+    )
+    assert sin_juez.resumen.fuera_de_orden == 1
+
+    juez = jz.JuezGemma(cliente(decision("no_corresponde", cita="anoto la lectura en la bitácora")))
+    con_juez = emp.emparejar(
+        sop, PASOS_VIDEO, embedder, juez=juez, transcripcion=TRANSCRIPCION
+    ).clasificacion
+
+    assert [(p.estado, p.indice_sop, p.indice_video) for p in con_juez.pasos] == [
+        ("Cumple", 0, 0),
+        ("Falta", 1, None),
+        ("Cumple", 2, 1),
+        ("Sobra", None, 2),
+    ]
+    assert not any(p.fuera_de_orden for p in con_juez.pasos)
+    assert con_juez.resumen.fuera_de_orden == 0
+    assert con_juez.resumen.juez is not None and con_juez.resumen.juez["no_corresponde"] == 1
+
+
+# ── Tiempo del juez (para el paper) ──────────────────────────────────────────────────────────
+
+
+def test_el_tiempo_del_juez_se_mide_con_el_reloj():
+    lecturas = iter([100.0, 103.25])  # solo dos lecturas: al empezar y al terminar
+    resultado = jz.aplicar_juez(
+        clasificacion(*UN_PAR_GRIS),
+        PASOS_SOP,
+        PASOS_VIDEO,
+        TRANSCRIPCION,
+        jz.JuezGemma(cliente(decision())),
+        reloj=lambda: next(lecturas),
+    )
+
+    assert resultado.resumen.segundos_juez == pytest.approx(3.25)
+    assert emp.orden(resultado).resumen.segundos_juez == pytest.approx(3.25)  # orden lo conserva
+
+
+def test_el_tiempo_del_juez_se_mide_aunque_ollama_este_caido():
+    lecturas = iter([10.0, 10.5])
+    resultado = jz.aplicar_juez(
+        clasificacion(*UN_PAR_GRIS),
+        PASOS_SOP,
+        PASOS_VIDEO,
+        TRANSCRIPCION,
+        jz.JuezGemma(cliente(httpx.ConnectError("sin conexión"))),
+        reloj=lambda: next(lecturas),
+    )
+    assert resultado.resumen.segundos_juez == pytest.approx(0.5)
+
+
+def test_el_tiempo_del_juez_va_en_el_resumen_de_emparejar_solo_con_juez(tmp_path: Path):
+    tabla = {
+        emp.texto_para_embeber(PASOS_SOP[1]): _base(0),
+        emp.texto_para_embeber(PASOS_VIDEO[1]): 0.66 * _base(0) + np.sqrt(1 - 0.66**2) * _base(1),
+    }
+    sop = SOP(titulo="SOP inventado", pasos=[PASOS_SOP[1].model_copy(update={"numero": 1})])
+    tabla[emp.texto_para_embeber(sop.pasos[0])] = _base(0)
+    embedder = _embedder_tabla(tmp_path, tabla)
+    video = [PASOS_VIDEO[1].model_copy(update={"numero": 1})]
+
+    sin_juez = emp.emparejar(sop, video, embedder)
+    assert sin_juez.clasificacion.resumen.segundos_juez is None
+
+    con_juez = emp.emparejar(
+        sop, video, embedder, juez=jz.JuezGemma(cliente(decision())), transcripcion=TRANSCRIPCION
+    )
+    segundos = con_juez.clasificacion.resumen.segundos_juez
+    assert segundos is not None and segundos >= 0
+    assert con_juez.clasificacion.pasos[0].estado == "Cumple"
+
+
 def test_emparejar_con_juez_sin_transcripcion_falla():
     sop = SOP(titulo="SOP inventado", pasos=PASOS_SOP)
     with pytest.raises(ValueError, match="transcripción"):

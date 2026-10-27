@@ -350,6 +350,9 @@ class ResumenClasificacion(_Modelo):
     en cada par que le llegó (todos los `RESULTADOS_JUEZ`, aunque sea 0): su suma es
     `pares_llm` y "respaldo" es el conteo de zona_gris que quedó. Sin juez, `pares_llm` es el
     conteo de zona_gris.
+
+    `segundos_juez` es lo que tardó el juez en toda la clasificación (`time.perf_counter`), para
+    el paper; va junto con `juez`: los dos en `None` si no corrió.
     """
 
     conteo: dict[EstadoPaso, Annotated[int, Field(ge=0)]]
@@ -358,9 +361,12 @@ class ResumenClasificacion(_Modelo):
     pct_pares_llm: float = Field(ge=0, le=100)
     fuera_de_orden: int = Field(default=0, ge=0)
     juez: dict[ResultadoJuez, Annotated[int, Field(ge=0)]] | None = None
+    segundos_juez: float | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
+        if (self.juez is None) != (self.segundos_juez is None):
+            raise ValueError("juez y segundos_juez van juntos: los dos o ninguno")
         if set(self.conteo) != set(ESTADOS):
             raise ValueError("el conteo lleva todos los estados, aunque sea en 0")
         if self.pares_llm > self.pares:

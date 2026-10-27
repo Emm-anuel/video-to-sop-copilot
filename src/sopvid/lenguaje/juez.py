@@ -23,7 +23,8 @@ material del cliente): solo campos, tipos de error y conteos.
 
 import logging
 import string
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cache
 from importlib import resources
@@ -348,6 +349,8 @@ def aplicar_juez(
     pasos_video: Sequence[PasoVideo],
     transcripcion: Sequence[Segmento],
     juez: Juez,
+    *,
+    reloj: Callable[[], float] = time.perf_counter,
 ) -> Clasificacion:
     """Pasa cada par en zona_gris por `juez` y aplica su decisión.
 
@@ -362,10 +365,12 @@ def aplicar_juez(
     vuelve a intentar con el LLM.
 
     `pasos_video` son los que se emparejaron (los fusionados de `emparejar`) y `transcripcion`
-    la del mismo video. Devuelve una clasificación nueva con el resumen del juez y sin marcas
+    la del mismo video. Devuelve una clasificación nueva con el resumen del juez (conteo por
+    veredicto y `segundos_juez`, lo que tardaron todas las llamadas según `reloj`) y sin marcas
     de orden: después hay que correr `orden` (lo hace `emparejar`), que revisa también los
     Parcial.
     """
+    inicio = reloj()
     caido: Juicio | None = None
     por_sop: list[ResultadoPaso] = []
     sobran: list[ResultadoPaso] = []
@@ -405,6 +410,7 @@ def aplicar_juez(
                 ResultadoPaso.model_validate(datos | {"estado": juicio.veredicto, "juicio": juicio})
             )
 
+    segundos = reloj() - inicio
     pasos = por_sop + sorted(sobran, key=lambda p: p.indice_video or 0)  # orden del video
     resumen_juez = _resumen_juez(pasos)
     conteo = dict.fromkeys(ESTADOS, 0)
@@ -414,8 +420,9 @@ def aplicar_juez(
         "conteo": conteo,
         "fuera_de_orden": 0,
         "juez": resumen_juez,
+        "segundos_juez": segundos,
     }
-    logger.info("Juez de la zona gris: %s", resumen_juez)
+    logger.info("Juez de la zona gris en %.1f s: %s", segundos, resumen_juez)
     return Clasificacion.model_validate({"pasos": pasos, "resumen": resumen})
 
 
