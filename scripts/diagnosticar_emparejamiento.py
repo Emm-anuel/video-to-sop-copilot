@@ -441,6 +441,9 @@ def experimentos(
 
 
 def main() -> int:
+    # La consola de Windows usa cp1252 y no puede imprimir "→" ni "–" del reporte.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("videos", nargs="+", help="clave=carpeta, p. ej. video_a=media/video_a_v2")
     ap.add_argument("--sop", type=Path, required=True, help="SOP en Markdown o TXT (plantilla)")
