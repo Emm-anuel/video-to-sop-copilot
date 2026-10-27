@@ -208,6 +208,9 @@ MotivoRespaldo = Literal["llm_no_disponible", "respuesta_invalida", "sin_narraci
 # Claves de `ResumenClasificacion.juez`: los veredictos más los pares que quedaron en respaldo.
 ResultadoJuez = Literal["Cumple", "Parcial", "no_corresponde", "respaldo"]
 RESULTADOS_JUEZ: tuple[ResultadoJuez, ...] = get_args(ResultadoJuez)
+# Marca de un Sobra que es el marco de la narración (ADR-016): empieza antes del primer paso
+# emparejado ("intro") o después del último ("cierre").
+MarcoOperador = Literal["intro", "cierre"]
 
 
 class Juicio(_Modelo):
@@ -265,6 +268,10 @@ class ResultadoPaso(_Modelo):
     lleva su mismo veredicto, un Falta y un Sobra que salen de romper el par llevan
     "no_corresponde", y un zona_gris solo puede llevar un juicio de respaldo. Parcial siempre
     lleva juicio (solo el juez lo asigna).
+
+    `marco_operador` es otra marca (ADR-016), solo para Sobra: "intro" o "cierre" si el paso
+    empieza antes del primer paso emparejado o después del último. El paso sigue siendo Sobra,
+    con su cita y su segundo, pero el resumen no lo cuenta en `conteo["Sobra"]`.
     """
 
     estado: EstadoPaso
@@ -278,6 +285,13 @@ class ResultadoPaso(_Modelo):
     posicion_esperada: int | None = Field(default=None, ge=0)
     posicion_observada: int | None = Field(default=None, ge=0)
     juicio: Juicio | None = None
+    marco_operador: MarcoOperador | None = None
+
+    @model_validator(mode="after")
+    def _marco_solo_en_sobra(self) -> Self:
+        if self.marco_operador is not None and self.estado != "Sobra":
+            raise ValueError(f"{self.estado}: solo un Sobra puede llevar marco_operador")
+        return self
 
     @model_validator(mode="after")
     def _juicio_coherente(self) -> Self:
@@ -353,6 +367,9 @@ class ResumenClasificacion(_Modelo):
 
     `segundos_juez` es lo que tardó el juez en toda la clasificación (`time.perf_counter`), para
     el paper; va junto con `juez`: los dos en `None` si no corrió.
+
+    `conteo["Sobra"]` no incluye los Sobra con `marco_operador` (intro y cierre del operador,
+    ADR-016): esos se cuentan aparte en `marco_operador` (0 hasta que corre `marcar_marco`).
     """
 
     conteo: dict[EstadoPaso, Annotated[int, Field(ge=0)]]
@@ -362,6 +379,7 @@ class ResumenClasificacion(_Modelo):
     fuera_de_orden: int = Field(default=0, ge=0)
     juez: dict[ResultadoJuez, Annotated[int, Field(ge=0)]] | None = None
     segundos_juez: float | None = Field(default=None, ge=0)
+    marco_operador: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
@@ -402,6 +420,7 @@ class Clasificacion(_Modelo):
     """Salida de `clasificar` y de `orden`: un resultado por paso y su resumen.
 
     Primero un resultado por paso del SOP, en su orden; después los Sobra, en el orden del video.
+    Los Sobra con `marco_operador` siguen en `pasos`, pero no cuentan en `conteo["Sobra"]`.
     """
 
     pasos: list[ResultadoPaso]
@@ -410,11 +429,16 @@ class Clasificacion(_Modelo):
     @model_validator(mode="after")
     def _resumen_coherente(self) -> Self:
         for estado in ESTADOS:
-            n = sum(p.estado == estado for p in self.pasos)
+            n = sum(p.estado == estado and p.marco_operador is None for p in self.pasos)
             if self.resumen.conteo[estado] != n:
                 raise ValueError(
                     f"el resumen cuenta {self.resumen.conteo[estado]} {estado} y hay {n}"
                 )
+        n = sum(p.marco_operador is not None for p in self.pasos)
+        if self.resumen.marco_operador != n:
+            raise ValueError(
+                f"el resumen cuenta {self.resumen.marco_operador} pasos de marco y hay {n}"
+            )
         n = sum(p.fuera_de_orden for p in self.pasos)
         if self.resumen.fuera_de_orden != n:
             raise ValueError(

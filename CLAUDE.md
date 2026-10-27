@@ -134,7 +134,9 @@ docs/
 >   cascada completa (ADR-012, ADR-013). Juez Gemma 4 de la zona gris (27 oct) en `lenguaje/juez.py`,
 >   con el prompt versionado en `lenguaje/prompts/`; cita verificada contra la narración del paso y
 >   respaldo en `zona_gris` ("sin revisar") si Ollama no responde. El punto 4 de ADR-012 (EPP en
->   pares ≥ 0.75) queda diferido con RF-18.
+>   pares ≥ 0.75) queda diferido con RF-18. El texto vectorizado del paso del video lleva su cita
+>   (27 oct, ADR-012); la intro y el cierre del operador se marcan y no cuentan como *Sobra*
+>   (ADR-016). Diagnóstico de A y B: `scripts/diagnosticar_emparejamiento.py`.
 > - **Análisis y API de videos (25 oct):** `percepcion/pipeline.py` (`analizar_video`: duración →
 >   audio → transcripción → `Analisis` validado) y `scripts/analizar_video.py`. API:
 >   `POST /videos` (subida simple, RF-06 del MVP), `GET /videos/{id}`, `…/transcripcion.txt` (en

@@ -650,6 +650,10 @@ def test_paso_extra_en_zona_gris_con_un_paso_omitido_deja_de_ir_fuera_de_orden(t
     ]
     assert not any(p.fuera_de_orden for p in con_juez.pasos)
     assert con_juez.resumen.fuera_de_orden == 0
+    # El Sobra empieza después del último paso emparejado: ADR-016 lo marca como cierre (el
+    # riesgo anotado del ADR: un paso extra al final). Sigue en la clasificación.
+    assert con_juez.pasos[3].marco_operador == "cierre"
+    assert (con_juez.resumen.conteo["Sobra"], con_juez.resumen.marco_operador) == (0, 1)
     assert con_juez.resumen.juez is not None and con_juez.resumen.juez["no_corresponde"] == 1
 
 

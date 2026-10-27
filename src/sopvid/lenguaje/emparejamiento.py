@@ -40,6 +40,7 @@ from sopvid.contrato import (
     EstadoPaso,
     Fuente,
     Fusion,
+    MarcoOperador,
     Par,
     PasoSOP,
     PasoVideo,
@@ -516,6 +517,44 @@ def _subsecuencia_creciente(secuencia: Sequence[int]) -> list[int]:
     return elegidas
 
 
+# ── Intro y cierre del operador (ADR-016) ────────────────────────────────────────────────────
+
+
+def marcar_marco(clasificacion: Clasificacion) -> Clasificacion:
+    """Marca los Sobra que son el marco de la narración del operador (ADR-016).
+
+    Un Sobra que empieza antes del primer paso emparejado (Cumple, Parcial o zona_gris, por
+    `t_inicio`) lleva `marco_operador="intro"`; uno que empieza después del último, "cierre".
+    Siguen en la clasificación como Sobra, con su cita y su segundo, para que el reporte pueda
+    mostrarlos; el resumen los saca de `conteo["Sobra"]` y los cuenta en `marco_operador`. Un
+    Sobra entre el primero y el último sigue contando como Sobra. Sin pasos emparejados no se
+    marca nada. Recalcula la marca desde cero (correrla dos veces da lo mismo) y devuelve un
+    objeto nuevo.
+    """
+    inicios = [
+        p.t_inicio
+        for p in clasificacion.pasos
+        if p.estado in ESTADOS_CON_ORDEN and p.t_inicio is not None
+    ]
+    pasos = []
+    for paso in clasificacion.pasos:
+        marco: MarcoOperador | None = None
+        if inicios and paso.estado == "Sobra" and paso.t_inicio is not None:
+            if paso.t_inicio < min(inicios):
+                marco = "intro"
+            elif paso.t_inicio > max(inicios):
+                marco = "cierre"
+        pasos.append(paso.model_copy(update={"marco_operador": marco}))
+    conteo = dict(clasificacion.resumen.conteo)
+    conteo["Sobra"] = sum(p.estado == "Sobra" and p.marco_operador is None for p in pasos)
+    n_marco = sum(p.marco_operador is not None for p in pasos)
+    resumen = clasificacion.resumen.model_dump() | {"conteo": conteo, "marco_operador": n_marco}
+    logger.info("Marco del operador: %d Sobra marcados como intro o cierre", n_marco)
+    return Clasificacion.model_validate(
+        {"pasos": [p.model_dump() for p in pasos], "resumen": resumen}
+    )
+
+
 # ── Cascada completa (ADR-012, ADR-013) ──────────────────────────────────────────────────────
 
 
@@ -539,6 +578,8 @@ def emparejar(
        llama al LLM.
     5. `orden` (subsecuencia creciente), una sola vez y después del juez, porque un par roto
        por el juez ya no cuenta para el orden.
+    6. `marcar_marco` (ADR-016): los Sobra antes del primer paso emparejado o después del
+       último quedan marcados como intro o cierre y salen del conteo de Sobra.
 
     Sin `embedder` usa el del proceso (`get_embedder()`). Los `indice_video` del resultado
     apuntan a los pasos fusionados, que van en `ResultadoEmparejamiento.pasos_video`.
@@ -564,7 +605,7 @@ def emparejar(
     clasificacion = clasificar(asignacion, pasos_sop, fusionados)
     if juez is not None:
         clasificacion = aplicar_juez(clasificacion, pasos_sop, fusionados, transcripcion, juez)
-    clasificacion = orden(clasificacion)
+    clasificacion = marcar_marco(orden(clasificacion))
     return ResultadoEmparejamiento(
         clasificacion=clasificacion, fusiones=fusiones, pasos_video=fusionados
     )

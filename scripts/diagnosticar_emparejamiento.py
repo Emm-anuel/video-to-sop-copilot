@@ -269,6 +269,7 @@ def diagnosticar(
             "- segundos_juez: "
             + ("None" if resumen.segundos_juez is None else f"{resumen.segundos_juez:.1f}"),
             f"- Fusión: {len(pasos)} → {len(r.pasos_video)} pasos del video",
+            f"- Marco del operador (ADR-016, fuera del conteo de Sobra): {resumen.marco_operador}",
             "",
             "| SOP | Estado | Video | Coseno | Orden | Juez |",
             "|---|---|---|---|---|---|",
@@ -295,12 +296,12 @@ def diagnosticar(
         sobras = [p for p in r.clasificacion.pasos if p.estado == "Sobra"]
         lineas += [
             "",
-            f"### Sobra ({len(sobras)})",
+            f"### Sobra ({len(sobras)}, de ellos {resumen.marco_operador} de marco)",
             "",
             "| Video (orig.) | t_inicio | Paso del video | Mejor SOP (coseno) "
             "| Quién tiene ese SOP | Por qué es Sobra | Consecutivo mismo SOP | Fusión "
-            "| Tramo anotado |",
-            "|---|---|---|---|---|---|---|---|---|",
+            "| Tramo anotado | Marco |",
+            "|---|---|---|---|---|---|---|---|---|---|",
         ]
         filas = []
         for s in sobras:
@@ -323,6 +324,7 @@ def diagnosticar(
                 "fusion": fusion,
                 "tramo_inicio": tramo_en(paso.t_inicio, tramos).etiqueta,
                 "tramo_mayor": tramo_mayor(paso, tramos).etiqueta,
+                "marco_operador": s.marco_operador,
             }
             filas.append(fila)
             tramo = fila["tramo_mayor"]
@@ -332,7 +334,8 @@ def diagnosticar(
                 f"| {paso.numero} ({', '.join(map(str, fila['originales']))}) | "
                 f"{mmss(paso.t_inicio)} | {paso.nombre} — «{paso.cita}» | "
                 f"{k + 1}. {sop.pasos[k].nombre} ({fila['coseno']:.2f}) | {fila['quien_tiene']} | "
-                f"{fila['por_que']} | {consecutivo} | {fusion} | {tramo} |"
+                f"{fila['por_que']} | {consecutivo} | {fusion} | {tramo} | "
+                f"{s.marco_operador or '–'} |"
             )
         datos["corridas"].append(
             {
@@ -345,6 +348,7 @@ def diagnosticar(
                 "pares_llm": resumen.pares_llm,
                 "juez": resumen.juez,
                 "segundos_juez": resumen.segundos_juez,
+                "marco_operador": resumen.marco_operador,
                 "sobra": filas,
                 "emparejamiento": r.model_dump(mode="json"),
             }

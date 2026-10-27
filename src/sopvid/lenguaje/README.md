@@ -27,9 +27,12 @@ revisa el orden con código (regla 5): ordena los Cumple, Parcial y zona_gris po
 subsecuencia creciente más larga de `indice_sop` (O(n log n); en empate, la que deja fuera lo
 que aparece más tarde en el video). Los demás reciben la marca `fuera_de_orden` (no es un
 estado: un paso puede ser Cumple y estar fuera de orden) con su posición esperada y observada.
+`marcar_marco` ([ADR-016](../../../docs/adr/ADR-016-marco-del-operador.md)) marca como intro o
+cierre del operador los *Sobra* que empiezan antes del primer paso emparejado o después del
+último: siguen en el resultado con su cita y su segundo, pero no cuentan como *Sobra*.
 `emparejar(sop, pasos_video, juez=..., transcripcion=...)` encadena la cascada completa
-(fusionar → similitud sobre los pasos fusionados → asignar → clasificar → juez → orden; el SOP
-se vectoriza una vez) y devuelve `ResultadoEmparejamiento`; `EmparejadorMiniLM` la ofrece
+(fusionar → similitud sobre los pasos fusionados → asignar → clasificar → juez → orden →
+marcar_marco; el SOP se vectoriza una vez) y devuelve `ResultadoEmparejamiento`; `EmparejadorMiniLM` la ofrece
 detrás de la interfaz `Emparejador` (`afinidad` llega en S5). Sin juez, la zona gris queda como
 `zona_gris`. Los umbrales (`UMBRAL_BAJO`, `UMBRAL_ALTO`, `UMBRAL_FUSION`) viven en la
 configuración.

@@ -1130,6 +1130,75 @@ def test_subsecuencia_creciente_larga_coincide_con_la_programacion_dinamica():
     assert all(secuencia[a] < secuencia[b] for a, b in pairwise(elegidas))
 
 
+# ── marcar_marco: intro y cierre del operador (ADR-016) ──────────────────────────────────────
+
+
+def _con_marco(pares: list[tuple[int, int]], sin_pareja: list[int]) -> Clasificacion:
+    """3 pasos del SOP y 5 del video (el paso j empieza en 10j + 3.5 s), con `orden` y la marca."""
+    asignacion = emp.Asignacion(
+        [Par(indice_sop=i, indice_video=j, similitud=0.9) for i, j in pares], [], sin_pareja
+    )
+    return emp.marcar_marco(emp.orden(emp.clasificar(asignacion, _sop_n(3), _video_n(5))))
+
+
+def _marcas(clasificacion: Clasificacion) -> dict[int, str | None]:
+    return {
+        p.indice_video: p.marco_operador
+        for p in clasificacion.pasos
+        if p.estado == "Sobra" and p.indice_video is not None
+    }
+
+
+def test_sobra_antes_del_primer_par_es_intro_y_despues_del_ultimo_es_cierre(umbrales):
+    c = _con_marco([(0, 1), (1, 2), (2, 3)], [0, 4])
+
+    assert _marcas(c) == {0: "intro", 4: "cierre"}
+    assert (c.resumen.conteo["Sobra"], c.resumen.marco_operador) == (0, 2)
+    # Siguen en la clasificación, con su cita y su segundo, para que el reporte los muestre.
+    intro = next(p for p in c.pasos if p.marco_operador == "intro")
+    assert (intro.estado, intro.t_inicio, intro.cita) == ("Sobra", 3.5, "Cita del paso 1")
+
+
+def test_sobra_real_en_medio_sigue_contando_como_sobra(umbrales):
+    c = _con_marco([(0, 1), (1, 3), (2, 4)], [0, 2])
+
+    assert _marcas(c) == {0: "intro", 2: None}
+    assert (c.resumen.conteo["Sobra"], c.resumen.marco_operador) == (1, 1)
+
+
+def test_sin_sobra_en_los_extremos_no_marca_nada(umbrales):
+    c = _con_marco([(0, 0), (1, 2), (2, 4)], [1, 3])
+
+    assert _marcas(c) == {1: None, 3: None}
+    assert (c.resumen.conteo["Sobra"], c.resumen.marco_operador) == (2, 0)
+
+
+def test_un_par_roto_por_coseno_en_un_extremo_tambien_es_marco(umbrales):
+    asignacion = emp.Asignacion(
+        [
+            Par(indice_sop=0, indice_video=0, similitud=0.3),  # se rompe: Falta + Sobra
+            Par(indice_sop=1, indice_video=1, similitud=0.9),
+            Par(indice_sop=2, indice_video=2, similitud=0.9),
+        ],
+        [],
+        [],
+    )
+    c = emp.marcar_marco(emp.clasificar(asignacion, _sop_n(3), _video_n(3)))
+    assert _marcas(c) == {0: "intro"}
+    assert c.resumen.conteo["Falta"] == 1
+
+
+def test_sin_pasos_emparejados_no_se_marca_nada(umbrales):
+    c = emp.marcar_marco(emp.clasificar(emp.Asignacion([], [0, 1], [0, 1]), _sop_n(2), _video_n(2)))
+    assert _marcas(c) == {0: None, 1: None}
+    assert c.resumen.conteo["Sobra"] == 2
+
+
+def test_marcar_marco_es_idempotente(umbrales):
+    c = _con_marco([(0, 1), (1, 2), (2, 3)], [0, 4])
+    assert emp.marcar_marco(c) == c
+
+
 # ── emparejar: la cascada completa sin juez ──────────────────────────────────────────────────
 
 SOP_CARTUCHO = SOP(

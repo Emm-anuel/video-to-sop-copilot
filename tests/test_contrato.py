@@ -747,6 +747,35 @@ def test_segundos_del_juez_negativos_fallan():
     _falla(ResumenClasificacion, datos, "segundos_juez")
 
 
+# ── Marco del operador (ADR-016) ─────────────────────────────────────────────────────────────
+
+
+def test_solo_un_sobra_lleva_marco_del_operador():
+    assert ResultadoPaso.model_validate({**SOBRA, "marco_operador": "intro"}).marco_operador
+    _falla(ResultadoPaso, {**CUMPLE, "marco_operador": "cierre"}, "solo un Sobra")
+    _falla(ResultadoPaso, {**SOBRA, "marco_operador": "medio"}, "marco_operador")
+
+
+def test_el_sobra_con_marco_no_cuenta_en_el_conteo_de_sobra():
+    pasos = [CUMPLE, {**SOBRA, "marco_operador": "cierre"}]
+    resumen = {
+        "conteo": _conteo(Cumple=1),
+        "pares": 1,
+        "pares_llm": 0,
+        "pct_pares_llm": 0.0,
+        "marco_operador": 1,
+    }
+    c = Clasificacion.model_validate({"pasos": pasos, "resumen": resumen})
+    assert (c.resumen.conteo["Sobra"], c.resumen.marco_operador) == (0, 1)
+
+    _falla(
+        Clasificacion,
+        {"pasos": pasos, "resumen": resumen | {"conteo": _conteo(Cumple=1, Sobra=1)}},
+        "Sobra",
+    )
+    _falla(Clasificacion, {"pasos": pasos, "resumen": resumen | {"marco_operador": 0}}, "marco")
+
+
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────
 
 

@@ -367,8 +367,8 @@ def aplicar_juez(
     `pasos_video` son los que se emparejaron (los fusionados de `emparejar`) y `transcripcion`
     la del mismo video. Devuelve una clasificación nueva con el resumen del juez (conteo por
     veredicto y `segundos_juez`, lo que tardaron todas las llamadas según `reloj`) y sin marcas
-    de orden: después hay que correr `orden` (lo hace `emparejar`), que revisa también los
-    Parcial.
+    de orden ni de marco del operador: después hay que correr `orden` y `marcar_marco` (lo hace
+    `emparejar`); `orden` revisa también los Parcial.
     """
     inicio = reloj()
     caido: Juicio | None = None
@@ -379,6 +379,7 @@ def aplicar_juez(
             "fuera_de_orden": False,
             "posicion_esperada": None,
             "posicion_observada": None,
+            "marco_operador": None,
         }
         if paso.estado != "zona_gris":
             (sobran if paso.estado == "Sobra" else por_sop).append(
@@ -419,6 +420,7 @@ def aplicar_juez(
     resumen = clasificacion.resumen.model_dump() | {
         "conteo": conteo,
         "fuera_de_orden": 0,
+        "marco_operador": 0,
         "juez": resumen_juez,
         "segundos_juez": segundos,
     }
