@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from sqlalchemy.exc import SQLAlchemyError
 
 from sopvid import __version__
-from sopvid.plataforma.api import health, videos
+from sopvid.plataforma.api import health, sops, videos
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_sessionmaker
 from sopvid.plataforma.procesamiento import FabricaSesiones, Procesador, marcar_interrumpidos
@@ -58,6 +58,7 @@ def create_app(
     app = FastAPI(title="AI Co-Pilot Video-to-SOP", version=__version__, lifespan=lifespan)
     app.middleware("http")(videos.limitar_content_length)
     app.include_router(health.router)
+    app.include_router(sops.router)
     app.include_router(videos.router)
     return app
 
