@@ -171,7 +171,9 @@ Objetivo de reproducibilidad: clonar y ejecutar un solo script debe reproducir l
 | 2 | Avance 0. Propuesta y firma de convenios | `docs/entregables/` |
 | 3 | Avance 1. Análisis exploratorio (CaptainCook4D) · entregado | `docs/entregables/Semana 3/Avance1.51.ipynb` |
 | 4 | Avance 2. Ingeniería de características · entregado | `docs/entregables/Semana 4/Avance2.51.ipynb` |
-| 5–7 | Avances 3–5 (baseline, modelos, ensambles) · 18 oct, 25 oct y 1 nov | `docs/entregables/Semana N/` |
+| 5 | Avance 3. Baseline · entregado | `docs/entregables/Semana 5/Avance3.51.ipynb` |
+| 6 | Avance 4. Modelos alternativos · entregado | `docs/entregables/Semana 6/Avance4.51.ipynb` |
+| 7 | Avance 5. Ensambles y modelo final · generado y ejecutado | `docs/entregables/Semana 7/Avance5.51.ipynb` |
 | 8 | Avance 6. Producto de difusión | `docs/entregables/` |
 | 9 | Avance 7. Resumen ejecutivo | `docs/entregables/` |
 

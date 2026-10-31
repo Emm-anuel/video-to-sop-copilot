@@ -1,4 +1,4 @@
-# Estado del proyecto · 17 oct 2026
+# Estado del proyecto · 31 oct 2026
 
 Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md).
 
@@ -12,6 +12,21 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
   calificación y seguir los entregables de Canvas.
 - **17 oct:** se reescribió el plan para la versión 1.0 del documento (validar video contra SOP,
   generar SOP y búsqueda exacta). Decisiones en [plan.md §2](plan.md#2-decisiones).
+
+## 31 de octubre
+
+- **Validación y reporte, de punta a punta.** `POST /videos` acepta el SOP y el mismo trabajo de
+  análisis termina en `reportes`; `GET /videos/{id}/reporte` entrega porcentaje, semáforo y una fila
+  por paso con su cita y su segundo (ADR-017). Es el camino del MVP del 8 de noviembre.
+- **`scripts/calibrar_umbrales.py`**, que el plan §5.3 daba por hecho y no existía: prueba la rejilla
+  de umbrales con la anotación a mano y deja el informe en `docs/adr/datos/emparejamiento/`.
+- **Avance 5 generado y ejecutado** (`docs/entregables/Semana 7/Avance5.51.ipynb`): diez ensambles de
+  las tres familias. **Ninguno supera al individual del avance 4 por más que la variación entre
+  pliegues**; el *voting* de los tres individuales gana +0.013 (4 de 5 pliegues) y la regla fijada
+  antes de mirar la tabla no lo considera suficiente, así que el modelo final sigue siendo la SVM.
+  El hallazgo útil es otro: la SVM, al pasar de su umbral de F2 a su umbral de costo, baja el recall
+  en validación de 0.799 a 0.707, porque su calibración (Brier 0.213) es peor que la del *voting*
+  (0.177): el umbral del *voting* transfiere mejor. La recomendación para el producto queda en 10.2.
 
 ## Lo que ya está hecho
 
