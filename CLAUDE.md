@@ -143,8 +143,16 @@ docs/
 >   vivo) y `…/analisis`, con una cola de un trabajador (`plataforma/procesamiento.py`). El
 >   `Analisis` se guarda sin migración (idioma completo y segmentos en `videos.transcripcion`). La
 >   demo corre la API en el host con la GPU (`docs/dev/api.md`); en Docker, Whisper en CPU.
+> - **Validación y reporte (31 oct):** `POST /videos` acepta el SOP (`sop` en Markdown/TXT o
+>   `sop_id`) y lo guarda en `sops` con `plataforma/sops.py` (reutiliza la fila si el SOP es
+>   idéntico); el trabajador sigue con `plataforma/validacion.py` cuando el video es de
+>   `modo="validar"`: `segmentar` (heurística si no hay Ollama) → `emparejar` (sin juez si no hay
+>   transcripción) → `lenguaje/reporte.py` (`porcentaje` y `semaforo` de la 5.6, modelo `Reporte`
+>   con una fila por paso, cita y segundo) → `reportes` (uno por video). Se sirve con
+>   `GET /videos/{id}/reporte`; los pasos del video quedan en `videos.pasos_video`. Decisión y
+>   límites en [ADR-017](docs/adr/ADR-017-validacion-en-el-trabajo.md).
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
->   SOP en PDF y Word, reporte, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
+>   SOP en PDF y Word, SOP generado, PDF y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
@@ -165,6 +173,7 @@ docs/
 | Paquete para notebooks | — | `python -m venv .venv ; .venv\Scripts\activate ; pip install -e .[dev]` |
 | Ejecutar un entregable | — | `jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"` |
 | Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
+| Calibrar los umbrales / diagnosticar el emparejamiento | — | `python scripts/calibrar_umbrales.py --sop … --anotacion … video_a=… video_b=…` · `python scripts/diagnosticar_emparejamiento.py …` |
 
 Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok"}`; sin el
 profile `llm`, `"llm":"no_disponible"` y la API sigue sana. Detalles del LLM en `docs/dev/llm.md`.
