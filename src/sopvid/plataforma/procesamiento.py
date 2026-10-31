@@ -4,6 +4,13 @@ Un solo trabajador (`ThreadPoolExecutor(max_workers=1)`): un modelo en GPU a la 
 Cada trabajo corre `analizar_video` con su propia sesión y va actualizando `proceso`, `etapa` y
 `progreso`; al terminar guarda el `Analisis` en las columnas (`guardar_analisis`).
 
+Si el video se subió con `modo="validar"` y su SOP, el mismo trabajo sigue con la validación
+(`plataforma.validacion`): pasos del video, emparejamiento y reporte. El análisis se confirma
+antes de empezar para que un fallo de la validación no borre una transcripción de varios minutos;
+en ese caso el video queda en `proceso="error"` con `etapa="validacion"`, porque lo que se pidió
+(el reporte) no existe. `etapa="validacion"` y `progreso` 95 cubren esa segunda mitad: el
+detalle por paso llega en S5.
+
 Cómo se guarda el `Analisis` (sin migración): `duracion`, `idioma` (código) y `fotogramas` en
 sus columnas, y en `transcripcion` (JSONB) un dict con la versión del contrato, el idioma
 completo (código, confianza y si se fijó a mano) y los segmentos. `leer_analisis` lo rearma.
@@ -27,15 +34,22 @@ from sopvid.contrato import Analisis
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
 from sopvid.percepcion.transcripcion import Transcriptor
-from sopvid.plataforma.modelos import PROCESOS_VIDEO, Video
+from sopvid.plataforma.modelos import MODOS_VIDEO, PROCESOS_VIDEO, Video
 
 logger = logging.getLogger(__name__)
 
 # Fábrica de sesiones: `sessionmaker` en producción; en pruebas, la sesión de la prueba.
 FabricaSesiones = Callable[[], AbstractContextManager[Session]]
+# Trabajo de validación: recibe la sesión y el video y guarda el reporte (`validacion.py`).
+Validador = Callable[[Session, Video], Any]
 
 # Los cuatro valores de `videos.proceso` (CHECK de modelos.py), en su orden.
 EN_COLA, PROCESANDO, LISTO, ERROR = PROCESOS_VIDEO
+# Los dos valores de `videos.modo`; solo `validar` sigue con la validación.
+VALIDAR, GENERAR = MODOS_VIDEO
+# Etapa de la segunda mitad del trabajo (la primera la informa `analizar_video`).
+VALIDACION = "validacion"
+PROGRESO_VALIDACION = 95
 ERROR_REINICIO = "interrumpido por reinicio"
 
 
@@ -82,7 +96,11 @@ def marcar_interrumpidos(session: Session) -> int:
 
 
 class Procesador:
-    """Encola análisis de videos. `ejecutar` recibe cada trabajo como función sin argumentos."""
+    """Encola análisis de videos. `ejecutar` recibe cada trabajo como función sin argumentos.
+
+    `validador` reemplaza a `validacion.validar_y_guardar` (pruebas): el trabajo lo llama con la
+    sesión del hilo y el video, después del análisis, cuando el video es de `modo="validar"`.
+    """
 
     def __init__(
         self,
@@ -90,17 +108,24 @@ class Procesador:
         media: Path,
         ejecutar: Callable[[Callable[[], None]], Any],
         executor: ThreadPoolExecutor | None = None,
+        validador: Validador | None = None,
     ):
         self._sesiones = sesiones
         self._media = media
         self._ejecutar = ejecutar
         self._executor = executor
+        self._validador = validador
 
     @classmethod
-    def con_hilo(cls, sesiones: FabricaSesiones, media: Path) -> "Procesador":
+    def con_hilo(
+        cls,
+        sesiones: FabricaSesiones,
+        media: Path,
+        validador: Validador | None = None,
+    ) -> "Procesador":
         """Procesador de producción: un hilo trabajador (un modelo en GPU a la vez)."""
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analisis")
-        return cls(sesiones, media, executor.submit, executor)
+        return cls(sesiones, media, executor.submit, executor, validador)
 
     def encolar(self, video_id: int, idioma: str | None, transcriptor: Transcriptor) -> None:
         self._ejecutar(lambda: self.procesar(video_id, idioma, transcriptor))
@@ -149,7 +174,16 @@ class Procesador:
             self._fallar(session, video_id, f"falló la etapa {etapa} ({type(exc).__name__})")
             return
         guardar_analisis(video, analisis)
-        video.proceso, video.error = LISTO, None
+        # El análisis se confirma antes de la validación: si la validación falla, la
+        # transcripción (minutos de GPU) no se pierde.
+        session.commit()
+        if (
+            video.modo == VALIDAR
+            and video.sop_id is not None
+            and not self._validar(session, video_id)
+        ):
+            return
+        video.proceso, video.etapa, video.progreso, video.error = LISTO, LISTO, 100, None
         session.commit()
         logger.info(
             "Video %d listo: %.1f s, %d segmentos",
@@ -158,6 +192,19 @@ class Procesador:
             len(analisis.transcripcion),
         )
 
+    def _validar(self, session: Session, video_id: int) -> bool:
+        """Valida el video contra su SOP; si falla, lo deja en error y devuelve `False`."""
+        video = session.get(Video, video_id)
+        video.etapa, video.progreso = VALIDACION, PROGRESO_VALIDACION
+        session.commit()
+        validador = self._validador or _validador_por_defecto()
+        try:
+            validador(session, video)
+        except Exception as exc:  # el mensaje no lleva texto del video: solo el tipo
+            self._fallar(session, video_id, f"falló la etapa {VALIDACION} ({type(exc).__name__})")
+            return False
+        return True
+
     @staticmethod
     def _fallar(session: Session, video_id: int, mensaje: str) -> None:
         session.rollback()
@@ -165,3 +212,14 @@ class Procesador:
         video.proceso, video.error = ERROR, mensaje
         session.commit()
         logger.error("Video %d: %s", video_id, mensaje)
+
+
+def _validador_por_defecto() -> Validador:
+    """`validacion.validar_y_guardar`, importado aquí para no cerrar el ciclo entre los dos.
+
+    `validacion` importa `leer_analisis` de este módulo, así que la importación va dentro de la
+    función y no en la cabecera.
+    """
+    from sopvid.plataforma.validacion import validar_y_guardar
+
+    return validar_y_guardar

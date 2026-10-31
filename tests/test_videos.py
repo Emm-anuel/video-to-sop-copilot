@@ -1,15 +1,19 @@
-"""Pruebas de `/videos` (RF-06 del MVP, RF-10) y de la cola de análisis.
+"""Pruebas de `/videos` (RF-06 del MVP, RF-10), del reporte (RF-19, RF-20) y de la cola.
 
 Usan la base de pruebas de conftest.py (`db_session`, que se revierte al final), un transcriptor
 falso y un procesador que guarda los trabajos en vez de correrlos en un hilo: la prueba decide
 cuándo corren, en su mismo hilo y con la misma sesión, para ver el estado antes, durante y
 después del análisis. Los videos salen de `generar_video` (ffmpeg); sin ffmpeg esas pruebas se
 saltan.
+
+La validación corre con `ValidadorFalso`: el `validar_y_guardar` de verdad, con la heurística para
+los pasos y un emparejamiento de mentira, así que no hace falta MiniLM ni Ollama.
 """
 
 import json
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import nullcontext
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -18,17 +22,28 @@ from jsonschema import Draft202012Validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import Analisis, Idioma, Palabra, Segmento
+from apoyo import fila, resultado
+from sopvid.contrato import (
+    SOP,
+    Analisis,
+    Idioma,
+    Palabra,
+    PasoVideo,
+    ResultadoEmparejamiento,
+    Segmento,
+)
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion
 from sopvid.plataforma.api.main import create_app
 from sopvid.plataforma.api.videos import get_procesador, get_transcriptor
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
-from sopvid.plataforma.modelos import Video
+from sopvid.plataforma.modelos import Reporte, Sop, Video
 from sopvid.plataforma.procesamiento import ERROR_REINICIO, Procesador
+from sopvid.plataforma.validacion import validar_y_guardar
 
 RAIZ = Path(__file__).resolve().parents[1]
 ESQUEMA = RAIZ / "docs" / "contrato" / "analisis.schema.json"
+SOP_MD = (RAIZ / "tests" / "fixtures" / "sop_filtro_agua.md").read_bytes()
 MB = 1024 * 1024
 
 
@@ -85,6 +100,42 @@ class TranscriptorFalso:
         )
 
 
+class EmparejadorFalso:
+    """`Emparejador` sin MiniLM: los primeros pasos del video cumplen los primeros del SOP.
+
+    Los pasos del SOP que no alcanzan paso del video quedan *Falta* y los del video que sobran,
+    *Sobra*. `ResultadoEmparejamiento` se arma con `tests/apoyo.py`, que ya lo deja coherente.
+    """
+
+    def emparejar(
+        self, sop: SOP, pasos_video: Sequence[PasoVideo], *, transcripcion: Sequence[Segmento] = ()
+    ) -> ResultadoEmparejamiento:
+        pasos = list(pasos_video)
+        filas = []
+        for i in range(len(sop.pasos)):
+            if i < len(pasos):
+                filas.append(fila("Cumple", sop=i, video=i, pasos_video=pasos))
+            else:
+                filas.append(fila("Falta", sop=i, pasos_video=pasos))
+        for j in range(len(sop.pasos), len(pasos)):
+            filas.append(fila("Sobra", video=j, pasos_video=pasos))
+        return resultado(sop, pasos, filas)
+
+
+class ValidadorFalso:
+    """`validar_y_guardar` de verdad, con la heurística y el emparejador de mentira."""
+
+    def __init__(self) -> None:
+        self.llamadas = 0
+        self.error: Exception | None = None
+
+    def __call__(self, session: Session, video: Video):
+        self.llamadas += 1
+        if self.error is not None:
+            raise self.error
+        return validar_y_guardar(session, video, llm=None, emparejador=EmparejadorFalso())
+
+
 class Entorno:
     """App con la sesión de la prueba, ajustes en `tmp_path` y trabajos que corren a mano."""
 
@@ -93,8 +144,12 @@ class Entorno:
         self.settings = Settings(media_dir=tmp_path / "media", subida_max_mb=1)
         self.pendientes: list[Callable[[], None]] = []
         self.transcriptor = TranscriptorFalso()
+        self.validador = ValidadorFalso()
         procesador = Procesador(
-            lambda: nullcontext(db_session), self.settings.media_path, self.pendientes.append
+            lambda: nullcontext(db_session),
+            self.settings.media_path,
+            self.pendientes.append,
+            validador=self.validador,
         )
 
         def sesion() -> Iterator[Session]:
@@ -129,15 +184,27 @@ def client(entorno: Entorno) -> Iterator[TestClient]:
         yield cliente
 
 
-def subir(client: TestClient, contenido: bytes, nombre: str = "operador.mp4", **datos: str):
+def subir(
+    client: TestClient,
+    contenido: bytes,
+    nombre: str = "operador.mp4",
+    sop: tuple[str, bytes] | None = ("sop.md", SOP_MD),
+    **datos: str,
+):
+    """POST /videos; por defecto con un SOP en Markdown, porque `modo=validar` lo exige."""
     formulario = {"titulo": "Cambio de filtro", "modo": "validar", **datos}
-    return client.post(
-        "/videos", files={"archivo": (nombre, contenido, "video/mp4")}, data=formulario
-    )
+    archivos = {"archivo": (nombre, contenido, "video/mp4")}
+    if sop is not None:
+        archivos["sop"] = (sop[0], sop[1], "text/markdown")
+    return client.post("/videos", files=archivos, data=formulario)
 
 
 def _filas(session: Session) -> int:
     return session.scalar(select(func.count()).select_from(Video))
+
+
+def _sops(session: Session) -> int:
+    return session.scalar(select(func.count()).select_from(Sop))
 
 
 # ── Subida ───────────────────────────────────────────────────────────────────
@@ -160,6 +227,7 @@ def test_subida_aceptada(client: TestClient, entorno: Entorno, generar_video) ->
         0,
     )
     assert video.idioma == "es"
+    assert video.sop_id == cuerpo["sop_id"] is not None
     assert video.archivo == f"videos/{video.id}/video.mp4"  # nunca el nombre original
     guardado = entorno.settings.media_path / video.archivo
     assert guardado.read_bytes() == contenido
@@ -318,7 +386,7 @@ def test_error_inesperado_sin_texto_del_video(
     assert "manómetro" not in estado["error"]
 
 
-@pytest.mark.parametrize("sufijo", ["", "/transcripcion.txt", "/analisis"])
+@pytest.mark.parametrize("sufijo", ["", "/transcripcion.txt", "/analisis", "/reporte"])
 def test_404_si_el_video_no_existe(client: TestClient, sufijo: str) -> None:
     r = client.get(f"/videos/999999999{sufijo}")
     assert r.status_code == 404
@@ -346,3 +414,153 @@ def test_al_arrancar_marca_interrumpidos(db_session: Session) -> None:
     assert (filas["procesando"].proceso, filas["procesando"].error) == ("error", ERROR_REINICIO)
     assert (filas["listo"].proceso, filas["listo"].error) == ("listo", None)
     assert filas["error"].error == "otro error"
+
+
+# ── SOP de referencia y reporte (RF-03, RF-19, RF-20) ────────────────────────
+
+
+def test_validar_exige_el_sop(client: TestClient, entorno: Entorno) -> None:
+    antes = (_filas(entorno.session), _sops(entorno.session))
+
+    r = subir(client, b"\x00" * 100, sop=None)
+
+    assert r.status_code == 422
+    assert "SOP" in r.json()["detail"]
+    assert (_filas(entorno.session), _sops(entorno.session)) == antes
+    assert entorno.pendientes == []
+
+
+def test_sop_que_no_sigue_la_plantilla(client: TestClient, entorno: Entorno) -> None:
+    antes = (_filas(entorno.session), _sops(entorno.session))
+
+    r = subir(client, b"\x00" * 100, sop=("sop.md", b"Cambio de filtro\nsin pasos ni titulo\n"))
+
+    assert r.status_code == 422
+    assert "plantilla" in r.json()["detail"].lower() or "título" in r.json()["detail"]
+    assert (_filas(entorno.session), _sops(entorno.session)) == antes
+
+
+def test_sop_en_mayusculas_y_con_bom(client: TestClient, entorno: Entorno) -> None:
+    """PowerShell escribe el TXT con BOM; el archivo con BOM convierte igual."""
+    r = subir(client, b"\x00" * 100, sop=("SOP.MD", b"\xef\xbb\xbf" + SOP_MD))
+
+    assert r.status_code == 202
+    assert entorno.video(r.json()["id"]).sop_id is not None
+
+
+@pytest.mark.parametrize(
+    ("caso", "sop", "codigo"),
+    [
+        ("extensión", ("sop.pdf", SOP_MD), 415),
+        ("no UTF-8", ("sop.md", b"# T\xedtulo\n## Pasos\n### 1. Algo\n"), 422),
+        ("vacío", ("sop.md", b""), 422),
+    ],
+)
+def test_sop_invalido(
+    client: TestClient, entorno: Entorno, caso: str, sop: tuple[str, bytes], codigo: int
+) -> None:
+    antes = (_filas(entorno.session), _sops(entorno.session))
+
+    r = subir(client, b"\x00" * 100, sop=sop)
+
+    assert r.status_code == codigo, caso
+    assert (_filas(entorno.session), _sops(entorno.session)) == antes
+
+
+def test_sop_id_inexistente(client: TestClient, entorno: Entorno) -> None:
+    r = subir(client, b"\x00" * 100, sop=None, sop_id="999999")
+
+    assert r.status_code == 404
+    assert _filas(entorno.session) == 0
+
+
+def test_el_mismo_sop_dos_veces_reutiliza_la_fila(client: TestClient, entorno: Entorno) -> None:
+    """La biblioteca no se llena de copias: mismo título y contenido, misma fila de `sops`."""
+    primero = subir(client, b"\x00" * 100).json()
+    segundo = subir(client, b"\x00" * 100).json()
+
+    assert primero["sop_id"] == segundo["sop_id"]
+    assert _sops(entorno.session) == 1
+    assert _filas(entorno.session) == 2
+
+
+def test_sop_id_ya_guardado_se_puede_usar(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    sop_id = subir(client, b"\x00" * 100).json()["sop_id"]
+
+    r = subir(client, generar_video().read_bytes(), sop=None, sop_id=str(sop_id))
+
+    assert r.status_code == 202
+    assert r.json()["sop_id"] == sop_id
+    assert _sops(entorno.session) == 1
+
+
+def test_reporte_de_punta_a_punta(client: TestClient, entorno: Entorno, generar_video) -> None:
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+
+    r = client.get(f"/videos/{video_id}/reporte")
+    assert r.status_code == 409
+    assert r.json()["detail"]["proceso"] == "en_cola"
+
+    entorno.correr_pendientes()
+
+    r = client.get(f"/videos/{video_id}/reporte")
+    assert r.status_code == 200
+    reporte = r.json()
+    assert reporte["video_id"] == video_id
+    assert reporte["sop_id"] is not None
+    assert reporte["sop_titulo"]
+    assert reporte["semaforo"] in ("verde", "amarillo", "rojo")
+    assert 0 <= reporte["cumplimiento"] <= 100
+    # Sin Ollama, los pasos salen de la heurística y así se registra (RNF-06).
+    assert reporte["pasos_del_video"]["metodo"] == "heuristica"
+    assert reporte["pasos_del_video"]["pasos"] >= 1
+
+    filas = reporte["filas"]
+    assert [f["orden"] for f in filas] == list(range(1, len(filas) + 1))
+    assert sum(reporte["resumen"]["conteo"].values()) + reporte["resumen"]["marco_operador"] == len(
+        filas
+    )
+    con_video = [f for f in filas if f["paso_video"] is not None]
+    assert con_video
+    assert all(f["t_inicio"] is not None and f["cita"] for f in con_video)
+    assert all(f["cita"] in " ".join(s.texto for s in SEGMENTOS) for f in con_video)
+
+    guardado = entorno.session.scalars(select(Reporte)).one()
+    assert guardado.video_id == video_id
+    assert guardado.cumplimiento == Decimal(str(reporte["cumplimiento"]))
+    assert guardado.afinidad is None  # RF-17 llega en S5
+    assert entorno.video(video_id).pasos_video
+    estado = client.get(f"/videos/{video_id}").json()
+    assert (estado["proceso"], estado["etapa"], estado["progreso"]) == ("listo", "listo", 100)
+
+
+def test_reporte_en_modo_generar_no_existe(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    video_id = subir(client, generar_video().read_bytes(), sop=None, modo="generar").json()["id"]
+    entorno.correr_pendientes()
+
+    r = client.get(f"/videos/{video_id}/reporte")
+
+    assert r.status_code == 404
+    assert "modo generar" in r.json()["detail"]
+    assert entorno.validador.llamadas == 0
+
+
+def test_validacion_fallida_deja_error_y_conserva_la_transcripcion(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    entorno.validador.error = ValueError("Primero reviso el manómetro.")
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    entorno.correr_pendientes()
+
+    estado = client.get(f"/videos/{video_id}").json()
+    assert estado["proceso"] == "error"
+    assert estado["error"] == "falló la etapa validacion (ValueError)"
+    assert "manómetro" not in estado["error"]
+    # El análisis se confirmó antes de validar: la transcripción no se pierde.
+    assert entorno.video(video_id).transcripcion is not None
+    assert client.get(f"/videos/{video_id}/reporte").status_code == 409
+    assert entorno.session.scalars(select(Reporte)).all() == []

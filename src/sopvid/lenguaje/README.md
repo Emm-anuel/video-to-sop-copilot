@@ -59,3 +59,15 @@ la fuente de verdad es el JSON). Desde la terminal: `python scripts/convertir_so
 
 Búsqueda, chat y la redacción del SOP siguen reservados. La extensión `vector` ya queda
 habilitada en la base desde la primera migración.
+
+`reporte.py` (RF-19, RF-20) arma el reporte que ve el usuario a partir de lo que devuelve
+`emparejar`: `porcentaje` (documento SOP V1.0, sección 5.6: Cumple suma 1, Parcial o fuera de orden
+0.5, los Sobra no restan, el denominador son los pasos del SOP), `semaforo` (verde desde 90 %,
+amarillo desde 70 %, rojo por debajo) y `armar_reporte`, que produce el modelo `Reporte` con el
+`resumen` de la clasificación, la lista de pasos que faltan y sobran, y una `FilaReporte` por paso
+—estado, nombre, números de paso, tramo del video (`t_inicio` y `t_fin`, para que el reproductor
+salte al segundo), cita, confianza, similitud, marca de fuera de orden, marco del operador y la
+justificación del juez— en el mismo orden que la clasificación. `scripts/diagnosticar_emparejamiento.py`
+usa las mismas dos funciones, así el diagnóstico y el producto miden igual. Se guarda en
+`reportes.resultado` (JSONB) y lo sirve `GET /videos/{id}/reporte`.
+

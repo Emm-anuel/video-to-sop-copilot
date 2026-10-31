@@ -65,7 +65,9 @@ Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F
 │   ├── plataforma/
 │   │   ├── config.py           # settings (pydantic-settings, lee .env)
 │   │   ├── db.py               # engine, sesión y Base de SQLAlchemy
-│   │   └── api/                # FastAPI: main.py, health.py (GET /health)
+│   │   ├── procesamiento.py    # cola de un trabajador: análisis y validación
+│   │   ├── validacion.py       # pasos → emparejamiento → reporte (RF-14, 19, 20)
+│   │   └── api/                # FastAPI: main.py, health.py, videos.py
 │   ├── percepcion/             # subida, ffmpeg, transcripción, fotogramas y pasos del video
 │   ├── lenguaje/               # cliente del LLM, SOP, emparejamiento, reporte y búsqueda exacta
 │   └── features/               # datos de CaptainCook4D, preprocesamiento (avance 1) e ingeniería de características (avance 2)
