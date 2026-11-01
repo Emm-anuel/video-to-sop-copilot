@@ -74,6 +74,9 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 
 Hardware de referencia (ADR-014): RTX 2070 SUPER de 8 GB, i7-10700K, 32 GB de RAM. faster-whisper y
 Gemma 4 no caben juntos en la GPU: las etapas corren en secuencia, con un modelo cargado a la vez.
+**CPU de base, GPU opcional (ADR-018, propuesto):** nada exige tarjeta de video; si hay GPU, solo
+acelera. La GPU cambia dónde corre cada modelo, nunca cuál (RNF-07). Cada reporte guarda dónde
+corrió cada modelo en `metadatos.dispositivos` (`plataforma/hardware.py`, `LLM_DISPOSITIVO`).
 Colab ya no forma parte del flujo; solo es respaldo si la GPU local falla.
 
 ## 4. Fuera de alcance (diferido, requiere ADR)
@@ -165,7 +168,9 @@ docs/
 | Acción | Make | PowerShell (Windows) |
 |---|---|---|
 | Levantar API + Postgres | `make up` | `docker compose up -d --build` |
-| Levantar con el LLM (requiere GPU NVIDIA) | — | `docker compose --profile llm up -d --build` |
+| Levantar con el LLM, GPU si hay (recomendado) | — | `.\scripts\levantar.ps1 -Build` (`-Plan` solo muestra qué haría; `-Cpu` fuerza CPU) |
+| Levantar con el LLM (CPU, cualquier equipo) | — | `docker compose --profile llm up -d --build` |
+| Levantar con el LLM en GPU NVIDIA (ADR-018) | — | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build` |
 | Detener (conserva datos) | `make down` | `docker compose down` |
 | Detener también el LLM (conserva modelos) | — | `docker compose --profile llm down` |
 | Logs | `make logs` | `docker compose logs -f` |
@@ -176,9 +181,12 @@ docs/
 | Paquete para notebooks | — | `python -m venv .venv ; .venv\Scripts\activate ; pip install -e .[dev]` |
 | Ejecutar un entregable | — | `jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"` |
 | Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
+| Medir CPU contra GPU con A y B (ADR-018) | — | `python scripts/medir_dispositivos.py --help` |
 
-Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok"}`; sin el
-profile `llm`, `"llm":"no_disponible"` y la API sigue sana. Detalles del LLM en `docs/dev/llm.md`.
+Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok",
+"dispositivos":{...}}`; sin el profile `llm`, `"llm":"no_disponible"` y la API sigue sana.
+`dispositivos` dice qué GPU ve la API, dónde transcribe Whisper, la política de Gemma
+(`LLM_DISPOSITIVO`) y avisos si la configuración no cuadra con el equipo (ADR-018). Detalles del LLM en `docs/dev/llm.md`.
 Desde el host usa `http://127.0.0.1:11434` para Ollama: en Windows, `localhost` pierde ~2 s por conexión.
 Dependencias fijadas en `pyproject.toml` (Python 3.11); agrega nuevas con versión exacta.
 

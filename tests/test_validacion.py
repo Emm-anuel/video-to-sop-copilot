@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dobles import SEGMENTOS, SOP_PRUEBA, Entorno, guardar_sop
-from sopvid.contrato import PasoVideo, ResultadoValidacion
+from sopvid.contrato import Dispositivos, PasoVideo, ResultadoValidacion
 from sopvid.lenguaje.validacion import INICIO_ETAPA
 from sopvid.plataforma.modelos import Reporte, Video
 from sopvid.plataforma.procesamiento import ERROR_SIN_SOP, FIN_ANALISIS_VALIDAR
@@ -88,6 +88,9 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "emparejamiento",
     }
     assert (meta.umbrales.semaforo_verde, meta.umbrales.semaforo_amarillo) == (90, 70)
+    assert meta.dispositivos == Dispositivos(
+        gpu="GPU de prueba", transcripcion="cpu", llm="gpu", embedder="cpu"
+    )
     assert entorno.juez.llamadas == [2]  # solo el par de la zona gris
 
 
@@ -279,3 +282,33 @@ def test_sop_prueba_es_el_del_guion() -> None:
     from dobles import GUION_PRUEBA
 
     assert all(p.nombre in GUION_PRUEBA for p in SOP_PRUEBA.pasos)
+
+
+# ── Dispositivos (ADR-018) ───────────────────────────────────────────────────────────────────
+
+
+def _dispositivos(entorno: Entorno, video_id: int) -> Dispositivos:
+    [reporte] = _reportes(entorno.session, video_id)
+    return ResultadoValidacion.model_validate(reporte.resultado).metadatos.dispositivos
+
+
+def test_gemma_en_cpu_queda_en_los_metadatos(entorno: Entorno, subir_validar) -> None:
+    entorno.ollama.vram = 0
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    assert _dispositivos(entorno, video_id).llm == "cpu"
+
+
+def test_revalidar_sin_whisper_deja_la_transcripcion_vacia(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+
+    assert _dispositivos(entorno, video_id) == Dispositivos(
+        gpu="GPU de prueba", transcripcion=None, llm="gpu"
+    )

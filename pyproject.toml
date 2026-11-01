@@ -76,6 +76,8 @@ dev = [
     # Valida salidas contra docs/contrato/*.schema.json en las pruebas (antes llegaba solo por
     # nbformat).
     "jsonschema==4.26.0",
+    # RAM máxima en scripts/medir_dispositivos.py (antes llegaba solo por jupyter).
+    "psutil==7.2.2",
     "ruff==0.17.0",
 ]
 

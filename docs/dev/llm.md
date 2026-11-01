@@ -16,21 +16,32 @@ informa `"llm": "no_disponible"`. Decisión y benchmark: ADR-006. Cliente: `sopv
 
 ## Requisitos
 
-- GPU NVIDIA con driver reciente en Windows y Docker Desktop con backend WSL2. No se instala
-  CUDA ni el NVIDIA Container Toolkit a mano: Docker Desktop ya trae el runtime `nvidia`.
-- Comprobación (debe listar la GPU):
+- **Ninguna GPU obligatoria (ADR-018).** Sin tarjeta, Ollama corre Gemma en CPU: mismo modelo y
+  mismo resultado (RNF-07), solo más lento.
+- **Para acelerar con GPU NVIDIA:** driver reciente en Windows y Docker Desktop con backend WSL2.
+  No se instala CUDA ni el NVIDIA Container Toolkit a mano: Docker Desktop ya trae el runtime
+  `nvidia`. Comprobación (debe listar la GPU):
 
   ```powershell
   docker run --rm --gpus all nvidia/cuda:13.4.2-base-ubuntu24.04 nvidia-smi
   ```
 
-  Sin GPU NVIDIA el servicio `ollama` no arranca (reserva un dispositivo `nvidia`); en ese caso
-  usa Ollama nativo (ver *Respaldo* abajo).
-
 ## Levantar
 
+Lo más simple es el script, que detecta la GPU (`nvidia-smi` y el runtime `nvidia` de Docker) y
+suma `docker-compose.gpu.yml` solo si las dos cosas están:
+
 ```powershell
+.\scripts\levantar.ps1 -Build     # -Plan: solo dice qué haría · -Cpu: fuerza CPU
+```
+
+A mano:
+
+```powershell
+# Cualquier equipo (Gemma en CPU)
 docker compose --profile llm up -d --build
+# Con GPU NVIDIA: se suma docker-compose.gpu.yml, que reserva la GPU para ollama
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build
 ```
 
 Arranca `db`, `api`, `ollama` y `ollama-pull`. Este último espera a que `ollama` esté sano,
@@ -39,7 +50,7 @@ el volumen, termina en ~1 s sin contactar al registro.
 
 ```powershell
 docker compose logs -f ollama-pull       # progreso de la descarga
-curl.exe http://127.0.0.1:8000/health    # {"status":"ok","db":"ok","llm":"ok"}
+curl.exe http://127.0.0.1:8000/health    # {"status":"ok","db":"ok","llm":"ok","dispositivos":{...}}
 ```
 
 `"llm": "ok"` significa que Ollama responde **y** tiene `LLM_MODEL` descargado.
@@ -88,6 +99,30 @@ nvidia-smi                                  # VRAM en uso antes y después de ca
 
 La GPU también la usa el escritorio de Windows (≈ 1.5–1.7 GB en una RTX 2070 SUPER de 8 GB);
 mide la VRAM libre antes de comparar corridas.
+
+## CPU o GPU: `LLM_DISPOSITIVO` y dónde quedó cada modelo (ADR-018)
+
+La regla: la GPU cambia **dónde** corre cada modelo, nunca **cuál**.
+
+| Etapa | Sin GPU | Con GPU | Cómo se fuerza la CPU |
+|---|---|---|---|
+| Whisper | CPU, int8 | cuda, float16 (`WHISPER_DISPOSITIVO=auto`) | `WHISPER_DISPOSITIVO=cpu` |
+| Gemma 4 (Ollama) | CPU | GPU si Ollama la ve (`LLM_DISPOSITIVO=auto`) | `LLM_DISPOSITIVO=cpu` → `num_gpu=0` |
+| MiniLM | CPU | CPU (no compite por la VRAM) | — |
+
+- **Al arrancar**, la API registra el plan (`INFO sopvid.plataforma.hardware: Dispositivos: …`) y
+  un `WARNING` por cada cosa que no cuadra: hay GPU pero ctranslate2 no la ve (falta el extra
+  `gpu` del venv), `WHISPER_DISPOSITIVO=cuda` sin GPU, o `LLM_DISPOSITIVO=cpu` con GPU.
+- **`GET /health`** trae lo mismo en `dispositivos`: la GPU que ve la API (`nvidia-smi`), Whisper
+  como `dispositivo/compute_type`, la política de Gemma y los avisos.
+- **Cada reporte** guarda dónde corrió de verdad cada modelo en `metadatos.dispositivos`
+  (`gpu`, `transcripcion`, `transcripcion_respaldo_cpu`, `llm`, `embedder`). El de Gemma se
+  pregunta a Ollama (`/api/ps`) antes de descargarlo: `size_vram > 0` → `gpu`, `0` → `cpu`.
+  Como `size_vram` no mide bien en 0.40.2 (ver arriba), no se informa cuánta VRAM; para eso, los
+  logs (`offloaded N/N layers`) y `nvidia-smi`.
+- **La API en Docker** no ve la GPU aunque `ollama` sí la tenga: su `dispositivos.gpu` sale en
+  `null` y Whisper en CPU (ADR-014). Lo que cuenta para Gemma es `metadatos.dispositivos.llm`.
+- **Medir CPU contra GPU** con A y B: `scripts/medir_dispositivos.py`.
 
 ## Llamar al LLM desde Python
 

@@ -2,8 +2,8 @@
 
 - `TranscriptorFalso`: entrega `SEGMENTOS` (tres frases inventadas de 0 a 2.8 s).
 - `OllamaFalso`: Ollama simulado con `httpx.MockTransport` para `ClienteLLM`: `/api/tags`, las
-  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido) y
-  `/api/generate` con `keep_alive: 0`.
+  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido),
+  `/api/generate` con `keep_alive: 0` y `/api/ps` (el modelo en GPU, salvo `vram=0`).
 - `JuezFalso`: decide cada par de la zona gris con un veredicto fijo, o deja el respaldo.
 - `VectorizadorGuionado`: el vector de cada texto según su prefijo, para fijar el coseno de cada
   par sin MiniLM.
@@ -155,6 +155,8 @@ class OllamaFalso:
         self.caido_en_chat = False
         self.al_pedir: Callable[[], None] | None = None
         self.descargas: list[dict[str, Any]] = []
+        # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
+        self.vram = 100
 
     def cliente(self) -> ClienteLLM:
         return ClienteLLM(
@@ -170,6 +172,9 @@ class OllamaFalso:
         if ruta == "/api/tags":
             self.eventos.append("tags")
             return httpx.Response(200, json={"models": [{"name": f"{MODELO}:latest"}]})
+        if ruta == "/api/ps":  # no se registra: solo informa, no cambia nada en Ollama
+            modelo = {"name": f"{MODELO}:latest", "size": 100, "size_vram": self.vram}
+            return httpx.Response(200, json={"models": [modelo]})
         cuerpo = json.loads(request.content)
         if ruta == "/api/generate":
             self.eventos.append("descargar")
@@ -290,7 +295,10 @@ class Entorno:
         self.guion = dict(GUION_PRUEBA)
         self.clientes: list[ClienteLLM] = []
         self.procesador = procesador = Procesador(
-            lambda: nullcontext(db_session), self.settings.media_path, self.pendientes.append
+            lambda: nullcontext(db_session),
+            self.settings.media_path,
+            self.pendientes.append,
+            gpu=lambda: "GPU de prueba",
         )
 
         def dependencias() -> DependenciasValidacion:

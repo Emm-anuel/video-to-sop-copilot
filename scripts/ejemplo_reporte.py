@@ -35,6 +35,7 @@ import numpy as np
 from sopvid.contrato import (
     SOP,
     Analisis,
+    Dispositivos,
     Juicio,
     MetadatosValidacion,
     PasoSOP,
@@ -228,6 +229,10 @@ def construir(caido: bool) -> ReporteValidacion:
             ),
             segundos=SEGUNDOS,
             avisos=avisos_de(segmentacion, resultado),
+            # Equipo de ejemplo: Whisper y Gemma en la GPU, MiniLM en CPU (ADR-018).
+            dispositivos=Dispositivos(
+                gpu="GPU de ejemplo", transcripcion="gpu", llm="gpu", embedder="cpu"
+            ),
         ),
     )
     return armar_reporte(

@@ -615,6 +615,27 @@ class Umbrales(_Modelo):
     semaforo_amarillo: float = Field(ge=0, le=100)
 
 
+# Dónde corrió un modelo (ADR-018). "gpu": al menos una parte en la GPU (Ollama no informa de
+# forma confiable cuánta, ver docs/dev/llm.md); "desconocido": no se pudo consultar.
+Dispositivo = Literal["cpu", "gpu", "desconocido"]
+
+
+class Dispositivos(_Modelo):
+    """Dónde corrió de verdad cada modelo de este reporte (ADR-018).
+
+    La GPU cambia la velocidad, no el resultado: el modelo es el mismo en cualquier dispositivo
+    (RNF-07). `gpu` es la que vio la API (`nvidia-smi`), o None. `transcripcion` va en None al
+    repetir solo la validación (ADR-017), porque Whisper no corrió; `transcripcion_respaldo_cpu`
+    es true si cuda falló y Whisper se repitió en CPU (su tiempo no sirve para RNF-01).
+    """
+
+    gpu: str | None = None
+    transcripcion: Dispositivo | None = None
+    transcripcion_respaldo_cpu: bool = False
+    llm: Dispositivo = "desconocido"
+    embedder: Literal["cpu"] = "cpu"
+
+
 class MetadatosValidacion(_Modelo):
     """Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.
 
@@ -630,6 +651,8 @@ class MetadatosValidacion(_Modelo):
     umbrales: Umbrales
     segundos: dict[str, Annotated[float, Field(ge=0)]]
     avisos: list[Aviso] = []
+    # None en los reportes guardados antes del 27 oct, que no lo registraban.
+    dispositivos: Dispositivos | None = None
 
 
 class ResultadoValidacion(_Modelo):

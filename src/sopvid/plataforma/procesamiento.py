@@ -16,6 +16,10 @@ Ollama no responde al empezar la validación, el video queda en error con el an�
 `revalidar` repite solo la validación, sin Whisper (ADR-017). Un reporte nuevo reemplaza al
 anterior.
 
+Dónde corrió cada modelo (ADR-018) va en los metadatos del reporte: la GPU que ve la API, el
+dispositivo con que transcribió Whisper (se toma de su `Transcripcion`) y, desde la validación,
+el de Gemma.
+
 Un error deja `proceso="error"` y un mensaje sin texto del video: el de `ErrorMedios` (solo
 nombra el archivo y la causa) o la etapa y el tipo de excepción. Nunca `str(exc)` de otros
 errores: un `ValidationError` de pydantic incluye el texto transcrito.
@@ -34,12 +38,13 @@ from typing import Any
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis
+from sopvid.contrato import SOP, Analisis, Dispositivos
 from sopvid.lenguaje.llm import LLMNoDisponible
 from sopvid.lenguaje.validacion import INICIO_ETAPA, FabricaValidacion, Validacion, validar
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
-from sopvid.percepcion.transcripcion import Transcriptor
+from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
+from sopvid.plataforma.hardware import get_hardware
 from sopvid.plataforma.modelos import PROCESOS_VIDEO, Reporte, Video
 
 logger = logging.getLogger(__name__)
@@ -132,8 +137,11 @@ class Procesador:
         media: Path,
         ejecutar: Callable[[Callable[[], None]], Any],
         executor: ThreadPoolExecutor | None = None,
+        gpu: Callable[[], str | None] | None = None,
     ):
+        """`gpu` da el nombre de la GPU para los metadatos (por defecto, la que detecta la API)."""
         self._sesiones = sesiones
+        self._gpu = gpu or _gpu_detectada
         self._media = media
         self._ejecutar = ejecutar
         self._executor = executor
@@ -210,6 +218,7 @@ class Procesador:
         archivo = self._media / video.archivo
         fin = FIN_ANALISIS_VALIDAR if valida else 100
         cronometro = _Cronometro()
+        registrado = _TranscriptorRegistrado(transcriptor)
 
         def al_avanzar(etapa: str, porcentaje: int) -> None:
             cronometro.marcar(etapa)
@@ -222,7 +231,7 @@ class Procesador:
 
         try:
             analisis = analizar_video(
-                archivo, video_id, idioma, transcriptor, archivo.parent, al_avanzar
+                archivo, video_id, idioma, registrado, archivo.parent, al_avanzar
             )
         except ErrorMedios as exc:
             self._fallar(session, video_id, str(exc))
@@ -245,7 +254,8 @@ class Procesador:
             return
         session.commit()  # el análisis queda guardado aunque falle la validación (ADR-017)
         assert validacion is not None
-        self._validar(session, video, analisis, validacion, cronometro.segundos())
+        dispositivos = _dispositivos(self._gpu(), registrado.ultima)
+        self._validar(session, video, analisis, validacion, cronometro.segundos(), dispositivos)
 
     def _revalidar(self, session: Session, video_id: int, validacion: FabricaValidacion) -> None:
         video = session.get(Video, video_id)
@@ -263,7 +273,8 @@ class Procesador:
         except Exception as exc:
             self._fallar(session, video_id, f"no se pudo leer el análisis ({type(exc).__name__})")
             return
-        self._validar(session, video, analisis, validacion, {})
+        # Sin Whisper: solo se sabe la GPU; Gemma se completa en la validación.
+        self._validar(session, video, analisis, validacion, {}, Dispositivos(gpu=self._gpu()))
 
     def _validar(
         self,
@@ -272,6 +283,7 @@ class Procesador:
         analisis: Analisis,
         fabrica: FabricaValidacion,
         segundos_analisis: Mapping[str, float],
+        dispositivos: Dispositivos,
     ) -> None:
         """Valida, guarda el reporte y deja el video listo; si algo falla, en error."""
         video_id = video.id
@@ -286,7 +298,12 @@ class Procesador:
             assert video.sop is not None
             sop = SOP.model_validate(video.sop.contenido)
             validacion = validar(
-                analisis, sop, deps, al_avanzar=al_avanzar, segundos_analisis=segundos_analisis
+                analisis,
+                sop,
+                deps,
+                al_avanzar=al_avanzar,
+                segundos_analisis=segundos_analisis,
+                dispositivos=dispositivos,
             )
         except LLMNoDisponible:
             self._fallar(session, video_id, ERROR_LLM.format(id=video_id))
@@ -317,6 +334,36 @@ class Procesador:
         video.proceso, video.error = ERROR, mensaje
         session.commit()
         logger.error("Video %d: %s", video_id, mensaje)
+
+
+class _TranscriptorRegistrado:
+    """Pasa la llamada al transcriptor y guarda su `Transcripcion` (dispositivo y respaldo)."""
+
+    def __init__(self, base: Transcriptor):
+        self._base = base
+        self.ultima: Transcripcion | None = None
+
+    def transcribir(
+        self, audio: Path, idioma: str | None = None, al_segmento: AlSegmento | None = None
+    ) -> Transcripcion:
+        self.ultima = self._base.transcribir(audio, idioma, al_segmento=al_segmento)
+        return self.ultima
+
+
+def _gpu_detectada() -> str | None:
+    gpu = get_hardware().gpu
+    return None if gpu is None else gpu.nombre
+
+
+def _dispositivos(gpu: str | None, transcripcion: Transcripcion | None) -> Dispositivos:
+    """Lo que se sabe al terminar el análisis; ctranslate2 llama "cuda" a la GPU."""
+    if transcripcion is None:
+        return Dispositivos(gpu=gpu)
+    return Dispositivos(
+        gpu=gpu,
+        transcripcion="gpu" if transcripcion.dispositivo == "cuda" else "cpu",
+        transcripcion_respaldo_cpu=transcripcion.respaldo_cpu,
+    )
 
 
 class _Cronometro:

@@ -13,6 +13,7 @@ from sopvid.lenguaje.llm import (
     LLMError,
     LLMNoDisponible,
     LLMRespuestaInvalida,
+    dispositivo_de,
 )
 from sopvid.plataforma.config import Settings
 
@@ -312,3 +313,67 @@ def test_descargar_pide_keep_alive_cero_con_el_plazo_corto():
 def test_descargar_nunca_lanza(manejador):
     with cliente_con(manejador) as cliente:
         assert cliente.descargar() is False
+
+
+# ── Dispositivo de Gemma (ADR-018) ──────────────────────────────────────────────────────────
+
+
+def test_sin_num_gpu_ollama_decide_y_no_se_manda_la_opcion():
+    cuerpo = cliente_con(lambda r: respuesta_chat("{}")).cuerpo([{"role": "user", "content": "x"}])
+    assert "num_gpu" not in cuerpo["options"]
+
+
+def test_num_gpu_cero_fuerza_la_cpu_en_cada_peticion():
+    peticiones = []
+
+    def manejador(request):
+        peticiones.append(json.loads(request.content))
+        return respuesta_chat('{"respuesta": "hola"}')
+
+    with cliente_con(manejador, num_gpu=0) as cliente:
+        cliente.chat([{"role": "user", "content": "x"}], esquema=ESQUEMA)
+
+    assert peticiones[0]["options"]["num_gpu"] == 0
+    assert peticiones[0]["options"]["temperature"] == 0  # lo demás no cambia
+
+
+@pytest.mark.parametrize(("politica", "esperado"), [("cpu", 0), ("auto", None)])
+def test_desde_settings_traduce_llm_dispositivo(politica, esperado):
+    with ClienteLLM.desde_settings(Settings(llm_dispositivo=politica)) as cliente:
+        assert cliente.num_gpu == esperado
+
+
+def _ps(*modelos):
+    def manejador(request):
+        assert (request.method, request.url.path) == ("GET", "/api/ps")
+        return httpx.Response(200, json={"models": list(modelos)})
+
+    return manejador
+
+
+@pytest.mark.parametrize(("size_vram", "esperado"), [(4_700, "gpu"), (0, "cpu"), (250, "gpu")])
+def test_dispositivo_cargado_lee_api_ps(size_vram, esperado):
+    otro = {"name": "otro:latest", "size": 10, "size_vram": 0}
+    nuestro = {"name": MODELO, "size": 4_700, "size_vram": size_vram}
+    with cliente_con(_ps(otro, nuestro)) as cliente:
+        assert cliente.dispositivo_cargado() == esperado
+
+
+def test_dispositivo_cargado_sin_el_modelo_o_sin_ollama_es_desconocido():
+    with cliente_con(_ps()) as cliente:
+        assert cliente.dispositivo_cargado() == "desconocido"
+
+    def caido(request):
+        raise httpx.ConnectError("apagado", request=request)
+
+    with cliente_con(caido) as cliente:
+        assert cliente.dispositivo_cargado() == "desconocido"
+
+    with cliente_con(lambda r: httpx.Response(200, text="no es json")) as cliente:
+        assert cliente.dispositivo_cargado() == "desconocido"
+
+
+def test_dispositivo_de_con_tamanos_raros_es_desconocido():
+    assert dispositivo_de(None, 0) == "desconocido"
+    assert dispositivo_de(0, 0) == "desconocido"
+    assert dispositivo_de(100, "100") == "desconocido"

@@ -8,7 +8,8 @@ Whisper ya soltó la memoria al terminar de transcribir (ADR-014). Antes de segm
 que Ollama responda y tenga el modelo; si no, `LLMNoDisponible` y el procesador deja el video en
 error reprocesable (ADR-017). Si Ollama se cae después, `segmentar` cae a la heurística y el juez
 deja los pares en zona_gris: el reporte se guarda con avisos y queda provisional. Al terminar la
-etapa del LLM, con o sin error, se pide a Ollama que suelte el modelo (`ClienteLLM.descargar`).
+etapa del LLM, con o sin error, se pregunta a Ollama dónde tenía el modelo (GPU o CPU,
+ADR-018) y se le pide que lo suelte (`ClienteLLM.descargar`).
 
 Las dependencias se inyectan (RNF-14): el LLM, el juez y el embedder. Los umbrales y los cortes
 del semáforo salen de la configuración, la misma que usa `emparejar`. Los logs y los avisos solo
@@ -26,6 +27,8 @@ from sopvid.contrato import (
     SOP,
     Analisis,
     Aviso,
+    Dispositivo,
+    Dispositivos,
     MetadatosValidacion,
     PasoVideo,
     ResultadoEmparejamiento,
@@ -86,12 +89,14 @@ def validar(
     *,
     al_avanzar: AlAvanzar | None = None,
     segundos_analisis: Mapping[str, float] | None = None,
+    dispositivos: Dispositivos | None = None,
     reloj: Callable[[], float] = time.perf_counter,
 ) -> Validacion:
     """Segmenta, empareja (con el juez) y calcula el porcentaje y el semáforo.
 
     `segundos_analisis` (duracion, audio, transcripcion) se copia a los metadatos junto con los
-    de esta etapa. Errores: `LLMNoDisponible` si Ollama no responde antes de empezar; los demás
+    de esta etapa. `dispositivos` trae la GPU y dónde corrió Whisper; aquí se completa con dónde
+    corrió Gemma. Errores: `LLMNoDisponible` si Ollama no responde antes de empezar; los demás
     salen tal cual.
     """
     settings = get_settings()
@@ -102,6 +107,7 @@ def validar(
     avanzar = al_avanzar or (lambda etapa, pct: None)
     embedder = deps.embedder or get_embedder()
     segundos = dict(segundos_analisis or {})
+    llm_en: Dispositivo = "desconocido"
     try:
         avanzar("segmentacion", INICIO_ETAPA["segmentacion"])
         inicio = reloj()
@@ -121,6 +127,8 @@ def validar(
         )
         segundos["emparejamiento"] = reloj() - inicio
     finally:
+        # Antes de descargar: después Ollama ya no lo lista.
+        llm_en = deps.llm.dispositivo_cargado()
         deps.llm.descargar()
 
     avanzar("reporte", INICIO_ETAPA["reporte"])
@@ -140,6 +148,7 @@ def validar(
         ),
         segundos={etapa: round(s, 2) for etapa, s in segundos.items()},
         avisos=avisos,
+        dispositivos=(dispositivos or Dispositivos()).model_copy(update={"llm": llm_en}),
     )
     conteo = resultado.clasificacion.resumen.conteo
     logger.info(

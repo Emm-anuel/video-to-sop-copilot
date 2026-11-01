@@ -1,6 +1,8 @@
 # Fase F0: API + PostgreSQL 16 con pgvector (base vacía).
 # Uso: copiar .env.example a .env y luego `docker compose up -d --build`.
-# LLM local (opcional, requiere GPU NVIDIA): `docker compose --profile llm up -d`.
+# LLM local (opcional): `docker compose --profile llm up -d`. Corre en CPU en cualquier equipo.
+# Con GPU NVIDIA, para acelerarlo (ADR-018):
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d
 # Ver docs/dev/llm.md.
 name: sopvid
 
@@ -85,13 +87,8 @@ services:
       - "127.0.0.1:11434:11434"
     volumes:
       - ollama:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    # Sin reserva de GPU: así arranca en un equipo sin tarjeta y Gemma corre en CPU (ADR-018).
+    # La reserva vive en docker-compose.gpu.yml, que se suma solo donde hay GPU NVIDIA.
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 5s

@@ -4,6 +4,10 @@ Solo httpx contra `/api/chat`, sin frameworks. La salida estructurada se pide pa
 JSON Schema en el parámetro `format` de Ollama; la decodificación es determinista
 (temperature 0 y semilla fija) para que una corrida se pueda repetir.
 
+Dónde corre el modelo lo decide Ollama (GPU si la ve) salvo que se pase `num_gpu`: con 0,
+todas las capas van a la CPU (`LLM_DISPOSITIVO=cpu`, ADR-018). `dispositivo_cargado` pregunta
+después dónde quedó de verdad.
+
 Las excepciones de httpx no salen de este módulo: se traducen a `LLMNoDisponible` o
 `LLMRespuestaInvalida`, que heredan de `LLMError`. Los mensajes de error nunca incluyen el
 texto enviado ni el devuelto (pueden contener material del cliente).
@@ -18,6 +22,7 @@ from typing import Any, Self
 
 import httpx
 
+from sopvid.contrato import Dispositivo
 from sopvid.plataforma.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -75,6 +80,7 @@ class ClienteLLM:
         num_ctx: int = 8192,
         seed: int = SEMILLA,
         think: bool = False,
+        num_gpu: int | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -83,6 +89,8 @@ class ClienteLLM:
         self.num_ctx = num_ctx
         self.seed = seed
         self.think = think
+        # None: Ollama decide; 0: solo CPU; n: n capas en la GPU (opción `num_gpu` de Ollama).
+        self.num_gpu = num_gpu
         self._http = httpx.Client(base_url=self.base_url, timeout=timeout_s, transport=transport)
 
     @classmethod
@@ -94,6 +102,7 @@ class ClienteLLM:
             s.llm_model,
             timeout_s=s.llm_timeout_s,
             num_ctx=s.llm_num_ctx,
+            num_gpu=0 if s.llm_dispositivo == "cpu" else None,
             **kwargs,
         )
 
@@ -137,6 +146,8 @@ class ClienteLLM:
             "think": self.think if think is None else think,
             "options": {"num_ctx": self.num_ctx, "temperature": 0, "seed": self.seed},
         }
+        if self.num_gpu is not None:
+            cuerpo["options"]["num_gpu"] = self.num_gpu
         if esquema is not None:
             cuerpo["format"] = esquema
         return cuerpo
@@ -176,6 +187,26 @@ class ClienteLLM:
             return False
         logger.info("LLM: %s descargado de la memoria", self.modelo)
         return True
+
+    def dispositivo_cargado(self, timeout_s: float = PLAZO_DESCARGA_S) -> Dispositivo:
+        """Dónde tiene Ollama cargado `modelo` ahora: "gpu", "cpu" o "desconocido".
+
+        Lee `size_vram` de `/api/ps`. Hay que llamarlo antes de `descargar`: con el modelo ya
+        descargado no aparece y queda "desconocido". En Ollama 0.40.2 `size_vram` no mide bien
+        cuánta VRAM usa (docs/dev/llm.md), así que solo se distingue nada (cpu) de algo (gpu); el
+        reparto exacto se ve en los logs de Ollama (`offloaded N/N layers`). Nunca lanza.
+        """
+        try:
+            respuesta = self._http.get("/api/ps", timeout=timeout_s)
+            respuesta.raise_for_status()
+            modelos = respuesta.json()["models"]
+            buscado = _nombre_completo(self.modelo)
+            for m in modelos:
+                if _nombre_completo(str(m.get("name") or m.get("model") or "")) == buscado:
+                    return dispositivo_de(m.get("size"), m.get("size_vram"))
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            logger.debug("LLM: no se pudo consultar /api/ps (%s)", type(exc).__name__)
+        return "desconocido"
 
     def _modelo_descargado(self, timeout_s: float) -> bool:
         respuesta = self._http.get("/api/tags", timeout=timeout_s)
@@ -244,6 +275,13 @@ def get_cliente_llm() -> Iterator[ClienteLLM]:
     """Dependencia de FastAPI: un cliente por petición, cerrado al terminar."""
     with ClienteLLM.desde_settings() as cliente:
         yield cliente
+
+
+def dispositivo_de(tamano: Any, en_vram: Any) -> Dispositivo:
+    """Nada del modelo en VRAM: "cpu"; algo: "gpu"; tamaños que no son enteros: "desconocido"."""
+    if not isinstance(tamano, int) or not isinstance(en_vram, int) or tamano <= 0:
+        return "desconocido"
+    return "gpu" if en_vram > 0 else "cpu"
 
 
 def _nombre_completo(modelo: str) -> str:

@@ -1,0 +1,421 @@
+{
+  "equipo": {
+    "fecha": "2026-10-27 19:01",
+    "cpu": "Intel64 Family 6 Model 165 Stepping 5, GenuineIntel",
+    "nucleos": 16,
+    "ram_gb": 31.89978790283203,
+    "gpu": {
+      "nombre": "NVIDIA GeForce RTX 2070 SUPER",
+      "vram_mb": 8192
+    },
+    "plan": {
+      "gpu": {
+        "nombre": "NVIDIA GeForce RTX 2070 SUPER",
+        "vram_mb": 8192
+      },
+      "transcripcion": "cuda/float16",
+      "llm": "auto",
+      "embedder": "cpu",
+      "avisos": []
+    },
+    "llm_model": "gemma4:e4b-it-q4_K_M",
+    "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  },
+  "timeout_llm_s": 900.0,
+  "corridas": [
+    {
+      "config": "cpu",
+      "whisper": "small",
+      "video": "video_a",
+      "duracion_video_s": 135.0,
+      "segundos": {
+        "duracion": 0.09,
+        "audio": 0.52,
+        "transcripcion": 33.42,
+        "segmentacion": 105.65,
+        "emparejamiento": 82.98
+      },
+      "total_s": 223.12,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "cpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "cpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "int8",
+      "ram_mb": 1520,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2633.0,
+      "vram_mb": 2738.0,
+      "segmentacion": "llm",
+      "cumplimiento": 100.0,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 0,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 1.6527407407407408,
+      "estimado_10_min_s": 991.6
+    },
+    {
+      "config": "cpu",
+      "whisper": "small",
+      "video": "video_b",
+      "duracion_video_s": 114.643,
+      "segundos": {
+        "duracion": 0.47,
+        "audio": 0.98,
+        "transcripcion": 25.78,
+        "segmentacion": 101.49,
+        "emparejamiento": 29.56
+      },
+      "total_s": 158.76,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "cpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "cpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "int8",
+      "ram_mb": 1828,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2387.0,
+      "vram_mb": 2453.0,
+      "segmentacion": "llm",
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 2,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 1.3848207042732656,
+      "estimado_10_min_s": 830.9
+    },
+    {
+      "config": "cpu",
+      "whisper": "large-v3-turbo",
+      "video": "video_a",
+      "duracion_video_s": 135.0,
+      "segundos": {
+        "duracion": 0.11,
+        "audio": 0.51,
+        "transcripcion": 58.75,
+        "segmentacion": 90.42,
+        "emparejamiento": 15.84
+      },
+      "total_s": 165.98,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "cpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "cpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "int8",
+      "ram_mb": 2767,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2364.0,
+      "vram_mb": 2671.0,
+      "segmentacion": "llm",
+      "cumplimiento": 100.0,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 0,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 1.2294814814814814,
+      "estimado_10_min_s": 737.7
+    },
+    {
+      "config": "cpu",
+      "whisper": "large-v3-turbo",
+      "video": "video_b",
+      "duracion_video_s": 114.643,
+      "segundos": {
+        "duracion": 0.1,
+        "audio": 0.45,
+        "transcripcion": 44.63,
+        "segmentacion": 90.85,
+        "emparejamiento": 24.08
+      },
+      "total_s": 160.37,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "cpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "cpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "int8",
+      "ram_mb": 2667,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2479.0,
+      "vram_mb": 2479.0,
+      "segmentacion": "llm",
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 1.3988643004806225,
+      "estimado_10_min_s": 839.3
+    },
+    {
+      "config": "auto",
+      "whisper": "small",
+      "video": "video_a",
+      "duracion_video_s": 135.0,
+      "segundos": {
+        "duracion": 0.11,
+        "audio": 0.55,
+        "transcripcion": 10.66,
+        "segmentacion": 15.95,
+        "emparejamiento": 0.38
+      },
+      "total_s": 27.67,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "float16",
+      "ram_mb": 1838,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2280.0,
+      "vram_mb": 7186.0,
+      "segmentacion": "llm",
+      "cumplimiento": 100.0,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 0,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 0.20496296296296299,
+      "estimado_10_min_s": 123.0
+    },
+    {
+      "config": "auto",
+      "whisper": "small",
+      "video": "video_b",
+      "duracion_video_s": 114.643,
+      "segundos": {
+        "duracion": 0.07,
+        "audio": 0.41,
+        "transcripcion": 6.35,
+        "segmentacion": 17.83,
+        "emparejamiento": 5.18
+      },
+      "total_s": 30.29,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "float16",
+      "ram_mb": 1988,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2369.0,
+      "vram_mb": 7194.0,
+      "segmentacion": "llm",
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 4,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 0.2642115087707056,
+      "estimado_10_min_s": 158.5
+    },
+    {
+      "config": "auto",
+      "whisper": "large-v3-turbo",
+      "video": "video_a",
+      "duracion_video_s": 135.0,
+      "segundos": {
+        "duracion": 0.07,
+        "audio": 0.47,
+        "transcripcion": 7.58,
+        "segmentacion": 44.28,
+        "emparejamiento": 2.81
+      },
+      "total_s": 55.63,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "float16",
+      "ram_mb": 2205,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2389.0,
+      "vram_mb": 7573.0,
+      "segmentacion": "llm",
+      "cumplimiento": 91.67,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 5,
+        "Parcial": 1,
+        "Falta": 0,
+        "Sobra": 5,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "valida": false,
+      "notas": [
+        "aviso pasos_sin_redactar"
+      ],
+      "tiempo_real": 0.4120740740740741,
+      "estimado_10_min_s": 247.2
+    },
+    {
+      "config": "auto",
+      "whisper": "large-v3-turbo",
+      "video": "video_b",
+      "duracion_video_s": 114.643,
+      "segundos": {
+        "duracion": 0.08,
+        "audio": 0.41,
+        "transcripcion": 6.08,
+        "segmentacion": 13.47,
+        "emparejamiento": 3.04
+      },
+      "total_s": 23.62,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "compute_type": "float16",
+      "ram_mb": 2373,
+      "ram_ollama_mb": null,
+      "vram_base_mb": 2442.0,
+      "vram_mb": 7395.0,
+      "segmentacion": "llm",
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "valida": true,
+      "notas": [],
+      "tiempo_real": 0.2060308959116562,
+      "estimado_10_min_s": 123.6
+    }
+  ]
+}

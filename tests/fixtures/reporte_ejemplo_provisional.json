@@ -212,7 +212,14 @@
         "tipo": "juez_sin_revisar",
         "detalle": "1 pares de la zona gris sin revisar (llm_no_disponible: 1)"
       }
-    ]
+    ],
+    "dispositivos": {
+      "gpu": "GPU de ejemplo",
+      "transcripcion": "gpu",
+      "transcripcion_respaldo_cpu": false,
+      "llm": "gpu",
+      "embedder": "cpu"
+    }
   },
   "creado": "2026-10-27T12:00:00Z"
 }

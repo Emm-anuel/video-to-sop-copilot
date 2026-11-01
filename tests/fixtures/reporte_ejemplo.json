@@ -207,7 +207,14 @@
       "segmentacion": 74.3,
       "emparejamiento": 9.6
     },
-    "avisos": []
+    "avisos": [],
+    "dispositivos": {
+      "gpu": "GPU de ejemplo",
+      "transcripcion": "gpu",
+      "transcripcion_respaldo_cpu": false,
+      "llm": "gpu",
+      "embedder": "cpu"
+    }
   },
   "creado": "2026-10-27T12:00:00Z"
 }

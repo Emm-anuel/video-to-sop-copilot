@@ -1,0 +1,19 @@
+# GPU NVIDIA para Ollama, opcional (ADR-018). Se suma al compose base solo donde hay GPU:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d
+#
+# Sin este archivo, Ollama arranca igual y Gemma corre en CPU (más lento, mismo resultado:
+# RNF-07). Requiere el driver de NVIDIA y, en Windows, Docker Desktop con WSL2. Para ver dónde
+# quedó el modelo: `docker compose exec ollama ollama ps` (columna PROCESSOR).
+#
+# La api sigue en CPU dentro de Docker (ADR-014): la imagen no trae cuBLAS ni cuDNN. Whisper
+# con GPU corre en el host, desde el venv con el extra gpu (docs/dev/transcripcion.md).
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

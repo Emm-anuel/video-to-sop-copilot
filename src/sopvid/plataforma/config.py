@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 180.0
     llm_num_ctx: int = 8192
     llm_health_timeout_s: float = 2.0
+    # Dónde corre Gemma (ADR-018): "auto" deja que Ollama use la GPU si la ve; "cpu" pide
+    # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
+    llm_dispositivo: Literal["auto", "cpu"] = "auto"
 
     # MiniLM para emparejar pasos (ADR-012), siempre en CPU. Los pesos se descargan la primera
     # vez a esta carpeta (ignorada por git; en Docker, el volumen "modelos").
