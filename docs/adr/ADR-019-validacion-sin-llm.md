@@ -1,4 +1,4 @@
-# ADR-017 · Validar sin LLM: error reprocesable antes de empezar, reporte provisional a medias
+# ADR-019 · Validar sin LLM: error reprocesable antes de empezar, reporte provisional a medias
 
 - **Estado:** Aprobado por el equipo
 - **Fecha:** 2026-10-27
@@ -66,5 +66,7 @@ una caída del LLM.
 
 ## Referencias
 
+- ADR-017 (validar en el mismo trabajo que el análisis; este ADR nació como ADR-017 y se renumeró
+  al integrar las dos ramas el 1 nov).
 - ADR-006 (LLM local), ADR-008 (revisión humana), ADR-010 (pasos del video), ADR-012 (juez de la
   zona gris), ADR-014 (modelos en secuencia); plan §5.1; documento SOP V1.0 §5.6 y RNF-07.

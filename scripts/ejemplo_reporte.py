@@ -1,7 +1,7 @@
 """Genera los ejemplos de `ReporteValidacion` para la pantalla del reporte (RF-20).
 
 - tests/fixtures/reporte_ejemplo.json: reporte definitivo con todos los casos de la tabla.
-- tests/fixtures/reporte_ejemplo_provisional.json: el mismo video con el juez caído (ADR-017):
+- tests/fixtures/reporte_ejemplo_provisional.json: el mismo video con el juez caído (ADR-019):
   un paso "sin revisar" y el aviso `juez_sin_revisar`.
 
 Datos INVENTADOS (tests/fixtures/README.md): la transcripción de `analisis_ejemplo.json` (Laura,

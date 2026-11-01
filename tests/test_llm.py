@@ -283,7 +283,7 @@ def test_cuerpo_para_streaming_conserva_las_opciones_fijas():
     assert cuerpo["options"] == {"num_ctx": 8192, "temperature": 0, "seed": SEMILLA}
 
 
-# ── descargar (ADR-014, ADR-017) ─────────────────────────────────────────────────────────────
+# ── descargar (ADR-014, ADR-019) ─────────────────────────────────────────────────────────────
 
 
 def test_descargar_pide_keep_alive_cero_con_el_plazo_corto():

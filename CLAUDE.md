@@ -143,7 +143,7 @@ docs/
 > - **Porcentaje y semáforo (RF-19, 27 oct):** `lenguaje/reporte.py` (`porcentaje` del
 >   `ResultadoEmparejamiento` según §5.6 y `semaforo` con `SEMAFORO_VERDE`/`SEMAFORO_AMARILLO`
 >   en `Settings`).
-> - **Validación en la API (27 oct, ADR-017):** `POST /sops` (RF-03) y `GET /sops/{id}`
+> - **Validación en la API (27 oct, ADR-017 y ADR-019):** `POST /sops` (RF-03) y `GET /sops/{id}`
 >   (`plataforma/api/sops.py`); `POST /videos` con `sop_id` en modo validar; el `Procesador`
 >   encadena análisis → `lenguaje/validacion.py` (`segmentar` → `emparejar` con `JuezGemma` →
 >   porcentaje) y guarda `reportes` y `videos.pasos_video`; `GET /videos/{id}/reporte`
@@ -157,6 +157,9 @@ docs/
 >   vivo) y `…/analisis`, con una cola de un trabajador (`plataforma/procesamiento.py`). El
 >   `Analisis` se guarda sin migración (idioma completo y segmentos en `videos.transcripcion`). La
 >   demo corre la API en el host con la GPU (`docs/dev/api.md`); en Docker, Whisper en CPU.
+> - **Calibración de umbrales (31 oct):** `scripts/calibrar_umbrales.py` prueba la rejilla de
+>   umbrales del emparejamiento con la anotación a mano de A y B y deja el informe en
+>   `docs/adr/datos/emparejamiento/`.
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
 >   SOP en PDF y Word, SOP generado, PDF del reporte y búsqueda (`lenguaje/`); frontend.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
@@ -182,6 +185,7 @@ docs/
 | Ejecutar un entregable | — | `jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"` |
 | Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
 | Medir CPU contra GPU con A y B (ADR-018) | — | `python scripts/medir_dispositivos.py --help` |
+| Calibrar los umbrales / diagnosticar el emparejamiento | — | `python scripts/calibrar_umbrales.py --sop … --anotacion … video_a=… video_b=…` · `python scripts/diagnosticar_emparejamiento.py …` |
 
 Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok",
 "dispositivos":{...}}`; sin el profile `llm`, `"llm":"no_disponible"` y la API sigue sana.

@@ -6,7 +6,7 @@ SOP y devuelve los pasos del video y el `ResultadoValidacion` que se guarda en `
 
 Whisper ya soltó la memoria al terminar de transcribir (ADR-014). Antes de segmentar se revisa
 que Ollama responda y tenga el modelo; si no, `LLMNoDisponible` y el procesador deja el video en
-error reprocesable (ADR-017). Si Ollama se cae después, `segmentar` cae a la heurística y el juez
+error reprocesable (ADR-019). Si Ollama se cae después, `segmentar` cae a la heurística y el juez
 deja los pares en zona_gris: el reporte se guarda con avisos y queda provisional. Al terminar la
 etapa del LLM, con o sin error, se pregunta a Ollama dónde tenía el modelo (GPU o CPU,
 ADR-018) y se le pide que lo suelte (`ClienteLLM.descargar`).
@@ -171,7 +171,7 @@ def validar(
 
 
 def avisos_de(segmentacion: Segmentacion, resultado: ResultadoEmparejamiento) -> list[Aviso]:
-    """Las fallas del LLM que vuelven provisional al reporte (ADR-017)."""
+    """Las fallas del LLM que vuelven provisional al reporte (ADR-019)."""
     avisos = []
     if segmentacion.metodo == "heuristica":
         avisos.append(

@@ -174,7 +174,7 @@ class ClienteLLM:
 
         Libera la VRAM si Ollama corre en GPU y la RAM si corre en CPU: no depende de que haya
         GPU. Sin esto, el modelo se queda cargado `OLLAMA_KEEP_ALIVE` (30 min en docker compose)
-        y el siguiente Whisper no tendría dónde cargar (ADR-014, ADR-017). Devuelve True si
+        y el siguiente Whisper no tendría dónde cargar (ADR-014, ADR-019). Devuelve True si
         Ollama aceptó la petición; si no responde, solo lo registra.
         """
         try:

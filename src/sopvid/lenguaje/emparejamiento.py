@@ -442,11 +442,12 @@ def _con_video(estado: EstadoPaso, paso: PasoVideo, **indices: Any) -> Resultado
 def orden(clasificacion: Clasificacion) -> Clasificacion:
     """Marca los pasos emparejados que el video hizo fuera del orden del SOP (ADR-012).
 
-    Participan solo los Cumple y los zona_gris; Falta y Sobra no tienen par que ordenar. Esos
-    pasos se ordenan por `t_inicio` (en empate, por `indice_video`) y, sobre esa secuencia de
-    `indice_sop`, se calcula la subsecuencia creciente más larga (O(n log n)): los pasos que
-    quedan en ella están en orden y los demás reciben `fuera_de_orden=True`, con su posición
-    esperada (lugar de su `indice_sop` entre los emparejados) y la observada (lugar en el video).
+    Participan solo los Cumple, los Parcial y los zona_gris (`ESTADOS_CON_ORDEN`); Falta y Sobra
+    no tienen par que ordenar. Esos pasos se ordenan por `t_inicio` (en empate, por `indice_video`)
+    y, sobre esa secuencia de `indice_sop`, se calcula la subsecuencia creciente más larga
+    (O(n log n)): los pasos que quedan en ella están en orden y los demás reciben
+    `fuera_de_orden=True`, con su posición esperada (lugar de su `indice_sop` entre los
+    emparejados) y la observada (lugar en el video).
 
     Si hay varias subsecuencias del mismo largo, se conserva la que deja fuera los pasos que
     aparecen más tarde en el video: la menor en orden lexicográfico de posiciones observadas.

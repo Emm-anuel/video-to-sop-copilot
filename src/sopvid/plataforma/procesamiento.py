@@ -13,7 +13,7 @@ En modo validar (con `sop_id`), tras guardar el `Analisis` y hacer commit sigue 
 y se guardan el `Reporte` y `videos.pasos_video`. El avance del análisis se escala a 0–45 y la
 validación sigue de 45 a 100 sin retroceder; `proceso="listo"` llega junto con el reporte. Si
 Ollama no responde al empezar la validación, el video queda en error con el análisis guardado, y
-`revalidar` repite solo la validación, sin Whisper (ADR-017). Un reporte nuevo reemplaza al
+`revalidar` repite solo la validación, sin Whisper (ADR-019). Un reporte nuevo reemplaza al
 anterior.
 
 Dónde corrió cada modelo (ADR-018) va en los metadatos del reporte: la GPU que ve la API, el
@@ -163,7 +163,7 @@ class Procesador:
         self._ejecutar(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
 
     def revalidar(self, video_id: int, validacion: FabricaValidacion) -> None:
-        """Encola solo la validación, sobre el análisis ya guardado (ADR-017)."""
+        """Encola solo la validación, sobre el análisis ya guardado (ADR-019)."""
         self._ejecutar(lambda: self.procesar_validacion(video_id, validacion))
 
     def cerrar(self) -> None:

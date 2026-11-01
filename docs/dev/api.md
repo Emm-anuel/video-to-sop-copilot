@@ -15,7 +15,7 @@ RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
 | `GET /videos/{id}/reporte` | El `ReporteValidacion` (esquema en `docs/contrato/reporte.schema.json`; ejemplos en `tests/fixtures/reporte_ejemplo*.json`). **409** si no está listo, 404 si el video no tiene reporte (p. ej. modo generar) |
-| `POST /videos/{id}/validar` | Repite solo la validación con la transcripción guardada, sin Whisper (ADR-017). **202**; 422 si el video no es de modo validar; 409 si está en cola o procesando, o si no tiene análisis guardado |
+| `POST /videos/{id}/validar` | Repite solo la validación con la transcripción guardada, sin Whisper (ADR-019). **202**; 422 si el video no es de modo validar; 409 si está en cola o procesando, o si no tiene análisis guardado |
 
 Todas las rutas con `{id}` responden 404 si el video (o el SOP) no existe.
 
@@ -28,7 +28,7 @@ del video en `videos.pasos_video`. El avance: el análisis va de 0 a 45, `segmen
 `emparejamiento` 80, `reporte` 95 y `listo` 100.
 
 - **Ollama no responde al empezar:** `proceso="error"` con "LLM no disponible: el análisis quedó
-  guardado…". Cuando Ollama responda, `POST /videos/{id}/validar` (ADR-017).
+  guardado…". Cuando Ollama responda, `POST /videos/{id}/validar` (ADR-019).
 - **Ollama se cae a medias:** el reporte se guarda con `provisional: true` y
   `metadatos.avisos` (`segmentacion_heuristica`, `juez_sin_revisar`, `pasos_sin_redactar`).
 - Al terminar la etapa del LLM se pide a Ollama que suelte el modelo (`keep_alive: 0`), en GPU o
@@ -41,9 +41,15 @@ del video en `videos.pasos_video`. El avance: el análisis va de 0 a 45, `segmen
   (`/app/media`).
 - Base: la fila de `videos`. `duracion`, `idioma` (código) y `fotogramas` van en sus columnas; en
   `transcripcion` (JSONB) va `{"version_contrato", "idioma": {codigo, confianza, fijado_a_mano},
-  "segmentos": [...]}`. `GET …/analisis` rearma el `Analisis` y lo valida.
+  "segmentos": [...]}`. `GET …/analisis` rearma el `Analisis` y lo valida. Los pasos del video
+  quedan en `pasos_video` (JSONB) y el reporte en `reportes` (uno por video, con `cumplimiento`
+  en su columna y el JSON completo en `resultado`).
+- El SOP convertido se guarda en `sops.contenido` (JSONB) y el archivo original en
+  `MEDIA_DIR/sops/<id>/original.<ext>` (`POST /sops`).
 - Si algo falla, `proceso="error"` y `error` explica la causa sin texto del video (p. ej.
-  `video.mp4: el video no tiene pista de audio` o `falló la etapa transcripcion (RuntimeError)`).
+  `video.mp4: el video no tiene pista de audio`, `falló la etapa transcripcion (RuntimeError)` o
+  `falló la etapa emparejamiento (ValueError)`). Si falla la validación, el análisis ya quedó
+  guardado: `videos.transcripcion` y `videos.pasos_video` siguen ahí.
 
 La cola vive en memoria: al arrancar, la API pasa a `error` ("interrumpido por reinicio") los videos
 que quedaron en `en_cola` o `procesando`. Se vuelven a subir.

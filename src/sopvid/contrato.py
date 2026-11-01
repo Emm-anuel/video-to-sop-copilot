@@ -589,9 +589,9 @@ class SOP(_Modelo):
         return self
 
 
-# ── Reporte de validación (RF-14, RF-19, base de RF-20; ADR-017) ────────────────────────────
+# ── Reporte de validación (RF-14, RF-19, base de RF-20; ADR-019) ────────────────────────────
 
-# Por qué un reporte es provisional (ADR-017): Ollama falló después de la revisión inicial.
+# Por qué un reporte es provisional (ADR-019): Ollama falló después de la revisión inicial.
 # "segmentacion_heuristica": los pasos del video salieron de la heurística de respaldo;
 # "juez_sin_revisar": quedaron pares en zona_gris; "pasos_sin_redactar": respondió la llamada de
 # fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja).
@@ -625,7 +625,7 @@ class Dispositivos(_Modelo):
 
     La GPU cambia la velocidad, no el resultado: el modelo es el mismo en cualquier dispositivo
     (RNF-07). `gpu` es la que vio la API (`nvidia-smi`), o None. `transcripcion` va en None al
-    repetir solo la validación (ADR-017), porque Whisper no corrió; `transcripcion_respaldo_cpu`
+    repetir solo la validación (ADR-019), porque Whisper no corrió; `transcripcion_respaldo_cpu`
     es true si cuda falló y Whisper se repitió en CPU (su tiempo no sirve para RNF-01).
     """
 
@@ -640,7 +640,7 @@ class MetadatosValidacion(_Modelo):
     """Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.
 
     `segundos` lleva lo que tardó cada etapa (duracion, audio, transcripcion, segmentacion,
-    emparejamiento); al repetir solo la validación (ADR-017) no trae las del análisis. Lo que
+    emparejamiento); al repetir solo la validación (ADR-019) no trae las del análisis. Lo que
     tardó el juez va aparte, en `resultado.clasificacion.resumen.segundos_juez`.
     """
 
@@ -720,7 +720,7 @@ class ReporteValidacion(_Modelo):
     """Respuesta de `GET /videos/{id}/reporte`.
 
     `cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin
-    redondear. `provisional` es true si hay avisos (ADR-017). `afinidad` queda en `None` hasta
+    redondear. `provisional` es true si hay avisos (ADR-019). `afinidad` queda en `None` hasta
     RF-17 (post-MVP).
     """
 

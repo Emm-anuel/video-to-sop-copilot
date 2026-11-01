@@ -8,7 +8,7 @@ limita dos veces: `limitar_content_length` rechaza la petición antes de recibir
 
 En modo validar, `sop_id` es obligatorio y el trabajo sigue con la validación (pasos del video,
 emparejamiento y reporte). `POST /videos/{id}/validar` la repite sin volver a transcribir
-(ADR-017) y `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
+(ADR-019) y `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
@@ -170,7 +170,7 @@ def revalidar_video(
     procesador: Annotated[Procesador, Depends(get_procesador)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
 ) -> VideoCreado:
-    """Repite solo la validación con la transcripción guardada (ADR-017)."""
+    """Repite solo la validación con la transcripción guardada (ADR-019)."""
     video = _buscar(session, video_id)
     if video.modo != "validar":
         raise HTTPException(422, "solo un video de modo validar tiene validación")

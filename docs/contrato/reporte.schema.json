@@ -80,7 +80,7 @@
     },
     "Dispositivos": {
       "additionalProperties": false,
-      "description": "Dónde corrió de verdad cada modelo de este reporte (ADR-018).\n\nLa GPU cambia la velocidad, no el resultado: el modelo es el mismo en cualquier dispositivo\n(RNF-07). `gpu` es la que vio la API (`nvidia-smi`), o None. `transcripcion` va en None al\nrepetir solo la validación (ADR-017), porque Whisper no corrió; `transcripcion_respaldo_cpu`\nes true si cuda falló y Whisper se repitió en CPU (su tiempo no sirve para RNF-01).",
+      "description": "Dónde corrió de verdad cada modelo de este reporte (ADR-018).\n\nLa GPU cambia la velocidad, no el resultado: el modelo es el mismo en cualquier dispositivo\n(RNF-07). `gpu` es la que vio la API (`nvidia-smi`), o None. `transcripcion` va en None al\nrepetir solo la validación (ADR-019), porque Whisper no corrió; `transcripcion_respaldo_cpu`\nes true si cuda falló y Whisper se repitió en CPU (su tiempo no sirve para RNF-01).",
       "properties": {
         "gpu": {
           "anyOf": [
@@ -279,7 +279,7 @@
     },
     "MetadatosValidacion": {
       "additionalProperties": false,
-      "description": "Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.\n\n`segundos` lleva lo que tardó cada etapa (duracion, audio, transcripcion, segmentacion,\nemparejamiento); al repetir solo la validación (ADR-017) no trae las del análisis. Lo que\ntardó el juez va aparte, en `resultado.clasificacion.resumen.segundos_juez`.",
+      "description": "Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.\n\n`segundos` lleva lo que tardó cada etapa (duracion, audio, transcripcion, segmentacion,\nemparejamiento); al repetir solo la validación (ADR-019) no trae las del análisis. Lo que\ntardó el juez va aparte, en `resultado.clasificacion.resumen.segundos_juez`.",
       "properties": {
         "segmentacion": {
           "enum": [
@@ -462,7 +462,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-017). `afinidad` queda en `None` hasta\nRF-17 (post-MVP).",
+  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-019). `afinidad` queda en `None` hasta\nRF-17 (post-MVP).",
   "properties": {
     "version_contrato": {
       "const": 1,

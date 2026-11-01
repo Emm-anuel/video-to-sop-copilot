@@ -67,10 +67,10 @@ sin repetir; si no, `ValueError`). `semaforo` da verde, amarillo o rojo con los 
 sin redondear. `armar_reporte` arma la respuesta de `GET /videos/{id}/reporte`
 (`ReporteValidacion`) con lo guardado (`ResultadoValidacion`) y el SOP: una fila por resultado
 con el nombre del paso del SOP y del video, el segundo, la cita, la marca de orden, el marco del
-operador y la justificación del juez; el conteo y `provisional` (si hay avisos, ADR-017).
+operador y la justificación del juez; el conteo y `provisional` (si hay avisos, ADR-019).
 
 `validacion.py` encadena la validación de un video sin tocar la base: `validar(analisis, sop,
-deps)` revisa que Ollama responda (si no, `LLMNoDisponible`: error reprocesable, ADR-017),
+deps)` revisa que Ollama responda (si no, `LLMNoDisponible`: error reprocesable, ADR-019),
 segmenta (`segmentar`), empareja con el juez (`emparejar`), pide a Ollama que suelte el modelo
 (`ClienteLLM.descargar`, en un `finally`) y devuelve los pasos del video y el
 `ResultadoValidacion` con el porcentaje, el semáforo y los metadatos (segmentación, modelo,

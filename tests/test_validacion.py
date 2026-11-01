@@ -1,4 +1,4 @@
-"""Validación encadenada en el procesador (RF-13, RF-14, RF-19; ADR-014, ADR-017).
+"""Validación encadenada en el procesador (RF-13, RF-14, RF-19; ADR-014, ADR-019).
 
 Transcriptor, Ollama, juez y vectorizador son dobles (tests/dobles.py): no hace falta GPU,
 Ollama ni MiniLM. La base es la de conftest.py y los videos salen de `generar_video` (ffmpeg).
@@ -134,7 +134,7 @@ def test_el_avance_no_retrocede(entorno: Entorno, subir_validar) -> None:
     assert vistos[-1] == ("listo", 100)
 
 
-# ── Ollama caído (ADR-017) ───────────────────────────────────────────────────────────────────
+# ── Ollama caído (ADR-019) ───────────────────────────────────────────────────────────────────
 
 
 def test_ollama_caido_al_empezar_deja_error_reprocesable(

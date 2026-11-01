@@ -59,7 +59,7 @@ Opción C. La GPU cambia **dónde** corre cada modelo, nunca **cuál**.
     acordar con el asesor y el patrocinador que RNF-01 aplica con GPU y que en CPU el video se
     procesa en segundo plano. Esta última la deciden ellos.
   - Gemma en CPU puede pasar de `LLM_TIMEOUT_S=180` por petición. Si pasa, la segmentación cae a la
-    heurística y el reporte sale provisional (ADR-017). La medición usa 900 s; con sus números se
+    heurística y el reporte sale provisional (ADR-019). La medición usa 900 s; con sus números se
     fija el valor de CPU.
   - `compute_type` sí cambia con el dispositivo (float16 en cuda, int8 en CPU). Puede mover una
     palabra en la transcripción. La medición compara el resultado final entre configuraciones.
@@ -123,6 +123,6 @@ Siguientes pasos:
 ## Referencias
 
 - ADR-006 (Gemma 4 y Ollama), ADR-012 (MiniLM en CPU), ADR-014 (hardware de referencia),
-  ADR-017 (validar sin LLM).
+  ADR-019 (validar sin LLM).
 - Documento SOP V1.0, sección 8.1 (opción B, mini LLMs locales) y RNF-01, RNF-07.
 - `docs/dev/llm.md`, sección "CPU o GPU".

@@ -108,7 +108,7 @@ Los pasos del video son 9 tramos de la transcripción con cita literal: la intro
 | Archivo | Cumplimiento | Qué cubre |
 |---|---|---|
 | `reporte_ejemplo.json` | 71.43 % amarillo | Cumple, Cumple fuera de orden, Parcial con justificación, Falta, Sobra, intro y cierre |
-| `reporte_ejemplo_provisional.json` | 64.29 % rojo | El mismo video con el juez caído: "Liberar la presión" sin revisar, `provisional: true` y el aviso `juez_sin_revisar` (ADR-017) |
+| `reporte_ejemplo_provisional.json` | 64.29 % rojo | El mismo video con el juez caído: "Liberar la presión" sin revisar, `provisional: true` y el aviso `juez_sin_revisar` (ADR-019) |
 
 No se editan a mano. `scripts/ejemplo_reporte.py` corre el código real de `emparejar`,
 `porcentaje` y `armar_reporte` con un vectorizador y un juez guionados (sin Gemma 4 ni MiniLM);
