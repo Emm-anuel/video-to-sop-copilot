@@ -163,7 +163,7 @@ agrega la redacción; la búsqueda exacta no usa IA.
 | Pasos del video con Gemma 4 sin ver el SOP (RF-13) | Ficha de contexto (RF-12) y afinidad (RF-17) |
 | Fusión, cascada y orden: Cumple / Parcial / Falta / Sobra / Fuera de orden (RF-14, ADR-012, ADR-013) | Personas (RF-15) y tiempos (RF-16) |
 | Porcentaje y semáforo (RF-19) | PDF del reporte (RF-29) y descargas (RF-31) |
-| Una pantalla: tabla del reporte con cita, y el video que salta al segundo (RF-20) | Las otras pantallas, SOP generado, búsqueda |
+| Una pantalla: tabla del reporte con cita, y el video que salta al segundo (RF-20, Sara). Opcional: `/nuevo` para subir SOP y video (Emmanuel, 7 nov). Detalle en `frontend/README.md` | Las otras pantallas, SOP generado, búsqueda |
 
 **Criterio de terminado:** el video A da ≥ 90 % en verde, sin *Falta*; el video B da 2 *Falta* y
 1 *Sobra*, cada uno con su segundo. Medido con el script de métricas, con el commit registrado.
@@ -185,6 +185,7 @@ agrega la redacción; la búsqueda exacta no usa IA.
 | Pasos del video y contexto | RF-13 · RF-12 | Emmanuel | S2–S3 · S5 |
 | Validación | RF-14, 19 · RF-15, 16, 17 | Emmanuel | S3–S4 · S5 |
 | Evidencia y revisión | RF-20 · RF-21 | Sara | S3–S4 · S7 |
+| Base de Angular y pantalla para subir SOP y video (MVP, opcional) | — | Emmanuel (7 nov) | S4 |
 | SOP generado | RF-22 a 25, 27 · RF-26 | Emmanuel · Sara | S5 · S5–S6 |
 | PDF y descargas | RF-29, 30 · RF-31 | Emmanuel · Sara | S6 |
 | Búsqueda | RF-32 a 37 | Sara | S6 |
@@ -240,7 +241,7 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
 | S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct); ✓ **ingesta de audio y transcripción**, tomadas de Sara (rama `feat/percepcion-transcripcion`, 25 oct): `medios.py` (duración, mp3 mono 16 kHz) y `transcripcion.py` (RF-09, RF-10: idioma, tiempo por palabra, TXT en vivo); GPU en el host, Docker solo CPU (ADR-014); ✓ **subida simple** (RF-06 del MVP), tomada de Sara (25 oct): `POST /videos`, cola de análisis de un trabajador y consulta de estado, TXT en vivo y `Analisis` | Grabar videos A–E | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
-| S4 · 2–8 nov | ✓ **juez Gemma 4 en la zona gris** (`lenguaje/juez.py`, adelantado al 27 oct; falta medirlo con A y B); porcentaje; **calibrar umbrales MiniLM** con A y B | Integrar la pantalla con la API | ✓ **MVP de validación** (videos A y B) | — |
+| S4 · 2–8 nov | ✓ **juez Gemma 4 en la zona gris** (`lenguaje/juez.py`, adelantado al 27 oct; falta medirlo con A y B); porcentaje; **calibrar umbrales MiniLM** con A y B | Pantalla del reporte con la API (RF-20; base de Angular y `/nuevo` por Emmanuel el 7 nov; `GET /videos/{id}/video` listo) | **MVP de validación** (videos A y B; la lógica cumple desde el 27 oct) | — |
 | S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
 | S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta (tablas `palabras` y `busquedas` ya existen desde S2: solo falta la lógica de publicar y buscar); pantallas restantes; descargas | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
 | S7 · 23–29 nov | Experimentos del paper; si da tiempo RF-18 | Ajustes; si da tiempo RF-21 | Demo con el patrocinador (*Por confirmar*) | Resumen ejecutivo (*Por confirmar*) |

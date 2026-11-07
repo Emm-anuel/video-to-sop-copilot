@@ -1,4 +1,4 @@
-# Estado del proyecto · 31 oct 2026
+# Estado del proyecto · 7 nov 2026
 
 Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md).
 
@@ -12,6 +12,29 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
   calificación y seguir los entregables de Canvas.
 - **17 oct:** se reescribió el plan para la versión 1.0 del documento (validar video contra SOP,
   generar SOP y búsqueda exacta). Decisiones en [plan.md §2](plan.md#2-decisiones).
+
+## 7 de noviembre (MVP el domingo 8)
+
+- **La lógica del MVP cumple; falta lo que se ve.** Por la API, A da 100 % en verde sin *Falta* y B
+  da 2 *Falta* (pasos 2 y 6) y 1 *Sobra* (limpiar la carcasa). También pasa sin GPU.
+- **Pantallas del MVP** (detalle en [`frontend/README.md`](../../frontend/README.md)):
+  - `/videos/:id/reporte` · **reporte con el video que salta al segundo (RF-20) · Sara.** Es la
+    única obligatoria. Al 7 nov no se ha empezado.
+  - `/nuevo` · **subir SOP y video · Emmanuel**, opcional. Emmanuel crea también la base del
+    proyecto Angular y un reporte provisional que Sara reemplaza. Sara: `git pull` antes de empezar y
+    no generes otro proyecto.
+- **`GET /videos/{id}/video`** (7 nov, `a40b124`): entrega el video con `Range` (206) para el
+  reproductor.
+- **CPU de base (ADR-018, 1 nov):** el compose ya no exige GPU. Medido el 27 oct: con GPU, 24–56 s
+  por video de ~2 min (cumple RNF-01); sin GPU, 159–223 s (12–16.5 min estimados para 10 min, no
+  cumple). Se lleva al asesor y al patrocinador.
+- **Gemma no es determinista:** con temperatura 0 y semilla fija, 1 de 3 corridas mueve una
+  frontera (A repetido: 100 / 83.3 / 100 %). Para la demo, procesar A y B antes y mostrar los
+  reportes guardados.
+- **Ramas unidas (1 nov, `58a31ac`):** la validación se implementó dos veces en paralelo; quedó la de
+  `143a06f`. "Validar sin LLM" pasó de ADR-017 a ADR-019. Lección: tomar el issue antes de empezar.
+- **Pendiente:** repositorio privado (NDA) antes del push, confirmar el CI tras el merge, grabar C–E
+  (checkpoint del 15 nov) y correr `scripts/calibrar_umbrales.py` con ellos.
 
 ## 31 de octubre
 
@@ -53,8 +76,8 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 | Lun 19 oct | Junta con Jorge: informar decisiones y preguntar la fecha de la demo ([plan §10](plan.md#10-para-la-junta-del-lunes-19-oct)) |
 | S2 | ✓ `feat/llm-spike` fusionada a `main` (merge `936af6f`); repo privado; tablas `videos`, `sops`, `reportes`; grabar videos A–E |
 | Dom 25 oct | Avance 4 |
-| Dom 1 nov | Avance 5 |
-| Dom 8 nov | ✓ **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)) |
+| Dom 1 nov | ✓ Avance 5 |
+| Dom 8 nov | **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)). La lógica cumple; falta la pantalla del reporte (RF-20) |
 | Dom 15 nov | ✓ SOP generado, personas, tiempos y afinidad: pasan los videos C, D y E |
 | Dom 22 nov | ✓ App completa en Docker en máquina limpia |
 

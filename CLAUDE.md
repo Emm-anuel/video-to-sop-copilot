@@ -69,7 +69,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
 | Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
 | ML académico | pandas, scikit-learn, LightGBM |
-| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno |
+| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` con proxy `/api` → `localhost:8000` (la API no tiene CORS). MVP: `frontend/README.md` |
 | Calidad | pytest, ruff, GitHub Actions |
 
 Hardware de referencia (ADR-014): RTX 2070 SUPER de 8 GB, i7-10700K, 32 GB de RAM. faster-whisper y
@@ -103,7 +103,7 @@ migrations/            Alembic
 scripts/               benchmark del LLM, evaluación de segmentación, preparación de datos
 tests/                 pytest
   fixtures/            solo datos inventados por el equipo o públicos (nunca del cliente)
-frontend/              Angular (reservado)
+frontend/              Angular (pantallas del MVP y quién hace qué: frontend/README.md)
 notebooks/             exploración libre
 data/                  solo README y .gitkeep en git; el contenido se ignora
 docs/
@@ -115,7 +115,7 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 19 oct 2026:
+> Estado al 7 nov 2026 (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -157,11 +157,25 @@ docs/
 >   vivo) y `…/analisis`, con una cola de un trabajador (`plataforma/procesamiento.py`). El
 >   `Analisis` se guarda sin migración (idioma completo y segmentos en `videos.transcripcion`). La
 >   demo corre la API en el host con la GPU (`docs/dev/api.md`); en Docker, Whisper en CPU.
-> - **Calibración de umbrales (31 oct):** `scripts/calibrar_umbrales.py` prueba la rejilla de
->   umbrales del emparejamiento con la anotación a mano de A y B y deja el informe en
->   `docs/adr/datos/emparejamiento/`.
+> - **Calibración de umbrales (31 oct, Sara):** `scripts/calibrar_umbrales.py` prueba la rejilla de
+>   umbrales del emparejamiento con la anotación a mano y deja el informe en
+>   `docs/adr/datos/emparejamiento/` al correrse. Todavía no se ha corrido: se corre con C–E para no
+>   sobreajustar a A y B.
+> - **Ramas unidas (1 nov, merge `58a31ac`):** la validación se implementó dos veces en paralelo; quedó
+>   la de `143a06f` (`lenguaje/validacion.py`). El ADR-017 de Sara (validar en el mismo trabajo)
+>   conserva su número y el "validar sin LLM" pasó a ADR-019. Antes de empezar una pieza, toma su
+>   issue y revisa `main`.
+> - **CPU de base (1 nov, ADR-018):** `docker-compose.yml` ya no exige GPU; medido el 27 oct, sin GPU
+>   A y B dan el resultado correcto pero tardan 159–223 s (no cumple RNF-01). Gemma no es
+>   determinista: con temperatura 0, 1 de 3 corridas mueve una frontera (A dio 100 / 83.3 / 100 %).
+> - **Video para el reproductor (7 nov, `a40b124`):** `GET /videos/{id}/video` entrega el archivo con
+>   soporte de `Range` (206) para saltar al segundo (RF-20).
+> - **Frontend (7 nov):** Emmanuel crea la base de Angular y la pantalla `/nuevo` (subir SOP y video);
+>   Sara hace la pantalla del reporte (`/videos/:id/reporte`, RF-20) sobre esa base, reemplazando un
+>   componente provisional. Detalle, contrato y reglas de presentación: `frontend/README.md`.
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
->   SOP en PDF y Word, SOP generado, PDF del reporte y búsqueda (`lenguaje/`); frontend.
+>   SOP en PDF y Word, SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
+>   MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
