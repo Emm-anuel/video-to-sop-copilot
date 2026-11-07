@@ -51,11 +51,21 @@
   }
 }
 
+// El reproductor toma la proporción del video (horizontal o vertical) sin franjas negras. En
+// angosto queda arriba y no pasa de la mitad de la pantalla, para que se vea la tabla.
 video {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 45vh;
+  margin-inline: auto;
   background: #000;
   border-radius: 0.5rem;
+
+  @media (min-width: 64rem) {
+    max-height: calc(100vh - 2rem);
+  }
 }
 
 .error,
@@ -66,6 +76,15 @@ video {
   background: #fef3f2;
   border: 1px solid #fda29b;
   border-radius: 0.3rem;
+}
+
+.reloj {
+  font-variant-numeric: tabular-nums;
+}
+
+.tiempo-final {
+  font-size: 0.85rem;
+  color: #667085;
 }
 
 .sop-codigo {
@@ -195,11 +214,21 @@ tr.marco {
   width: 4.5rem;
 }
 
+// Lugar de la miniatura (S5): borde punteado e ícono de película, para que no parezca un campo.
 .miniatura {
+  display: grid;
+  place-items: center;
   width: 4rem;
   aspect-ratio: 16 / 9;
-  background: #eaecf0;
+  border: 1px dashed #d0d5dd;
   border-radius: 0.25rem;
+
+  svg {
+    width: 1.1rem;
+    fill: none;
+    stroke: #c0c6d0;
+    stroke-width: 1.5;
+  }
 }
 
 .estado-etiqueta,

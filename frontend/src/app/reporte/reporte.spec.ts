@@ -70,8 +70,9 @@ describe('Reporte', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
+  /** Texto visible con los espacios y saltos de línea de la plantilla reducidos a uno. */
   function texto(): string {
-    return pantalla().textContent ?? '';
+    return (pantalla().textContent ?? '').replace(/\s+/g, ' ');
   }
 
   function filas(): HTMLTableRowElement[] {
@@ -112,6 +113,36 @@ describe('Reporte', () => {
 
     vi.advanceTimersByTime(INTERVALO_MS * 3);
     http.expectNone(ESTADO);
+  });
+
+  it('cuenta el tiempo de procesamiento cada segundo y lo congela al terminar', () => {
+    vi.advanceTimersByTime(0);
+    http.expectOne(ESTADO).flush(estado('en_cola'));
+    expect(texto()).toContain('Tiempo de procesamiento: 00:00');
+
+    vi.advanceTimersByTime(2000);
+    expect(texto()).toContain('Tiempo de procesamiento: 00:02');
+
+    vi.advanceTimersByTime(1000);
+    http.expectOne(ESTADO).flush(estado('procesando'));
+    vi.advanceTimersByTime(2000);
+    expect(texto()).toContain('Tiempo de procesamiento: 00:05');
+
+    vi.advanceTimersByTime(1000);
+    http.expectOne(ESTADO).flush(estado('listo'));
+    http.expectOne(REPORTE).flush(NORMAL);
+    expect(texto()).toContain('Procesado en 00:06 (medido en esta pantalla)');
+
+    vi.advanceTimersByTime(10_000);
+    expect(texto()).toContain('Procesado en 00:06');
+    http.expectNone(ESTADO);
+  });
+
+  it('si el video ya estaba listo al abrir, no muestra tiempo de procesamiento', () => {
+    llegaReporte(NORMAL);
+    vi.advanceTimersByTime(5000);
+    expect(texto()).not.toContain('Procesado en');
+    expect(texto()).not.toContain('Tiempo de procesamiento');
   });
 
   it('el video se puede ver desde el inicio, mientras se procesa', () => {
@@ -180,8 +211,11 @@ describe('Reporte', () => {
     const sobras = f.filter((fila) => fila.querySelector('.estado-sobra'));
     expect(sobras).toHaveLength(NORMAL.conteo.sobra);
 
-    // Espacio para la miniatura (S5), sin imagen.
-    expect(f[0].querySelector('.miniatura')).not.toBeNull();
+    // Espacio para la miniatura (S5), sin imagen y sin nada que se pueda llenar.
+    expect(f[0].querySelector('.miniatura')?.getAttribute('title')).toContain(
+      'Miniatura pendiente',
+    );
+    expect(pantalla().querySelector('tbody input')).toBeNull();
     expect(pantalla().querySelector('tbody img')).toBeNull();
   });
 
@@ -247,6 +281,19 @@ describe('Reporte', () => {
     expect(filas()).toHaveLength(NORMAL.filas.length);
   });
 
+  it('con "error" a medio proceso, el tiempo se congela junto al mensaje', () => {
+    vi.advanceTimersByTime(0);
+    http.expectOne(ESTADO).flush(estado('procesando'));
+    vi.advanceTimersByTime(INTERVALO_MS);
+    http
+      .expectOne(ESTADO)
+      .flush(estado('error', { error: 'falló la etapa transcripcion (RuntimeError)' }));
+    vi.advanceTimersByTime(10_000);
+    expect(texto()).toContain('Tiempo de procesamiento: 00:03');
+    expect(texto()).toContain('falló la etapa transcripcion (RuntimeError)');
+    http.expectNone(ESTADO);
+  });
+
   it('con "error" muestra el mensaje y deja de consultar', () => {
     vi.advanceTimersByTime(0);
     http
@@ -255,6 +302,7 @@ describe('Reporte', () => {
 
     expect(texto()).toContain('video.mp4: el video no tiene pista de audio');
     vi.advanceTimersByTime(INTERVALO_MS * 3);
+    expect(texto()).not.toContain('Tiempo de procesamiento');
     http.expectNone(ESTADO);
     http.expectNone(REPORTE);
   });

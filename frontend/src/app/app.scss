@@ -23,3 +23,8 @@
   margin: 1.5rem auto;
   padding: 0 1.5rem;
 }
+
+// Pantallas que piden todo el ancho en la ruta (`data: { ancho: true }`), como el reporte.
+.contenido.ancho {
+  max-width: 100rem;
+}

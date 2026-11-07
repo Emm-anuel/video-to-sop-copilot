@@ -8,6 +8,8 @@ export const routes: Routes = [
   {
     path: 'videos/:id/reporte',
     component: Reporte,
+    // Dos columnas (tabla y video): la pantalla usa todo el ancho (app.html).
+    data: { ancho: true },
     title: 'Reporte de validación · SOPVID',
   },
 ];

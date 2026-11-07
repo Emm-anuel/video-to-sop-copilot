@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { EMPTY, catchError, filter, map, switchMap, takeWhile, tap, timer } from 'rxjs';
@@ -68,10 +68,31 @@ export class Reporte {
   protected readonly filaActiva = signal<number | null>(null);
   protected readonly videoNoDisponible = signal(false);
 
+  /**
+   * Tiempo de procesamiento medido en esta pantalla: empieza al ver el video en cola o en proceso
+   * y se congela con "listo", "error" o una falla de la consulta. No usa `creado` (la hora de
+   * subida), que no cambia al repetir la validación (`POST /videos/{id}/validar`).
+   */
+  private readonly inicio = signal<number | null>(null);
+  private readonly fin = signal<number | null>(null);
+  private readonly ahora = signal(Date.now());
+  protected readonly segundosProceso = computed(() => {
+    const inicio = this.inicio();
+    return inicio == null ? null : ((this.fin() ?? this.ahora()) - inicio) / 1000;
+  });
+
   protected readonly etiquetaSemaforo = ETIQUETA_SEMAFORO;
   protected readonly mmss = mmss;
 
   constructor() {
+    timer(0, 1000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (this.inicio() != null && this.fin() == null) {
+          this.ahora.set(Date.now());
+        }
+      });
+
     this.ruta.paramMap
       .pipe(
         map((parametros) => Number(parametros.get('id'))),
@@ -82,15 +103,21 @@ export class Reporte {
           this.errorConsulta.set(null);
           this.filaActiva.set(null);
           this.videoNoDisponible.set(false);
+          this.inicio.set(null);
+          this.fin.set(null);
         }),
         switchMap((id) =>
           timer(0, INTERVALO_MS).pipe(
             switchMap(() => this.api.estadoVideo(id)),
-            tap((estado) => this.estado.set(estado)),
+            tap((estado) => {
+              this.estado.set(estado);
+              this.medirProceso(estado);
+            }),
             takeWhile((estado) => estado.proceso !== 'listo' && estado.proceso !== 'error', true),
             filter((estado) => estado.proceso === 'listo'),
             switchMap(() => this.api.reporte(id)),
             catchError((e: unknown) => {
+              this.detenerReloj();
               this.errorConsulta.set(mensajeDeError(e));
               return EMPTY;
             }),
@@ -99,6 +126,22 @@ export class Reporte {
         takeUntilDestroyed(),
       )
       .subscribe((reporte) => this.reporte.set(reporte));
+  }
+
+  private medirProceso(estado: EstadoVideo): void {
+    const enProceso = estado.proceso === 'en_cola' || estado.proceso === 'procesando';
+    if (enProceso && this.inicio() == null) {
+      this.inicio.set(Date.now());
+      this.ahora.set(Date.now());
+    } else if (!enProceso) {
+      this.detenerReloj();
+    }
+  }
+
+  private detenerReloj(): void {
+    if (this.inicio() != null && this.fin() == null) {
+      this.fin.set(Date.now());
+    }
   }
 
   protected urlVideo(id: number): string {
