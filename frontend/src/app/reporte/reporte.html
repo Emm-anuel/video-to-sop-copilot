@@ -1,0 +1,169 @@
+<h1>Reporte de validación · video {{ videoId() }}</h1>
+
+<div class="disposicion">
+  <aside class="lateral">
+    @if (videoId(); as id) {
+      <div class="reproductor">
+        <video
+          #reproductor
+          controls
+          preload="metadata"
+          [src]="urlVideo(id)"
+          (error)="videoNoDisponible.set(true)"
+          (loadedmetadata)="videoNoDisponible.set(false)"
+        ></video>
+        @if (videoNoDisponible()) {
+          <p class="aviso-video" role="status">
+            No se pudo cargar el video. La tabla sigue disponible, pero sin saltar al segundo.
+          </p>
+        }
+      </div>
+    }
+  </aside>
+
+  <div class="principal">
+    @if (reporte(); as r) {
+      <section class="tarjeta encabezado">
+        <p class="sop">
+          <span class="sop-codigo">{{ r.sop.codigo }}</span>
+          <span class="sop-titulo">{{ r.sop.titulo }}</span>
+        </p>
+        <p class="cumplimiento">
+          <span class="semaforo" [class]="'semaforo-' + r.semaforo" aria-hidden="true"></span>
+          <strong class="porcentaje">{{ r.cumplimiento | number: '1.2-2' }} %</strong>
+          <span class="semaforo-texto">{{ etiquetaSemaforo[r.semaforo] }}</span>
+        </p>
+        @if (r.afinidad != null) {
+          <p class="afinidad">Afinidad: {{ r.afinidad | number: '1.2-2' }}</p>
+        }
+        @if (r.provisional) {
+          <div class="avisos" role="status">
+            <p>
+              <strong>Reporte provisional:</strong> el modelo de lenguaje no respondió en alguna
+              etapa.
+            </p>
+            <ul>
+              @for (aviso of r.metadatos.avisos ?? []; track $index) {
+                <li>{{ etiquetaAviso(aviso.tipo) }}: {{ aviso.detalle }}</li>
+              }
+            </ul>
+          </div>
+        }
+      </section>
+
+      <section class="tarjeta resumen" aria-label="Resumen">
+        <p class="resumen-principal">
+          <strong>{{ r.conteo.cumple }} de {{ r.sop.pasos.length }} pasos cumplen</strong>
+        </p>
+        <dl class="contadores">
+          <div class="contador estado-parcial">
+            <dt>Parcial</dt>
+            <dd data-conteo="parcial">{{ r.conteo.parcial }}</dd>
+          </div>
+          <div class="contador estado-falta">
+            <dt>Falta</dt>
+            <dd data-conteo="falta">{{ r.conteo.falta }}</dd>
+          </div>
+          <div class="contador estado-sobra">
+            <dt>Sobra</dt>
+            <dd data-conteo="sobra">{{ r.conteo.sobra }}</dd>
+          </div>
+          <div class="contador estado-zona_gris">
+            <dt>Sin revisar</dt>
+            <dd data-conteo="sin_revisar">{{ r.conteo.sin_revisar }}</dd>
+          </div>
+          <div class="contador marca">
+            <dt>Fuera de orden</dt>
+            <dd data-conteo="fuera_de_orden">{{ r.conteo.fuera_de_orden }}</dd>
+          </div>
+        </dl>
+        <p class="nota">
+          "Fuera de orden" es una marca: esos pasos ya están contados en su estado.
+        </p>
+      </section>
+
+      <section class="tarjeta tabla-contenedor">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th scope="col" class="col-miniatura"><span class="sr-only">Miniatura</span></th>
+              <th scope="col">Estado</th>
+              <th scope="col">Paso del SOP</th>
+              <th scope="col">Paso del video</th>
+              <th scope="col">Cita y segundo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (fila of r.filas; track $index; let i = $index) {
+              <tr
+                [class.marco]="!!fila.marco_operador"
+                [class.con-segundo]="tieneSegundo(fila)"
+                [class.activa]="filaActiva() === i"
+                (click)="irA(fila, i)"
+              >
+                <td class="col-miniatura"><div class="miniatura" aria-hidden="true"></div></td>
+                <td class="col-estado">
+                  <span class="estado-etiqueta" [class]="claseEstado(fila)">
+                    {{ etiquetaEstado(fila) }}
+                  </span>
+                  @if (fila.fuera_de_orden) {
+                    <span class="marca-orden">Fuera de orden</span>
+                  }
+                </td>
+                <td>
+                  @if (fila.paso_sop != null) {
+                    <span class="numero">{{ fila.paso_sop }}.</span> {{ fila.nombre_sop ?? '' }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td>{{ fila.nombre_video ?? '—' }}</td>
+                <td class="col-cita">
+                  @if (fila.cita) {
+                    <span class="cita">“{{ fila.cita }}”</span>
+                  } @else {
+                    <span class="sin-cita">—</span>
+                  }
+                  @if (fila.t_inicio != null) {
+                    <button
+                      type="button"
+                      class="segundo"
+                      [attr.aria-label]="'Ir al segundo ' + mmss(fila.t_inicio) + ' del video'"
+                    >
+                      {{ mmss(fila.t_inicio) }}
+                    </button>
+                  }
+                  @if (muestraJustificacion(fila)) {
+                    <p class="justificacion">{{ fila.justificacion }}</p>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    } @else {
+      @if (estado(); as e) {
+        <section class="tarjeta estado">
+          <p>
+            <strong>Proceso:</strong> {{ e.proceso }}
+            @if (e.etapa) {
+              · <strong>Etapa:</strong> {{ e.etapa }}
+            }
+          </p>
+          <label for="progreso">Progreso: {{ e.progreso }} %</label>
+          <progress id="progreso" max="100" [value]="e.progreso"></progress>
+          @if (e.proceso === 'error') {
+            <p class="error" role="alert">{{ e.error || 'El procesamiento falló.' }}</p>
+          }
+        </section>
+      } @else if (!errorConsulta()) {
+        <p>Consultando el estado del video…</p>
+      }
+    }
+
+    @if (errorConsulta(); as mensaje) {
+      <p class="error" role="alert">{{ mensaje }}</p>
+    }
+  </div>
+</div>

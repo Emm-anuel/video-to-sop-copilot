@@ -16,7 +16,7 @@ son de S5 y S6.
 
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
-| `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Pendiente. Mientras tanto hay un componente provisional que solo muestra el estado, el porcentaje y el conteo; Sara lo reemplaza |
+| `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
 | `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` y luego `POST /videos` con `modo=validar` y `sop_id`; al recibir el 202 navega al reporte | Emmanuel | Hecho (7 nov): `src/app/nuevo/` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin

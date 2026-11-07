@@ -21,3 +21,8 @@ h1 {
   font-size: 1.5rem;
   margin: 0 0 1rem;
 }
+
+// El reporte (RF-20) usa dos columnas: necesita más ancho que el resto de las pantallas.
+.contenido:has(> app-reporte) {
+  max-width: 90rem;
+}

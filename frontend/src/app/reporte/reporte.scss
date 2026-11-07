@@ -1,0 +1,289 @@
+// Escritorio: tabla a la izquierda y video fijo a la derecha. Angosto: video arriba, tabla abajo.
+.disposicion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'lateral' 'principal';
+  gap: 1rem;
+}
+
+.principal {
+  grid-area: principal;
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.lateral {
+  grid-area: lateral;
+}
+
+@media (min-width: 64rem) {
+  .disposicion {
+    grid-template-columns: minmax(0, 3fr) minmax(18rem, 2fr);
+    grid-template-areas: 'principal lateral';
+    align-items: start;
+  }
+
+  .reproductor {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.tarjeta {
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.estado,
+.encabezado {
+  display: grid;
+  gap: 0.5rem;
+
+  progress {
+    width: 100%;
+  }
+}
+
+video {
+  display: block;
+  width: 100%;
+  background: #000;
+  border-radius: 0.5rem;
+}
+
+.error,
+.aviso-video {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 0.3rem;
+}
+
+.sop-codigo {
+  margin-right: 0.5rem;
+  font-weight: 700;
+}
+
+.cumplimiento {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.6rem;
+}
+
+.semaforo {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+}
+
+.semaforo-verde {
+  background: #12b76a;
+}
+
+.semaforo-amarillo {
+  background: #fdb022;
+}
+
+.semaforo-rojo {
+  background: #f04438;
+}
+
+.semaforo-texto {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.avisos {
+  padding: 0.75rem;
+  background: #fffaeb;
+  border: 1px solid #fec84b;
+  border-radius: 0.3rem;
+
+  ul {
+    margin: 0.35rem 0 0;
+    padding-left: 1.25rem;
+  }
+}
+
+.resumen-principal {
+  font-size: 1.15rem;
+}
+
+.contadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+
+  dt,
+  dd {
+    display: inline;
+    margin: 0;
+  }
+
+  dd {
+    margin-left: 0.35rem;
+    font-weight: 700;
+  }
+}
+
+.contador {
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+}
+
+.nota {
+  font-size: 0.85rem;
+  color: #667085;
+}
+
+.tabla-contenedor {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+
+  th,
+  td {
+    padding: 0.55rem 0.6rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #eaecf0;
+  }
+
+  th {
+    background: #f9fafb;
+    font-weight: 600;
+  }
+}
+
+tr.con-segundo {
+  cursor: pointer;
+
+  &:hover {
+    background: #f5f8ff;
+  }
+}
+
+tr.activa,
+tr.activa:hover {
+  background: #eef4ff;
+  box-shadow: inset 4px 0 0 #2e6ae6;
+}
+
+tr.marco {
+  color: #667085;
+  background: #f2f4f7;
+}
+
+.col-miniatura {
+  width: 4.5rem;
+}
+
+.miniatura {
+  width: 4rem;
+  aspect-ratio: 16 / 9;
+  background: #eaecf0;
+  border-radius: 0.25rem;
+}
+
+.estado-etiqueta,
+.marca-orden {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.marca-orden {
+  margin-top: 0.25rem;
+  color: #5925dc;
+  background: #f4f3ff;
+  border: 1px dashed #9b8afb;
+}
+
+.estado-cumple {
+  color: #05603a;
+  background: #d1fadf;
+}
+
+.estado-parcial {
+  color: #93370d;
+  background: #fef0c7;
+}
+
+.estado-falta {
+  color: #912018;
+  background: #fee4e2;
+}
+
+.estado-sobra {
+  color: #1849a9;
+  background: #d1e9ff;
+}
+
+.estado-zona_gris {
+  color: #344054;
+  background: #eaecf0;
+}
+
+.estado-marco {
+  color: #475467;
+  background: #fff;
+  border: 1px solid #d0d5dd;
+}
+
+.marca {
+  color: #5925dc;
+  background: #f4f3ff;
+}
+
+.segundo {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: #1849a9;
+  background: #fff;
+  border: 1px solid #84adff;
+  border-radius: 0.3rem;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid #2e6ae6;
+    outline-offset: 1px;
+  }
+}
+
+.tabla .justificacion {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #475467;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
