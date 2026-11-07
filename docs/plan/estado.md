@@ -33,6 +33,13 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
   reportes guardados.
 - **Ramas unidas (1 nov, `58a31ac`):** la validación se implementó dos veces en paralelo; quedó la de
   `143a06f`. "Validar sin LLM" pasó de ADR-017 a ADR-019. Lección: tomar el issue antes de empezar.
+- **Medición del MVP con repeticiones (`scripts/medir_mvp.py`, 7 nov):** Whisper una vez por
+  video y la validación 3 veces, con el commit registrado
+  ([`docs/adr/datos/mvp/mvp-20261107-1113.md`](../adr/datos/mvp/mvp-20261107-1113.md)). **B pasa
+  3/3** (2 *Falta*, la limpieza como *Sobra*, 66.7 % rojo). **A pasa 2/3**: 91.7 % y 100 % en verde;
+  en la otra corrida Gemma dejó un paso sin redactar, el paso 6 salió *Falta* y el reporte quedó
+  provisional (83.3 %, amarillo). A trae 4–6 *Sobra* falsos en cada corrida (absorción de
+  ADR-013). Para la demo, mostrar reportes ya procesados.
 - **Pendiente:** repositorio privado (NDA) antes del push, confirmar el CI tras el merge, grabar C–E
   (checkpoint del 15 nov) y correr `scripts/calibrar_umbrales.py` con ellos.
 

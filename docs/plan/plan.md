@@ -166,7 +166,8 @@ agrega la redacción; la búsqueda exacta no usa IA.
 | Una pantalla: tabla del reporte con cita, y el video que salta al segundo (RF-20, Sara). Opcional: `/nuevo` para subir SOP y video (Emmanuel, 7 nov). Detalle en `frontend/README.md` | Las otras pantallas, SOP generado, búsqueda |
 
 **Criterio de terminado:** el video A da ≥ 90 % en verde, sin *Falta*; el video B da 2 *Falta* y
-1 *Sobra*, cada uno con su segundo. Medido con el script de métricas, con el commit registrado.
+1 *Sobra*, cada uno con su segundo. Medido con el script de métricas, con el commit registrado
+(`scripts/medir_mvp.py`, varias repeticiones por video; informes en `docs/adr/datos/mvp/`).
 
 **Orden después del MVP:** (1) SOP generado, sobre los mismos pasos (video E) · (2) personas y tiempos
 (video C) · (3) contexto y afinidad (video D) · (4) fotogramas, lectura de PDF y Word, subida por partes
