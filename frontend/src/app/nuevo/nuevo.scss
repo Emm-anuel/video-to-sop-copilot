@@ -1,0 +1,86 @@
+form {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+}
+
+.campo {
+  display: grid;
+  gap: 0.35rem;
+}
+
+label {
+  font-weight: 600;
+}
+
+input[type='text'],
+select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #b8c0ca;
+  border-radius: 0.3rem;
+  font: inherit;
+}
+
+.campo-error,
+.error {
+  margin: 0;
+  color: #b42318;
+}
+
+.error {
+  padding: 0.75rem;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 0.3rem;
+}
+
+.nota {
+  margin: 0;
+  color: #475467;
+  font-size: 0.9rem;
+}
+
+.advertencias {
+  padding: 0.75rem;
+  background: #fffaeb;
+  border: 1px solid #fec84b;
+  border-radius: 0.3rem;
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    margin: 0.35rem 0 0;
+    padding-left: 1.25rem;
+  }
+}
+
+.subida {
+  display: grid;
+  gap: 0.35rem;
+
+  progress {
+    width: 100%;
+  }
+}
+
+button {
+  justify-self: start;
+  padding: 0.55rem 1.5rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: #1f6feb;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    background: #98a2b3;
+    cursor: not-allowed;
+  }
+}

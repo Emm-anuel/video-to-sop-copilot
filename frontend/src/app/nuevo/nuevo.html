@@ -1,0 +1,84 @@
+<h1>Validar un video contra un SOP</h1>
+
+<form [formGroup]="form" (ngSubmit)="validar()" novalidate>
+  <div class="campo">
+    <label for="sop">SOP de referencia (.md o .txt)</label>
+    <input
+      id="sop"
+      type="file"
+      accept=".md,.txt"
+      (change)="elegirSop($event)"
+      [disabled]="enviando()"
+    />
+    @if (intentado() && !archivoSop()) {
+      <p class="campo-error">Elige el archivo del SOP.</p>
+    }
+    @if (sopGuardado(); as sop) {
+      <p class="nota">SOP guardado como {{ sop.codigo }}: {{ sop.titulo }}</p>
+    }
+  </div>
+
+  <div class="campo">
+    <label for="video">Video (.mp4, .mov, .mkv o .webm)</label>
+    <input
+      id="video"
+      type="file"
+      accept=".mp4,.mov,.mkv,.webm"
+      (change)="elegirVideo($event)"
+      [disabled]="enviando()"
+    />
+    @if (intentado() && !archivoVideo()) {
+      <p class="campo-error">Elige el archivo del video.</p>
+    }
+  </div>
+
+  <div class="campo">
+    <label for="titulo">Título del video</label>
+    <input
+      id="titulo"
+      type="text"
+      formControlName="titulo"
+      [maxlength]="tituloMax"
+      [readonly]="enviando()"
+    />
+    @if (form.controls.titulo.invalid && (form.controls.titulo.touched || intentado())) {
+      <p class="campo-error">El título debe tener de 1 a {{ tituloMax }} caracteres.</p>
+    }
+  </div>
+
+  <div class="campo">
+    <label for="idioma">Idioma de la narración</label>
+    <select id="idioma" formControlName="idioma">
+      <option value="">Detectar solo</option>
+      <option value="es">es</option>
+      <option value="en">en</option>
+    </select>
+  </div>
+
+  @if (advertencias().length) {
+    <div class="advertencias" role="status">
+      <p>El SOP se guardó con advertencias:</p>
+      <ul>
+        @for (a of advertencias(); track $index) {
+          <li>{{ a.linea !== null ? 'Línea ' + a.linea + ': ' : '' }}{{ a.mensaje }}</li>
+        }
+      </ul>
+    </div>
+  }
+
+  @if (progreso() !== null) {
+    <div class="subida">
+      <label for="avance">Subiendo el video: {{ progreso() }} %</label>
+      <progress id="avance" max="100" [value]="progreso()"></progress>
+    </div>
+  }
+
+  @if (error(); as mensaje) {
+    <p class="error" role="alert">{{ mensaje }}</p>
+    @if (sopGuardado()) {
+      <p class="nota">El SOP ya quedó guardado: al validar de nuevo solo se sube el video.</p>
+    }
+  }
+
+  <button type="submit" [disabled]="enviando()">Validar</button>
+</form>

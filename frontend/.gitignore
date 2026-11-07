@@ -1,0 +1,7 @@
+# Dependencias y salidas de Angular (no se versionan)
+node_modules/
+dist/
+.angular/
+coverage/
+out-tsc/
+npm-debug.log

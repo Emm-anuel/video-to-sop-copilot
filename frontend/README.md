@@ -17,7 +17,7 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Pendiente. Mientras tanto hay un componente provisional que solo muestra el estado, el porcentaje y el conteo; Sara lo reemplaza |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` y luego `POST /videos` con `modo=validar` y `sop_id`; al recibir el 202 navega al reporte | Emmanuel | En curso (7 nov) |
+| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` y luego `POST /videos` con `modo=validar` y `sop_id`; al recibir el 202 navega al reporte | Emmanuel | Hecho (7 nov): `src/app/nuevo/` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -54,21 +54,37 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
 
 ## Desarrollo
 
-La API no tiene CORS. Angular usa un proxy que reenvía `/api` a la API sin el prefijo
-(`proxy.conf.json`, ejemplo en `docs/dev/api.md`):
+**Requisito:** Node 24 LTS (`^24.15.0`, en `package.json` › `engines`; `.nvmrc` dice `24`) y npm.
+Angular 22 se usa con `npx`, sin instalar nada global.
+
+La API no tiene CORS. `ng serve` usa el proxy de `proxy.conf.json` (ya configurado en
+`angular.json`): reenvía `/api` a `http://localhost:8000` sin el prefijo. El código siempre llama
+a `/api/...` (`src/app/api/api.service.ts`).
 
 ```powershell
 # API en el host (con GPU si hay), desde la raíz del repo; ver docs/dev/api.md
-uvicorn sopvid.plataforma.api.main:app --port 8000
+uvicorn sopvid.plataforma.api.main:app --host 127.0.0.1 --port 8000
 # en otra terminal
 cd frontend
 npm install
-npx ng serve --proxy-config proxy.conf.json   # http://localhost:4200
-npx ng test --watch=false
+npx ng serve              # http://localhost:4200 (con el proxy)
+npx ng test --watch=false # Vitest con jsdom, sin navegador
+npx ng build              # dist/sopvid
+npm run tipos             # regenera src/app/api/reporte-validacion.ts desde el esquema
 ```
 
-Para probar con datos reales: sube `tests/fixtures/sop_filtro_agua.md` con `POST /sops` y los
-videos A o B (viven fuera de git, en `media/` o donde los tenga cada quien) con `POST /videos`.
+- **Tipos:** `ReporteValidacion` (y `FilaReporte`, `ConteoReporte`, `Aviso`…) están en
+  `src/app/api/reporte-validacion.ts`, generado con `json-schema-to-typescript` desde
+  `docs/contrato/reporte.schema.json`. Se versiona y no se edita a mano: si cambia el esquema,
+  `npm run tipos`. `SopCreado`, `VideoCreado` y `EstadoVideo` van a mano en `src/app/api/tipos.ts`.
+- **Errores:** `mensajeDeError` (`src/app/api/errores.ts`) convierte un `HttpErrorResponse` en un
+  mensaje en español (sin conexión, 413, 415, 422 con el detalle de la API, 404).
+- **Estructura:** `src/app/nuevo/` (subir SOP y video), `src/app/reporte-provisional/` (estado y
+  porcentaje mientras llega RF-20; se reemplaza en `app.routes.ts`).
+
+Para probar con datos reales: en `/nuevo`, sube `tests/fixtures/sop_filtro_agua.md` y el video A
+o B (viven fuera de git, en `media/` o donde los tenga cada quien). La validación necesita Ollama
+arriba (ver `docs/dev/llm.md`); sin él, el video termina en `error` con "LLM no disponible".
 
 ## Reglas
 
