@@ -87,6 +87,66 @@
         </p>
       </section>
 
+      @if (comoSeObtuvo(); as c) {
+        <section class="tarjeta como-se-obtuvo" aria-labelledby="titulo-como-se-obtuvo">
+          <h2 id="titulo-como-se-obtuvo">Cómo se obtuvo</h2>
+          <div class="como-columnas">
+            <div>
+              <h3>Dónde corrió</h3>
+              @if (c.modelos; as modelos) {
+                <dl class="pares">
+                  @for (m of modelos; track m.clave) {
+                    <dt>{{ m.modelo }}</dt>
+                    <dd [attr.data-modelo]="m.clave">
+                      <span class="estado-etiqueta" [class]="claseDispositivo[m.tipo]">{{
+                        m.texto
+                      }}</span>
+                    </dd>
+                  }
+                  @if (c.gpu) {
+                    <dt>GPU del equipo</dt>
+                    <dd data-modelo="gpu">{{ c.gpu }}</dd>
+                  }
+                </dl>
+              } @else {
+                <p data-modelo="no-registrado">{{ noRegistrado }}</p>
+              }
+            </div>
+            <div>
+              <h3>Cuánto tardó</h3>
+              <dl class="pares">
+                @for (e of c.etapas; track e.clave) {
+                  <dt>
+                    {{ e.nombre }}
+                    @if (e.clave === 'segmentacion' && c.heuristica) {
+                      <span>(heurística de respaldo)</span>
+                    }
+                  </dt>
+                  <dd class="cifra" [attr.data-etapa]="e.clave">
+                    {{ formatoSegundos(e.segundos) }}
+                  </dd>
+                }
+                <dt class="total">Total</dt>
+                <dd class="cifra total" data-etapa="total">{{ formatoSegundos(c.total) }}</dd>
+              </dl>
+            </div>
+          </div>
+          <details class="umbrales">
+            <summary>Modelos y umbrales</summary>
+            <p>
+              Modelo de lenguaje: {{ r.metadatos.modelo_llm ?? '—' }} · Embedder:
+              {{ r.metadatos.embedder }}
+            </p>
+            <p>
+              Similitud: bajo {{ r.metadatos.umbrales.bajo }} · alto
+              {{ r.metadatos.umbrales.alto }} · fusión {{ r.metadatos.umbrales.fusion }} · Semáforo:
+              verde {{ r.metadatos.umbrales.semaforo_verde }} · amarillo
+              {{ r.metadatos.umbrales.semaforo_amarillo }}
+            </p>
+          </details>
+        </section>
+      }
+
       <section class="tarjeta tabla-contenedor">
         <table class="tabla">
           <thead>

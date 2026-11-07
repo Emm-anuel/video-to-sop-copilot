@@ -5,7 +5,16 @@ import { ActivatedRoute } from '@angular/router';
 import { EMPTY, catchError, filter, map, switchMap, takeWhile, tap, timer } from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
-import { Estado, FilaReporte, ReporteValidacion, Semaforo, Tipo } from '../api/reporte-validacion';
+import {
+  Dispositivos,
+  Estado,
+  FilaReporte,
+  Llm,
+  ReporteValidacion,
+  Segundos,
+  Semaforo,
+  Tipo,
+} from '../api/reporte-validacion';
 import { EstadoVideo } from '../api/tipos';
 
 /** Cada cuánto se consulta `GET /videos/{id}` mientras el video está en cola o en proceso. */
@@ -34,6 +43,128 @@ const ETIQUETA_AVISO: Record<Tipo, string> = {
 };
 
 const ETIQUETA_MARCO = { intro: 'Intro del operador', cierre: 'Cierre del operador' } as const;
+
+/** Dónde corrió un modelo (`metadatos.dispositivos`, ADR-018). */
+const ETIQUETA_DISPOSITIVO: Record<Llm, string> = {
+  gpu: 'GPU',
+  cpu: 'CPU',
+  desconocido: 'Desconocido',
+};
+
+/** Etapas de `metadatos.segundos`. */
+type Etapa = 'duracion' | 'audio' | 'transcripcion' | 'segmentacion' | 'emparejamiento';
+
+const ETIQUETA_ETAPA: Record<Etapa, string> = {
+  duracion: 'Duración',
+  audio: 'Audio',
+  transcripcion: 'Transcripción',
+  segmentacion: 'Pasos del video',
+  emparejamiento: 'Emparejamiento',
+};
+
+/** Orden en que corren las etapas (y en que se muestran). */
+const ORDEN_ETAPAS: readonly Etapa[] = [
+  'duracion',
+  'audio',
+  'transcripcion',
+  'segmentacion',
+  'emparejamiento',
+];
+
+/** Color de la etiqueta del dispositivo, con las clases de los estados (reporte.scss). */
+const CLASE_DISPOSITIVO: Record<DispositivoModelo['tipo'], string> = {
+  gpu: 'estado-cumple',
+  cpu: 'estado-sobra',
+  respaldo: 'estado-parcial',
+  otro: 'estado-zona_gris',
+};
+
+export const NO_REGISTRADO = 'No registrado (reporte anterior al 27 oct)';
+export const NO_CORRIO = 'No corrió (solo se repitió la validación)';
+export const RESPALDO_CPU = 'CPU (respaldo: falló la GPU)';
+
+/** Una fila de "Dónde corrió": el modelo y su dispositivo ya como texto. */
+export interface DispositivoModelo {
+  clave: 'transcripcion' | 'llm' | 'embedder';
+  modelo: string;
+  texto: string;
+  /** Solo para el color de la etiqueta; el texto ya dice lo mismo. */
+  tipo: 'gpu' | 'cpu' | 'respaldo' | 'otro';
+}
+
+export interface TiempoEtapa {
+  clave: Etapa;
+  nombre: string;
+  segundos: number;
+}
+
+function tipoDispositivo(dispositivo: Llm): DispositivoModelo['tipo'] {
+  return dispositivo === 'desconocido' ? 'otro' : dispositivo;
+}
+
+/**
+ * Dónde corrió cada modelo, tal como lo guardó el backend; `null` si el reporte no lo registró
+ * (anterior al 27 oct). `transcripcion` en null: Whisper no corrió porque solo se repitió la
+ * validación (ADR-019).
+ */
+export function dispositivosDeModelos(
+  dispositivos: Dispositivos | null | undefined,
+  modeloLlm: string | null | undefined,
+): DispositivoModelo[] | null {
+  if (!dispositivos) {
+    return null;
+  }
+  let whisper: Pick<DispositivoModelo, 'texto' | 'tipo'>;
+  if (dispositivos.transcripcion_respaldo_cpu) {
+    whisper = { texto: RESPALDO_CPU, tipo: 'respaldo' };
+  } else if (dispositivos.transcripcion == null) {
+    whisper = { texto: NO_CORRIO, tipo: 'otro' };
+  } else {
+    whisper = {
+      texto: ETIQUETA_DISPOSITIVO[dispositivos.transcripcion],
+      tipo: tipoDispositivo(dispositivos.transcripcion),
+    };
+  }
+  const llm = dispositivos.llm ?? 'desconocido';
+  const embedder = dispositivos.embedder ?? 'desconocido';
+  return [
+    { clave: 'transcripcion', modelo: 'Transcripción (Whisper)', ...whisper },
+    {
+      clave: 'llm',
+      modelo: `Pasos y juez (${modeloLlm ?? 'modelo de lenguaje'})`,
+      texto: ETIQUETA_DISPOSITIVO[llm],
+      tipo: tipoDispositivo(llm),
+    },
+    {
+      clave: 'embedder',
+      modelo: 'Emparejamiento (MiniLM)',
+      texto: ETIQUETA_DISPOSITIVO[embedder],
+      tipo: tipoDispositivo(embedder),
+    },
+  ];
+}
+
+/**
+ * Las etapas presentes en `segundos`, en el orden en que corren. Al repetir solo la validación
+ * faltan duracion, audio y transcripcion.
+ */
+export function etapasConTiempo(segundos: Segundos): TiempoEtapa[] {
+  return ORDEN_ETAPAS.filter((clave) => typeof segundos[clave] === 'number').map((clave) => ({
+    clave,
+    nombre: ETIQUETA_ETAPA[clave],
+    segundos: segundos[clave],
+  }));
+}
+
+/** Suma de las etapas presentes: lo único que se calcula en "Cómo se obtuvo". */
+export function totalSegundos(etapas: readonly TiempoEtapa[]): number {
+  return etapas.reduce((suma, etapa) => suma + etapa.segundos, 0);
+}
+
+/** Segundos con un decimal: `11.8 s`. */
+export function formatoSegundos(segundos: number): string {
+  return `${segundos.toFixed(1)} s`;
+}
 
 /** Segundos de la transcripción como `mm:ss` (los minutos pueden pasar de 59). */
 export function mmss(segundos: number): string {
@@ -81,8 +212,27 @@ export class Reporte {
     return inicio == null ? null : ((this.fin() ?? this.ahora()) - inicio) / 1000;
   });
 
+  /** Recuadro "Cómo se obtuvo": dónde corrió cada modelo y cuánto tardó cada etapa. */
+  protected readonly comoSeObtuvo = computed(() => {
+    const metadatos = this.reporte()?.metadatos;
+    if (!metadatos) {
+      return null;
+    }
+    const etapas = etapasConTiempo(metadatos.segundos ?? {});
+    return {
+      modelos: dispositivosDeModelos(metadatos.dispositivos, metadatos.modelo_llm),
+      gpu: metadatos.dispositivos?.gpu ?? null,
+      etapas,
+      total: totalSegundos(etapas),
+      heuristica: metadatos.segmentacion === 'heuristica',
+    };
+  });
+
   protected readonly etiquetaSemaforo = ETIQUETA_SEMAFORO;
   protected readonly mmss = mmss;
+  protected readonly formatoSegundos = formatoSegundos;
+  protected readonly noRegistrado = NO_REGISTRADO;
+  protected readonly claseDispositivo = CLASE_DISPOSITIVO;
 
   constructor() {
     timer(0, 1000)

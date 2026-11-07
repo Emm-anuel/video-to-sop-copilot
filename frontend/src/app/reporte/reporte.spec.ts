@@ -7,7 +7,18 @@ import ejemplo from '../../../../tests/fixtures/reporte_ejemplo.json';
 import ejemploProvisional from '../../../../tests/fixtures/reporte_ejemplo_provisional.json';
 import { ReporteValidacion } from '../api/reporte-validacion';
 import { EstadoVideo, Proceso } from '../api/tipos';
-import { INTERVALO_MS, Reporte, mmss } from './reporte';
+import {
+  INTERVALO_MS,
+  NO_CORRIO,
+  NO_REGISTRADO,
+  RESPALDO_CPU,
+  Reporte,
+  dispositivosDeModelos,
+  etapasConTiempo,
+  formatoSegundos,
+  mmss,
+  totalSegundos,
+} from './reporte';
 
 const ESTADO = '/api/videos/7';
 const REPORTE = '/api/videos/7/reporte';
@@ -38,6 +49,52 @@ describe('mmss', () => {
     expect(mmss(74.2)).toBe('01:14');
     expect(mmss(152.16)).toBe('02:32');
     expect(mmss(3725)).toBe('62:05');
+  });
+});
+
+/** Copia del ejemplo normal con cambios en `metadatos`, sin tocar el JSON. */
+function conMetadatos(
+  cambios: (metadatos: ReporteValidacion['metadatos']) => void,
+): ReporteValidacion {
+  const copia = structuredClone(NORMAL);
+  cambios(copia.metadatos);
+  return copia;
+}
+
+describe('Cómo se obtuvo (funciones puras)', () => {
+  it('formatoSegundos deja un decimal', () => {
+    expect(formatoSegundos(11.8)).toBe('11.8 s');
+    expect(formatoSegundos(0.48)).toBe('0.5 s');
+    expect(formatoSegundos(74)).toBe('74.0 s');
+  });
+
+  it('etapasConTiempo sigue el orden de las etapas, no el del objeto, y omite las ausentes', () => {
+    const etapas = etapasConTiempo({ emparejamiento: 1.9, segmentacion: 15.6, audio: 0.9 });
+    expect(etapas.map((e) => e.nombre)).toEqual(['Audio', 'Pasos del video', 'Emparejamiento']);
+    expect(totalSegundos(etapas)).toBeCloseTo(18.4);
+    expect(totalSegundos([])).toBe(0);
+  });
+
+  it('dispositivosDeModelos traduce cada caso', () => {
+    expect(dispositivosDeModelos(null, 'gemma')).toBeNull();
+    expect(dispositivosDeModelos(undefined, 'gemma')).toBeNull();
+
+    const gpu = dispositivosDeModelos(NORMAL.metadatos.dispositivos, 'gemma4:e4b')!;
+    expect(gpu.map((d) => [d.modelo, d.texto])).toEqual([
+      ['Transcripción (Whisper)', 'GPU'],
+      ['Pasos y juez (gemma4:e4b)', 'GPU'],
+      ['Emparejamiento (MiniLM)', 'CPU'],
+    ]);
+
+    const respaldo = dispositivosDeModelos(
+      { transcripcion: 'cpu', transcripcion_respaldo_cpu: true, llm: 'cpu', embedder: 'cpu' },
+      null,
+    )!;
+    expect(respaldo[0].texto).toBe(RESPALDO_CPU);
+    expect(respaldo[1].modelo).toBe('Pasos y juez (modelo de lenguaje)');
+
+    const desconocido = dispositivosDeModelos({ transcripcion: 'desconocido' }, 'gemma')!;
+    expect(desconocido.map((d) => d.texto)).toEqual(['Desconocido', 'Desconocido', 'Desconocido']);
   });
 });
 
@@ -88,6 +145,102 @@ describe('Reporte', () => {
     http.expectOne(ESTADO).flush(estado('listo'));
     http.expectOne(REPORTE).flush(reporte);
   }
+
+  describe('recuadro "Cómo se obtuvo"', () => {
+    function recuadro(): HTMLElement {
+      return pantalla().querySelector('.como-se-obtuvo') as HTMLElement;
+    }
+
+    function dato(atributo: 'modelo' | 'etapa', clave: string): string | null {
+      const el = recuadro().querySelector(`[data-${atributo}="${clave}"]`);
+      return el ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : null;
+    }
+
+    it('con el ejemplo normal: GPU para Whisper y Gemma, el nombre de la GPU y el total', () => {
+      llegaReporte(NORMAL);
+
+      expect(recuadro().querySelector('h2')?.textContent).toContain('Cómo se obtuvo');
+      expect(recuadro().textContent).toContain('Transcripción (Whisper)');
+      expect(recuadro().textContent).toContain('Pasos y juez (gemma4:e4b-it-q4_K_M)');
+      expect(dato('modelo', 'transcripcion')).toBe('GPU');
+      expect(dato('modelo', 'llm')).toBe('GPU');
+      expect(dato('modelo', 'embedder')).toBe('CPU');
+      expect(dato('modelo', 'gpu')).toBe('GPU de ejemplo');
+
+      const etapas = Array.from(recuadro().querySelectorAll('[data-etapa]')).map((dd) => [
+        dd.previousElementSibling?.textContent?.trim(),
+        dd.textContent?.trim(),
+      ]);
+      expect(etapas).toEqual([
+        ['Duración', '0.2 s'],
+        ['Audio', '0.6 s'],
+        ['Transcripción', '11.8 s'],
+        ['Pasos del video', '74.3 s'],
+        ['Emparejamiento', '9.6 s'],
+        ['Total', '96.5 s'],
+      ]);
+      expect(recuadro().textContent).not.toContain('heurística');
+
+      // Accesible: lista de definiciones; los umbrales, en un <details> cerrado.
+      expect(recuadro().querySelectorAll('dl dt').length).toBeGreaterThan(0);
+      const umbrales = recuadro().querySelector('details') as HTMLDetailsElement;
+      expect(umbrales.open).toBe(false);
+      expect(umbrales.textContent).toContain('bajo 0.55');
+      expect(umbrales.textContent).toContain('verde 90');
+
+      // Solo presentación: porcentaje, semáforo y filas siguen tal como vienen.
+      expect(pantalla().querySelector('.porcentaje')?.textContent).toContain('71.43 %');
+      expect(pantalla().querySelector('.semaforo-amarillo')).not.toBeNull();
+      expect(filas()).toHaveLength(NORMAL.filas.length);
+    });
+
+    it('con dispositivos en null dice "No registrado…" y sigue mostrando los tiempos', () => {
+      llegaReporte(conMetadatos((m) => (m.dispositivos = null)));
+
+      expect(dato('modelo', 'no-registrado')).toBe(NO_REGISTRADO);
+      expect(dato('modelo', 'transcripcion')).toBeNull();
+      expect(dato('modelo', 'gpu')).toBeNull();
+      expect(dato('etapa', 'total')).toBe('96.5 s');
+    });
+
+    it('al repetir solo la validación: Whisper "No corrió…" y el total suma solo dos etapas', () => {
+      llegaReporte(
+        conMetadatos((m) => {
+          m.dispositivos!.transcripcion = null;
+          m.segundos = { segmentacion: 20.4, emparejamiento: 0.48 };
+        }),
+      );
+
+      expect(dato('modelo', 'transcripcion')).toBe(NO_CORRIO);
+      expect(dato('modelo', 'llm')).toBe('GPU');
+      expect(dato('etapa', 'duracion')).toBeNull();
+      expect(dato('etapa', 'audio')).toBeNull();
+      expect(dato('etapa', 'transcripcion')).toBeNull();
+      expect(dato('etapa', 'segmentacion')).toBe('20.4 s');
+      expect(dato('etapa', 'emparejamiento')).toBe('0.5 s');
+      expect(dato('etapa', 'total')).toBe('20.9 s');
+    });
+
+    it('con transcripcion_respaldo_cpu dice que Whisper cayó a CPU', () => {
+      llegaReporte(
+        conMetadatos((m) => {
+          m.dispositivos!.transcripcion = 'cpu';
+          m.dispositivos!.transcripcion_respaldo_cpu = true;
+        }),
+      );
+
+      expect(dato('modelo', 'transcripcion')).toBe(RESPALDO_CPU);
+      expect(dato('modelo', 'llm')).toBe('GPU');
+    });
+
+    it('con segmentación heurística lo indica junto a "Pasos del video"', () => {
+      llegaReporte(conMetadatos((m) => (m.segmentacion = 'heuristica')));
+
+      const dt = recuadro().querySelector('[data-etapa="segmentacion"]')?.previousElementSibling;
+      expect(dt?.textContent).toContain('Pasos del video');
+      expect(dt?.textContent).toContain('(heurística de respaldo)');
+    });
+  });
 
   it('consulta cada 3 s y, con "listo", pide el reporte y lo muestra', () => {
     vi.advanceTimersByTime(0);

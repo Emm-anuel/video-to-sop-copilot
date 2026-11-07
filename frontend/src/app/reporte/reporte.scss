@@ -167,6 +167,53 @@ video {
   color: #667085;
 }
 
+// "Cómo se obtuvo": discreto, letra pequeña, dos columnas que se apilan en angosto.
+.como-se-obtuvo {
+  font-size: 0.85rem;
+  color: #475467;
+
+  h2 {
+    margin: 0 0 0.4rem;
+    font-size: 0.95rem;
+  }
+
+  h3 {
+    margin: 0 0 0.25rem;
+    font-size: 0.8rem;
+  }
+}
+
+.como-columnas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.5rem 1.5rem;
+}
+
+.pares {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.75rem;
+  margin: 0;
+
+  dd {
+    margin: 0;
+  }
+}
+
+.cifra {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.total {
+  border-top: 1px solid #eaecf0;
+  font-weight: 700;
+}
+
+.umbrales {
+  margin-top: 0.5rem;
+}
+
 .tabla-contenedor {
   overflow-x: auto;
   padding: 0;

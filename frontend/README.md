@@ -4,9 +4,9 @@ Interfaz web de SOPVID en Angular (componentes standalone, sin librerías de est
 Consume la API de `sopvid.plataforma.api`; el contrato de rutas está en
 [`docs/dev/api.md`](../docs/dev/api.md).
 
-> **Estado al 7 nov 2026:** la carpeta todavía no tiene el proyecto Angular. Emmanuel lo crea el
-> 7 nov con la base y la pantalla `/nuevo`. Sara construye la pantalla del reporte (RF-20) sobre esa
-> base: haz `git pull` antes de empezar y **no generes otro proyecto** en esta carpeta.
+> **Estado al 7 nov 2026:** la base del proyecto Angular y la pantalla `/nuevo` están en `main`
+> (`9363bbd`). La pantalla del reporte (RF-20) se construye sobre esa base: haz `git pull` antes de
+> empezar y **no generes otro proyecto** en esta carpeta.
 
 ## Pantallas del MVP (8 nov 2026)
 
@@ -22,6 +22,21 @@ son de S5 y S6.
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
 carcasa) que, al darle clic, salta a ~74 s.
+
+### `/nuevo` no es provisional
+
+El único componente provisional fue el del reporte, que reemplaza RF-20. `/nuevo` se queda: es la
+base de la pantalla **"Nuevo análisis"** del documento SOP V1.0 y en S5 se amplía sobre el mismo
+componente, sin rehacerlo. Hoy cubre solo el camino del MVP: un SOP nuevo en Markdown o TXT, modo
+`validar` y subida simple. Le falta:
+
+| Qué falta | RF | Semana |
+|---|---|---|
+| Elegir el modo: SOP de la biblioteca, subir uno nuevo o sin SOP (modo `generar`) | RF-07, RF-02 | S5 |
+| Leer el SOP en PDF y Word, no solo Markdown o TXT | RF-01 | S5 |
+| Mostrar el SOP convertido para corregirlo antes de validar | RF-04 | S5 |
+| Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | S5 |
+| Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | S5 |
 
 ## Pantalla del reporte (RF-20): lo que hay que saber
 
