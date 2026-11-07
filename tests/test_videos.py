@@ -341,7 +341,62 @@ def test_error_inesperado_sin_texto_del_video(
     assert "manómetro" not in estado["error"]
 
 
-@pytest.mark.parametrize("sufijo", ["", "/transcripcion.txt", "/analisis", "/reporte"])
+# ── Archivo del video (RF-20) ────────────────────────────────────────────────
+
+VIDEO_FALSO = bytes(range(256)) * 16  # 4 KB, cada byte distinto de su vecino
+
+
+def test_video_completo_con_accept_ranges(client: TestClient, entorno: Entorno) -> None:
+    video_id = subir(client, VIDEO_FALSO).json()["id"]  # en cola: no hace falta el análisis
+
+    r = client.get(f"/videos/{video_id}/video")
+
+    assert r.status_code == 200
+    assert r.content == VIDEO_FALSO
+    assert r.headers["accept-ranges"] == "bytes"
+    assert r.headers["content-type"] == "video/mp4"
+
+
+def test_video_rango_cerrado(client: TestClient, entorno: Entorno) -> None:
+    video_id = subir(client, VIDEO_FALSO).json()["id"]
+
+    r = client.get(f"/videos/{video_id}/video", headers={"Range": "bytes=0-99"})
+
+    assert r.status_code == 206
+    assert r.content == VIDEO_FALSO[:100]
+    assert r.headers["content-range"] == f"bytes 0-99/{len(VIDEO_FALSO)}"
+
+
+def test_video_rango_abierto(client: TestClient, entorno: Entorno) -> None:
+    video_id = subir(client, VIDEO_FALSO).json()["id"]
+
+    r = client.get(f"/videos/{video_id}/video", headers={"Range": "bytes=100-"})
+
+    assert r.status_code == 206
+    assert r.content == VIDEO_FALSO[100:]
+    assert r.headers["content-range"] == f"bytes 100-{len(VIDEO_FALSO) - 1}/{len(VIDEO_FALSO)}"
+
+
+def test_video_rango_fuera_del_archivo(client: TestClient, entorno: Entorno) -> None:
+    video_id = subir(client, VIDEO_FALSO).json()["id"]
+
+    r = client.get(f"/videos/{video_id}/video", headers={"Range": f"bytes={len(VIDEO_FALSO)}-"})
+
+    assert r.status_code == 416
+    assert r.headers["content-range"] == f"bytes */{len(VIDEO_FALSO)}"
+
+
+def test_video_404_si_el_archivo_no_esta_en_disco(client: TestClient, entorno: Entorno) -> None:
+    video_id = subir(client, VIDEO_FALSO).json()["id"]
+    (entorno.settings.media_path / entorno.video(video_id).archivo).unlink()
+
+    r = client.get(f"/videos/{video_id}/video")
+
+    assert r.status_code == 404
+    assert "mensaje" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("sufijo", ["", "/transcripcion.txt", "/analisis", "/reporte", "/video"])
 def test_404_si_el_video_no_existe(client: TestClient, sufijo: str) -> None:
     r = client.get(f"/videos/999999999{sufijo}")
     assert r.status_code == 404

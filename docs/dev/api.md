@@ -15,9 +15,41 @@ RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
 | `GET /videos/{id}/reporte` | El `ReporteValidacion` (esquema en `docs/contrato/reporte.schema.json`; ejemplos en `tests/fixtures/reporte_ejemplo*.json`). **409** si no está listo, 404 si el video no tiene reporte (p. ej. modo generar) |
+| `GET /videos/{id}/video` | El archivo del video para el reproductor del reporte (RF-20), en cualquier estado (también en cola o en proceso). `Content-Type` según la extensión (`video/mp4`, …) y `Accept-Ranges: bytes`; con `Range` responde **206** con `Content-Range` (`bytes=a-b`, `bytes=a-`, `bytes=-n`) y **416** si el rango no cabe. 404 con `{"mensaje"}` si el archivo no está en disco |
 | `POST /videos/{id}/validar` | Repite solo la validación con la transcripción guardada, sin Whisper (ADR-019). **202**; 422 si el video no es de modo validar; 409 si está en cola o procesando, o si no tiene análisis guardado |
 
 Todas las rutas con `{id}` responden 404 si el video (o el SOP) no existe.
+
+### Para la pantalla del reporte (RF-20)
+
+La API no tiene CORS. En desarrollo, Angular pasa por un proxy (`proxy.conf.json`, con
+`ng serve --proxy-config proxy.conf.json`) que reenvía `/api` a la API sin el prefijo:
+
+```json
+{
+  "/api": {
+    "target": "http://localhost:8000",
+    "secure": false,
+    "pathRewrite": { "^/api": "" }
+  }
+}
+```
+
+El reproductor apunta a la ruta del video y salta al segundo de cada hallazgo con el `t_inicio`
+de la fila del reporte (sale de la transcripción, regla 4). Como la API acepta `Range`, el
+navegador pide solo el tramo que necesita:
+
+```html
+<video #reproductor controls preload="metadata" [src]="'/api/videos/' + videoId + '/video'"></video>
+```
+
+```ts
+irA(fila: FilaReporte): void {
+  if (fila.t_inicio == null) return; // un Falta no tiene segundo en el video
+  this.reproductor.nativeElement.currentTime = fila.t_inicio;
+  this.reproductor.nativeElement.play();
+}
+```
 
 ## Validación (modo validar)
 

@@ -9,11 +9,13 @@ limita dos veces: `limitar_content_length` rechaza la petición antes de recibir
 En modo validar, `sop_id` es obligatorio y el trabajo sigue con la validación (pasos del video,
 emparejamiento y reporte). `POST /videos/{id}/validar` la repite sin volver a transcribir
 (ADR-019) y `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
+`GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
 
 import logging
+import mimetypes
 import re
 import shutil
 from collections.abc import Awaitable, Callable
@@ -22,7 +24,7 @@ from pathlib import Path, PurePosixPath
 from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -205,6 +207,26 @@ def transcripcion_txt(
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'inline; filename="transcripcion-{video.id}.txt"'},
     )
+
+
+@router.get("/videos/{video_id}/video", response_class=FileResponse)
+def archivo_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> FileResponse:
+    """El archivo del video para el reproductor del reporte (RF-20), en cualquier estado.
+
+    `FileResponse` de Starlette atiende `Range` (206 con `Content-Range`, 416 si el rango no
+    cabe) y anuncia `Accept-Ranges: bytes`, así que el navegador puede saltar al segundo de cada
+    hallazgo. La ruta sale de la fila, nunca de la petición.
+    """
+    video = _buscar(session, video_id)
+    ruta = settings.media_path / video.archivo
+    if not video.archivo or not ruta.is_file():
+        raise HTTPException(404, {"mensaje": "el archivo del video no está en disco"})
+    tipo = mimetypes.guess_type(ruta.name)[0] or "application/octet-stream"
+    return FileResponse(ruta, media_type=tipo)
 
 
 @router.get("/videos/{video_id}/analisis", response_model=Analisis)
