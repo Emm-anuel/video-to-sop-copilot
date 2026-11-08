@@ -254,8 +254,12 @@ nombres.
 
 **a) Quién hizo el paso**, en este orden:
 
-1. `PasoVideo.responsable`. En un paso fusionado con `responsables_distintos`, el responsable de
-   los originales que suman más tiempo (t_fin − t_inicio), con una nota.
+1. `PasoVideo.responsable`. En un paso fusionado con `responsables_distintos`, el del **original
+   citado** (el más parecido al paso del SOP, que ya aporta el nombre, la cita y el segundo de la
+   fila, ADR-013), con una nota que lista los demás; la búsqueda de nombres del punto 4 también
+   se limita a su tramo. *Primero se propuso "el que suma más tiempo"; el video C lo descartó
+   (ver Resultados): una fusión unió el original de quien cierra la llave con un fragmento más
+   largo de otra persona, y salía un distinto falso con la cita del primero. Decidido el 8 nov.*
 2. Si es el nombre de una persona de la ficha (el nombre, normalizado, aparece como palabras
    completas en el responsable): esa persona.
 3. Si es un rol: la persona de la ficha cuyo rol coincide, si es una sola; si no, queda como **rol
@@ -338,6 +342,8 @@ rol). La pantalla puede mostrarla como ayuda.
    con el cambio en el validador de P0.
 2. La validación con afinidad baja se detiene después de la ficha, antes de segmentar.
 3. Roles por núcleo y, cuando los dos lo traen, por complemento (opción C′, sección 3).
+4. Tras medir el video C: el responsable de un paso fusionado es el del original citado, no el
+   que suma más tiempo (sección 4).
 
 ## Resultados
 

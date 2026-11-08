@@ -262,20 +262,35 @@ def test_dos_personas_el_paso_en_tercera_persona_es_distinto(
     assert filas[0].similitud == 1.0 and filas[1].similitud is not None
 
 
-def test_paso_fusionado_toma_al_responsable_con_mas_tiempo(
+def test_paso_fusionado_toma_al_responsable_del_original_citado(
     comparador: per.ComparadorRoles,
 ) -> None:
-    originales = [_paso(1, 1, "Ana"), _paso(2, 2, "Beto")]  # 4.5 s y 4.5 s
-    originales[1] = originales[1].model_copy(update={"t_fin": 19.0})  # Beto: 9.5 s
-    fusionado = originales[1].model_copy(update={"numero": 1, "t_inicio": 4.5})
+    """Como en el video C: el original de Ana (el más parecido al paso del SOP, el que da la
+    cita) se fusiona con un fragmento más largo en que se nombra a Beto. Cuenta Ana."""
+    originales = [_paso(1, 1, "Ana"), _paso(2, 2, "Beto")]
+    originales[1] = originales[1].model_copy(update={"t_fin": 19.0})  # Beto: más tiempo
+    fusionado = originales[0].model_copy(update={"t_fin": 19.0})  # cita y nombre de Ana
     fusion = Fusion(numero=1, originales=[1, 2], paso_sop=1, citas=[p.cita for p in originales],
-                    similitudes=[0.8, 0.9], responsables_distintos=["Ana", "Beto"])  # fmt: skip
+                    similitudes=[0.9, 0.6], responsables_distintos=["Ana", "Beto"])  # fmt: skip
+    resultado = _resultado([fusionado], [fusion])
+    contexto = Contexto(personas=[ANA, BETO])
     [fila] = per.asignar_responsables(
-        _resultado([fusionado], [fusion]), _sop(TECNICO), Contexto(personas=[ANA, BETO]),
-        SEGMENTOS, originales, comparador=comparador,
-    )  # fmt: skip
-    assert (fila.estado, fila.observado) == ("distinto", "Beto (supervisor de turno)")
-    assert "paso fusionado con 2 responsables; se tomó el que ocupa más tiempo" in fila.nota
+        resultado, _sop(TECNICO), contexto, SEGMENTOS, originales, comparador=comparador
+    )
+    assert (fila.estado, fila.observado) == ("coincide", "Ana (técnica de mantenimiento)")
+    assert "paso fusionado con 2 responsables (Ana, Beto); se tomó el del original citado" in (
+        fila.nota
+    )
+    # Con el responsable vacío, el nombre se busca solo en el tramo del original citado: "Beto"
+    # se dice en el fragmento fusionado, pero no en el de Ana.
+    sin_responsable = [p.model_copy(update={"responsable": ""}) for p in originales]
+    vacio = resultado.model_copy(
+        update={"pasos_video": [fusionado.model_copy(update={"responsable": ""})]}
+    )
+    [fila] = per.asignar_responsables(
+        vacio, _sop(TECNICO), contexto, SEGMENTOS, sin_responsable, comparador=comparador
+    )
+    assert fila.estado != "distinto"
 
 
 def test_falta_y_sobra_no_llevan_responsable(comparador: per.ComparadorRoles) -> None:

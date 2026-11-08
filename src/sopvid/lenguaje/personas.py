@@ -37,6 +37,7 @@ from sopvid.contrato import (
     Confianza,
     Contexto,
     Elemento,
+    Fusion,
     PasoVideo,
     Persona,
     ResponsableFila,
@@ -273,8 +274,12 @@ def asignar_responsables(
     """El responsable de cada resultado de la clasificación, en su orden (§5.4, RF-15).
 
     Solo los pares (Cumple, Parcial, zona_gris, con o sin fuera de orden) llevan uno; Falta y
-    Sobra, None. `pasos_originales` son los pasos del video antes de fusionar: en un paso
-    fusionado con varios responsables, se toma el de los originales que suman más tiempo.
+    Sobra, None. En un paso fusionado (ADR-013) cuenta el **original citado**, el más parecido al
+    paso del SOP, que ya aporta el nombre, la cita y el segundo de la fila: su responsable (el del
+    paso fusionado) y, si hay que buscar nombres en la narración, solo su tramo
+    (`pasos_originales` son los pasos del video antes de fusionar; sin ellos, el tramo del paso
+    fusionado). Así la persona queda coherente con la evidencia que muestra la fila (decidido el
+    8 nov tras el video C, ADR-020).
     Quién hizo el paso, en orden (ADR-020 sección 4): el `responsable` del paso si es el nombre
     de una persona de la ficha o un rol que coincide con el de una sola; si viene vacío, el único
     nombre de la ficha que aparece en la narración del paso; si la ficha tiene una sola persona
@@ -294,12 +299,11 @@ def asignar_responsables(
         paso_video = resultado.pasos_video[paso.indice_video]
         fusion = resultado.fusiones[paso.indice_video]
         notas: list[str] = []
-        responsable = paso_video.responsable
+        tramo = _original_citado(paso_video, fusion, por_numero)
         if fusion.responsables_distintos:
-            responsable = _el_de_mas_tiempo(fusion.originales, por_numero, responsable)
             notas.append(
-                f"paso fusionado con {len(fusion.responsables_distintos)} responsables; "
-                "se tomó el que ocupa más tiempo"
+                f"paso fusionado con {len(fusion.responsables_distintos)} responsables "
+                f"({', '.join(fusion.responsables_distintos)}); se tomó el del original citado"
             )
         if not es_responsable_conocido(esperado):
             filas.append(
@@ -310,25 +314,26 @@ def asignar_responsables(
                 )
             )
             continue
-        quien = _quien(responsable, paso_video, personas, participantes, transcripcion, comparador)
+        quien = _quien(
+            paso_video.responsable, tramo, personas, participantes, transcripcion, comparador
+        )
         filas.append(_estado(esperado, quien, distinguibles, notas, comparador))
     estados = Counter(f.estado for f in filas if f is not None)
     logger.info("Responsables por paso: %s", dict(estados))
     return filas
 
 
-def _el_de_mas_tiempo(
-    originales: Sequence[int], por_numero: dict[int, PasoVideo], respaldo: str
-) -> str:
-    """El responsable que suma más tiempo (t_fin − t_inicio) entre los pasos originales; en
-    empate, el que aparece primero. Sin los originales, `respaldo`."""
-    tiempos: dict[str, float] = {}
-    for numero in originales:
-        if (p := por_numero.get(numero)) is not None:
-            tiempos[p.responsable] = tiempos.get(p.responsable, 0.0) + (p.t_fin - p.t_inicio)
-    if not tiempos:
-        return respaldo
-    return max(tiempos, key=lambda r: (tiempos[r], -list(tiempos).index(r)))
+def _original_citado(
+    paso: PasoVideo, fusion: Fusion, por_numero: dict[int, PasoVideo]
+) -> PasoVideo:
+    """El paso original cuya cita lleva el paso fusionado (el representante de ADR-013); sin
+    fusión o sin los originales, el mismo paso."""
+    if len(fusion.originales) == 1:
+        return paso
+    for numero, cita in zip(fusion.originales, fusion.citas, strict=True):
+        if cita == paso.cita and (original := por_numero.get(numero)) is not None:
+            return original
+    return paso
 
 
 def _quien(
