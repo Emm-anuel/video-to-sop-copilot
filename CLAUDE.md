@@ -186,6 +186,12 @@ docs/
 >   puestos por el código. Se guarda en `videos.contexto` solo si se generó (si no, NULL y aviso
 >   `contexto_sin_generar`); `GET /videos/{id}/contexto`. Los fotogramas ([f=N]) entran solo si
 >   existen. Medición CPU/GPU: `scripts/medir_contexto.py`, seguimiento en ADR-018.
+> - **Afinidad y personas (8 nov, rama `feat/afinidad-roles`, ADR-020):** `lenguaje/afinidad.py`
+>   (RF-17) y `lenguaje/personas.py` (RF-15), solo MiniLM y código. Afinidad < `AFINIDAD_MIN` detiene
+>   la validación tras la ficha con `proceso="afinidad_baja"` (migración `0005`);
+>   `POST /videos/{id}/validar?continuar=true` sigue. Roles por núcleo y complemento; *distinto*
+>   solo con una persona distinguible. Umbrales nuevos en `Settings`, sin calibrar. Medición:
+>   `scripts/medir_afinidad.py` (A–D pasan).
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
 >   MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
@@ -213,6 +219,7 @@ docs/
 | Medir CPU contra GPU con A y B (ADR-018) | — | `python scripts/medir_dispositivos.py --help` |
 | Medir la ficha de contexto en CPU y GPU (ADR-018) | — | `python scripts/medir_contexto.py --config gpu --config cpu video_a=…analisis.json` |
 | Medir Whisper en CPU contra la referencia (ADR-018) | — | `python scripts/medir_whisper.py --sop … video_a=…mp4` |
+| Medir afinidad y personas con los videos A–D (ADR-020) | — | `python scripts/medir_afinidad.py --sop … --sop-extra … --anotacion … video_a=…` |
 | Calibrar los umbrales / diagnosticar el emparejamiento | — | `python scripts/calibrar_umbrales.py --sop … --anotacion … video_a=… video_b=…` · `python scripts/diagnosticar_emparejamiento.py …` |
 
 Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok",

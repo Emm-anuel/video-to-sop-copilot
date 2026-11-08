@@ -345,11 +345,90 @@ rol). La pantalla puede mostrarla como ayuda.
 4. Tras medir el video C: el responsable de un paso fusionado es el del original citado, no el
    que suma más tiempo (sección 4).
 
-## Resultados
+## Resultados (8 nov 2026)
 
-_Pendiente: tabla con A, B, C y D contra `sop_filtro_agua.md`, A contra los dos SOP inventados, y
-las pruebas con fichas inventadas. Los videos C y D están en `data/synthetic/` (ignorado por git)
-y la anotación en `media/anotacion_ab.json`. Datos en `docs/adr/datos/afinidad/`._
+PC de referencia (RTX 2070 SUPER), Whisper `large-v3-turbo` en GPU, `gemma4:e4b-it-q4_K_M`,
+MiniLM en CPU, valores por defecto (sin calibrar): `AFINIDAD_COS_CERO=0.30`,
+`AFINIDAD_COS_CIEN=0.80`, `AFINIDAD_UMBRAL_EQUIPO=0.75`, `AFINIDAD_MIN=60`, `UMBRAL_ROL=0.85`,
+`UMBRAL_ROL_COMPLEMENTO=0.70`.
+
+**a) Fichas inventadas con MiniLM real** (`tests/test_afinidad.py -m lento`), contra
+`sop_filtro_agua.md` salvo la última:
+
+| Ficha | Afinidad | Componentes (global / actividad / objetivo / equipos) |
+|---|---|---|
+| Mismo procedimiento | 98 | 100 / 100 / 100 / 86 |
+| Procedimiento cercano (minisplit) | **60** | 76 / 64 / 66 / 14 |
+| Muy distinto (café) | 1 | 3 / 0 / 0 / 0 |
+| Dos procedimientos que solo comparten "línea, máquina, botón, panel" | 16 | 20 / 27 / 8 / 0 |
+
+**b) Videos reales** (`scripts/medir_afinidad.py`, una corrida por video, commit `f602c0f`;
+datos en `docs/adr/datos/afinidad/afinidad-20261108-1515.*`):
+
+| Video | Afinidad (componentes) | Se detiene | Roles del SOP | Responsables | Personas con dif. | Criterio |
+|---|---|---|---|---|---|---|
+| A contra el filtro | 75 (89 / 100 / 0 / 100) | no | técnico presente; supervisor ausente, sin pasos | 6 coincide | 0 | pasa |
+| B contra el filtro | 94 (100 / 100 / — / 71) | no | técnico presente; supervisor ausente, sin pasos | 4 coincide | 0 | pasa |
+| C contra el filtro | 97 (100 / 100 / — / 86) | no | técnico presente (Emanuel); supervisor presente (Sara), sin pasos | 5 coincide, 1 distinto (paso 4) | 1 | pasa |
+| D contra el filtro | 19 (63 / 0 / 0 / 0) | **sí** | técnico ausente | — (al continuar: 6 *Falta*, 10 *Sobra*) | 1 | pasa |
+
+Afinidad de las mismas fichas contra los SOP inventados:
+
+| Ficha de | `sop_otro_procedimiento.md` (café) | `sop_procedimiento_cercano.md` (minisplit) |
+|---|---|---|
+| A | 3 | 39 |
+| B | 12 | 55 |
+| C | 6 | 50 |
+| D | 0 | 6 |
+
+Explicaciones que armó el código, p. ej. A contra el filtro: "actividad parecida al título;
+propósito distinto del objetivo; 7 de 7 equipos del SOP en el video (Guantes de nitrilo, Lentes
+de seguridad, Llave de carcasa, …); lugar no mencionado en el video"; D: "actividad distinta del
+título; propósito distinto del objetivo; ningún equipo en común; lugar no mencionado en el video".
+
+Lo que dicen los números:
+
+1. **Margen de la afinidad.** El mismo procedimiento dio 75–97 con fichas reales; otro
+   procedimiento (D), 19; el cercano, 39–55 con las fichas reales y 60 con la ficha inventada
+   (justo en el umbral). El cercano se separa sobre todo por el equipo (1–2 de 5 o de 7): la
+   actividad y el objetivo de "cambiar un filtro" se parecen. **Primer mapeo propuesto: dejar
+   0.30 / 0.80 y `AFINIDAD_MIN=60`**: con los videos que hay, el hueco entre el mismo
+   procedimiento (mínimo 75) y uno distinto o cercano (máximo 55 con fichas reales) contiene al
+   60. Son cuatro videos de un solo SOP: falta calibrar con más procedimientos.
+2. **El global solo no habría bastado:** D da 63 en el componente global (comparte vocabulario
+   de planta con el filtro) y lo separan la actividad, el objetivo y el equipo. Confirma el
+   hallazgo 3 de la sonda.
+3. **Objetivo contra propósito es el componente más frágil.** En A dio 0: la ficha anotó el
+   motivo ("porque el manómetro marca menos de 2 bar") y el SOP la meta ("sin fugas y con la
+   presión restablecida"). En B y C la ficha dejó el propósito vacío (una corrida de B sí lo
+   llenó: 95 en la primera medición, 94 en esta); el componente se omite y su peso se reparte. Es
+   candidato a pesar menos al calibrar.
+4. **MiniLM distingue mayúsculas:** "Lentes de seguridad" ~ "lentes de seguridad" da 0.55. La
+   afinidad y los roles vectorizan en minúsculas, y los equipos y el lugar también coinciden si
+   las palabras de uno están en el otro. **Seguimiento:** el emparejamiento de pasos (ADR-012)
+   vectoriza el texto tal cual; revisar si conviene minúsculas al recalibrar sus umbrales.
+5. **Roles.** En los cuatro videos todas las comparaciones se decidieron por el núcleo (técnico
+   con técnico, forma base igual; supervisora con técnico, núcleos distintos): el complemento y
+   `UMBRAL_ROL_COMPLEMENTO` solo se ejercitaron en las pruebas. **Propuesta: dejar
+   `UMBRAL_ROL=0.85` y `UMBRAL_ROL_COMPLEMENTO=0.70`** hasta tener roles más variados. El
+   "Supervisor de turno" del SOP queda ausente en A y B y presente en C, sin contar como
+   diferencia (no es responsable de ningún paso).
+6. **Video C.** La primera medición (commit `10172ba`) dio *distinto* en los pasos 2 y 4: el
+   paso del video emparejado con SOP 2 era una fusión (ADR-013) del original de Emanuel cerrando
+   la llave (el que da la cita) con un fragmento más largo en que entra Sara, y la regla "el que
+   suma más tiempo" eligió a Sara. Con la regla del original citado (sección 4, decidida el 8
+   nov) queda un solo *distinto*, el paso 4. En ese paso la segmentación escribió
+   `PasoVideo.responsable = "Supervisora de turno"` y el camino fue el 3 de la sección 4.a (un rol
+   que coincide con el de una sola persona de la ficha, Sara). El camino de los nombres en la
+   narración no se ejercitó con videos reales, solo en las pruebas.
+7. **D.** Se detiene tras la ficha (sin segmentar). Al continuar, los 6 pasos del SOP quedan en
+   *Falta* y los del video en *Sobra* (intro y cierre marcados, ADR-016); el reporte lleva la
+   afinidad con `bajo_umbral=true`.
+8. **Regresión del MVP** (`scripts/medir_mvp.py`, A y B, 3 corridas, commit `10172ba`;
+   `docs/adr/datos/mvp/mvp-20261108-1502.*`): B pasa 3 de 3 (66.67 %, *Falta* 2 y 6, el
+   agregado como *Sobra*); A pasa 2 de 3 (100 %) y la otra no es válida por
+   `pasos_sin_redactar` (Gemma dio una cita de 3 palabras), la variación de Gemma que ya registra
+   ADR-018; este ADR no toca la segmentación. Ninguna corrida se detuvo por afinidad.
 
 ## Referencias
 

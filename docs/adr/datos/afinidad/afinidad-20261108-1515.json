@@ -1,0 +1,1051 @@
+{
+  "fecha": "2026-11-08T15:15:27",
+  "git": {
+    "commit": "f602c0f895da4bca476ebeae37ea267ec4cd6922",
+    "rama": "feat/afinidad-roles",
+    "cambios_sin_commit": 0
+  },
+  "sop": "tests/fixtures/sop_filtro_agua.md",
+  "sop_extra": [
+    "tests/fixtures/sop_otro_procedimiento.md",
+    "tests/fixtures/sop_procedimiento_cercano.md"
+  ],
+  "modelos": {
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "whisper": "large-v3-turbo"
+  },
+  "umbrales": {
+    "afinidad_min": 60.0,
+    "afinidad_cos_cero": 0.3,
+    "afinidad_cos_cien": 0.8,
+    "afinidad_umbral_equipo": 0.75,
+    "umbral_rol": 0.85,
+    "umbral_rol_complemento": 0.7
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "tipo": "mismo",
+      "repeticion": 1,
+      "duracion_s": 135.0,
+      "ficha": {
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "lugar": {
+          "valor": null,
+          "fuente": "inferido",
+          "confianza": "baja"
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho porque el manómetro marca menos de 2 bar",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "equipos": [
+          "guantes de nitrilo",
+          "lentes de seguridad",
+          "cubeta",
+          "llave de la carcasa",
+          "cartucho",
+          "bolsa de residuos",
+          "toalla de papel"
+        ],
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36
+          }
+        ]
+      },
+      "afinidad": {
+        "valor": 75,
+        "explicacion": "actividad parecida al título; propósito distinto del objetivo; 7 de 7 equipos del SOP en el video (Guantes de nitrilo, Lentes de seguridad, Llave de carcasa, …); lugar no mencionado en el video",
+        "bajo_umbral": false,
+        "componentes": {
+          "global": 89,
+          "actividad": 100,
+          "objetivo": 0,
+          "equipos": 100
+        }
+      },
+      "detenida": false,
+      "afinidad_extra": {
+        "sop_otro_procedimiento": {
+          "valor": 3,
+          "explicacion": "actividad distinta del título; propósito distinto del objetivo; ningún equipo en común; lugar no mencionado en el video",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 11,
+            "actividad": 0,
+            "objetivo": 0,
+            "equipos": 0
+          }
+        },
+        "sop_procedimiento_cercano": {
+          "valor": 39,
+          "explicacion": "actividad parecida al título; propósito distinto del objetivo; 2 de 5 equipos del SOP en el video (Guantes de nitrilo, Bolsa de residuos); lugar no mencionado en el video",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 41,
+            "actividad": 62,
+            "objetivo": 0,
+            "equipos": 40
+          }
+        }
+      },
+      "validacion": {
+        "cumplimiento": 100.0,
+        "semaforo": "verde",
+        "conteo": {
+          "Cumple": 6,
+          "Parcial": 0,
+          "Falta": 0,
+          "Sobra": 5,
+          "zona_gris": 0
+        },
+        "responsables": {
+          "coincide": 6
+        },
+        "personas_con_diferencias": 0,
+        "roles": [
+          {
+            "rol": "Técnico de mantenimiento",
+            "estado": "presente",
+            "t": 1.36,
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "persona": "técnico de mantenimiento",
+            "similitud": 1.0,
+            "confianza": "alta",
+            "con_pasos": true
+          },
+          {
+            "rol": "Supervisor de turno",
+            "estado": "ausente",
+            "t": null,
+            "cita": "",
+            "persona": null,
+            "similitud": null,
+            "confianza": null,
+            "con_pasos": false
+          }
+        ],
+        "filas": [
+          {
+            "estado": "Cumple",
+            "paso_sop": 1,
+            "paso_video": 2,
+            "t_inicio": 15.5,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 2,
+            "paso_video": 3,
+            "t_inicio": 31.28,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 3,
+            "paso_video": 6,
+            "t_inicio": 54.18,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 4,
+            "paso_video": 9,
+            "t_inicio": 72.1,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 5,
+            "paso_video": 10,
+            "t_inicio": 91.3,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 6,
+            "paso_video": 12,
+            "t_inicio": 112.46,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 1,
+            "t_inicio": 1.36,
+            "fuera_de_orden": false,
+            "marco_operador": "intro"
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 4,
+            "t_inicio": 49.24,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 5,
+            "t_inicio": 51.48,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 7,
+            "t_inicio": 66.86,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 8,
+            "t_inicio": 68.54,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 11,
+            "t_inicio": 110.0,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 13,
+            "t_inicio": 125.48,
+            "fuera_de_orden": false,
+            "marco_operador": "cierre"
+          }
+        ],
+        "avisos": [],
+        "segmentacion": "llm",
+        "segundos": {
+          "duracion": 0.07,
+          "audio": 0.54,
+          "transcripcion": 9.04,
+          "contexto": 9.88,
+          "afinidad": 14.69,
+          "segmentacion": 13.67,
+          "emparejamiento": 0.47,
+          "personas": 0.02
+        }
+      },
+      "segundos_total": 38.73,
+      "pasa": true,
+      "motivos": []
+    },
+    {
+      "video": "video_b",
+      "tipo": "mismo",
+      "repeticion": 1,
+      "duracion_s": 114.643,
+      "ficha": {
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "proposito": {
+          "valor": null,
+          "fuente": "inferido",
+          "confianza": "baja"
+        },
+        "equipos": [
+          "guantes de nitrilo",
+          "lentes de seguridad",
+          "cubeta",
+          "llave de carcasa",
+          "trapo",
+          "cartucho de filtro de agua",
+          "bolsa de residuos",
+          "agua limpia"
+        ],
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5
+          }
+        ]
+      },
+      "afinidad": {
+        "valor": 94,
+        "explicacion": "actividad parecida al título; propósito no identificado en el video; 5 de 7 equipos del SOP en el video (Guantes de nitrilo, Lentes de seguridad, Llave de carcasa, …); mismo lugar",
+        "bajo_umbral": false,
+        "componentes": {
+          "global": 100,
+          "actividad": 100,
+          "equipos": 71
+        }
+      },
+      "detenida": false,
+      "afinidad_extra": {
+        "sop_otro_procedimiento": {
+          "valor": 6,
+          "explicacion": "actividad distinta del título; propósito no identificado en el video; ningún equipo en común; lugar distinto",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 16,
+            "actividad": 0,
+            "equipos": 0
+          }
+        },
+        "sop_procedimiento_cercano": {
+          "valor": 55,
+          "explicacion": "actividad parecida al título; propósito no identificado en el video; 2 de 5 equipos del SOP en el video (Guantes de nitrilo, Bolsa de residuos); lugar distinto",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 56,
+            "actividad": 62,
+            "equipos": 40
+          }
+        }
+      },
+      "validacion": {
+        "cumplimiento": 66.67,
+        "semaforo": "rojo",
+        "conteo": {
+          "Cumple": 4,
+          "Parcial": 0,
+          "Falta": 2,
+          "Sobra": 1,
+          "zona_gris": 0
+        },
+        "responsables": {
+          "coincide": 4
+        },
+        "personas_con_diferencias": 0,
+        "roles": [
+          {
+            "rol": "Técnico de mantenimiento",
+            "estado": "presente",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague.",
+            "persona": "técnico de mantenimiento",
+            "similitud": 1.0,
+            "confianza": "alta",
+            "con_pasos": true
+          },
+          {
+            "rol": "Supervisor de turno",
+            "estado": "ausente",
+            "t": null,
+            "cita": "",
+            "persona": null,
+            "similitud": null,
+            "confianza": null,
+            "con_pasos": false
+          }
+        ],
+        "filas": [
+          {
+            "estado": "Cumple",
+            "paso_sop": 1,
+            "paso_video": 2,
+            "t_inicio": 17.0,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 2,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 3,
+            "paso_video": 3,
+            "t_inicio": 31.72,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 4,
+            "paso_video": 4,
+            "t_inicio": 49.94,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 5,
+            "paso_video": 6,
+            "t_inicio": 85.92,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "técnico de mantenimiento",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 6,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 1,
+            "t_inicio": 3.5,
+            "fuera_de_orden": false,
+            "marco_operador": "intro"
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 5,
+            "t_inicio": 74.12,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          }
+        ],
+        "avisos": [],
+        "segmentacion": "llm",
+        "segundos": {
+          "duracion": 0.57,
+          "audio": 0.42,
+          "transcripcion": 6.79,
+          "contexto": 10.21,
+          "afinidad": 0.56,
+          "segmentacion": 8.55,
+          "emparejamiento": 1.57,
+          "personas": 0.02
+        }
+      },
+      "segundos_total": 20.91,
+      "pasa": true,
+      "motivos": []
+    },
+    {
+      "video": "video_c",
+      "tipo": "distinto",
+      "repeticion": 1,
+      "duracion_s": 201.128,
+      "ficha": {
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "proposito": {
+          "valor": null,
+          "fuente": "inferido",
+          "confianza": "baja"
+        },
+        "equipos": [
+          "cartucho del filtro de agua",
+          "manómetro",
+          "equipo de protección",
+          "guantes de nitrilo",
+          "lentes de seguridad",
+          "cubeta",
+          "llave de carcasa",
+          "toalla de papel",
+          "cartucho nuevo",
+          "llave de paso"
+        ],
+        "personas": [
+          {
+            "nombre": "Emanuel",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.81
+          },
+          {
+            "nombre": "Sara",
+            "rol": "supervisora de turno",
+            "participacion": "participa",
+            "t": 124.3
+          }
+        ]
+      },
+      "afinidad": {
+        "valor": 97,
+        "explicacion": "actividad parecida al título; propósito no identificado en el video; 6 de 7 equipos del SOP en el video (Guantes de nitrilo, Lentes de seguridad, Llave de carcasa, …); mismo lugar",
+        "bajo_umbral": false,
+        "componentes": {
+          "global": 100,
+          "actividad": 100,
+          "equipos": 86
+        }
+      },
+      "detenida": false,
+      "afinidad_extra": {
+        "sop_otro_procedimiento": {
+          "valor": 6,
+          "explicacion": "actividad distinta del título; propósito no identificado en el video; ningún equipo en común; lugar distinto",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 16,
+            "actividad": 0,
+            "equipos": 0
+          }
+        },
+        "sop_procedimiento_cercano": {
+          "valor": 50,
+          "explicacion": "actividad parecida al título; propósito no identificado en el video; 1 de 5 equipos del SOP en el video (Guantes de nitrilo); lugar distinto",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 52,
+            "actividad": 62,
+            "equipos": 20
+          }
+        }
+      },
+      "validacion": {
+        "cumplimiento": 75.0,
+        "semaforo": "amarillo",
+        "conteo": {
+          "Cumple": 5,
+          "Parcial": 1,
+          "Falta": 0,
+          "Sobra": 0,
+          "zona_gris": 0
+        },
+        "responsables": {
+          "coincide": 5,
+          "distinto": 1
+        },
+        "personas_con_diferencias": 1,
+        "roles": [
+          {
+            "rol": "Técnico de mantenimiento",
+            "estado": "presente",
+            "t": 1.81,
+            "cita": "Buenos días, soy Emanuel, técnico de mantenimiento.",
+            "persona": "Emanuel (técnico de mantenimiento)",
+            "similitud": 1.0,
+            "confianza": "alta",
+            "con_pasos": true
+          },
+          {
+            "rol": "Supervisor de turno",
+            "estado": "presente",
+            "t": 124.3,
+            "cita": "Ahora entra mi compañera Sara, la supervisora de turno, y ella retira la carcasa.",
+            "persona": "Sara (supervisora de turno)",
+            "similitud": 1.0,
+            "confianza": "alta",
+            "con_pasos": false
+          }
+        ],
+        "filas": [
+          {
+            "estado": "Cumple",
+            "paso_sop": 1,
+            "paso_video": 2,
+            "t_inicio": 18.05,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "Emanuel (técnico de mantenimiento)",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 2,
+            "paso_video": 4,
+            "t_inicio": 109.71,
+            "fuera_de_orden": true,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "Emanuel (técnico de mantenimiento)",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol); paso fusionado con 2 responsables (Técnico de mantenimiento, Supervisora de turno); se tomó el del original citado"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 3,
+            "paso_video": 3,
+            "t_inicio": 79.45,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "Emanuel (técnico de mantenimiento)",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Parcial",
+            "paso_sop": 4,
+            "paso_video": 5,
+            "t_inicio": 141.88,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "Sara (supervisora de turno)",
+              "estado": "distinto",
+              "similitud": 0.5528,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Supervisora de turno"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 5,
+            "paso_video": 7,
+            "t_inicio": 176.64,
+            "fuera_de_orden": true,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "Emanuel (técnico de mantenimiento)",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Cumple",
+            "paso_sop": 6,
+            "paso_video": 6,
+            "t_inicio": 153.8,
+            "fuera_de_orden": false,
+            "marco_operador": null,
+            "responsable": {
+              "esperado": "Técnico de mantenimiento",
+              "observado": "Emanuel (técnico de mantenimiento)",
+              "estado": "coincide",
+              "similitud": 1.0,
+              "nota": "responsable del paso (rol)"
+            },
+            "responsable_del_paso": "Técnico de mantenimiento"
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 1,
+            "t_inicio": 6.19,
+            "fuera_de_orden": false,
+            "marco_operador": "intro"
+          }
+        ],
+        "avisos": [],
+        "segmentacion": "llm",
+        "segundos": {
+          "duracion": 0.11,
+          "audio": 1.03,
+          "transcripcion": 9.23,
+          "contexto": 9.59,
+          "afinidad": 0.56,
+          "segmentacion": 9.4,
+          "emparejamiento": 2.6,
+          "personas": 0.03
+        }
+      },
+      "segundos_total": 22.19,
+      "pasa": true,
+      "motivos": []
+    },
+    {
+      "video": "video_d",
+      "tipo": "otro_procedimiento",
+      "repeticion": 1,
+      "duracion_s": 167.829,
+      "ficha": {
+        "actividad": {
+          "valor": "Cambio de rollo de etiquetas en la etiquetadora",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "tema": {
+          "valor": "Envasado",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "lugar": {
+          "valor": null,
+          "fuente": "inferido",
+          "confianza": "baja"
+        },
+        "proposito": {
+          "valor": "Finalizar el cambio del rollo de etiquetas",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        "equipos": [
+          "etiquetadora",
+          "panel",
+          "banda transportadora",
+          "puerta de acrílico",
+          "portarrollos",
+          "contenedor de reciclaje de cartón",
+          "rodillo",
+          "sensor",
+          "rebobinador",
+          "cinta adhesiva",
+          "botellas"
+        ],
+        "personas": [
+          {
+            "nombre": "Emanuel",
+            "rol": "operador de la línea de envasado",
+            "participacion": "participa",
+            "t": 1.87
+          }
+        ]
+      },
+      "afinidad": {
+        "valor": 19,
+        "explicacion": "actividad distinta del título; propósito distinto del objetivo; ningún equipo en común; lugar no mencionado en el video",
+        "bajo_umbral": true,
+        "componentes": {
+          "global": 63,
+          "actividad": 0,
+          "objetivo": 0,
+          "equipos": 0
+        }
+      },
+      "detenida": true,
+      "afinidad_extra": {
+        "sop_otro_procedimiento": {
+          "valor": 0,
+          "explicacion": "actividad distinta del título; propósito distinto del objetivo; ningún equipo en común; lugar no mencionado en el video",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 0,
+            "actividad": 0,
+            "objetivo": 0,
+            "equipos": 0
+          }
+        },
+        "sop_procedimiento_cercano": {
+          "valor": 6,
+          "explicacion": "actividad distinta del título; propósito distinto del objetivo; ningún equipo en común; lugar no mencionado en el video",
+          "bajo_umbral": true,
+          "componentes": {
+            "global": 19,
+            "actividad": 0,
+            "objetivo": 0,
+            "equipos": 0
+          }
+        }
+      },
+      "validacion": {
+        "cumplimiento": 0.0,
+        "semaforo": "rojo",
+        "conteo": {
+          "Cumple": 0,
+          "Parcial": 0,
+          "Falta": 6,
+          "Sobra": 10,
+          "zona_gris": 0
+        },
+        "responsables": {},
+        "personas_con_diferencias": 1,
+        "roles": [
+          {
+            "rol": "Técnico de mantenimiento",
+            "estado": "ausente",
+            "t": null,
+            "cita": "",
+            "persona": null,
+            "similitud": null,
+            "confianza": null,
+            "con_pasos": true
+          },
+          {
+            "rol": "Supervisor de turno",
+            "estado": "ausente",
+            "t": null,
+            "cita": "",
+            "persona": null,
+            "similitud": null,
+            "confianza": null,
+            "con_pasos": false
+          }
+        ],
+        "filas": [
+          {
+            "estado": "Falta",
+            "paso_sop": 1,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 2,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 3,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 4,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 5,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Falta",
+            "paso_sop": 6,
+            "paso_video": null,
+            "t_inicio": null,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 1,
+            "t_inicio": 5.79,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 2,
+            "t_inicio": 21.88,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 3,
+            "t_inicio": 41.18,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 4,
+            "t_inicio": 57.02,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 5,
+            "t_inicio": 67.29,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 6,
+            "t_inicio": 84.53,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 7,
+            "t_inicio": 106.19,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 8,
+            "t_inicio": 121.64,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 9,
+            "t_inicio": 136.46,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          },
+          {
+            "estado": "Sobra",
+            "paso_sop": null,
+            "paso_video": 10,
+            "t_inicio": 154.7,
+            "fuera_de_orden": false,
+            "marco_operador": null
+          }
+        ],
+        "avisos": [],
+        "segmentacion": "llm",
+        "segundos": {
+          "afinidad": 0.59,
+          "segmentacion": 15.02,
+          "emparejamiento": 5.12,
+          "personas": 0.03
+        }
+      },
+      "segundos_total": 29.77,
+      "pasa": true,
+      "motivos": []
+    }
+  ]
+}
