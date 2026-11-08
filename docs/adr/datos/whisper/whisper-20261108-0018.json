@@ -1,0 +1,1866 @@
+{
+  "fecha": "2026-11-08 00:37",
+  "git": {
+    "commit": "dae2f27587f52bb3c651e676a2d3b76b15f73967",
+    "rama": "feat/contexto",
+    "cambios_sin_commit": 0
+  },
+  "cpu": "Intel64 Family 6 Model 165 Stepping 5, GenuineIntel",
+  "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+  "llm": "gemma4:e4b-it-q4_K_M",
+  "configs": {
+    "referencia": {
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cuda",
+      "compute": "float16",
+      "llm": "auto"
+    },
+    "turbo-int8": {
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cpu",
+      "compute": "int8",
+      "llm": "cpu"
+    },
+    "turbo-int8_float32": {
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cpu",
+      "compute": "int8_float32",
+      "llm": "cpu"
+    },
+    "small-int8": {
+      "modelo": "small",
+      "dispositivo": "cpu",
+      "compute": "int8",
+      "llm": "cpu"
+    }
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "config": "referencia",
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cuda",
+      "compute_type": "float16",
+      "llm_dispositivo": "gpu",
+      "duracion_audio_s": 135.0,
+      "segundos_whisper": 7.39,
+      "factor_tiempo_real": 0.055,
+      "ram_pico_mb": 1808.8,
+      "palabras": 271,
+      "wer": 0.0,
+      "tramos_distintos": 0,
+      "afectan_ficha": [],
+      "afectan_pasos": [],
+      "segundos_etapas": {
+        "duracion": 0.06,
+        "audio": 0.43,
+        "transcripcion": 7.39,
+        "contexto": 9.25,
+        "segmentacion": 14.46,
+        "emparejamiento": 15.37
+      },
+      "cumplimiento": 100.0,
+      "avisos": [],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, reemplazar el cartucho y purgar el sistema hasta alcanzar la presión adecuada.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Verificación de necesidad de cambio",
+          "descripcion": "Se verifica la necesidad de cambio del cartucho del filtro de agua debido a la lectura del manómetro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 1.36,
+          "t_fin": 11.14,
+          "cita": "el manómetro marca menos de 2 bar así que toca cambiarlo",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Colocación de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario antes de manipular el filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 15.5,
+          "t_fin": 25.1,
+          "cita": "me pongo los guantes de nitrilo y los lentes de seguridad",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Cierre de la llave de paso",
+          "descripcion": "Se cierra la llave de paso ubicada antes del filtro girándola hasta el tope.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.28,
+          "t_fin": 42.36,
+          "cita": "ahora cierro la llave de paso que está antes del filtro",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se procede a liberar la presión del sistema.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 49.24,
+          "t_fin": 51.14,
+          "cita": "Siguiente. Libero la presión.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Preparación para drenaje",
+          "descripcion": "Se coloca una cubeta debajo del filtro para recoger el agua que pueda drenar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 51.48,
+          "t_fin": 53.9,
+          "cita": "Primero pongo la cubeta debajo del filtro.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Despresurización y apertura de carcasa",
+          "descripcion": "Se mantiene presionado el botón rojo de la carcasa hasta que el manómetro marque cero.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 54.18,
+          "t_fin": 61.2,
+          "cita": "Ya dejó de salir. El manómetro marca cero.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Retiro de la carcasa",
+          "descripcion": "Se retira la carcasa del filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 66.86,
+          "t_fin": 68.18,
+          "cita": "Ahora retiro la carcasa.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 8,
+          "nombre": "Desmontaje del vaso",
+          "descripcion": "Se afloja el vaso de la carcasa girándolo hacia la izquierda con la llave.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 68.54,
+          "t_fin": 71.5,
+          "cita": "Con la llave de la carcasa aflojo el vaso girando a la izquierda.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 9,
+          "nombre": "Extracción y revisión del cartucho usado",
+          "descripcion": "Se extrae el cartucho usado, se revisa el anillo de hule y se desecha el cartucho.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 72.1,
+          "t_fin": 84.36,
+          "cita": "reviso el anillo de hule, no está aplastando ni cuarteado",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 10,
+          "nombre": "Instalación del cartucho nuevo",
+          "descripcion": "Se instala el cartucho nuevo en el vaso, se enrosca y se ajusta ligeramente con la llave.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 91.3,
+          "t_fin": 104.24,
+          "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 11,
+          "nombre": "Apertura de la llave de paso",
+          "descripcion": "Se abre la llave de paso de manera lenta.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 110.0,
+          "t_fin": 112.14,
+          "cita": "por último abro la llave de paso despacio.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 12,
+          "nombre": "Purgado del aire",
+          "descripcion": "Se purga el aire del sistema utilizando el botón rojo hasta que solo salga agua.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 112.46,
+          "t_fin": 115.34,
+          "cita": "Purgo el aire con el botón rojo. Sale aire.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 13,
+          "nombre": "Verificación de flujo de agua",
+          "descripcion": "Se suelta el botón rojo tras confirmar que solo está saliendo agua.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 115.82,
+          "t_fin": 118.94,
+          "cita": "Ya sale solo agua. Suelto el botón.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 14,
+          "nombre": "Inspección de fugas",
+          "descripcion": "Se inspecciona la unión del vaso con una toalla de papel para verificar la ausencia de fugas.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 119.66,
+          "t_fin": 125.24,
+          "cita": "Reviso la unión del vaso y la conexión es con la toalla de papel.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 15,
+          "nombre": "Verificación de presión final",
+          "descripcion": "Se verifica la presión final del sistema, confirmando que marca 4 bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 125.48,
+          "t_fin": 133.51,
+          "cita": "El manómetro marca 4 bar. Listo.",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 47.0
+    },
+    {
+      "video": "video_a",
+      "config": "turbo-int8",
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cpu",
+      "compute_type": "int8",
+      "llm_dispositivo": "cpu",
+      "duracion_audio_s": 135.0,
+      "segundos_whisper": 60.46,
+      "factor_tiempo_real": 0.448,
+      "ram_pico_mb": 1953.5,
+      "palabras": 271,
+      "wer": 0.0037,
+      "tramos_distintos": 1,
+      "afectan_ficha": [],
+      "afectan_pasos": [],
+      "segundos_etapas": {
+        "duracion": 0.06,
+        "audio": 0.43,
+        "transcripcion": 60.46,
+        "contexto": 60.58,
+        "segmentacion": 103.01,
+        "emparejamiento": 19.56
+      },
+      "cumplimiento": 100.0,
+      "avisos": [],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, retirar el cartucho viejo, instalar el nuevo y purgar el sistema hasta verificar que no haya fugas y que la presión sea correcta.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Diagnóstico y preparación",
+          "descripcion": "Se diagnostica la necesidad de cambiar el cartucho del filtro de agua debido a que el manómetro marca menos de 2 bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 1.36,
+          "t_fin": 11.14,
+          "cita": "el manómetro marca menos de 2 bar así que toca cambiarlo",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario, incluyendo guantes de nitrilo y lentes de seguridad.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 15.52,
+          "t_fin": 25.1,
+          "cita": "me pongo los guantes de nitrilo y los lentes de seguridad",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Cierre de la llave de paso",
+          "descripcion": "Se cierra la llave de paso ubicada antes del filtro girándola a la derecha hasta que quede atravesada.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.28,
+          "t_fin": 42.36,
+          "cita": "ahora cierro la llave de paso que está antes del filtro",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se libera la presión del sistema colocando una cubeta debajo del filtro y manteniendo presionado el botón rojo.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 48.5,
+          "t_fin": 62.12,
+          "cita": "Ahora mantengo presionado el botón rojo de la carcasa",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Retiro del cartucho usado",
+          "descripcion": "Se retira la carcasa, se saca el cartucho usado y se revisa el anillo de hule para confirmar su estado.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 67.24,
+          "t_fin": 85.26,
+          "cita": "Saco el cartucho usado y lo meto a la bolsa de residuos",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Instalación del cartucho nuevo",
+          "descripcion": "Se instala el cartucho nuevo, se coloca en el vaso y se enrosca a mano, añadiendo un cuarto de vuelta con la llave.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 91.54,
+          "t_fin": 104.96,
+          "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Puesta en marcha y verificación",
+          "descripcion": "Se abre la llave de paso lentamente, se purga el aire con el botón rojo y se verifica que no haya fugas.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 110.2,
+          "t_fin": 127.42,
+          "cita": "último abro la llave de paso despacio purgo el aire con el botón rojo",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 8,
+          "nombre": "Finalización del procedimiento",
+          "descripcion": "Se concluye el procedimiento de cambio del cartucho de filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 131.31,
+          "t_fin": 133.51,
+          "cita": "Listo, terminé el cambio del cartucho",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 244.1
+    },
+    {
+      "video": "video_a",
+      "config": "turbo-int8_float32",
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cpu",
+      "compute_type": "int8_float32",
+      "llm_dispositivo": "cpu",
+      "duracion_audio_s": 135.0,
+      "segundos_whisper": 55.43,
+      "factor_tiempo_real": 0.411,
+      "ram_pico_mb": 1953.3,
+      "palabras": 271,
+      "wer": 0.0037,
+      "tramos_distintos": 1,
+      "afectan_ficha": [],
+      "afectan_pasos": [],
+      "segundos_etapas": {
+        "duracion": 0.06,
+        "audio": 0.43,
+        "transcripcion": 55.43,
+        "contexto": 46.9,
+        "segmentacion": 67.55,
+        "emparejamiento": 14.54
+      },
+      "cumplimiento": 100.0,
+      "avisos": [],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, retirar el cartucho viejo, instalar el nuevo y purgar el sistema hasta verificar que no haya fugas y que la presión sea correcta.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Diagnóstico y preparación",
+          "descripcion": "Se diagnostica la necesidad de cambiar el cartucho del filtro de agua debido a que el manómetro marca menos de 2 bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 1.36,
+          "t_fin": 11.14,
+          "cita": "el manómetro marca menos de 2 bar así que toca cambiarlo",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario, incluyendo guantes de nitrilo y lentes de seguridad.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 15.52,
+          "t_fin": 25.1,
+          "cita": "me pongo los guantes de nitrilo y los lentes de seguridad",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Cierre de la llave de paso",
+          "descripcion": "Se cierra la llave de paso ubicada antes del filtro girándola a la derecha hasta que quede atravesada.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.28,
+          "t_fin": 42.36,
+          "cita": "ahora cierro la llave de paso que está antes del filtro",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se libera la presión del sistema colocando una cubeta debajo del filtro y manteniendo presionado el botón rojo.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 48.5,
+          "t_fin": 62.12,
+          "cita": "Ahora mantengo presionado el botón rojo de la carcasa",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Retiro del cartucho usado",
+          "descripcion": "Se retira la carcasa, se saca el cartucho usado y se revisa el anillo de hule para confirmar su estado.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 67.24,
+          "t_fin": 85.26,
+          "cita": "Saco el cartucho usado y lo meto a la bolsa de residuos",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Instalación del cartucho nuevo",
+          "descripcion": "Se instala el cartucho nuevo, se coloca en el vaso y se enrosca a mano, añadiendo un cuarto de vuelta con la llave.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 91.54,
+          "t_fin": 104.96,
+          "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Puesta en marcha y verificación",
+          "descripcion": "Se abre la llave de paso lentamente, se purga el aire con el botón rojo y se verifica que no haya fugas.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 110.2,
+          "t_fin": 127.42,
+          "cita": "último abro la llave de paso despacio purgo el aire con el botón rojo",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 8,
+          "nombre": "Finalización del procedimiento",
+          "descripcion": "Se concluye el procedimiento de cambio del cartucho de filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 131.31,
+          "t_fin": 133.51,
+          "cita": "Listo, terminé el cambio del cartucho",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 184.9
+    },
+    {
+      "video": "video_a",
+      "config": "small-int8",
+      "modelo": "small",
+      "dispositivo": "cpu",
+      "compute_type": "int8",
+      "llm_dispositivo": "cpu",
+      "duracion_audio_s": 135.0,
+      "segundos_whisper": 24.17,
+      "factor_tiempo_real": 0.179,
+      "ram_pico_mb": 768.0,
+      "palabras": 272,
+      "wer": 0.048,
+      "tramos_distintos": 11,
+      "afectan_ficha": [
+        {
+          "referencia": "linea de enjuague",
+          "whisper": "clinica del jugue",
+          "en": [
+            "lugar",
+            "resumen"
+          ]
+        },
+        {
+          "referencia": "hule",
+          "whisper": "higule",
+          "en": [
+            "equipo anillo de higule"
+          ]
+        }
+      ],
+      "afectan_pasos": [
+        {
+          "referencia": "2",
+          "whisper": "dos",
+          "en": [
+            "paso 1"
+          ]
+        },
+        {
+          "referencia": "la",
+          "whisper": "una",
+          "en": [
+            "paso 3",
+            "paso 4"
+          ]
+        },
+        {
+          "referencia": "4",
+          "whisper": "cuatro",
+          "en": [
+            "paso 7"
+          ]
+        },
+        {
+          "referencia": "termine",
+          "whisper": "termina",
+          "en": [
+            "paso 7"
+          ]
+        }
+      ],
+      "segundos_etapas": {
+        "duracion": 0.06,
+        "audio": 0.43,
+        "transcripcion": 24.17,
+        "contexto": 50.88,
+        "segmentacion": 68.69,
+        "emparejamiento": 15.34
+      },
+      "cumplimiento": 100.0,
+      "avisos": [
+        "transcripcion_no_referencia"
+      ],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": "Clínica del jugo",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la clínica del jugo. El proceso incluye cerrar la llave de paso, liberar la presión, retirar la carcasa, reemplazar el cartucho y volver a presurizar el sistema.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "botón rojo de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho nuevo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho usado",
+            "descripcion": ""
+          },
+          {
+            "nombre": "anillo de higule",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de paso",
+            "descripcion": ""
+          }
+        ],
+        "avisos": [
+          {
+            "tipo": "transcripcion_no_referencia",
+            "detalle": "transcrito con Whisper small; el de referencia es large-v3-turbo y puede haber errores de reconocimiento"
+          }
+        ]
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Inicio del cambio de filtro",
+          "descripcion": "Se inicia el cambio del cartucho del filtro de agua debido a que el manómetro marca menos de dos bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 1.36,
+          "t_fin": 11.14,
+          "cita": "El manómetro marca menos de dos bar, así que toca cambiarlo.",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario, incluyendo guantes de nitrilo y lentes de seguridad.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 15.46,
+          "t_fin": 25.08,
+          "cita": "Primero me pongo el equipo de protección, me pongo los guantes de nitrilo y los",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Cierre de la llave de paso",
+          "descripcion": "Se cierra la llave de paso ubicada antes del filtro girándola a la derecha hasta el tope.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.26,
+          "t_fin": 42.36,
+          "cita": "Ahora cierro una llave de paso que está antes del filtro.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Liberación de la presión",
+          "descripcion": "Se libera la presión del sistema colocando una cubeta debajo y presionando el botón rojo de la carcasa hasta que el manómetro marque cero.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 49.12,
+          "t_fin": 61.2,
+          "cita": "Ahora mantengo presionado el botón rojo de la carcasa, está saliendo aire.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Retiro del cartucho usado",
+          "descripcion": "Se retira la carcasa, se extrae el cartucho usado y se revisa el anillo de hule para confirmar su estado.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 67.0,
+          "t_fin": 84.32,
+          "cita": "saco el cartucho usado y lo meto a la bolsa de residuos",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Colocación del cartucho nuevo",
+          "descripcion": "Se coloca el cartucho nuevo, se introduce en el vaso y se enrosca a mano, añadiendo un cuarto de vuelta con la llave.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 91.32,
+          "t_fin": 104.16,
+          "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Reactivación y purgado del sistema",
+          "descripcion": "Se abre la llave de paso lentamente, se purga el aire y se verifica que no haya fugas, confirmando que el manómetro marca cuatro bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 110.06,
+          "t_fin": 133.51,
+          "cita": "el manómetro marca cuatro bar, listo, termina el cambio del cartucho.",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 159.6
+    },
+    {
+      "video": "video_b",
+      "config": "referencia",
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cuda",
+      "compute_type": "float16",
+      "llm_dispositivo": "gpu",
+      "duracion_audio_s": 114.643,
+      "segundos_whisper": 8.65,
+      "factor_tiempo_real": 0.075,
+      "ram_pico_mb": 1808.8,
+      "palabras": 227,
+      "wer": 0.0,
+      "tramos_distintos": 0,
+      "afectan_ficha": [],
+      "afectan_pasos": [],
+      "segundos_etapas": {
+        "duracion": 0.58,
+        "audio": 0.77,
+        "transcripcion": 8.65,
+        "contexto": 10.68,
+        "segmentacion": 6.87,
+        "emparejamiento": 1.49
+      },
+      "cumplimiento": 66.67,
+      "avisos": [],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar el cartucho viejo, limpiar la carcasa y colocar el cartucho nuevo asegurándolo correctamente.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Inicio del cambio de filtro",
+          "descripcion": "Se inicia el cambio del cartucho del filtro de agua de la línea de enjuague debido a que el manómetro marca menos de 2 bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 3.5,
+          "t_fin": 13.68,
+          "cita": "El manómetro marca menos de 2 bar, así que toca cambiarlo.",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se pone el equipo de protección necesario, incluyendo guantes de nitrilo y lentes de seguridad.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 17.0,
+          "t_fin": 26.54,
+          "cita": "Primero me pongo el equipo de protección, me pongo los guantes de nitrilo",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se libera la presión del sistema colocando una cubeta debajo del filtro y presionando el botón rojo de la carcasa hasta que el manómetro marque cero.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.72,
+          "t_fin": 44.08,
+          "cita": "el manómetro marca cero,",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Retiro del cartucho usado",
+          "descripcion": "Se retira la carcasa aflojando el vaso, se extrae el cartucho usado y se revisa el anillo de hule para confirmar su estado.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 49.94,
+          "t_fin": 66.6,
+          "cita": "saco el cartucho usado y lo meto a la bolsa de residuos",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Limpieza de la carcasa",
+          "descripcion": "Se limpia el interior de la carcasa utilizando agua limpia y un trapo para remover el sarro, dejándola escurrir después.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 74.12,
+          "t_fin": 85.58,
+          "cita": "Le echo un poco de agua limpia al vaso, lo tallo con un trapo",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Colocación del cartucho nuevo",
+          "descripcion": "Se coloca el cartucho nuevo, retirando su plástico y asegurándose de que quede centrado en el vaso con la ranura hacia arriba.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 85.92,
+          "t_fin": 98.45,
+          "cita": "lo meto centrado en el vaso con la ranura hacia arriba.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Reensamblaje y ajuste",
+          "descripcion": "Se enrosca el vaso a mano y se ajusta con la llave un cuarto de vuelta sin aplicar exceso de fuerza para finalizar el cambio.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 99.09,
+          "t_fin": 113.44,
+          "cita": "Enrosco el vaso a mano y le doy un cuarto de vuelta",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 29.0
+    },
+    {
+      "video": "video_b",
+      "config": "turbo-int8",
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cpu",
+      "compute_type": "int8",
+      "llm_dispositivo": "cpu",
+      "duracion_audio_s": 114.643,
+      "segundos_whisper": 38.75,
+      "factor_tiempo_real": 0.338,
+      "ram_pico_mb": 1953.3,
+      "palabras": 227,
+      "wer": 0.0132,
+      "tramos_distintos": 2,
+      "afectan_ficha": [
+        {
+          "referencia": "de nitrilo",
+          "whisper": "del trilo",
+          "en": [
+            "equipo guantes del trilo"
+          ]
+        }
+      ],
+      "afectan_pasos": [
+        {
+          "referencia": "de nitrilo",
+          "whisper": "del trilo",
+          "en": [
+            "paso 2"
+          ]
+        },
+        {
+          "referencia": "aflojo",
+          "whisper": "flojo",
+          "en": [
+            "paso 4"
+          ]
+        }
+      ],
+      "segundos_etapas": {
+        "duracion": 0.58,
+        "audio": 0.77,
+        "transcripcion": 38.75,
+        "contexto": 45.44,
+        "segmentacion": 64.26,
+        "emparejamiento": 14.12
+      },
+      "cumplimiento": 66.67,
+      "avisos": [],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar la carcasa, limpiar el vaso, instalar el cartucho nuevo y volver a ensamblar el sistema.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes del trilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "agua limpia",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Inicio del cambio de filtro",
+          "descripcion": "Se inicia el cambio del cartucho del filtro de agua de la línea de enjuague debido a que el manómetro marca menos de 2 bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 3.5,
+          "t_fin": 13.68,
+          "cita": "El manómetro marca menos de 2 bar, así que toca cambiarlo.",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario, incluyendo guantes y lentes de seguridad, antes de manipular el filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 17.06,
+          "t_fin": 26.52,
+          "cita": "Primero me pongo el equipo de protección, me pongo los guantes del trilo y ahora",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se procede a liberar la presión del sistema colocando una cubeta debajo del filtro y manteniendo presionado el botón rojo hasta que el manómetro marque cero.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.7,
+          "t_fin": 44.08,
+          "cita": "Primero pongo la cubeta debajo del filtro, ahora mantengo presionado el botón rojo de la",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Retiro del cartucho usado",
+          "descripcion": "Se retira la carcasa girándola a la izquierda, se extrae el cartucho usado, se revisa el anillo de hule y se desecha el cartucho.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 49.94,
+          "t_fin": 66.6,
+          "cita": "ahora retiro la carcasa, con la llave de carcasa flojo el vaso girando a la",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Limpieza de la carcasa",
+          "descripcion": "Se limpia el interior de la carcasa utilizando agua limpia y un trapo para remover el sarro, dejándola escurrir después.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 74.14,
+          "t_fin": 85.58,
+          "cita": "Le echo un poco de agua limpia al vaso, lo tallo con un trapo para",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Colocación del cartucho nuevo",
+          "descripcion": "Se coloca el cartucho nuevo, retirando su plástico protector y centrándolo en el vaso con la ranura orientada hacia arriba.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 85.92,
+          "t_fin": 98.45,
+          "cita": "Ahora coloco el cartucho nuevo, le quito el plástico y lo meto centrado en el",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Reensamblaje y ajuste",
+          "descripcion": "Se enrosca el vaso a mano y se ajusta un cuarto de vuelta con la llave, finalizando así el cambio del cartucho.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 99.09,
+          "t_fin": 113.44,
+          "cita": "Enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 163.9
+    },
+    {
+      "video": "video_b",
+      "config": "turbo-int8_float32",
+      "modelo": "large-v3-turbo",
+      "dispositivo": "cpu",
+      "compute_type": "int8_float32",
+      "llm_dispositivo": "cpu",
+      "duracion_audio_s": 114.643,
+      "segundos_whisper": 39.41,
+      "factor_tiempo_real": 0.344,
+      "ram_pico_mb": 1953.1,
+      "palabras": 227,
+      "wer": 0.0132,
+      "tramos_distintos": 2,
+      "afectan_ficha": [
+        {
+          "referencia": "de nitrilo",
+          "whisper": "del trilo",
+          "en": [
+            "equipo guantes del trilo"
+          ]
+        }
+      ],
+      "afectan_pasos": [
+        {
+          "referencia": "de nitrilo",
+          "whisper": "del trilo",
+          "en": [
+            "paso 2"
+          ]
+        },
+        {
+          "referencia": "aflojo",
+          "whisper": "flojo",
+          "en": [
+            "paso 4"
+          ]
+        }
+      ],
+      "segundos_etapas": {
+        "duracion": 0.58,
+        "audio": 0.77,
+        "transcripcion": 39.41,
+        "contexto": 45.45,
+        "segmentacion": 64.42,
+        "emparejamiento": 13.98
+      },
+      "cumplimiento": 66.67,
+      "avisos": [],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar la carcasa, limpiar el vaso, instalar el cartucho nuevo y volver a ensamblar el sistema.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes del trilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "agua limpia",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Inicio del cambio de filtro",
+          "descripcion": "Se inicia el cambio del cartucho del filtro de agua de la línea de enjuague debido a que el manómetro marca menos de 2 bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 3.5,
+          "t_fin": 13.68,
+          "cita": "El manómetro marca menos de 2 bar, así que toca cambiarlo.",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario, incluyendo guantes y lentes de seguridad, antes de manipular el filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 17.06,
+          "t_fin": 26.52,
+          "cita": "Primero me pongo el equipo de protección, me pongo los guantes del trilo y ahora",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se procede a liberar la presión del sistema colocando una cubeta debajo del filtro y manteniendo presionado el botón rojo hasta que el manómetro marque cero.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.7,
+          "t_fin": 44.08,
+          "cita": "Primero pongo la cubeta debajo del filtro, ahora mantengo presionado el botón rojo de la",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Retiro del cartucho usado",
+          "descripcion": "Se retira la carcasa girándola a la izquierda, se extrae el cartucho usado, se revisa el anillo de hule y se desecha el cartucho.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 49.94,
+          "t_fin": 66.6,
+          "cita": "ahora retiro la carcasa, con la llave de carcasa flojo el vaso girando a la",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Limpieza de la carcasa",
+          "descripcion": "Se limpia el interior de la carcasa utilizando agua limpia y un trapo para remover el sarro, dejándola escurrir después.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 74.14,
+          "t_fin": 85.58,
+          "cita": "Le echo un poco de agua limpia al vaso, lo tallo con un trapo para",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Colocación del cartucho nuevo",
+          "descripcion": "Se coloca el cartucho nuevo, retirando su plástico protector y centrándolo en el vaso con la ranura orientada hacia arriba.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 85.92,
+          "t_fin": 98.45,
+          "cita": "Ahora coloco el cartucho nuevo, le quito el plástico y lo meto centrado en el",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Reensamblaje y ajuste",
+          "descripcion": "Se enrosca el vaso a mano y se ajusta un cuarto de vuelta con la llave, finalizando así el cambio del cartucho.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 99.09,
+          "t_fin": 113.44,
+          "cita": "Enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 164.6
+    },
+    {
+      "video": "video_b",
+      "config": "small-int8",
+      "modelo": "small",
+      "dispositivo": "cpu",
+      "compute_type": "int8",
+      "llm_dispositivo": "cpu",
+      "duracion_audio_s": 114.643,
+      "segundos_whisper": 19.54,
+      "factor_tiempo_real": 0.17,
+      "ram_pico_mb": 768.4,
+      "palabras": 227,
+      "wer": 0.0617,
+      "tramos_distintos": 10,
+      "afectan_ficha": [
+        {
+          "referencia": "de nitrilo",
+          "whisper": "del tilo",
+          "en": [
+            "equipo guantes del tilo"
+          ]
+        },
+        {
+          "referencia": "hule",
+          "whisper": "ule",
+          "en": [
+            "resumen"
+          ]
+        }
+      ],
+      "afectan_pasos": [
+        {
+          "referencia": "2",
+          "whisper": "dos",
+          "en": [
+            "paso 1"
+          ]
+        },
+        {
+          "referencia": "de nitrilo",
+          "whisper": "del tilo",
+          "en": [
+            "paso 2"
+          ]
+        },
+        {
+          "referencia": "marca cero",
+          "whisper": "marcasero",
+          "en": [
+            "paso 3"
+          ]
+        },
+        {
+          "referencia": "aflojo",
+          "whisper": "flojo",
+          "en": [
+            "paso 5"
+          ]
+        },
+        {
+          "referencia": "aplastando ni",
+          "whisper": "plastanon y",
+          "en": [
+            "paso 6"
+          ]
+        },
+        {
+          "referencia": "echo",
+          "whisper": "he hecho",
+          "en": [
+            "paso 7"
+          ]
+        },
+        {
+          "referencia": "ranura",
+          "whisper": "ranobra",
+          "en": [
+            "paso 8"
+          ]
+        },
+        {
+          "referencia": "termine",
+          "whisper": "termina",
+          "en": [
+            "paso 9"
+          ]
+        }
+      ],
+      "segundos_etapas": {
+        "duracion": 0.58,
+        "audio": 0.77,
+        "transcripcion": 19.54,
+        "contexto": 44.9,
+        "segmentacion": 73.03,
+        "emparejamiento": 25.61
+      },
+      "cumplimiento": 66.67,
+      "avisos": [
+        "transcripcion_no_referencia"
+      ],
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar la carcasa, inspeccionar el anillo de ule, limpiar la carcasa y finalmente instalar el cartucho nuevo.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "soy el técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes del tilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho nuevo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho usado",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          }
+        ],
+        "avisos": [
+          {
+            "tipo": "transcripcion_no_referencia",
+            "detalle": "transcrito con Whisper small; el de referencia es large-v3-turbo y puede haber errores de reconocimiento"
+          }
+        ]
+      },
+      "pasos": [
+        {
+          "numero": 1,
+          "nombre": "Inicio del cambio de filtro",
+          "descripcion": "Se inicia el cambio del cartucho del filtro de agua de la línea de enjuague debido a que el manómetro marca menos de dos bar.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 3.5,
+          "t_fin": 13.68,
+          "cita": "El manómetro marca menos de dos bar, así que toca cambiarlo.",
+          "fuente": "audio",
+          "confianza": "alta"
+        },
+        {
+          "numero": 2,
+          "nombre": "Puesta de equipo de protección",
+          "descripcion": "El técnico se coloca el equipo de protección necesario, incluyendo guantes y lentes de seguridad, antes de manipular el filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 17.0,
+          "t_fin": 26.5,
+          "cita": "Primero me pongo el equipo de protección, me pongo los guantes del tilo y ahora",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 3,
+          "nombre": "Liberación de presión",
+          "descripcion": "Se libera la presión del sistema colocando una cubeta debajo del filtro y manteniendo presionado el botón rojo de la carcasa hasta que cese la salida de aire.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 31.74,
+          "t_fin": 44.08,
+          "cita": "Ya dejó de salir el manómetro marcasero.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 4,
+          "nombre": "Retiro de la carcasa",
+          "descripcion": "Se procede a retirar la carcasa del filtro.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 49.74,
+          "t_fin": 51.06,
+          "cita": "Ahora retiró la carcasa.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 5,
+          "nombre": "Desmontaje del cartucho viejo",
+          "descripcion": "Se afloja el vaso girando a la izquierda, se baja con cuidado para evitar derrames y se retira el cartucho usado.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 51.54,
+          "t_fin": 61.02,
+          "cita": "Con la llave de carcasa flojo el vaso girando a la izquierda.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 6,
+          "nombre": "Inspección del anillo de uleaje",
+          "descripcion": "Se inspecciona el anillo de uleaje para verificar que no esté plastanón o cuarteado, determinando que no necesita reemplazo.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 61.52,
+          "t_fin": 66.58,
+          "cita": "No está plastanón y cuarteado.",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 7,
+          "nombre": "Limpieza de la carcasa",
+          "descripcion": "Se limpia el interior de la carcasa utilizando agua limpia, tallándola con un trapo para remover sarro y luego enjuagándola.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 74.12,
+          "t_fin": 85.58,
+          "cita": "le he hecho un poco de agua limpia al vaso, lo tallo con un trapo",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 8,
+          "nombre": "Instalación del cartucho nuevo",
+          "descripcion": "Se instala el cartucho nuevo, centrándolo en el vaso con la ranobra hacia arriba, y se enrosca a mano y con una ligera torsión.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 92.29,
+          "t_fin": 104.05,
+          "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+          "fuente": "audio",
+          "confianza": "media"
+        },
+        {
+          "numero": 9,
+          "nombre": "Finalización del cambio",
+          "descripcion": "Se finaliza el proceso de cambio del cartucho.",
+          "responsable": "Técnico de mantenimiento",
+          "t_inicio": 111.08,
+          "t_fin": 113.44,
+          "cita": "listo termina el cambio del cartucho",
+          "fuente": "audio",
+          "confianza": "media"
+        }
+      ],
+      "total_s": 164.4
+    }
+  ],
+  "reanalizado": "2026-11-08 00:38"
+}

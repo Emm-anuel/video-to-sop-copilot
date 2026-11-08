@@ -222,6 +222,57 @@ valor por defecto) + Gemma en CPU.
   código las deja como "inferido" con confianza baja (el valor se conserva). En B, Gemma no llenó
   `lugar` aunque se dice. Para un `contexto_v2`: pedir la frase completa alrededor del dato.
 
+## Seguimiento: Whisper large-v3-turbo en CPU contra small (8 nov 2026)
+
+La medición de la ficha de contexto mostró que Whisper `small` en CPU transcribió "línea de
+enjuague" como "clínica del jugue", y que la ficha lo dio como lugar con cita verificada. Se midió
+`large-v3-turbo` en CPU (i7-10700K, 32 GB) con A y B, contra la transcripción de GPU como
+referencia, con `scripts/medir_whisper.py`. Datos: `docs/adr/datos/whisper/whisper-20261108-0018.*`
+(WER por palabras normalizadas, sin acentos ni puntuación; cada transcripción en su propio proceso
+para medir la RAM pico; una corrida por celda).
+
+| Video · Whisper | Segundos | × tiempo real | RAM pico | WER | Tramos que llegan a ficha / pasos |
+|---|---|---|---|---|---|
+| A · large-v3-turbo, cuda float16 (referencia) | 7.4 | 0.06 | 1.8 GB | — | — |
+| A · large-v3-turbo, CPU int8 | 60.5 | 0.45 | 1.95 GB | 0.4 % | 0 / 0 |
+| A · large-v3-turbo, CPU int8_float32 | 55.4 | 0.41 | 1.95 GB | 0.4 % | 0 / 0 |
+| A · small, CPU int8 | 24.2 | 0.18 | 0.77 GB | 4.8 % | 2 / 4 |
+| B · large-v3-turbo, cuda float16 (referencia) | 8.7 | 0.08 | 1.8 GB | — | — |
+| B · large-v3-turbo, CPU int8 | 38.8 | 0.34 | 1.95 GB | 1.3 % | 1 / 2 |
+| B · large-v3-turbo, CPU int8_float32 | 39.4 | 0.34 | 1.95 GB | 1.3 % | 1 / 2 |
+| B · small, CPU int8 | 19.5 | 0.17 | 0.77 GB | 6.2 % | 2 / 8 |
+
+- **"Clínica del jugue" desaparece con large-v3-turbo en CPU.** Solo `small` la produce (A), y
+  llega al lugar y al resumen de la ficha. Con `small` también llegan a los pasos "plastanon",
+  "ranobra", "marcasero" o "del tilo" (por "de nitrilo"). Con `large-v3-turbo` en CPU queda un
+  error que llega a la ficha y a un paso ("del trilo" por "de nitrilo", en B) y un "flojo" por
+  "aflojo" (B); en A, ninguno. RNF-07 sigue siendo el mismo modelo, no la misma salida: la CPU no
+  reproduce byte a byte la transcripción de GPU, pero se le acerca diez veces más que `small`.
+- **int8 e int8_float32 tardan lo mismo** (en CPU, ctranslate2 hace las dos con pesos int8 y
+  cálculo en float32) y dieron transcripciones idénticas en A y en B. Se queda int8, el que ya usa `COMPUTE_TYPE_CPU`.
+- **RAM:** ~1.95 GB contra 0.77 GB. Whisper y Gemma no corren a la vez (ADR-014), así que cabe de
+  sobra en el equipo de referencia; en un equipo de 8 GB habría que revisarlo con Gemma en CPU.
+
+**Ruta completa en CPU** (Whisper + ficha + pasos + emparejamiento con Gemma en CPU):
+
+| Video | small | large-v3-turbo int8 | large-v3-turbo int8_float32 | GPU (referencia) |
+|---|---|---|---|---|
+| A | 159.6 s | 244.1 s (1.53×) | 184.9 s (1.16×) | 47.0 s |
+| B | 164.4 s | 163.9 s (1.00×) | 164.6 s (1.00×) | 29.0 s |
+
+Whisper en sí suma +36 s (A) y +19 s (B) sobre `small`; el resto de la diferencia de A con int8
+(244 s) viene de las etapas de Gemma de esa corrida (ficha 61 s y pasos 103 s contra 47 y 68 s de
+la corrida de int8_float32, con el mismo modelo y una transcripción idéntica), no de Whisper:
+es la variación de Gemma en CPU entre corridas. En los dos videos, el cumplimiento fue igual en las cuatro rutas (A 100 %, B 66.67 %).
+
+**Propuesta: `WHISPER_MODELO_CPU=large-v3-turbo` (int8), el mismo modelo en los dos
+dispositivos.** Con el criterio acordado (si `large-v3-turbo` en CPU no más que duplica el tiempo
+total por video, se usa el mismo modelo), el peor caso medido es 1.53× y el típico 1.0–1.2×. El
+valor por defecto no se cambió todavía: la variable existe (sin definir usa `WHISPER_MODELO`) y,
+mientras se transcriba con otro modelo, el reporte y la ficha llevan el aviso
+`transcripcion_no_referencia`. Falta medirlo en un equipo sin GPU de verdad y con los videos C–E
+antes de cambiar el valor por defecto de la imagen de Docker (`WHISPER_MODELO_API`).
+
 ## Referencias
 
 - ADR-006 (Gemma 4 y Ollama), ADR-012 (MiniLM en CPU), ADR-014 (hardware de referencia),

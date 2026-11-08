@@ -211,6 +211,7 @@ docs/
 | Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
 | Medir CPU contra GPU con A y B (ADR-018) | — | `python scripts/medir_dispositivos.py --help` |
 | Medir la ficha de contexto en CPU y GPU (ADR-018) | — | `python scripts/medir_contexto.py --config gpu --config cpu video_a=…analisis.json` |
+| Medir Whisper en CPU contra la referencia (ADR-018) | — | `python scripts/medir_whisper.py --sop … video_a=…mp4` |
 | Calibrar los umbrales / diagnosticar el emparejamiento | — | `python scripts/calibrar_umbrales.py --sop … --anotacion … video_a=… video_b=…` · `python scripts/diagnosticar_emparejamiento.py …` |
 
 Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok",
