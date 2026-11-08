@@ -67,7 +67,7 @@
     },
     "ConteoReporte": {
       "additionalProperties": false,
-      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).\n\n`personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las\nfilas con responsable \"distinto\" más los roles \"ausente\", y las filas con tiempo \"excede\" o\n\"menor\". 0 mientras no se calculen.",
+      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).\n\n`personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las\nfilas con responsable \"distinto\" más los roles \"ausente\" que son responsables de algún paso\n(`RolReporte.con_pasos`, ADR-020), y las filas con tiempo \"excede\" o \"menor\". 0 mientras no\nse calculen.",
       "properties": {
         "cumple": {
           "minimum": 0,
@@ -522,7 +522,7 @@
     },
     "ResponsableFila": {
       "additionalProperties": false,
-      "description": "Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).\n\n`esperado` es el del SOP; `observado`, quien lo hace en el video (`None` si no se sabe, y\nentonces el estado es \"no_identificado\" y no hay similitud). `similitud` es el coseno entre\nlos roles, si se comparó así (`UMBRAL_ROL`).",
+      "description": "Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).\n\n`esperado` es el del SOP; `observado`, quien lo hace en el video (\"Nombre (rol)\" o el rol;\n`None` si no se sabe, y entonces el estado es \"no_identificado\" y no hay similitud).\n`similitud` es la de los roles comparados (ADR-020: la menor entre núcleo y complemento).\n`nota` dice cómo se identificó a la persona y los casos especiales (paso fusionado con varios\nresponsables, un solo narrador sin nombre…); vacía en los reportes anteriores a ADR-020.",
       "properties": {
         "esperado": {
           "minLength": 1,
@@ -563,6 +563,11 @@
           ],
           "default": null,
           "title": "Similitud"
+        },
+        "nota": {
+          "default": "",
+          "title": "Nota",
+          "type": "string"
         }
       },
       "required": [
@@ -574,7 +579,7 @@
     },
     "RolReporte": {
       "additionalProperties": false,
-      "description": "Un rol del SOP entre las personas del video (§5.4, RF-15).\n\nPresente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona\n(regla 4); ausente no lleva ni uno ni otro.",
+      "description": "Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).\n\nPresente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona\n(regla 4), `persona` (\"Nombre (rol)\" o el rol), la `similitud` de los roles y la `confianza`\ndel rol de la persona (\"baja\" si no aparece en su cita: lo infirió el LLM); ausente no lleva\nnada de eso.\n\n`con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con\npasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un\nsupervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,\nADR-020). Por defecto true: los reportes anteriores conservan su conteo.",
       "properties": {
         "rol": {
           "minLength": 1,
@@ -608,6 +613,54 @@
           "default": "",
           "title": "Cita",
           "type": "string"
+        },
+        "persona": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Persona"
+        },
+        "similitud": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Similitud"
+        },
+        "confianza": {
+          "anyOf": [
+            {
+              "enum": [
+                "alta",
+                "media",
+                "baja"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confianza"
+        },
+        "con_pasos": {
+          "default": true,
+          "title": "Con Pasos",
+          "type": "boolean"
         }
       },
       "required": [

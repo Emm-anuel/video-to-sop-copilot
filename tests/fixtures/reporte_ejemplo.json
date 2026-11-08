@@ -80,7 +80,8 @@
         "esperado": "Técnico de mantenimiento",
         "observado": "Laura (técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88
+        "similitud": 0.88,
+        "nota": ""
       },
       "tiempo": {
         "esperado_min": 0.25,
@@ -106,7 +107,8 @@
         "esperado": "Técnico de mantenimiento",
         "observado": "Laura (técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88
+        "similitud": 0.88,
+        "nota": ""
       },
       "tiempo": {
         "esperado_min": 0.2,
@@ -132,7 +134,8 @@
         "esperado": "Técnico de mantenimiento",
         "observado": "Laura (técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88
+        "similitud": 0.88,
+        "nota": ""
       },
       "tiempo": {
         "esperado_min": null,
@@ -158,7 +161,8 @@
         "esperado": "Técnico de mantenimiento",
         "observado": "Laura (técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88
+        "similitud": 0.88,
+        "nota": ""
       },
       "tiempo": {
         "esperado_min": 0.4,
@@ -184,7 +188,8 @@
         "esperado": "Técnico de mantenimiento",
         "observado": "Laura (técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88
+        "similitud": 0.88,
+        "nota": ""
       },
       "tiempo": {
         "esperado_min": 0.5,
@@ -210,7 +215,8 @@
         "esperado": "Supervisor de turno",
         "observado": "Laura (técnica de mantenimiento)",
         "estado": "distinto",
-        "similitud": 0.36
+        "similitud": 0.36,
+        "nota": ""
       },
       "tiempo": {
         "esperado_min": 0.4,
@@ -286,19 +292,31 @@
       "rol": "Técnico de mantenimiento",
       "estado": "presente",
       "t": 0.4,
-      "cita": "soy Laura, técnica de mantenimiento"
+      "cita": "soy Laura, técnica de mantenimiento",
+      "persona": null,
+      "similitud": null,
+      "confianza": null,
+      "con_pasos": true
     },
     {
       "rol": "Supervisor de turno",
       "estado": "mencionado",
       "t": 47.68,
-      "cita": "mejor avisen al supervisor de turno"
+      "cita": "mejor avisen al supervisor de turno",
+      "persona": null,
+      "similitud": null,
+      "confianza": null,
+      "con_pasos": true
     },
     {
       "rol": "Almacenista",
       "estado": "ausente",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "persona": null,
+      "similitud": null,
+      "confianza": null,
+      "con_pasos": true
     }
   ],
   "tiempo_total": {

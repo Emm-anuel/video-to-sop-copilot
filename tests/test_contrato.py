@@ -995,7 +995,7 @@ def test_personas_y_tiempos_coherentes_validan(modelo, datos):
             "medido",
         ),
         (RolReporte, {"rol": "Supervisor", "estado": "presente"}, "lleva el segundo"),
-        (RolReporte, {"rol": "Almacenista", "estado": "ausente", "t": 3.0}, "sin t ni cita"),
+        (RolReporte, {"rol": "Almacenista", "estado": "ausente", "t": 3.0}, "sin t, cita"),
         (TiempoTotal, {"observado_min": 46, "estado": "menor"}, "sin_referencia"),
         (Horario, {"esperado": "7:00", "estado": "sin_referencia"}, "sin_referencia"),
         (Horario, {"esperado": "7:00", "estado": "coincide"}, "no_mencionado"),

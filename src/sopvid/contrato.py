@@ -863,15 +863,18 @@ class SOPReporte(_Modelo):
 class ResponsableFila(_Modelo):
     """Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).
 
-    `esperado` es el del SOP; `observado`, quien lo hace en el video (`None` si no se sabe, y
-    entonces el estado es "no_identificado" y no hay similitud). `similitud` es el coseno entre
-    los roles, si se comparó así (`UMBRAL_ROL`).
+    `esperado` es el del SOP; `observado`, quien lo hace en el video ("Nombre (rol)" o el rol;
+    `None` si no se sabe, y entonces el estado es "no_identificado" y no hay similitud).
+    `similitud` es la de los roles comparados (ADR-020: la menor entre núcleo y complemento).
+    `nota` dice cómo se identificó a la persona y los casos especiales (paso fusionado con varios
+    responsables, un solo narrador sin nombre…); vacía en los reportes anteriores a ADR-020.
     """
 
     esperado: str = Field(min_length=1)
     observado: str | None = None
     estado: EstadoResponsable
     similitud: float | None = Field(default=None, ge=-1, le=1)
+    nota: str = ""
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
@@ -947,8 +950,9 @@ class ConteoReporte(_Modelo):
     """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).
 
     `personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las
-    filas con responsable "distinto" más los roles "ausente", y las filas con tiempo "excede" o
-    "menor". 0 mientras no se calculen.
+    filas con responsable "distinto" más los roles "ausente" que son responsables de algún paso
+    (`RolReporte.con_pasos`, ADR-020), y las filas con tiempo "excede" o "menor". 0 mientras no
+    se calculen.
     """
 
     cumple: int = Field(ge=0)
@@ -991,22 +995,39 @@ class DetencionAfinidad(_Modelo):
 
 
 class RolReporte(_Modelo):
-    """Un rol del SOP entre las personas del video (§5.4, RF-15).
+    """Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).
 
     Presente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona
-    (regla 4); ausente no lleva ni uno ni otro.
+    (regla 4), `persona` ("Nombre (rol)" o el rol), la `similitud` de los roles y la `confianza`
+    del rol de la persona ("baja" si no aparece en su cita: lo infirió el LLM); ausente no lleva
+    nada de eso.
+
+    `con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con
+    pasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un
+    supervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,
+    ADR-020). Por defecto true: los reportes anteriores conservan su conteo.
     """
 
     rol: str = Field(min_length=1)
     estado: EstadoRol
     t: Tiempo | None = None
     cita: str = ""
+    persona: str | None = None
+    similitud: float | None = Field(default=None, ge=-1, le=1)
+    confianza: Confianza | None = None
+    con_pasos: bool = True
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
         if self.estado == "ausente":
-            if self.t is not None or self.cita:
-                raise ValueError("rol ausente: sin t ni cita")
+            if (
+                self.t is not None
+                or self.cita
+                or self.persona is not None
+                or self.similitud is not None
+                or self.confianza is not None
+            ):
+                raise ValueError("rol ausente: sin t, cita, persona, similitud ni confianza")
         elif self.t is None:
             raise ValueError(f"rol {self.estado}: lleva el segundo donde aparece (t)")
         return self
@@ -1108,7 +1129,7 @@ class ReporteValidacion(_Modelo):
             marco_operador=sum(f.marco_operador is not None for f in filas),
             personas_con_diferencias=(
                 sum(f.responsable is not None and f.responsable.estado == "distinto" for f in filas)
-                + sum(r.estado == "ausente" for r in self.roles)
+                + sum(r.estado == "ausente" and r.con_pasos for r in self.roles)
             ),
             pasos_fuera_de_tiempo=sum(
                 f.tiempo is not None and f.tiempo.estado in ("excede", "menor") for f in filas
