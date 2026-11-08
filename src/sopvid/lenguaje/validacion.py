@@ -1,5 +1,5 @@
-"""Validación de un video contra un SOP: ficha de contexto → pasos del video → emparejamiento
-→ porcentaje.
+"""Validación de un video contra un SOP: ficha de contexto → afinidad → pasos del video →
+emparejamiento → porcentaje.
 
 Corre después del análisis (transcripción) y no toca la base: `validar` recibe el `Analisis` y el
 SOP y devuelve la ficha de contexto (RF-12), los pasos del video y el `ResultadoValidacion` que se
@@ -9,6 +9,11 @@ La ficha de contexto va primero, en la misma ventana de Gemma que los pasos y el
 carga del modelo, ADR-014). Nunca ve el SOP (regla 5). Si ya hay una guardada (repetir solo la
 validación, ADR-019), se reusa sin llamar al modelo. Si queda vacía (`generar_contexto` no lanza),
 la validación sigue y el reporte lleva el aviso "contexto_sin_generar".
+
+Con la ficha se calcula la afinidad de contexto (RF-17, ADR-020; MiniLM, sin LLM). Si queda bajo
+`AFINIDAD_MIN` y no se pidió `continuar`, la validación se detiene ahí, antes de segmentar:
+`validar` devuelve una `Detenida` y el procesador deja el video en "afinidad_baja" hasta que
+quien carga decida. Sin ficha no hay afinidad y la validación sigue.
 
 Whisper ya soltó la memoria al terminar de transcribir (ADR-014). Antes de segmentar se revisa
 que Ollama responda y tenga el modelo; si no, `LLMNoDisponible` y el procesador deja el video en
@@ -34,6 +39,7 @@ from sopvid.contrato import (
     Analisis,
     Aviso,
     Contexto,
+    DetencionAfinidad,
     Dispositivo,
     Dispositivos,
     MetadatosValidacion,
@@ -42,6 +48,7 @@ from sopvid.contrato import (
     ResultadoValidacion,
     Umbrales,
 )
+from sopvid.lenguaje.afinidad import afinidad
 from sopvid.lenguaje.emparejamiento import Embedder, emparejar, get_embedder
 from sopvid.lenguaje.juez import Juez, JuezGemma
 from sopvid.lenguaje.llm import ClienteLLM, LLMNoDisponible
@@ -98,6 +105,19 @@ class Validacion:
     resultado_contexto: ResultadoContexto | None = None
 
 
+@dataclass(frozen=True)
+class Detenida:
+    """La validación se detuvo por afinidad baja (ADR-020), antes de segmentar.
+
+    `detencion` va a `reportes.resultado`; `contexto` y `resultado_contexto`, como en
+    `Validacion` (la ficha se guarda si se generó aquí).
+    """
+
+    detencion: DetencionAfinidad
+    contexto: Contexto
+    resultado_contexto: ResultadoContexto | None = None
+
+
 def validar(
     analisis: Analisis,
     sop: SOP,
@@ -107,13 +127,18 @@ def validar(
     segundos_analisis: Mapping[str, float] | None = None,
     dispositivos: Dispositivos | None = None,
     contexto: Contexto | None = None,
+    continuar: bool = False,
     reloj: Callable[[], float] = time.perf_counter,
-) -> Validacion:
-    """Genera la ficha de contexto, segmenta, empareja (con el juez) y calcula el porcentaje y
-    el semáforo.
+) -> Validacion | Detenida:
+    """Genera la ficha de contexto, calcula la afinidad, segmenta, empareja (con el juez) y
+    calcula el porcentaje y el semáforo.
 
-    Con `contexto` (la ficha guardada) no se vuelve a generar. `segundos_analisis` (duracion,
-    audio, transcripcion) se copia a los metadatos junto con los de esta etapa. `dispositivos`
+    Con `contexto` (la ficha guardada) no se vuelve a generar. Si la afinidad queda bajo
+    `AFINIDAD_MIN`, devuelve una `Detenida` sin segmentar, salvo con `continuar` (quien carga ya
+    vio la advertencia): entonces sigue y el reporte lleva la afinidad con `bajo_umbral`.
+
+    `segundos_analisis` (duracion, audio, transcripcion) se copia a los metadatos junto con los
+    de esta etapa (incluida "afinidad"). `dispositivos`
     trae la GPU y dónde corrió Whisper; aquí se completa con dónde corrió Gemma. Errores:
     `LLMNoDisponible` si Ollama no responde antes de empezar; los demás salen tal cual.
     """
@@ -127,6 +152,7 @@ def validar(
     segundos = dict(segundos_analisis or {})
     llm_en: Dispositivo = "desconocido"
     resultado_contexto: ResultadoContexto | None = None
+    detencion: DetencionAfinidad | None = None
     try:
         # Cuando existan los fotogramas (RF-11), su descripción con Gemma va antes de la ficha,
         # en esta misma ventana: la ficha los usa como evidencia.
@@ -136,6 +162,22 @@ def validar(
             resultado_contexto = generar_contexto(analisis, deps.llm)
             segundos["contexto"] = reloj() - inicio
             contexto = resultado_contexto.contexto
+
+        inicio = reloj()
+        con_ficha = resultado_contexto is None or resultado_contexto.generado
+        afinidad_video = afinidad(sop, contexto if con_ficha else None, embedder, settings)
+        segundos["afinidad"] = reloj() - inicio
+        if afinidad_video is not None and afinidad_video.bajo_umbral and not continuar:
+            aviso = aviso_transcripcion(analisis)
+            detencion = DetencionAfinidad(
+                afinidad=afinidad_video,
+                umbrales=umbrales_de(settings),
+                embedder=embedder.modelo,
+                segundos={etapa: round(s, 2) for etapa, s in segundos.items()},
+                avisos=[aviso] if aviso else [],
+            )
+            # El `finally` descarga Gemma; los dispositivos se completan abajo.
+            return Detenida(detencion, contexto, resultado_contexto)
 
         avanzar("segmentacion", INICIO_ETAPA["segmentacion"])
         inicio = reloj()
@@ -158,6 +200,18 @@ def validar(
         # Antes de descargar: después Ollama ya no lo lista.
         llm_en = deps.llm.dispositivo_cargado()
         deps.llm.descargar()
+        if detencion is not None:
+            # El objeto es inmutable para quien lo recibe, pero aquí todavía no salió de la
+            # función: se completa con dónde corrió Gemma.
+            detencion.dispositivos = (dispositivos or Dispositivos()).model_copy(
+                update={"llm": llm_en}
+            )
+            logger.info(
+                "Validación del video %d detenida: afinidad %d < %s",
+                analisis.video_id,
+                detencion.afinidad.valor,
+                settings.afinidad_min,
+            )
 
     avanzar("reporte", INICIO_ETAPA["reporte"])
     pct = porcentaje(resultado)
@@ -167,16 +221,7 @@ def validar(
         motivo_respaldo=segmentacion.motivo_respaldo,
         modelo_llm=segmentacion.modelo,
         embedder=embedder.modelo,
-        umbrales=Umbrales(
-            bajo=settings.umbral_bajo,
-            alto=settings.umbral_alto,
-            fusion=settings.umbral_fusion,
-            semaforo_verde=settings.semaforo_verde,
-            semaforo_amarillo=settings.semaforo_amarillo,
-            afinidad_min=settings.afinidad_min,
-            tolerancia_tiempo=settings.tolerancia_tiempo,
-            umbral_rol=settings.umbral_rol,
-        ),
+        umbrales=umbrales_de(settings),
         segundos={etapa: round(s, 2) for etapa, s in segundos.items()},
         avisos=avisos,
         dispositivos=(dispositivos or Dispositivos()).model_copy(update={"llm": llm_en}),
@@ -197,9 +242,28 @@ def validar(
             cumplimiento=pct,
             semaforo=semaforo(pct, settings),
             metadatos=metadatos,
+            afinidad=afinidad_video,
         ),
         contexto=contexto,
         resultado_contexto=resultado_contexto,
+    )
+
+
+def umbrales_de(settings: Settings) -> Umbrales:
+    """Los umbrales de la configuración que se registran en el reporte (RNF-14)."""
+    return Umbrales(
+        bajo=settings.umbral_bajo,
+        alto=settings.umbral_alto,
+        fusion=settings.umbral_fusion,
+        semaforo_verde=settings.semaforo_verde,
+        semaforo_amarillo=settings.semaforo_amarillo,
+        afinidad_min=settings.afinidad_min,
+        tolerancia_tiempo=settings.tolerancia_tiempo,
+        umbral_rol=settings.umbral_rol,
+        afinidad_cos_cero=settings.afinidad_cos_cero,
+        afinidad_cos_cien=settings.afinidad_cos_cien,
+        afinidad_umbral_equipo=settings.afinidad_umbral_equipo,
+        umbral_rol_complemento=settings.umbral_rol_complemento,
     )
 
 

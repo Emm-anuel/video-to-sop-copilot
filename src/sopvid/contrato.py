@@ -769,6 +769,11 @@ class Umbrales(_Modelo):
     afinidad_min: float | None = Field(default=None, ge=0, le=100)
     tolerancia_tiempo: float | None = Field(default=None, ge=0, le=1)
     umbral_rol: float | None = Field(default=None, ge=0, le=1)
+    # None en los reportes guardados antes de ADR-020.
+    afinidad_cos_cero: float | None = Field(default=None, ge=-1, le=1)
+    afinidad_cos_cien: float | None = Field(default=None, ge=-1, le=1)
+    afinidad_umbral_equipo: float | None = Field(default=None, ge=0, le=1)
+    umbral_rol_complemento: float | None = Field(default=None, ge=0, le=1)
 
 
 # Dónde corrió un modelo (ADR-018). "gpu": al menos una parte en la GPU (Ollama no informa de
@@ -811,11 +816,27 @@ class MetadatosValidacion(_Modelo):
     dispositivos: Dispositivos | None = None
 
 
+class Afinidad(_Modelo):
+    """¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
+    columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+
+    `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
+    componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
+    afinidades anteriores a ADR-020.
+    """
+
+    valor: int = Field(ge=0, le=100)
+    explicacion: str
+    bajo_umbral: bool
+    componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
+
+
 class ResultadoValidacion(_Modelo):
     """Lo que se guarda en `reportes.resultado` (JSONB).
 
     `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
-    decimales) y `semaforo` se calculó con él, nunca con el redondeado.
+    decimales) y `semaforo` se calculó con él, nunca con el redondeado. `afinidad` (RF-17,
+    ADR-020) es None sin ficha de contexto y en los reportes guardados antes de ADR-020.
     """
 
     version_contrato: Literal[1] = 1
@@ -823,6 +844,7 @@ class ResultadoValidacion(_Modelo):
     cumplimiento: float = Field(ge=0, le=100)
     semaforo: Semaforo
     metadatos: MetadatosValidacion
+    afinidad: Afinidad | None = None
 
 
 class PasoSOPReporte(_Modelo):
@@ -940,19 +962,32 @@ class ConteoReporte(_Modelo):
     pasos_fuera_de_tiempo: int = Field(default=0, ge=0)
 
 
-class Afinidad(_Modelo):
-    """¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
-    columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+class DetencionAfinidad(_Modelo):
+    """Lo que se guarda en `reportes.resultado` cuando la validación se detiene por afinidad baja
+    (ADR-020): el video queda en `proceso="afinidad_baja"`, sin reporte de pasos y con
+    `reportes.cumplimiento` en NULL, hasta que quien carga decide continuar
+    (`POST /videos/{id}/validar?continuar=true`).
 
-    `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
-    componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
-    afinidades anteriores a ADR-020.
+    `segundos` lleva lo que tardó cada etapa hasta la afinidad; `avisos`, los que ya se sabían
+    (p. ej. "transcripcion_no_referencia"). `afinidad.bajo_umbral` siempre es true.
     """
 
-    valor: int = Field(ge=0, le=100)
-    explicacion: str
-    bajo_umbral: bool
-    componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
+    version_contrato: Literal[1] = 1
+    afinidad: Afinidad
+    umbrales: Umbrales
+    embedder: str
+    segundos: dict[str, Annotated[float, Field(ge=0)]] = {}
+    avisos: list[Aviso] = []
+    dispositivos: Dispositivos | None = None
+
+    @model_validator(mode="after")
+    def _bajo_umbral(self) -> Self:
+        if not self.afinidad.bajo_umbral:
+            raise ValueError("una detención por afinidad lleva una afinidad bajo el umbral")
+        minimo = self.umbrales.afinidad_min
+        if minimo is not None and self.afinidad.valor >= minimo:
+            raise ValueError(f"afinidad {self.afinidad.valor} no está bajo AFINIDAD_MIN {minimo}")
+        return self
 
 
 class RolReporte(_Modelo):

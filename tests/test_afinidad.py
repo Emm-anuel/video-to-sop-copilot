@@ -1,5 +1,8 @@
 """Afinidad de contexto (RF-17, ADR-020) con fichas y SOP inventados, sin LLM.
 
+Las pruebas del flujo (detención con "afinidad_baja" y `?continuar=true`) usan la base y los
+dobles de tests/dobles.py, como las de la validación.
+
 Por defecto, MiniLM se sustituye por una bolsa de palabras (`dobles.VectorizadorPalabras`): basta
 para probar la lógica (componentes, palabras genéricas, evidencia, mapeo y explicación). Las
 pruebas "lento" repiten los casos con MiniLM real (`pytest -m lento`) e imprimen los valores, que
@@ -9,16 +12,22 @@ Todo es inventado por el equipo (CLAUDE.md §2.1): los SOP son los fixtures de p
 fichas, las de abajo.
 """
 
+from collections.abc import Iterator
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from dobles import embedder_palabras
-from sopvid.contrato import SOP, Contexto, Dato, Elemento, PasoSOP, Resumen
+from dobles import Entorno, embedder_palabras, guardar_sop
+from sopvid.contrato import SOP, Contexto, Dato, DetencionAfinidad, Elemento, PasoSOP, Resumen
 from sopvid.lenguaje import afinidad as af
 from sopvid.lenguaje.emparejamiento import Embedder
 from sopvid.lenguaje.sop_markdown import convertir_sop
 from sopvid.plataforma.config import Settings
+from sopvid.plataforma.modelos import Reporte
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -263,3 +272,142 @@ def test_minilm_casos_de_aceptacion(settings: Settings) -> None:
     assert mismo is not None and mismo.valor >= settings.afinidad_min
     assert distinto is not None and distinto.valor < settings.afinidad_min
     assert genericas is not None and genericas.valor < settings.afinidad_min
+
+
+# ── Flujo con afinidad baja (ADR-020): procesador y API, con los dobles de tests/dobles.py ───
+
+# Ficha de otro procedimiento: ninguna palabra en común con SOP_PRUEBA ("Revisión de la línea de
+# agua"). Las citas van vacías: los datos quedan inferidos, y aun así cuentan.
+CONTEXTO_OTRO = {
+    "actividad": {"cita": "", "valor": "Preparación de café en la cafetera"},
+    "tema": {"cita": "", "valor": "Bebidas"},
+    "lugar": {"cita": "", "valor": "Sala de descanso"},
+    "horario_mencionado": {"cita": "", "valor": None},
+    "proposito": {"cita": "", "valor": "Tener café listo al empezar el turno"},
+    "resumen": "Se prepara café.",
+    "personas": [],
+    "equipos": ["Cafetera", "Jarra"],
+}
+
+
+@pytest.fixture
+def entorno(db_session: Session, tmp_path: Path) -> Entorno:
+    return Entorno(db_session, tmp_path)
+
+
+@pytest.fixture
+def client(entorno: Entorno) -> Iterator[TestClient]:
+    with TestClient(entorno.app) as cliente:
+        yield cliente
+
+
+@pytest.fixture
+def subir_validar(client: TestClient, entorno: Entorno, generar_video):
+    def subir() -> int:
+        sop = guardar_sop(entorno.session)
+        r = client.post(
+            "/videos",
+            files={"archivo": ("operador.mp4", generar_video().read_bytes(), "video/mp4")},
+            data={"titulo": "Revisión", "modo": "validar", "sop_id": str(sop.id)},
+        )
+        assert r.status_code == 202
+        return r.json()["id"]
+
+    return subir
+
+
+def _reporte(session: Session, video_id: int) -> Reporte:
+    return session.scalars(select(Reporte).where(Reporte.video_id == video_id)).one()
+
+
+def test_afinidad_baja_detiene_la_validacion_antes_de_segmentar(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    entorno.ollama.respuestas_contexto = [CONTEXTO_OTRO]
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    video = entorno.video(video_id)
+    assert (video.proceso, video.etapa, video.error) == ("afinidad_baja", "afinidad", None)
+    assert video.pasos_video is None
+    assert video.contexto is not None  # la ficha se guarda: al continuar no se repite
+    # Gemma generó la ficha y se descargó; nunca segmentó.
+    assert "chat:contexto" in entorno.eventos and "chat:fronteras" not in entorno.eventos
+    assert entorno.eventos[-1] == "descargar"
+
+    reporte = _reporte(entorno.session, video_id)
+    detencion = DetencionAfinidad.model_validate(reporte.resultado)
+    assert reporte.cumplimiento is None and reporte.afinidad == detencion.afinidad.valor
+    assert detencion.afinidad.bajo_umbral and detencion.afinidad.valor < 60
+    assert "actividad distinta del título (dato inferido)" in detencion.afinidad.explicacion
+    assert set(detencion.segundos) >= {"transcripcion", "contexto", "afinidad"}
+    assert detencion.dispositivos is not None and detencion.dispositivos.llm == "gpu"
+
+    estado = client.get(f"/videos/{video_id}").json()
+    assert estado["proceso"] == "afinidad_baja"
+    assert estado["afinidad"] == detencion.afinidad.model_dump(mode="json")
+    r = client.get(f"/videos/{video_id}/reporte")
+    assert (r.status_code, r.json()["detail"]["proceso"]) == (409, "afinidad_baja")
+
+
+def test_continuar_da_el_reporte_con_la_afinidad_bajo_el_umbral(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    entorno.ollama.respuestas_contexto = [CONTEXTO_OTRO]
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    afinidad = client.get(f"/videos/{video_id}").json()["afinidad"]
+
+    r = client.post(f"/videos/{video_id}/validar", params={"continuar": "true"})
+    assert (r.status_code, r.json()["proceso"]) == (202, "en_cola")
+    entorno.correr_pendientes()
+
+    assert entorno.transcriptor.idiomas == [None]  # sin repetir Whisper
+    assert entorno.eventos.count("chat:contexto") == 1  # ni la ficha
+    assert entorno.video(video_id).proceso == "listo"
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["afinidad"] == afinidad and reporte["afinidad"]["bajo_umbral"] is True
+    assert reporte["cumplimiento"] == 83.33  # la afinidad no cambia el porcentaje (§5.6)
+    assert client.get(f"/videos/{video_id}").json()["afinidad"] == afinidad
+    fila = _reporte(entorno.session, video_id)
+    assert (fila.afinidad, fila.cumplimiento) == (afinidad["valor"], Decimal("83.33"))
+
+
+def test_repetir_sin_continuar_se_vuelve_a_detener(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    entorno.ollama.respuestas_contexto = [CONTEXTO_OTRO]
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+
+    assert entorno.video(video_id).proceso == "afinidad_baja"
+    assert "chat:fronteras" not in entorno.eventos
+
+
+def test_sin_ficha_no_hay_afinidad_y_la_validacion_sigue(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    entorno.ollama.contexto_caido = True
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    assert entorno.video(video_id).proceso == "listo"
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["afinidad"] is None
+    assert [a["tipo"] for a in reporte["metadatos"]["avisos"]] == ["contexto_sin_generar"]
+    assert client.get(f"/videos/{video_id}").json()["afinidad"] is None
+    assert _reporte(entorno.session, video_id).afinidad is None
+
+
+def test_la_misma_ficha_del_procedimiento_pasa(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()  # CONTEXTO del doble: la actividad es el título del SOP
+    entorno.correr_pendientes()
+
+    assert entorno.video(video_id).proceso == "listo"
+    afinidad = client.get(f"/videos/{video_id}/reporte").json()["afinidad"]
+    assert afinidad["valor"] >= 60 and afinidad["bajo_umbral"] is False

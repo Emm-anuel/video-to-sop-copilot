@@ -327,10 +327,16 @@ class VectorizadorGuionado:
     `guion` asigna a cada prefijo un concepto y un coseno: el paso del SOP con coseno 1 es el
     vector base del concepto, y un paso del video con coseno s queda a ese coseno de él (con una
     componente propia ortogonal). Un texto sin prefijo recibe un vector propio, ortogonal a todo.
+
+    Con `palabras=True`, un texto sin prefijo recibe en cambio su bolsa de palabras (como
+    `VectorizadorPalabras`) en las dimensiones 10 a 99, que el guion no usa: los textos del guion
+    siguen con el coseno guionado y ortogonales a los demás, y los otros (la ficha de contexto y
+    el SOP en la afinidad, ADR-020) se parecen según sus palabras.
     """
 
-    def __init__(self, guion: dict[str, tuple[int, float]]):
+    def __init__(self, guion: dict[str, tuple[int, float]], *, palabras: bool = False):
         self.guion = guion
+        self.palabras = palabras
 
     def encode(self, sentences: list[str], **kwargs: Any) -> np.ndarray:
         x = np.zeros((len(sentences), emp.DIMENSION))
@@ -341,7 +347,11 @@ class VectorizadorGuionado:
                     x[i, 100 + _indice(prefijo)] = math.sqrt(max(0.0, 1 - coseno**2))
                     break
             else:
-                x[i, 100 + _indice(texto)] = 1.0
+                if self.palabras and (raices := _raices(texto)):
+                    for raiz in raices:
+                        x[i, 10 + int(hashlib.md5(raiz.encode()).hexdigest(), 16) % 90] += 1
+                else:
+                    x[i, 100 + _indice(texto)] = 1.0
         return x
 
 
@@ -355,6 +365,11 @@ _VACIAS_PALABRAS = frozenset(
 )
 
 
+def _raices(texto: str) -> list[str]:
+    """Las palabras de `texto` sin acentos ni palabras vacías, recortadas a 5 letras."""
+    return [p[:5] for p in comparable(texto).split() if p not in _VACIAS_PALABRAS]
+
+
 class VectorizadorPalabras:
     """Bolsa de palabras sin MiniLM: cada palabra (sin acentos, recortada a sus primeras 5
     letras, para unir "cambio" y "cambiar") suma 1 en una dimensión fija. El coseno entre dos
@@ -365,10 +380,8 @@ class VectorizadorPalabras:
     def encode(self, sentences: list[str], **kwargs: Any) -> np.ndarray:
         x = np.zeros((len(sentences), emp.DIMENSION))
         for i, texto in enumerate(sentences):
-            for palabra in comparable(texto).split():
-                if palabra not in _VACIAS_PALABRAS:
-                    raiz = palabra[:5]
-                    x[i, int(hashlib.md5(raiz.encode()).hexdigest(), 16) % emp.DIMENSION] += 1
+            for raiz in _raices(texto):
+                x[i, int(hashlib.md5(raiz.encode()).hexdigest(), 16) % emp.DIMENSION] += 1
         return x
 
 
@@ -388,8 +401,10 @@ GUION_PRUEBA = {
 }
 
 
-def embedder_guionado(guion: dict[str, tuple[int, float]], cache: Path) -> emp.Embedder:
-    vectorizador = VectorizadorGuionado(guion)
+def embedder_guionado(
+    guion: dict[str, tuple[int, float]], cache: Path, *, palabras: bool = False
+) -> emp.Embedder:
+    vectorizador = VectorizadorGuionado(guion, palabras=palabras)
     return emp.Embedder("vectorizador-guionado", cache, cargador=lambda m, c: vectorizador)
 
 
@@ -423,7 +438,9 @@ class Entorno:
             cliente = self.ollama.cliente()
             self.clientes.append(cliente)
             return DependenciasValidacion(
-                cliente, self.juez, embedder_guionado(self.guion, tmp_path / "modelos")
+                cliente,
+                self.juez,
+                embedder_guionado(self.guion, tmp_path / "modelos", palabras=True),
             )
 
         def sesion() -> Iterator[Session]:

@@ -38,7 +38,9 @@ ORIGENES_SOP = ("cargado", "generado")
 METODOS_SOP = ("plantilla", "llm")  # cómo se convirtió un SOP cargado (ADR-015)
 ESTADOS_SOP = ("en_cola", "convirtiendo", "listo", "error")  # conversión en el trabajador
 MODOS_VIDEO = ("validar", "generar")
-PROCESOS_VIDEO = ("en_cola", "procesando", "listo", "error")
+# "afinidad_baja" (migración 0005, ADR-020): la validación se detuvo porque el video parece no ser
+# del SOP; espera a que quien carga decida continuar (POST /videos/{id}/validar?continuar=true).
+PROCESOS_VIDEO = ("en_cola", "procesando", "listo", "error", "afinidad_baja")
 
 
 def _en(columna: str, valores: tuple[str, ...]) -> str:

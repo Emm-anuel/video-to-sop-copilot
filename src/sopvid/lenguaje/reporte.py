@@ -129,6 +129,7 @@ def armar_reporte(
         cumplimiento=cumplimiento,
         semaforo=validacion.semaforo,
         provisional=bool(validacion.metadatos.avisos),
+        afinidad=validacion.afinidad,
         conteo=conteo,
         filas=filas,
         metadatos=validacion.metadatos,

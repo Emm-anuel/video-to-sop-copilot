@@ -214,7 +214,8 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
         "amarillo",
         False,
     )
-    assert reporte.afinidad is None
+    # La ficha del doble es del mismo procedimiento que SOP_PRUEBA (ADR-020).
+    assert reporte.afinidad is not None and not reporte.afinidad.bajo_umbral
     assert [(f.estado, f.paso_sop, f.paso_video) for f in reporte.filas] == [
         ("Cumple", 1, 1),
         ("Parcial", 2, 2),

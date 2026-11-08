@@ -818,6 +818,62 @@
           ],
           "default": null,
           "title": "Umbral Rol"
+        },
+        "afinidad_cos_cero": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Cos Cero"
+        },
+        "afinidad_cos_cien": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Cos Cien"
+        },
+        "afinidad_umbral_equipo": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Umbral Equipo"
+        },
+        "umbral_rol_complemento": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Umbral Rol Complemento"
         }
       },
       "required": [

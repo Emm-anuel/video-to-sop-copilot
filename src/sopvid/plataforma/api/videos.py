@@ -15,6 +15,9 @@ a su SOP (va después en la cola); si la conversión falla, el video queda en er
 del SOP. Un `sop_id` de un SOP en error da 422; uno que todavía convierte se acepta y espera.
 `POST /videos/{id}/validar` repite la validación sin volver a transcribir (ADR-019) y
 `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
+Afinidad baja (ADR-020): si el video parece no ser del SOP, la validación se detiene con
+`proceso="afinidad_baja"` y `GET /videos/{id}` trae la `afinidad` (valor y explicación) para
+advertirlo; `POST /videos/{id}/validar?continuar=true` sigue sin detenerse.
 `GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
 `GET /videos/{id}/contexto` devuelve la ficha de contexto (RF-12) si ya se generó.
 
@@ -30,12 +33,29 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, BinaryIO
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis, Contexto, ReporteValidacion, ResultadoValidacion
+from sopvid.contrato import (
+    SOP,
+    Afinidad,
+    Analisis,
+    Contexto,
+    ReporteValidacion,
+    ResultadoValidacion,
+)
 from sopvid.lenguaje.lectura_sop import AjustesConversion
 from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
@@ -52,6 +72,7 @@ from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
 from sopvid.plataforma.procesamiento import (
+    AFINIDAD_BAJA,
     EN_COLA,
     LISTO,
     PROCESANDO,
@@ -97,6 +118,9 @@ class EstadoVideo(BaseModel):
     creado: datetime
     # SOP de referencia; uno adjunto puede seguir convirtiéndose (GET /sops/{id}/estado).
     sop_id: int | None = None
+    # Afinidad de contexto (RF-17, ADR-020): con "afinidad_baja", la de la detención (la pantalla
+    # advierte y ofrece continuar); con "listo", la del reporte. None sin ficha o sin validación.
+    afinidad: Afinidad | None = None
 
 
 def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Transcriptor:
@@ -221,8 +245,16 @@ def revalidar_video(
     session: Annotated[Session, Depends(get_session)],
     procesador: Annotated[Procesador, Depends(get_procesador)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+    continuar: Annotated[
+        bool,
+        Query(description="true: no detenerse por afinidad baja (quien carga ya la vio)"),
+    ] = False,
 ) -> VideoCreado:
-    """Repite solo la validación con la transcripción guardada (ADR-019)."""
+    """Repite solo la validación con la transcripción guardada (ADR-019).
+
+    Se acepta en "listo", "error" y "afinidad_baja". Con `continuar=true` no se detiene por
+    afinidad baja (ADR-020) y el reporte lleva la afinidad con `bajo_umbral=true`.
+    """
     video = _buscar(session, video_id)
     if video.modo != "validar":
         raise HTTPException(422, "solo un video de modo validar tiene validación")
@@ -232,14 +264,25 @@ def revalidar_video(
         raise HTTPException(409, "el video no tiene análisis guardado: vuelve a subirlo")
     video.proceso, video.error = EN_COLA, None
     session.commit()
-    procesador.revalidar(video.id, validacion)
+    procesador.revalidar(video.id, validacion, continuar=continuar)
     return VideoCreado(id=video.id, proceso=video.proceso)
 
 
 @router.get("/videos/{video_id}", response_model=EstadoVideo)
 def estado_video(video_id: int, session: Annotated[Session, Depends(get_session)]) -> EstadoVideo:
     video = _buscar(session, video_id)
-    return EstadoVideo.model_validate(video, from_attributes=True)
+    estado = EstadoVideo.model_validate(video, from_attributes=True)
+    return estado.model_copy(update={"afinidad": _afinidad(video)})
+
+
+def _afinidad(video: Video) -> Afinidad | None:
+    """La afinidad guardada en el reporte (de la detención o del reporte de pasos), o None. La
+    `DetencionAfinidad` y el `ResultadoValidacion` la llevan en la misma clave."""
+    reporte = video.reporte
+    if video.proceso not in (LISTO, AFINIDAD_BAJA) or reporte is None:
+        return None
+    datos = (reporte.resultado or {}).get("afinidad")
+    return None if datos is None else Afinidad.model_validate(datos)
 
 
 @router.get("/videos/{video_id}/transcripcion.txt")

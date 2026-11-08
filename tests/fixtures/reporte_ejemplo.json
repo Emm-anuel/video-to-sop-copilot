@@ -326,7 +326,11 @@
       "semaforo_amarillo": 70.0,
       "afinidad_min": 60.0,
       "tolerancia_tiempo": 0.2,
-      "umbral_rol": 0.85
+      "umbral_rol": 0.85,
+      "afinidad_cos_cero": null,
+      "afinidad_cos_cien": null,
+      "afinidad_umbral_equipo": null,
+      "umbral_rol_complemento": null
     },
     "segundos": {
       "duracion": 0.2,

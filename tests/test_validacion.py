@@ -71,9 +71,11 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
     pasos = [PasoVideo.model_validate(p) for p in video.pasos_video]
     assert [(p.t_inicio, p.cita) for p in pasos] == [(s.t_inicio, s.texto) for s in SEGMENTOS]
     [reporte] = _reportes(entorno.session, video_id)
-    assert (reporte.sop_id, reporte.afinidad) == (video.sop_id, None)
-    assert reporte.cumplimiento == Decimal("83.33")
     guardado = ResultadoValidacion.model_validate(reporte.resultado)
+    # La ficha del doble es del mismo procedimiento: la afinidad pasa y va en la columna.
+    assert guardado.afinidad is not None and not guardado.afinidad.bajo_umbral
+    assert (reporte.sop_id, reporte.afinidad) == (video.sop_id, guardado.afinidad.valor)
+    assert reporte.cumplimiento == Decimal("83.33")
     assert guardado.cumplimiento == pytest.approx(250 / 3)  # sin redondear
     assert guardado.semaforo == "amarillo"
     meta = guardado.metadatos
@@ -85,6 +87,7 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "audio",
         "transcripcion",
         "contexto",
+        "afinidad",
         "segmentacion",
         "emparejamiento",
     }
@@ -173,7 +176,12 @@ def test_ollama_caido_al_empezar_deja_error_reprocesable(
     reporte = client.get(f"/videos/{video_id}/reporte").json()
     assert (reporte["cumplimiento"], reporte["provisional"]) == (83.33, False)
     # Al repetir no hay segundos del análisis; la ficha no se había generado y se genera aquí.
-    assert set(reporte["metadatos"]["segundos"]) == {"contexto", "segmentacion", "emparejamiento"}
+    assert set(reporte["metadatos"]["segundos"]) == {
+        "contexto",
+        "afinidad",
+        "segmentacion",
+        "emparejamiento",
+    }
     assert entorno.video(video_id).contexto is not None
 
 
@@ -305,7 +313,7 @@ def test_repetir_la_validacion_reusa_la_ficha_guardada(
     assert entorno.eventos.count("chat:contexto") == 1  # no volvió a llamar al modelo
     assert entorno.video(video_id).contexto == guardada
     reporte = client.get(f"/videos/{video_id}/reporte").json()
-    assert set(reporte["metadatos"]["segundos"]) == {"segmentacion", "emparejamiento"}
+    assert set(reporte["metadatos"]["segundos"]) == {"afinidad", "segmentacion", "emparejamiento"}
     assert reporte["provisional"] is False
 
 

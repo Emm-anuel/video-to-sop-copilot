@@ -88,7 +88,8 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
   cierre) y `tests/fixtures/reporte_ejemplo_provisional.json` (juez caído, un par "sin revisar").
   No los edites a mano: se regeneran con `scripts/ejemplo_reporte.py`.
 - **Rutas que usa la pantalla:**
-  - `GET /videos/{id}`: `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa`, `progreso`.
+  - `GET /videos/{id}`: `proceso` (`en_cola`, `procesando`, `listo`, `error`, `afinidad_baja`),
+    `etapa`, `progreso` y `afinidad` (sección siguiente).
   - `GET /videos/{id}/reporte`: el reporte; **409** mientras no está listo (consultar el estado cada
     3 s), 404 si el video no tiene reporte.
   - `GET /videos/{id}/video`: el archivo del video con soporte de `Range` (206), así el reproductor
@@ -104,8 +105,10 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
   - **Campos de S5** (contrato listo desde el 7 nov; en producción llegan en `null`, `[]` o 0
     hasta que exista su lógica, así que la pantalla debe aguantar los dos casos; en los ejemplos
     vienen llenos):
-    - `afinidad`: `{valor, explicacion, bajo_umbral}`; con `bajo_umbral`, el aviso "El video
-      parece no corresponder a este SOP" (§5.2).
+    - `afinidad`: `{valor, explicacion, bajo_umbral, componentes}` (desde el 8 nov, ADR-020); con
+      `bajo_umbral`, el aviso "El video parece no corresponder a este SOP" (§5.2). En un reporte
+      `bajo_umbral` solo llega si quien cargó decidió continuar (sección siguiente). `null` si el
+      video no tiene ficha de contexto.
     - Por fila, solo en pares: `responsable` (`coincide` / `distinto` / `no_identificado`) y
       `tiempo` (`en_tiempo` / `excede` / `menor` / `sin_referencia`, origen `narrado` o
       `medido`).
@@ -118,6 +121,37 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
   - La miniatura de RF-20 depende de los fotogramas (S5): deja el espacio, sin imagen.
 - **Saltar al segundo:** `reproductor.currentTime = fila.t_inicio` y `play()`. Los segundos salen de
   la transcripción, nunca de un modelo (regla 4 de `CLAUDE.md`).
+
+## Afinidad baja: "El video parece no corresponder a este SOP" (desde el 8 nov, ADR-020)
+
+Antes de comparar pasos, el backend compara la ficha de contexto del video con el SOP (RF-17,
+§5.2). Si la afinidad queda bajo 60 (`AFINIDAD_MIN`), **la validación se detiene** y quien cargó
+el video decide si continúa.
+
+1. Mientras consultas `GET /videos/{id}` cada 3 s, el video puede terminar en
+   `proceso: "afinidad_baja"` (con `etapa: "afinidad"`) en lugar de `listo` o `error`. **Es un
+   estado final: deja de consultar.** Hoy `reporte.ts` solo se detiene con `listo` y `error`;
+   con `afinidad_baja` seguiría consultando para siempre.
+2. En ese estado, `GET /videos/{id}` trae `afinidad`:
+
+   ```json
+   {"valor": 12, "bajo_umbral": true,
+    "explicacion": "actividad distinta del título; propósito distinto del objetivo; ningún equipo en común; lugar distinto",
+    "componentes": {"global": 20, "actividad": 0, "objetivo": 8, "equipos": 0}}
+   ```
+
+   Muestra "El video parece no corresponder a este SOP", el valor (de 0 a 100), la `explicacion`
+   tal cual (la arma el código, en frases separadas por "; ") y dos botones:
+   - **Continuar de todos modos:** `POST /videos/{id}/validar?continuar=true` (202, el video vuelve
+     a `en_cola`); retoma la consulta del estado. No repite la transcripción ni la ficha. El
+     reporte que sale lleva la misma `afinidad`, con `bajo_umbral: true`: muéstrala junto al
+     porcentaje para que se vea que se validó a pesar del aviso.
+   - **Cancelar / elegir otro SOP:** volver a `/nuevo`. No hay que borrar nada.
+3. `GET /videos/{id}/reporte` responde **409** con `{"proceso": "afinidad_baja"}` mientras el
+   video esté así: no hay reporte de pasos.
+4. `componentes` es para depurar y para el paper; no hace falta mostrarlo.
+5. Con `listo`, `GET /videos/{id}` también trae la `afinidad` del reporte (o `null` si el video no
+   tuvo ficha de contexto: entonces la validación siguió sin advertir).
 
 ## Desarrollo
 

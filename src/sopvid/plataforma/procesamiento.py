@@ -19,6 +19,11 @@ avance del análisis se escala a 0–40 y la validación sigue de 40 a 100 sin r
 video queda en error con el análisis guardado, y `revalidar` repite solo la validación, sin
 Whisper (ADR-019), con la ficha guardada si la hay. Un reporte nuevo reemplaza al anterior.
 
+Afinidad baja (ADR-020): si la validación se detiene porque el video parece no ser del SOP, se
+guardan la ficha y un `Reporte` con la afinidad, `cumplimiento` en NULL y la `DetencionAfinidad`
+en `resultado` (`guardar_detencion`), y el video queda en `proceso="afinidad_baja"`. `revalidar`
+con `continuar=True` repite la validación sin Whisper ni ficha y sin detenerse.
+
 Ficha de contexto (RF-12): `videos.contexto` solo se llena si se generó; si quedó vacía (Ollama
 cayó a media validación, corte por tiempo, JSON inválido o transcripción vacía) se deja en NULL y
 el reporte lleva el aviso "contexto_sin_generar", así que `revalidar` la vuelve a intentar. En
@@ -70,8 +75,14 @@ from sopvid.lenguaje.lectura_sop import (
     extraer_texto,
 )
 from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible, LLMTiempoExcedido
-from sopvid.lenguaje.validacion import INICIO_ETAPA, FabricaValidacion, Validacion, validar
-from sopvid.percepcion.contexto import generar_contexto
+from sopvid.lenguaje.validacion import (
+    INICIO_ETAPA,
+    Detenida,
+    FabricaValidacion,
+    Validacion,
+    validar,
+)
+from sopvid.percepcion.contexto import ResultadoContexto, generar_contexto
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
@@ -84,8 +95,8 @@ logger = logging.getLogger(__name__)
 # Fábrica de sesiones: `sessionmaker` en producción; en pruebas, la sesión de la prueba.
 FabricaSesiones = Callable[[], AbstractContextManager[Session]]
 
-# Los cuatro valores de `videos.proceso` (CHECK de modelos.py), en su orden.
-EN_COLA, PROCESANDO, LISTO, ERROR = PROCESOS_VIDEO
+# Los valores de `videos.proceso` (CHECK de modelos.py), en su orden.
+EN_COLA, PROCESANDO, LISTO, ERROR, AFINIDAD_BAJA = PROCESOS_VIDEO
 ERROR_REINICIO = "interrumpido por reinicio"
 ERROR_LLM = (
     "LLM no disponible: el análisis quedó guardado; repite la validación con "
@@ -159,13 +170,41 @@ def guardar_reporte(session: Session, video: Video, validacion: Validacion) -> N
         Reporte(
             video_id=video.id,
             sop_id=video.sop_id,
-            afinidad=None,  # RF-17, post-MVP
+            afinidad=None if guardado.afinidad is None else guardado.afinidad.valor,
             cumplimiento=Decimal(f"{guardado.cumplimiento:.2f}"),
             resultado=guardado.model_dump(mode="json"),
         )
     )
     video.pasos_video = [p.model_dump(mode="json") for p in validacion.pasos_video]
-    if (generada := validacion.resultado_contexto) is not None:
+    _guardar_contexto(video, validacion.resultado_contexto)
+
+
+def guardar_detencion(session: Session, video: Video, detenida: Detenida) -> None:
+    """Guarda la detención por afinidad baja (ADR-020), que reemplaza al reporte anterior: un
+    `Reporte` con la afinidad, sin cumplimiento y con la `DetencionAfinidad` en `resultado`. Los
+    pasos del video de una validación anterior se borran (no corresponden a este resultado); la
+    ficha, como en `guardar_reporte`. No hace commit.
+    """
+    assert video.sop_id is not None
+    session.execute(delete(Reporte).where(Reporte.video_id == video.id))
+    session.expire(video, ["reporte"])
+    session.add(
+        Reporte(
+            video_id=video.id,
+            sop_id=video.sop_id,
+            afinidad=detenida.detencion.afinidad.valor,
+            cumplimiento=None,
+            resultado=detenida.detencion.model_dump(mode="json"),
+        )
+    )
+    video.pasos_video = None
+    _guardar_contexto(video, detenida.resultado_contexto)
+
+
+def _guardar_contexto(video: Video, generada: ResultadoContexto | None) -> None:
+    """La ficha solo se escribe si se generó en esta validación: vacía, queda NULL (la siguiente
+    validación la vuelve a intentar); reusada (`generada` None), no se toca."""
+    if generada is not None:
         video.contexto = generada.contexto.model_dump(mode="json") if generada.generado else None
 
 
@@ -320,9 +359,14 @@ class Procesador:
         validación (con la ficha de contexto); en modo generar, solo para la ficha."""
         self._cola.poner(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
 
-    def revalidar(self, video_id: int, validacion: FabricaValidacion) -> None:
-        """Encola solo la validación, sobre el análisis ya guardado (ADR-019)."""
-        self._cola.poner(lambda: self.procesar_validacion(video_id, validacion))
+    def revalidar(
+        self, video_id: int, validacion: FabricaValidacion, *, continuar: bool = False
+    ) -> None:
+        """Encola solo la validación, sobre el análisis ya guardado (ADR-019). Con `continuar`, no
+        se detiene por afinidad baja (ADR-020): quien carga ya vio la advertencia."""
+        self._cola.poner(
+            lambda: self.procesar_validacion(video_id, validacion, continuar=continuar)
+        )
 
     def encolar_sop(self, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion) -> None:
         """Encola la conversión del SOP, antes que el siguiente video."""
@@ -361,12 +405,14 @@ class Procesador:
                 "Video %d: no se pudo registrar el resultado (%s)", video_id, type(exc).__name__
             )
 
-    def procesar_validacion(self, video_id: int, validacion: FabricaValidacion) -> None:
+    def procesar_validacion(
+        self, video_id: int, validacion: FabricaValidacion, *, continuar: bool = False
+    ) -> None:
         """Valida con el análisis guardado, con el candado de modelo pesado; nunca deja escapar
         una excepción."""
         try:
             with self._candado.tomar(), self._sesiones() as session:
-                self._revalidar(session, video_id, validacion)
+                self._revalidar(session, video_id, validacion, continuar)
         except Exception as exc:
             logger.error(
                 "Video %d: no se pudo registrar la validación (%s)", video_id, type(exc).__name__
@@ -438,7 +484,9 @@ class Procesador:
         dispositivos = _dispositivos(self._gpu(), registrado.ultima)
         self._validar(session, video, analisis, validacion, cronometro.segundos(), dispositivos)
 
-    def _revalidar(self, session: Session, video_id: int, validacion: FabricaValidacion) -> None:
+    def _revalidar(
+        self, session: Session, video_id: int, validacion: FabricaValidacion, continuar: bool
+    ) -> None:
         video = session.get(Video, video_id)
         if video is None:
             logger.warning("Video %d: ya no existe; se omite", video_id)
@@ -459,7 +507,14 @@ class Procesador:
             return
         # Sin Whisper: solo se sabe la GPU; Gemma se completa en la validación.
         self._validar(
-            session, video, analisis, validacion, {}, Dispositivos(gpu=self._gpu()), contexto
+            session,
+            video,
+            analisis,
+            validacion,
+            {},
+            Dispositivos(gpu=self._gpu()),
+            contexto,
+            continuar=continuar,
         )
 
     def _contexto_sin_sop(
@@ -502,9 +557,12 @@ class Procesador:
         segundos_analisis: Mapping[str, float],
         dispositivos: Dispositivos,
         contexto: Contexto | None = None,
+        *,
+        continuar: bool = False,
     ) -> None:
         """Valida, guarda el reporte y deja el video listo; si algo falla, en error. Con
-        `contexto` (la ficha guardada) no se vuelve a generar.
+        `contexto` (la ficha guardada) no se vuelve a generar. Si la validación se detiene por
+        afinidad baja (sin `continuar`), guarda la detención y deja el video en "afinidad_baja".
 
         El SOP de referencia tiene que estar listo: el suyo va antes en la cola, así que aquí ya
         terminó; si quedó en error, el video falla con ese mensaje.
@@ -538,6 +596,7 @@ class Procesador:
                 segundos_analisis=segundos_analisis,
                 dispositivos=dispositivos,
                 contexto=contexto,
+                continuar=continuar,
             )
         except LLMNoDisponible:
             self._fallar(session, video_id, ERROR_LLM.format(id=video_id))
@@ -550,6 +609,17 @@ class Procesador:
         finally:
             if deps is not None:
                 deps.cerrar()
+        if isinstance(validacion, Detenida):
+            guardar_detencion(session, video, validacion)
+            video.etapa, video.progreso = "afinidad", INICIO_ETAPA["segmentacion"]
+            video.proceso, video.error = AFINIDAD_BAJA, None
+            session.commit()
+            logger.info(
+                "Video %d en afinidad baja (%d): espera a que quien carga decida",
+                video_id,
+                validacion.detencion.afinidad.valor,
+            )
+            return
         guardar_reporte(session, video, validacion)
         video.etapa, video.progreso = "listo", 100
         video.proceso, video.error = LISTO, None

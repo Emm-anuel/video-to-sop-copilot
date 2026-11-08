@@ -540,7 +540,23 @@ def test_convertir_documento_sin_ollama() -> None:
 
 @pytest.fixture
 def entorno(db_session: Session, tmp_path: Path) -> Entorno:
-    return Entorno(db_session, tmp_path)
+    entorno = Entorno(db_session, tmp_path)
+    # El SOP de estas pruebas es el del filtro: la ficha del video es del mismo procedimiento,
+    # para que la afinidad (ADR-020) no detenga la validación.
+    entorno.ollama.respuestas_contexto = [CONTEXTO_FILTRO]
+    return entorno
+
+
+CONTEXTO_FILTRO = {
+    "actividad": {"cita": "", "valor": SOP_MD.titulo},
+    "tema": {"cita": "", "valor": None},
+    "lugar": {"cita": "", "valor": None},
+    "horario_mencionado": {"cita": "", "valor": None},
+    "proposito": {"cita": "", "valor": SOP_MD.resumen.objetivo.valor},
+    "resumen": None,
+    "personas": [],
+    "equipos": [e.nombre for e in SOP_MD.resumen.equipo_operacion],
+}
 
 
 @pytest.fixture
