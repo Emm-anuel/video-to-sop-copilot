@@ -180,7 +180,7 @@ docs/
 >   Sara hace la pantalla del reporte (`/videos/:id/reporte`, RF-20) sobre esa base, reemplazando un
 >   componente provisional. Detalle, contrato y reglas de presentación: `frontend/README.md`.
 > - **Ficha de contexto (7 nov, rama `feat/contexto`, RF-12):** `percepcion/contexto.py` con
->   Gemma 4 (`prompts/contexto_v1.md`) después de la transcripción y antes de los pasos, en la
+>   Gemma 4 (`prompts/contexto_v2.md`; v1 se conserva) después de la transcripción y antes de los pasos, en la
 >   misma carga del modelo; cita verificada por dato y por persona, y fuente, confianza y segundo
 >   puestos por el código. Se guarda en `videos.contexto` solo si se generó (si no, NULL y aviso
 >   `contexto_sin_generar`); `GET /videos/{id}/contexto`. Los fotogramas ([f=N]) entran solo si

@@ -69,7 +69,7 @@ JSON entra tal cual a `segmentacion.segmentar` y después al emparejamiento.
 ## `contexto.py`
 
 `generar_contexto(analisis, cliente_llm) -> ResultadoContexto`: la ficha de contexto (RF-12) con
-Gemma 4 y el prompt versionado `lenguaje/prompts/contexto_v1.md`. Corre después de la
+Gemma 4 y el prompt versionado `lenguaje/prompts/contexto_v2.md` (la v1 se conserva). Corre después de la
 transcripción y antes de los pasos del video, en la misma ventana de Gemma (`validar`, o sola en
 modo generar).
 
@@ -78,7 +78,8 @@ modo generar).
   explica cómo citarlos. Sin fotogramas ni el prompt ni el esquema los mencionan
   (`ESQUEMA_CONTEXTO` frente a `ESQUEMA_CONTEXTO_FOTOGRAMAS`). Nunca el SOP ni tiempos.
 - El modelo escribe valores y citas; el código pone fuente, confianza y segundo (regla 4): cita
-  encontrada → "audio", "alta" y el inicio del primer segmento donde aparece; fotograma que existe
+  encontrada → "audio" y el inicio del primer segmento donde aparece, con confianza "alta" si
+  tiene de 4 a 25 palabras y "media" si tiene 2 o 3 (menos de 2, inferido); fotograma que existe
   → "visual", "media" y su `t`; nada → "inferido", "baja" y sin `t`. El resumen va "inferido" y
   "media". Una persona sin cita verificada ni fotograma se descarta (`Persona.t` es obligatorio).
 - Llamada en flujo: primer token en `LLM_TIMEOUT_S`, `LLM_INACTIVIDAD_S` sin tokens, tope total

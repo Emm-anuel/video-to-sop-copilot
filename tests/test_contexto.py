@@ -125,15 +125,72 @@ def test_cita_que_no_aparece_queda_inferida_con_confianza_baja_y_sin_segundo():
     assert r.citas_no_verificadas == 2
 
 
-def test_cita_corta_o_que_cruza_dos_segmentos():
-    ficha = _ficha(
-        actividad={"cita": "el manómetro", "valor": "Revisar"},  # menos de 4 palabras
-        tema={"cita": "reviso el manómetro. Si algo falla", "valor": "Mantenimiento"},
-    )
+def test_cita_que_cruza_dos_segmentos():
+    ficha = _ficha(tema={"cita": "reviso el manómetro. Si algo falla", "valor": "Mantenimiento"})
     r, _ = _generar([ficha])
 
-    assert r.contexto.actividad.fuente == "inferido"
-    assert (r.contexto.tema.fuente, r.contexto.tema.t) == ("audio", 15.0)
+    assert (r.contexto.tema.fuente, r.contexto.tema.confianza, r.contexto.tema.t) == (
+        "audio",
+        "alta",
+        15.0,
+    )
+
+
+# Largo de la cita (contexto_v2): menos de 2 palabras o que no aparece → inferido; 2 o 3 que
+# aparecen → audio con confianza media; de 4 a 25 → alta (una más larga se recorta a 25).
+@pytest.mark.parametrize(
+    ("cita", "esperado"),
+    [
+        ("", ("inferido", "baja", None)),
+        ("manómetro", ("inferido", "baja", None)),  # 1 palabra, aunque aparece
+        ("el manómetro", ("audio", "media", 15.0)),  # 2
+        ("línea de enjuague", ("audio", "media", 0.0)),  # 3, el sustantivo solo
+        ("la línea de enjuague", ("audio", "alta", 0.0)),  # 4
+        ("la planta norte", ("inferido", "baja", None)),  # 3 que no aparecen
+        ("supervisor   de\nturno", ("audio", "media", 20.0)),  # espacios y salto de línea
+    ],
+    ids=["vacia", "una", "dos", "tres", "cuatro", "tres_inventadas", "espacios"],
+)
+def test_confianza_segun_el_largo_de_la_cita(cita: str, esperado: tuple) -> None:
+    r, _ = _generar([_ficha(lugar={"cita": cita, "valor": "Un lugar"})])
+
+    lugar = r.contexto.lugar
+    assert (lugar.fuente, lugar.confianza, lugar.t) == esperado
+
+
+# Un segmento de 30 palabras, para los límites de 25.
+LARGO = (
+    "Hoy reviso la bomba del cuarto de máquinas del edificio dos porque el tablero marcó una "
+    "alarma de presión baja durante el turno de la noche y hay que revisar"
+)
+
+
+@pytest.mark.parametrize(
+    ("palabras", "esperado"),
+    [(25, (0.0, "alta")), (30, (0.0, "alta"))],  # 30 se recorta a sus primeras 25
+)
+def test_cita_de_25_o_mas_palabras(palabras: int, esperado: tuple) -> None:
+    assert len(LARGO.split()) == 30  # inventado
+    cita = " ".join(LARGO.split()[:palabras])
+    assert ctx.ubicar_cita(cita, _analisis([LARGO]).transcripcion) == esperado
+
+
+def test_cita_larga_que_no_es_literal_no_vale():
+    cita = " ".join(LARGO.split()[:20]) + " y luego cambio la junta de la tapa"
+    assert ctx.ubicar_cita(cita, _analisis([LARGO]).transcripcion) is None
+
+
+def test_una_persona_con_cita_de_tres_palabras_se_conserva():
+    persona = {
+        "cita": "supervisor de turno",
+        "nombre": "",
+        "rol": "Supervisor de turno",
+        "participacion": "mencionado",
+    }
+    r, _ = _generar([_ficha(personas=[persona])])
+
+    [supervisor] = r.contexto.personas
+    assert (supervisor.t, supervisor.cita) == (20.0, "supervisor de turno")
 
 
 def test_el_resumen_va_inferido_con_confianza_media_y_sin_cita():
@@ -397,7 +454,7 @@ def test_transcripcion_vacia_no_llama_al_modelo(textos):
 def test_registra_tokens_espera_al_primer_token_y_velocidad():
     r, _ = _generar([_ficha()])
 
-    assert (r.tokens_entrada, r.prompt, r.modelo, r.intentos) == (100, "contexto_v1", "falso", 1)
+    assert (r.tokens_entrada, r.prompt, r.modelo, r.intentos) == (100, "contexto_v2", "falso", 1)
     assert r.tokens_salida and r.tokens_salida > 0
     assert r.tokens_por_s == pytest.approx(20.0)
     assert r.primer_token_s is not None and r.segundos >= 0
@@ -413,7 +470,16 @@ def test_aviso_solo_si_la_ficha_quedo_vacia_y_sin_texto_del_video():
     assert aviso.detalle == "ficha de contexto vacía: respuesta_invalida tras 3 intentos"
 
 
-def test_el_prompt_tiene_sus_cinco_secciones():
-    prompt = ctx.cargar_prompt()
+@pytest.mark.parametrize("version", ["contexto_v1", "contexto_v2"])
+def test_el_prompt_tiene_sus_cinco_secciones(version: str):
+    prompt = ctx.cargar_prompt(version)
     assert set(prompt.extras) == {"sistema_fotogramas", "usuario_fotogramas"}
     assert "fotograma" not in (prompt.sistema + prompt.usuario.template).lower()
+
+
+def test_se_puede_pedir_la_ficha_con_otra_version_del_prompt():
+    ollama = OllamaFalso([])
+    with ollama.cliente() as cliente:
+        r = ctx.generar_contexto(_analisis(), cliente, version="contexto_v1")
+    assert r.prompt == "contexto_v1"
+    assert ollama.mensajes_contexto[0][0]["content"] == ctx.cargar_prompt("contexto_v1").sistema

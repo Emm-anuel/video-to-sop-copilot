@@ -75,9 +75,30 @@ def test_informe_con_aviso_si_el_primer_token_pasa_de_120_s():
         "git": {"commit": "abc", "rama": "feat/contexto", "cambios_sin_commit": 0},
         "llm": "gemma4:e4b-it-q4_K_M",
         "gpu": None,
+        "prompts": [mc.PROMPT],
         "comparaciones": mc.comparaciones(corridas),
+        "por_prompt": mc.por_prompt(corridas),
     }
     texto = mc.informe(datos, corridas)
-    assert "| video_a | analisis | cpu | 1 | — | desconocido |" in texto
+    assert f"| video_a | analisis | {mc.PROMPT} | cpu | 1 | — | desconocido |" in texto
+    assert "Por versión del prompt" not in texto  # con una sola versión no hay tabla
     assert "mismas personas" in texto
     assert "pasó de 120 s en video_a/cpu" in texto
+
+
+def test_por_prompt_cuenta_datos_con_valor_inferidos_y_el_lugar():
+    inferido = _ficha()
+    inferido["lugar"] |= {"fuente": "inferido", "confianza": "baja", "t": None}
+    v1 = _corrida("gpu", inferido, tokens_salida=290, segundos_contexto=10.0)
+    v1.prompt = "contexto_v1"
+    v2 = _corrida("gpu", _ficha(), tokens_salida=310, segundos_contexto=11.0)
+    v2.prompt = "contexto_v2"
+
+    f1, f2 = mc.por_prompt([v1, v2])
+    assert (f1["prompt"], f1["con_valor"], f1["inferidos"], f1["lugar"]) == (
+        "contexto_v1",
+        2,
+        1,
+        ["Línea de enjuague (inferido, baja)"],
+    )
+    assert (f2["inferidos"], f2["alta"], f2["tokens_salida"]) == (0, 2, 310)

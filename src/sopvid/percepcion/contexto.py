@@ -9,11 +9,13 @@ si el análisis trae fotogramas, cada fotograma con el suyo (`[f=N]`, desde 1 y 
 modelo nunca ve el SOP (regla 5) ni tiempos: escribe valores y citas, y el código pone lo demás
 (regla 4):
 
-- Un dato con su cita en la transcripción: fuente "audio", confianza "alta" y `t` = inicio del
-  primer segmento donde aparece (o del primero de dos segmentos seguidos, si la frase cruza la
-  frontera). Uno sin esa cita pero con un fotograma que existe: "visual", "media" y el `t` del
-  fotograma. Si no hay ninguna de las dos: "inferido", "baja" y sin `t`. El resumen siempre es
-  "inferido" con confianza "media", sin cita.
+- Un dato con su cita en la transcripción: fuente "audio" y `t` = inicio del primer segmento
+  donde aparece (o del primero de dos segmentos seguidos, si la frase cruza la frontera), con
+  confianza "alta" si la cita tiene de 4 a 25 palabras y "media" si tiene 2 o 3 (el sustantivo
+  solo, p. ej. "línea de enjuague": está, pero sin la frase que lo respalda). Uno sin esa cita
+  pero con un fotograma que existe: "visual", "media" y el `t` del fotograma. Si no hay ninguna
+  de las dos (o la cita tiene menos de 2 palabras): "inferido", "baja" y sin `t`. El resumen
+  siempre es "inferido" con confianza "media", sin cita.
 - Una persona necesita nombre o rol, y una cita verificada (o un fotograma que exista): sin eso
   no hay un segundo que ponerle (`Persona.t` es obligatorio) y se descarta.
 - Los equipos son los que nombra el modelo más los de los fotogramas, sin repetir.
@@ -44,6 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sopvid.contrato import (
     Analisis,
     Aviso,
+    Confianza,
     Contexto,
     Dato,
     Elemento,
@@ -75,9 +78,12 @@ from sopvid.texto import (
 
 logger = logging.getLogger(__name__)
 
-PROMPT = "contexto_v1"  # archivo en lenguaje/prompts/; un prompt nuevo es un archivo nuevo
+PROMPT = "contexto_v2"  # archivo en lenguaje/prompts/; un prompt nuevo es un archivo nuevo
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es un JSON del esquema
-PALABRAS_CITA = (4, 25)  # largo de la cita de cada dato; una más larga se recorta
+# Largo de la cita: menos que el mínimo no vale como evidencia; una más larga que el máximo se
+# recorta. Desde `PALABRAS_CITA_ALTA` la confianza es "alta"; por debajo, "media".
+PALABRAS_CITA = (2, 25)
+PALABRAS_CITA_ALTA = 4
 CARACTERES_POR_TOKEN = 3.5  # para avisar en el log si la entrada no cabe en `num_ctx`
 SALIDA_ESTIMADA = 600  # tokens de una ficha (medido con A: ver docs/adr/datos/contexto/)
 
@@ -265,13 +271,15 @@ def generar_contexto(
     primer_token_s: float | None = None,
     inactividad_s: float | None = None,
     tope_s: float | None = None,
+    version: str = PROMPT,
     reloj: Callable[[], float] = time.monotonic,
 ) -> ResultadoContexto:
     """Pide la ficha a Gemma y la arma con la evidencia (ver el docstring del módulo).
 
     Los plazos que no se pasan salen de la configuración: `LLM_TIMEOUT_S` (primer token),
-    `LLM_INACTIVIDAD_S` y `LLM_TIMEOUT_CONTEXTO_S` (tope total). Con la transcripción vacía no
-    llama al modelo. Nunca lanza por el LLM: la falla queda en `motivo`.
+    `LLM_INACTIVIDAD_S` y `LLM_TIMEOUT_CONTEXTO_S` (tope total). `version` elige el prompt
+    (para comparar versiones; en producción, `PROMPT`). Con la transcripción vacía no llama al
+    modelo. Nunca lanza por el LLM: la falla queda en `motivo`.
     """
     settings = get_settings()
     primer = settings.llm_timeout_s if primer_token_s is None else primer_token_s
@@ -291,6 +299,7 @@ def generar_contexto(
             Contexto(),
             generado=False,
             motivo=motivo,
+            prompt=version,
             modelo=cliente_llm.modelo if intentos else None,
             intentos=intentos,
             segundos=round(reloj() - inicio, 2),
@@ -300,7 +309,7 @@ def generar_contexto(
     if not any(s.texto.strip() for s in analisis.transcripcion):
         return vacio("transcripcion_vacia", 0)
 
-    prompt = cargar_prompt()
+    prompt = cargar_prompt(version)
     base = construir_mensajes(analisis, prompt)
     _revisar_ventana(base, cliente_llm.num_ctx)
     esquema = esquema_para(analisis)
@@ -336,6 +345,7 @@ def generar_contexto(
                 resultado = ResultadoContexto(
                     contexto,
                     generado=True,
+                    prompt=version,
                     modelo=respuesta.modelo,
                     intentos=intento,
                     tokens_entrada=respuesta.metricas.get("prompt_eval_count"),
@@ -360,25 +370,27 @@ def generar_contexto(
     return vacio("respuesta_invalida", MAX_INTENTOS)
 
 
-def ubicar_cita(cita: str, segmentos: Sequence[Segmento]) -> float | None:
-    """`t_inicio` del primer segmento donde aparece la cita, o None.
+def ubicar_cita(cita: str, segmentos: Sequence[Segmento]) -> tuple[float, Confianza] | None:
+    """(`t_inicio` del primer segmento donde aparece la cita, confianza), o None.
 
     La cita se recorta a `PALABRAS_CITA[1]` palabras (el recorte de una cita literal sigue siendo
-    literal) y necesita al menos `PALABRAS_CITA[0]` (o toda la transcripción, si es más corta).
-    Si no aparece en ningún segmento solo, se busca en cada par de segmentos seguidos (una frase
-    que `resegmentar` partió en dos) y vale el inicio del primero del par.
+    literal) y necesita al menos `PALABRAS_CITA[0]`. Confianza "alta" desde `PALABRAS_CITA_ALTA`
+    palabras y "media" por debajo. Si no aparece en ningún segmento solo, se busca en cada par de
+    segmentos seguidos (una frase que `resegmentar` partió en dos) y vale el inicio del primero
+    del par.
     """
     minimo, maximo = PALABRAS_CITA
     recortada = recortar_palabras(" ".join(cita.split()), maximo)
-    total = sum(contar_palabras(s.texto) for s in segmentos)
-    if not recortada or contar_palabras(recortada) < min(minimo, total):
+    n = contar_palabras(recortada)
+    if n < minimo:
         return None
+    confianza: Confianza = "alta" if n >= PALABRAS_CITA_ALTA else "media"
     for s in segmentos:
         if contiene_cita(s.texto, recortada):
-            return s.t_inicio
+            return s.t_inicio, confianza
     for a, b in pairwise(segmentos):
         if contiene_cita(f"{a.texto} {b.texto}", recortada):
-            return a.t_inicio
+            return a.t_inicio, confianza
     return None
 
 
@@ -407,35 +419,36 @@ class _Armado:
             avisos=[a for a in (aviso_transcripcion(self.analisis),) if a is not None],
         )
 
-    def _evidencia(self, cita: str, f: int | None) -> tuple[float, str] | tuple[None, None]:
-        """(t, fuente) de la cita en la transcripción o, si no, del fotograma; o (None, None)."""
-        if cita and (t := ubicar_cita(cita, self.analisis.transcripcion)) is not None:
-            return t, "audio"
+    def _evidencia(self, cita: str, f: int | None) -> tuple[float, str, Confianza] | None:
+        """(t, fuente, confianza) de la cita en la transcripción o, si no, del fotograma."""
+        if cita and (ubicada := ubicar_cita(cita, self.analisis.transcripcion)) is not None:
+            t, confianza = ubicada
+            return t, "audio", confianza
         fotogramas = self.analisis.fotogramas
         if f is not None and 1 <= f <= len(fotogramas):
-            return fotogramas[f - 1].t, "visual"
-        return None, None
+            return fotogramas[f - 1].t, "visual", "media"
+        return None
 
     def _dato(self, d: _DatoLibre) -> Dato:
         valor = limpiar(d.valor, _VACIOS_CONTEXTO)
         if not valor:
             return Contexto().actividad  # vacío: inferido, confianza baja
-        t, fuente = self._evidencia(limpiar(d.cita), getattr(d, "f", None))
-        if fuente == "audio":
-            return Dato(valor=valor, confianza="alta", fuente="audio", t=t)
-        if fuente == "visual":
-            return Dato(valor=valor, confianza="media", fuente="visual", t=t)
-        self.citas_no_verificadas += 1
-        return Dato(valor=valor, confianza="baja", fuente="inferido")
+        evidencia = self._evidencia(limpiar(d.cita, _VACIOS_CONTEXTO), getattr(d, "f", None))
+        if evidencia is None:
+            self.citas_no_verificadas += 1
+            return Dato(valor=valor, confianza="baja", fuente="inferido")
+        t, fuente, confianza = evidencia
+        return Dato(valor=valor, confianza=confianza, fuente=fuente, t=t)
 
     def _persona(self, p: _PersonaLibre) -> None:
         nombre = limpiar(p.nombre, _NOMBRES_VACIOS) or NO_IDENTIFICADO
         rol = limpiar(p.rol, _VACIOS_CONTEXTO) or None
-        cita = recortar_palabras(limpiar(p.cita), PALABRAS_CITA[1])
-        t, fuente = self._evidencia(cita, getattr(p, "f", None))
-        if (nombre == NO_IDENTIFICADO and rol is None) or t is None:
+        cita = recortar_palabras(limpiar(p.cita, _VACIOS_CONTEXTO), PALABRAS_CITA[1])
+        evidencia = self._evidencia(cita, getattr(p, "f", None))
+        if (nombre == NO_IDENTIFICADO and rol is None) or evidencia is None:
             self.personas_descartadas += 1
             return
+        t, fuente, _ = evidencia
         # Con nombre, se identifica por él; sin nombre, por su rol.
         clave = (comparable(nombre), "") if nombre != NO_IDENTIFICADO else ("", comparable(rol))
         previa = self._personas.get(clave)

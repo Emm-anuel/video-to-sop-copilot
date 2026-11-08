@@ -16,6 +16,10 @@ Configuraciones (`--config`, se puede repetir):
 - `cpu`: Gemma en CPU (`LLM_DISPOSITIVO=cpu`, `num_gpu=0`) y Whisper con su modelo por defecto
   (`small`, int8) en CPU.
 
+Con `--prompt` (se puede repetir) se comparan versiones del prompt en la parte a; la ruta completa
+usa siempre el de producción (`PROMPT`). Con más de una versión, el informe agrega una tabla por
+versión: datos con valor, datos inferidos, el lugar, tokens de salida y segundos.
+
 La lógica de la etapa no cambia con el dispositivo (RNF-07): mismo prompt, esquema y cortes. Gemma
 se descarga antes de cada corrida, como en la API (la ficha es la primera llamada tras cargar el
 modelo, así que la espera al primer token incluye la carga en frío). Hoy no hay fotogramas
@@ -88,6 +92,7 @@ class Corrida:
     config: str
     repeticion: int
     entrada: str  # "analisis" (parte a) o "video" (parte b)
+    prompt: str = PROMPT
     whisper: dict[str, Any] | None = None
     llm_dispositivo: str = "desconocido"
     fotogramas: int = 0
@@ -125,15 +130,21 @@ class Corrida:
 
 
 def solo_llm(
-    clave: str, ruta: Path, config: str, n: int, settings: Settings, llm: ClienteLLM
+    clave: str,
+    ruta: Path,
+    config: str,
+    n: int,
+    settings: Settings,
+    llm: ClienteLLM,
+    version: str = PROMPT,
 ) -> Corrida:
     """Parte a: `generar_contexto` sobre el `Analisis` guardado, con Gemma en frío."""
     analisis, _, _ = preparar(clave, ruta, settings, SALIDA)
     llm.descargar()
-    corrida = Corrida(clave, config, n, "analisis")
+    corrida = Corrida(clave, config, n, "analisis", prompt=version)
     inicio = time.perf_counter()
     try:
-        resultado = generar_contexto(analisis, llm)
+        resultado = generar_contexto(analisis, llm, version=version)
         corrida.llm_dispositivo = llm.dispositivo_cargado()
     finally:
         llm.descargar()
@@ -210,21 +221,70 @@ def comparar(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _primera(corridas: Sequence[Corrida], video: str, entrada: str, config: str) -> Corrida | None:
-    return next(
-        (c for c in corridas if (c.video, c.entrada, c.config) == (video, entrada, config)), None
-    )
+def _primera(
+    corridas: Sequence[Corrida], video: str, entrada: str, prompt: str, config: str
+) -> Corrida | None:
+    clave = (video, entrada, prompt, config)
+    return next((c for c in corridas if (c.video, c.entrada, c.prompt, c.config) == clave), None)
 
 
 def comparaciones(corridas: Sequence[Corrida]) -> list[dict[str, Any]]:
-    """Primera corrida de gpu contra primera de cpu, por video y entrada."""
+    """Primera corrida de gpu contra primera de cpu, por video, entrada y prompt."""
     salida = []
-    for video, entrada in sorted({(c.video, c.entrada) for c in corridas}):
-        gpu = _primera(corridas, video, entrada, "gpu")
-        cpu = _primera(corridas, video, entrada, "cpu")
+    for video, entrada, prompt in sorted({(c.video, c.entrada, c.prompt) for c in corridas}):
+        gpu = _primera(corridas, video, entrada, prompt, "gpu")
+        cpu = _primera(corridas, video, entrada, prompt, "cpu")
         if gpu and cpu and gpu.generado and cpu.generado:
-            salida.append({"video": video, "entrada": entrada, **comparar(gpu.ficha, cpu.ficha)})
+            salida.append(
+                {"video": video, "entrada": entrada, "prompt": prompt}
+                | comparar(gpu.ficha, cpu.ficha)
+            )
     return salida
+
+
+def por_prompt(corridas: Sequence[Corrida]) -> list[dict[str, Any]]:
+    """Por video, configuración y prompt: datos con valor e inferidos (sin el resumen), el lugar
+    de cada corrida, tokens de salida y segundos de la ficha (promedios de las corridas)."""
+    filas = []
+    claves = sorted({(c.video, c.config, c.prompt) for c in corridas if c.generado})
+    for video, config, prompt in claves:
+        grupo = [
+            c
+            for c in corridas
+            if (c.video, c.config, c.prompt) == (video, config, prompt) and c.generado
+        ]
+        datos = [[c.ficha[k] for k in DATOS if k != "resumen"] for c in grupo]
+        n = len(grupo)
+        filas.append(
+            {
+                "video": video,
+                "config": config,
+                "prompt": prompt,
+                "corridas": n,
+                "con_valor": sum(sum(d["valor"] is not None for d in f) for f in datos) / n,
+                "inferidos": sum(
+                    sum(d["valor"] is not None and d["fuente"] == "inferido" for d in f)
+                    for f in datos
+                )
+                / n,
+                "alta": sum(sum(d["confianza"] == "alta" for d in f) for f in datos) / n,
+                "media": sum(
+                    sum(d["valor"] is not None and d["confianza"] == "media" for d in f)
+                    for f in datos
+                )
+                / n,
+                "lugar": [
+                    f"{c.ficha['lugar']['valor']} ({c.ficha['lugar']['fuente']}, "
+                    f"{c.ficha['lugar']['confianza']})"
+                    if c.ficha["lugar"]["valor"]
+                    else "—"
+                    for c in grupo
+                ],
+                "tokens_salida": sum(c.tokens_salida or 0 for c in grupo) / n,
+                "segundos": sum(c.segundos_contexto for c in grupo) / n,
+            }
+        )
+    return filas
 
 
 # ── Informe ──────────────────────────────────────────────────────────────────────────────────
@@ -244,22 +304,23 @@ def informe(datos: dict[str, Any], corridas: Sequence[Corrida]) -> str:
         "",
         f"- Commit `{git['commit'] or 'desconocido'}` en `{git['rama'] or '—'}`"
         + (f" · {sin_commit} archivo(s) sin commit" if sin_commit else "")
-        + f". Prompt `{PROMPT}`, LLM `{datos['llm']}`, GPU: {datos['gpu'] or 'ninguna'}.",
+        + f". Prompt(s) {', '.join(f'`{x}`' for x in datos['prompts'])}, LLM `{datos['llm']}`,"
+        f" GPU: {datos['gpu'] or 'ninguna'}.",
         "- Gemma se descarga antes de cada corrida: la espera al primer token incluye la carga.",
         "- Fotogramas en la entrada: 0 en todas las corridas (RF-11 aún no existe).",
         "",
         "## Corridas",
         "",
-        "| Video | Entrada | Config | # | Whisper | Gemma | Tokens entrada | Tokens salida "
-        "| Primer token (s) | Tokens/s | Ficha (s) | Total (s) | Intentos | Personas | Datos con "
-        "cita |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Video | Entrada | Prompt | Config | # | Whisper | Gemma | Tokens entrada | Tokens "
+        "salida | Primer token (s) | Tokens/s | Ficha (s) | Total (s) | Intentos | Personas | "
+        "Datos con cita |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for c in corridas:
         whisper = f"{c.whisper['modelo']} · {c.whisper['dispositivo']}" if c.whisper else "—"
         con_cita = sum(c.ficha.get(k, {}).get("fuente") in ("audio", "visual") for k in DATOS)
         lineas.append(
-            f"| {c.video} | {c.entrada} | {c.config} | {c.repeticion} | {whisper} | "
+            f"| {c.video} | {c.entrada} | {c.prompt} | {c.config} | {c.repeticion} | {whisper} | "
             f"{c.llm_dispositivo} | {_f(c.tokens_entrada)} | {_f(c.tokens_salida)} | "
             f"{_f(c.primer_token_s)} | {_f(c.tokens_por_s)} | {_f(c.segundos_contexto)} | "
             f"{_f(c.total_s)} | {c.intentos}{'' if c.generado else f' ({c.motivo})'} | "
@@ -295,7 +356,7 @@ def informe(datos: dict[str, Any], corridas: Sequence[Corrida]) -> str:
         lineas += ["", "## CPU contra GPU, campo por campo", ""]
         for comp in datos["comparaciones"]:
             lineas.append(
-                f"### {comp['video']} · {comp['entrada']} · "
+                f"### {comp['video']} · {comp['entrada']} · {comp['prompt']} · "
                 f"{'mismas personas' if comp['mismas_personas'] else '**personas distintas**'}"
             )
             lineas += [
@@ -317,6 +378,21 @@ def informe(datos: dict[str, Any], corridas: Sequence[Corrida]) -> str:
                 f"solo cpu: {solo_cpu or '—'}.",
                 "",
             ]
+    if len(datos["prompts"]) > 1:
+        lineas += [
+            "",
+            "## Por versión del prompt (promedio de las corridas; 5 datos sin el resumen)",
+            "",
+            "| Video | Config | Prompt | Corridas | Con valor | Inferidos | Alta | Media | Lugar "
+            "| Tokens salida | Ficha (s) |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        for f in datos["por_prompt"]:
+            lineas.append(
+                f"| {f['video']} | {f['config']} | {f['prompt']} | {f['corridas']} | "
+                f"{f['con_valor']:g} | {f['inferidos']:g} | {f['alta']:g} | {f['media']:g} | "
+                f"{'; '.join(f['lugar'])} | {f['tokens_salida']:.0f} | {f['segundos']:.1f} |"
+            )
     lentos = [c for c in corridas if c.primer_token_s and c.primer_token_s > AVISO_PRIMER_TOKEN_S]
     if lentos:
         lineas += [
@@ -339,12 +415,16 @@ def main(argv: list[str] | None = None) -> int:
         "--config", action="append", choices=sorted(CONFIGS), help="gpu, cpu o las dos"
     )
     parser.add_argument("--repeticiones", type=int, default=1, help="corridas por configuración")
+    parser.add_argument(
+        "--prompt", action="append", help=f"versión del prompt (parte a); por defecto {PROMPT}"
+    )
     parser.add_argument("--sop", type=Path, help="SOP en Markdown, para la ruta completa")
     parser.add_argument(
         "--docs", action="store_true", help="copia el informe a docs/adr/datos/contexto/"
     )
     args = parser.parse_args(argv)
     configs = args.config or ["gpu"]
+    prompts = args.prompt or [PROMPT]
     entradas = []
     for par in args.videos:
         clave, _, ruta = par.partition("=")
@@ -365,24 +445,28 @@ def main(argv: list[str] | None = None) -> int:
             if not llm.disponible(10):
                 print(f"Ollama no responde en {llm.base_url} o sin {llm.modelo}", file=sys.stderr)
                 return 2
-            for clave, ruta in entradas:
-                for n in range(1, args.repeticiones + 1):
-                    print(f"{clave} · {config} · {n}/{args.repeticiones}…", file=sys.stderr)
-                    if ruta.suffix.lower() == ".json":
-                        corrida = solo_llm(clave, ruta, config, n, settings, llm)
-                    else:
-                        assert sop is not None
-                        corrida = ruta_completa(
-                            clave, ruta, config, n, settings, llm, sop, SALIDA / marca
-                        )
-                    corridas.append(corrida)
-                    print(
-                        f"  Gemma {corrida.llm_dispositivo} · {corrida.tokens_entrada} → "
-                        f"{corrida.tokens_salida} tokens · primer token {corrida.primer_token_s} s"
-                        f" · ficha {corrida.segundos_contexto} s · total {corrida.total_s} s"
-                        f"{'' if corrida.generado else f' · SIN FICHA ({corrida.motivo})'}",
-                        file=sys.stderr,
+            for clave, ruta, version, n in (
+                (c, r, v, n)
+                for c, r in entradas
+                for v in (prompts if r.suffix.lower() == ".json" else [PROMPT])
+                for n in range(1, args.repeticiones + 1)
+            ):
+                print(f"{clave} · {version} · {config} · {n}/{args.repeticiones}…", file=sys.stderr)
+                if ruta.suffix.lower() == ".json":
+                    corrida = solo_llm(clave, ruta, config, n, settings, llm, version)
+                else:
+                    assert sop is not None
+                    corrida = ruta_completa(
+                        clave, ruta, config, n, settings, llm, sop, SALIDA / marca
                     )
+                corridas.append(corrida)
+                print(
+                    f"  Gemma {corrida.llm_dispositivo} · {corrida.tokens_entrada} → "
+                    f"{corrida.tokens_salida} tokens · primer token {corrida.primer_token_s} s"
+                    f" · ficha {corrida.segundos_contexto} s · total {corrida.total_s} s"
+                    f"{'' if corrida.generado else f' · SIN FICHA ({corrida.motivo})'}",
+                    file=sys.stderr,
+                )
         finally:
             llm.close()
 
@@ -390,13 +474,14 @@ def main(argv: list[str] | None = None) -> int:
     datos = {
         "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "git": estado_git(),
-        "prompt": PROMPT,
+        "prompts": prompts,
         "llm": base.llm_model,
         "gpu": None if gpu is None else gpu.nombre,
         "configs": {c: CONFIGS[c] for c in configs},
         "corridas": [asdict(c) | {"total_s": c.total_s} for c in corridas],
     }
     datos["comparaciones"] = comparaciones(corridas)
+    datos["por_prompt"] = por_prompt(corridas)
     texto = informe(datos, corridas)
     for carpeta in [SALIDA] + ([DOCS] if args.docs else []):
         carpeta.mkdir(parents=True, exist_ok=True)
