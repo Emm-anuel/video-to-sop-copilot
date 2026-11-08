@@ -39,6 +39,7 @@ export type Esperado = string;
 export type Observado = string | null;
 export type Estado1 = "coincide" | "distinto" | "no_identificado";
 export type Similitud = number | null;
+export type Nota = string;
 export type EsperadoMin = number | null;
 export type ObservadoMin = number;
 export type Origen = "narrado" | "medido";
@@ -49,6 +50,10 @@ export type Rol = string;
 export type Estado3 = "presente" | "mencionado" | "ausente";
 export type T = number | null;
 export type Cita2 = string;
+export type Persona = string | null;
+export type Similitud1 = number | null;
+export type Confianza1 = ("alta" | "media" | "baja") | null;
+export type ConPasos = boolean;
 export type Roles = RolReporte[];
 export type EsperadoMin1 = number | null;
 export type ObservadoMin1 = number;
@@ -70,6 +75,11 @@ export type SemaforoAmarillo = number;
 export type AfinidadMin = number | null;
 export type ToleranciaTiempo = number | null;
 export type UmbralRol = number | null;
+export type AfinidadCosCero = number | null;
+export type AfinidadCosCien = number | null;
+export type AfinidadUmbralEquipo = number | null;
+export type UmbralRolComplemento = number | null;
+export type UmbralHorario = number | null;
 export type Tipo =
   | "segmentacion_heuristica"
   | "juez_sin_revisar"
@@ -92,8 +102,8 @@ export type Creado = string;
  * redondear. `provisional` es true si hay avisos (ADR-019).
  *
  * `afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10
- * del documento; hasta que su lógica exista quedan en `None` o `[]`, igual que `responsable` y
- * `tiempo` de cada fila.
+ * del documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,
+ * igual que `responsable` y `tiempo` de cada fila.
  */
 export interface ReporteValidacion {
   version_contrato?: VersionContrato;
@@ -123,20 +133,29 @@ export interface PasoSOPReporte {
   descripcion?: Descripcion;
 }
 /**
- * ¿El video es de este SOP? (§5.2, RF-17). `valor` entero de 0 a 100, como la columna
- * `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+ * ¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
+ * columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+ *
+ * `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
+ * componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
+ * afinidades anteriores a ADR-020.
  */
 export interface Afinidad {
   valor: Valor;
   explicacion: Explicacion;
   bajo_umbral: BajoUmbral;
+  componentes?: Componentes;
+}
+export interface Componentes {
+  [k: string]: number;
 }
 /**
  * Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).
  *
  * `personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las
- * filas con responsable "distinto" más los roles "ausente", y las filas con tiempo "excede" o
- * "menor". 0 mientras no se calculen.
+ * filas con responsable "distinto" más los roles "ausente" que son responsables de algún paso
+ * (`RolReporte.con_pasos`, ADR-020), y las filas con tiempo "excede" (ADR-021: "menor" es más
+ * rápido de lo esperado, no un incumplimiento). 0 en los reportes que no los calculaban.
  */
 export interface ConteoReporte {
   cumple: Cumple;
@@ -158,8 +177,8 @@ export interface ConteoReporte {
  * del juez cuando decidió el par.
  *
  * `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
- * Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` mientras no
- * se calculen.
+ * Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los
+ * reportes guardados antes de ADR-020 y ADR-021.
  */
 export interface FilaReporte {
   estado: Estado;
@@ -179,22 +198,27 @@ export interface FilaReporte {
 /**
  * Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).
  *
- * `esperado` es el del SOP; `observado`, quien lo hace en el video (`None` si no se sabe, y
- * entonces el estado es "no_identificado" y no hay similitud). `similitud` es el coseno entre
- * los roles, si se comparó así (`UMBRAL_ROL`).
+ * `esperado` es el del SOP; `observado`, quien lo hace en el video ("Nombre (rol)" o el rol;
+ * `None` si no se sabe, y entonces el estado es "no_identificado" y no hay similitud).
+ * `similitud` es la de los roles comparados (ADR-020: la menor entre núcleo y complemento).
+ * `nota` dice cómo se identificó a la persona y los casos especiales (paso fusionado con varios
+ * responsables, un solo narrador sin nombre…); vacía en los reportes anteriores a ADR-020.
  */
 export interface ResponsableFila {
   esperado: Esperado;
   observado?: Observado;
   estado: Estado1;
   similitud?: Similitud;
+  nota?: Nota;
 }
 /**
  * Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).
  *
  * `observado_min` es la que narra el operador ("narrado", con la frase en `cita`, regla 4) o
- * t_fin − t_inicio del paso del video ("medido", sin cita). Sin tiempo esperado en el SOP, el
- * estado es "sin_referencia".
+ * t_fin − t_inicio del paso del video ya fusionado ("medido", sin cita); la narrada solo si es
+ * mayor o igual que la medida (ADR-021). Sin tiempo esperado en el SOP, el estado es
+ * "sin_referencia". Solo "excede" cuenta como fuera de tiempo; "menor" se muestra, pero no es
+ * un incumplimiento.
  */
 export interface TiempoFila {
   esperado_min?: EsperadoMin;
@@ -204,19 +228,32 @@ export interface TiempoFila {
   cita?: Cita1;
 }
 /**
- * Un rol del SOP entre las personas del video (§5.4, RF-15).
+ * Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).
  *
  * Presente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona
- * (regla 4); ausente no lleva ni uno ni otro.
+ * (regla 4), `persona` ("Nombre (rol)" o el rol), la `similitud` de los roles y la `confianza`
+ * del rol de la persona ("baja" si no aparece en su cita: lo infirió el LLM); ausente no lleva
+ * nada de eso.
+ *
+ * `con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con
+ * pasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un
+ * supervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,
+ * ADR-020). Por defecto true: los reportes anteriores conservan su conteo.
  */
 export interface RolReporte {
   rol: Rol;
   estado: Estado3;
   t?: T;
   cita?: Cita2;
+  persona?: Persona;
+  similitud?: Similitud1;
+  confianza?: Confianza1;
+  con_pasos?: ConPasos;
 }
 /**
- * Duración total del procedimiento frente a la del SOP (§5.5).
+ * Duración total del procedimiento frente a la del SOP (§5.5, ADR-021): la suma de lo
+ * observado en los pares (Falta y Sobra no suman) frente a `resumen.duracion_total_min` o, si
+ * el SOP no lo trae, la suma de los esperados cuando todos los pasos lo tienen.
  */
 export interface TiempoTotal {
   esperado_min?: EsperadoMin1;
@@ -265,6 +302,11 @@ export interface Umbrales {
   afinidad_min?: AfinidadMin;
   tolerancia_tiempo?: ToleranciaTiempo;
   umbral_rol?: UmbralRol;
+  afinidad_cos_cero?: AfinidadCosCero;
+  afinidad_cos_cien?: AfinidadCosCien;
+  afinidad_umbral_equipo?: AfinidadUmbralEquipo;
+  umbral_rol_complemento?: UmbralRolComplemento;
+  umbral_horario?: UmbralHorario;
 }
 export interface Segundos {
   [k: string]: number;

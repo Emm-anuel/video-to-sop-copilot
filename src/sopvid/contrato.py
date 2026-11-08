@@ -17,8 +17,8 @@ defecto, para que un SOP mínimo (título y pasos) valide.
 
 `Contexto` es la ficha de contexto del video (RF-12), con `Persona` para quién aparece. El
 reporte lleva además, por fila, `ResponsableFila` y `TiempoFila` (RF-15, RF-16), y en la raíz
-`Afinidad` (RF-17), `RolReporte`, `TiempoTotal` y `Horario`; mientras su lógica no exista, van
-en `None` o vacíos.
+`Afinidad` (RF-17), `RolReporte`, `TiempoTotal` y `Horario`; en los reportes guardados antes de
+su lógica (ADR-020, ADR-021) van en `None` o vacíos.
 
 Todo tiempo de estos contratos sale de la transcripción o del video, nunca del LLM (regla 4 de
 CLAUDE.md). Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fin ≥ inicio, y las
@@ -774,6 +774,8 @@ class Umbrales(_Modelo):
     afinidad_cos_cien: float | None = Field(default=None, ge=-1, le=1)
     afinidad_umbral_equipo: float | None = Field(default=None, ge=0, le=1)
     umbral_rol_complemento: float | None = Field(default=None, ge=0, le=1)
+    # None en los reportes guardados antes de ADR-021.
+    umbral_horario: float | None = Field(default=None, ge=0, le=1)
 
 
 # Dónde corrió un modelo (ADR-018). "gpu": al menos una parte en la GPU (Ollama no informa de
@@ -897,59 +899,14 @@ class Afinidad(_Modelo):
     componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
 
 
-class ResultadoValidacion(_Modelo):
-    """Lo que se guarda en `reportes.resultado` (JSONB).
-
-    `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
-    decimales) y `semaforo` se calculó con él, nunca con el redondeado. `afinidad` (RF-17,
-    ADR-020) es None sin ficha de contexto y en los reportes guardados antes de ADR-020.
-
-    `roles` y `responsables` (RF-15, ADR-020): un `RolReporte` por rol del SOP y un responsable
-    por resultado de la clasificación, en su mismo orden (None fuera de los pares). Los dos van
-    vacíos en los reportes guardados antes de ADR-020, que se siguen leyendo.
-    """
-
-    version_contrato: Literal[1] = 1
-    resultado: ResultadoEmparejamiento
-    cumplimiento: float = Field(ge=0, le=100)
-    semaforo: Semaforo
-    metadatos: MetadatosValidacion
-    afinidad: Afinidad | None = None
-    roles: list[RolReporte] = []
-    responsables: list[ResponsableFila | None] = []
-
-    @model_validator(mode="after")
-    def _responsables_alineados(self) -> Self:
-        if not self.responsables:
-            return self
-        pasos = self.resultado.clasificacion.pasos
-        if len(self.responsables) != len(pasos):
-            raise ValueError(f"{len(self.responsables)} responsables para {len(pasos)} resultados")
-        for paso, responsable in zip(pasos, self.responsables, strict=True):
-            if responsable is not None and paso.estado not in ESTADOS_PAR:
-                raise ValueError(f"{paso.estado}: el responsable solo va en un par")
-        return self
-
-
-class PasoSOPReporte(_Modelo):
-    numero: int = Field(ge=1)
-    nombre: str = Field(min_length=1)
-    descripcion: str = ""
-
-
-class SOPReporte(_Modelo):
-    id: int
-    codigo: str
-    titulo: str
-    pasos: list[PasoSOPReporte]
-
-
 class TiempoFila(_Modelo):
     """Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).
 
     `observado_min` es la que narra el operador ("narrado", con la frase en `cita`, regla 4) o
-    t_fin − t_inicio del paso del video ("medido", sin cita). Sin tiempo esperado en el SOP, el
-    estado es "sin_referencia".
+    t_fin − t_inicio del paso del video ya fusionado ("medido", sin cita); la narrada solo si es
+    mayor o igual que la medida (ADR-021). Sin tiempo esperado en el SOP, el estado es
+    "sin_referencia". Solo "excede" cuenta como fuera de tiempo; "menor" se muestra, pero no es
+    un incumplimiento.
     """
 
     esperado_min: float | None = Field(default=None, ge=0)
@@ -967,92 +924,10 @@ class TiempoFila(_Modelo):
         return self
 
 
-class FilaReporte(_Modelo):
-    """Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.
-
-    `paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el
-    número del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de
-    la transcripción (regla 4). Un zona_gris se muestra como "sin revisar". `justificacion` es la
-    del juez cuando decidió el par.
-
-    `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
-    Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` mientras no
-    se calculen.
-    """
-
-    estado: EstadoPaso
-    paso_sop: int | None = Field(default=None, ge=1)
-    nombre_sop: str | None = None
-    paso_video: int | None = Field(default=None, ge=1)
-    nombre_video: str | None = None
-    t_inicio: Tiempo | None = None
-    cita: str = ""
-    confianza: Confianza | None = None
-    fuera_de_orden: bool = False
-    marco_operador: MarcoOperador | None = None
-    justificacion: str | None = None
-    responsable: ResponsableFila | None = None
-    tiempo: TiempoFila | None = None
-
-    @model_validator(mode="after")
-    def _personas_y_tiempo_solo_en_pares(self) -> Self:
-        if self.estado not in ESTADOS_PAR and (
-            self.responsable is not None or self.tiempo is not None
-        ):
-            raise ValueError(f"{self.estado}: responsable y tiempo solo van en un par")
-        return self
-
-
-class ConteoReporte(_Modelo):
-    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).
-
-    `personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las
-    filas con responsable "distinto" más los roles "ausente" que son responsables de algún paso
-    (`RolReporte.con_pasos`, ADR-020), y las filas con tiempo "excede" o "menor". 0 mientras no
-    se calculen.
-    """
-
-    cumple: int = Field(ge=0)
-    parcial: int = Field(ge=0)
-    fuera_de_orden: int = Field(ge=0)
-    falta: int = Field(ge=0)
-    sobra: int = Field(ge=0)
-    sin_revisar: int = Field(ge=0)
-    marco_operador: int = Field(ge=0)
-    personas_con_diferencias: int = Field(default=0, ge=0)
-    pasos_fuera_de_tiempo: int = Field(default=0, ge=0)
-
-
-class DetencionAfinidad(_Modelo):
-    """Lo que se guarda en `reportes.resultado` cuando la validación se detiene por afinidad baja
-    (ADR-020): el video queda en `proceso="afinidad_baja"`, sin reporte de pasos y con
-    `reportes.cumplimiento` en NULL, hasta que quien carga decide continuar
-    (`POST /videos/{id}/validar?continuar=true`).
-
-    `segundos` lleva lo que tardó cada etapa hasta la afinidad; `avisos`, los que ya se sabían
-    (p. ej. "transcripcion_no_referencia"). `afinidad.bajo_umbral` siempre es true.
-    """
-
-    version_contrato: Literal[1] = 1
-    afinidad: Afinidad
-    umbrales: Umbrales
-    embedder: str
-    segundos: dict[str, Annotated[float, Field(ge=0)]] = {}
-    avisos: list[Aviso] = []
-    dispositivos: Dispositivos | None = None
-
-    @model_validator(mode="after")
-    def _bajo_umbral(self) -> Self:
-        if not self.afinidad.bajo_umbral:
-            raise ValueError("una detención por afinidad lleva una afinidad bajo el umbral")
-        minimo = self.umbrales.afinidad_min
-        if minimo is not None and self.afinidad.valor >= minimo:
-            raise ValueError(f"afinidad {self.afinidad.valor} no está bajo AFINIDAD_MIN {minimo}")
-        return self
-
-
 class TiempoTotal(_Modelo):
-    """Duración total del procedimiento frente a la del SOP (§5.5)."""
+    """Duración total del procedimiento frente a la del SOP (§5.5, ADR-021): la suma de lo
+    observado en los pares (Falta y Sobra no suman) frente a `resumen.duracion_total_min` o, si
+    el SOP no lo trae, la suma de los esperados cuando todos los pasos lo tienen."""
 
     esperado_min: float | None = Field(default=None, ge=0)
     observado_min: float = Field(ge=0)
@@ -1095,6 +970,156 @@ class Horario(_Modelo):
         return self
 
 
+class ResultadoValidacion(_Modelo):
+    """Lo que se guarda en `reportes.resultado` (JSONB).
+
+    `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
+    decimales) y `semaforo` se calculó con él, nunca con el redondeado. `afinidad` (RF-17,
+    ADR-020) es None sin ficha de contexto y en los reportes guardados antes de ADR-020.
+
+    `roles` y `responsables` (RF-15, ADR-020): un `RolReporte` por rol del SOP y un responsable
+    por resultado de la clasificación, en su mismo orden (None fuera de los pares). Los dos van
+    vacíos en los reportes guardados antes de ADR-020, que se siguen leyendo.
+
+    `tiempos`, `tiempo_total` y `horario` (RF-16, ADR-021): un tiempo por resultado de la
+    clasificación, en su orden (None fuera de los pares), el total y el horario. Vacíos o None en
+    los reportes guardados antes de ADR-021, que se siguen leyendo.
+    """
+
+    version_contrato: Literal[1] = 1
+    resultado: ResultadoEmparejamiento
+    cumplimiento: float = Field(ge=0, le=100)
+    semaforo: Semaforo
+    metadatos: MetadatosValidacion
+    afinidad: Afinidad | None = None
+    roles: list[RolReporte] = []
+    responsables: list[ResponsableFila | None] = []
+    tiempos: list[TiempoFila | None] = []
+    tiempo_total: TiempoTotal | None = None
+    horario: Horario | None = None
+
+    @model_validator(mode="after")
+    def _tiempos_alineados(self) -> Self:
+        if not self.tiempos:
+            return self
+        pasos = self.resultado.clasificacion.pasos
+        if len(self.tiempos) != len(pasos):
+            raise ValueError(f"{len(self.tiempos)} tiempos para {len(pasos)} resultados")
+        for paso, tiempo in zip(pasos, self.tiempos, strict=True):
+            if tiempo is not None and paso.estado not in ESTADOS_PAR:
+                raise ValueError(f"{paso.estado}: el tiempo solo va en un par")
+        return self
+
+    @model_validator(mode="after")
+    def _responsables_alineados(self) -> Self:
+        if not self.responsables:
+            return self
+        pasos = self.resultado.clasificacion.pasos
+        if len(self.responsables) != len(pasos):
+            raise ValueError(f"{len(self.responsables)} responsables para {len(pasos)} resultados")
+        for paso, responsable in zip(pasos, self.responsables, strict=True):
+            if responsable is not None and paso.estado not in ESTADOS_PAR:
+                raise ValueError(f"{paso.estado}: el responsable solo va en un par")
+        return self
+
+
+class PasoSOPReporte(_Modelo):
+    numero: int = Field(ge=1)
+    nombre: str = Field(min_length=1)
+    descripcion: str = ""
+
+
+class SOPReporte(_Modelo):
+    id: int
+    codigo: str
+    titulo: str
+    pasos: list[PasoSOPReporte]
+
+
+class FilaReporte(_Modelo):
+    """Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.
+
+    `paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el
+    número del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de
+    la transcripción (regla 4). Un zona_gris se muestra como "sin revisar". `justificacion` es la
+    del juez cuando decidió el par.
+
+    `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
+    Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los
+    reportes guardados antes de ADR-020 y ADR-021.
+    """
+
+    estado: EstadoPaso
+    paso_sop: int | None = Field(default=None, ge=1)
+    nombre_sop: str | None = None
+    paso_video: int | None = Field(default=None, ge=1)
+    nombre_video: str | None = None
+    t_inicio: Tiempo | None = None
+    cita: str = ""
+    confianza: Confianza | None = None
+    fuera_de_orden: bool = False
+    marco_operador: MarcoOperador | None = None
+    justificacion: str | None = None
+    responsable: ResponsableFila | None = None
+    tiempo: TiempoFila | None = None
+
+    @model_validator(mode="after")
+    def _personas_y_tiempo_solo_en_pares(self) -> Self:
+        if self.estado not in ESTADOS_PAR and (
+            self.responsable is not None or self.tiempo is not None
+        ):
+            raise ValueError(f"{self.estado}: responsable y tiempo solo van en un par")
+        return self
+
+
+class ConteoReporte(_Modelo):
+    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).
+
+    `personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las
+    filas con responsable "distinto" más los roles "ausente" que son responsables de algún paso
+    (`RolReporte.con_pasos`, ADR-020), y las filas con tiempo "excede" (ADR-021: "menor" es más
+    rápido de lo esperado, no un incumplimiento). 0 en los reportes que no los calculaban.
+    """
+
+    cumple: int = Field(ge=0)
+    parcial: int = Field(ge=0)
+    fuera_de_orden: int = Field(ge=0)
+    falta: int = Field(ge=0)
+    sobra: int = Field(ge=0)
+    sin_revisar: int = Field(ge=0)
+    marco_operador: int = Field(ge=0)
+    personas_con_diferencias: int = Field(default=0, ge=0)
+    pasos_fuera_de_tiempo: int = Field(default=0, ge=0)
+
+
+class DetencionAfinidad(_Modelo):
+    """Lo que se guarda en `reportes.resultado` cuando la validación se detiene por afinidad baja
+    (ADR-020): el video queda en `proceso="afinidad_baja"`, sin reporte de pasos y con
+    `reportes.cumplimiento` en NULL, hasta que quien carga decide continuar
+    (`POST /videos/{id}/validar?continuar=true`).
+
+    `segundos` lleva lo que tardó cada etapa hasta la afinidad; `avisos`, los que ya se sabían
+    (p. ej. "transcripcion_no_referencia"). `afinidad.bajo_umbral` siempre es true.
+    """
+
+    version_contrato: Literal[1] = 1
+    afinidad: Afinidad
+    umbrales: Umbrales
+    embedder: str
+    segundos: dict[str, Annotated[float, Field(ge=0)]] = {}
+    avisos: list[Aviso] = []
+    dispositivos: Dispositivos | None = None
+
+    @model_validator(mode="after")
+    def _bajo_umbral(self) -> Self:
+        if not self.afinidad.bajo_umbral:
+            raise ValueError("una detención por afinidad lleva una afinidad bajo el umbral")
+        minimo = self.umbrales.afinidad_min
+        if minimo is not None and self.afinidad.valor >= minimo:
+            raise ValueError(f"afinidad {self.afinidad.valor} no está bajo AFINIDAD_MIN {minimo}")
+        return self
+
+
 class ReporteValidacion(_Modelo):
     """Respuesta de `GET /videos/{id}/reporte`.
 
@@ -1102,8 +1127,8 @@ class ReporteValidacion(_Modelo):
     redondear. `provisional` es true si hay avisos (ADR-019).
 
     `afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10
-    del documento; hasta que su lógica exista quedan en `None` o `[]`, igual que `responsable` y
-    `tiempo` de cada fila.
+    del documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,
+    igual que `responsable` y `tiempo` de cada fila.
     """
 
     version_contrato: Literal[1] = 1
@@ -1150,7 +1175,7 @@ class ReporteValidacion(_Modelo):
                 + sum(r.estado == "ausente" and r.con_pasos for r in self.roles)
             ),
             pasos_fuera_de_tiempo=sum(
-                f.tiempo is not None and f.tiempo.estado in ("excede", "menor") for f in filas
+                f.tiempo is not None and f.tiempo.estado == "excede" for f in filas
             ),
         )
         if self.conteo != esperado:

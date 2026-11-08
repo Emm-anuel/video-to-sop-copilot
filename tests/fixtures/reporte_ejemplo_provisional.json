@@ -61,7 +61,7 @@
     "sin_revisar": 1,
     "marco_operador": 2,
     "personas_con_diferencias": 1,
-    "pasos_fuera_de_tiempo": 2
+    "pasos_fuera_de_tiempo": 1
   },
   "filas": [
     {
@@ -321,15 +321,15 @@
   ],
   "tiempo_total": {
     "esperado_min": 3.0,
-    "observado_min": 2.63,
-    "estado": "en_tiempo"
+    "observado_min": 1.95,
+    "estado": "menor"
   },
   "horario": {
     "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
-    "observado": "cada tres meses o cuando el manómetro marca menos de dos bar",
+    "observado": "Cada tres meses o cuando el manómetro marca menos de dos bar",
     "estado": "coincide",
     "t": 12.53,
-    "cita": "se cambia cada tres meses o cuando el manómetro marca menos de dos bar"
+    "cita": "El cartucho se cambia cada tres meses o cuando el manómetro marca menos de dos bar."
   },
   "metadatos": {
     "segmentacion": "llm",
@@ -348,7 +348,8 @@
       "afinidad_cos_cero": 0.3,
       "afinidad_cos_cien": 0.8,
       "afinidad_umbral_equipo": 0.75,
-      "umbral_rol_complemento": 0.7
+      "umbral_rol_complemento": 0.7,
+      "umbral_horario": 0.75
     },
     "segundos": {
       "duracion": 0.2,

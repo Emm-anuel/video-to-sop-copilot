@@ -238,7 +238,7 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
         # ADR-020: la ficha del doble no trae personas, así que el rol "Técnico" (responsable de
         # los pasos) queda ausente y cuenta.
         "personas_con_diferencias": 1,
-        # RF-16, sin lógica todavía: 0.
+        # RF-16 (ADR-021): el SOP de prueba no trae tiempos, ningún paso excede.
         "pasos_fuera_de_tiempo": 0,
     }
     assert [(r.rol, r.estado, r.con_pasos) for r in reporte.roles] == [("Técnico", "ausente", True)]
@@ -246,8 +246,13 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
     assert [(f.responsable.estado, f.responsable.observado) for f in reporte.filas] == [
         ("coincide", "Técnico")
     ] * 3
-    assert (reporte.tiempo_total, reporte.horario) == (None, None)
-    assert all(f.tiempo is None for f in reporte.filas)
+    # Tiempos (ADR-021): medidos sobre la transcripción, sin referencia en este SOP.
+    assert [(f.tiempo.origen, f.tiempo.estado) for f in reporte.filas] == [
+        ("medido", "sin_referencia")
+    ] * 3
+    assert reporte.tiempo_total is not None
+    assert reporte.tiempo_total.estado == "sin_referencia"
+    assert reporte.horario is not None and reporte.horario.estado == "sin_referencia"
     assert reporte.metadatos.umbrales.afinidad_min == 60  # se registra la configuración
 
 

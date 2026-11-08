@@ -91,8 +91,22 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "segmentacion",
         "emparejamiento",
         "personas",
+        "tiempos",
     }
     assert (meta.umbrales.semaforo_verde, meta.umbrales.semaforo_amarillo) == (90, 70)
+    assert (meta.umbrales.tolerancia_tiempo, meta.umbrales.umbral_horario) == (0.2, 0.75)
+    # Tiempos (ADR-021): uno por resultado, solo en los pares, medidos sobre la transcripción.
+    # El SOP de prueba no trae tiempos ni horario: todo sin referencia.
+    pasos_clasificados = guardado.resultado.clasificacion.pasos
+    assert len(guardado.tiempos) == len(pasos_clasificados)
+    for paso, tiempo in zip(pasos_clasificados, guardado.tiempos, strict=True):
+        assert (tiempo is not None) == (paso.estado in ("Cumple", "Parcial", "zona_gris"))
+        if tiempo is not None:
+            assert (tiempo.origen, tiempo.estado) == ("medido", "sin_referencia")
+            del_video = guardado.resultado.pasos_video[paso.indice_video]
+            assert tiempo.observado_min == round((del_video.t_fin - del_video.t_inicio) / 60, 2)
+    assert guardado.tiempo_total is not None and guardado.tiempo_total.estado == "sin_referencia"
+    assert guardado.horario is not None and guardado.horario.estado == "sin_referencia"
     assert meta.dispositivos == Dispositivos(
         gpu="GPU de prueba", transcripcion="cpu", llm="gpu", embedder="cpu"
     )
@@ -183,6 +197,7 @@ def test_ollama_caido_al_empezar_deja_error_reprocesable(
         "segmentacion",
         "emparejamiento",
         "personas",
+        "tiempos",
     }
     assert entorno.video(video_id).contexto is not None
 
@@ -320,6 +335,7 @@ def test_repetir_la_validacion_reusa_la_ficha_guardada(
         "segmentacion",
         "emparejamiento",
         "personas",
+        "tiempos",
     }
     assert reporte["provisional"] is False
 

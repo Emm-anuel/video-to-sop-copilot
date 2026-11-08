@@ -14,14 +14,14 @@ contar como diferencia).
 
 Corre el código real de `emparejar` (fusión, húngaro, umbrales, juez, orden y marco del
 operador), `emparejar_roles` y `asignar_responsables` (RF-15, ADR-020) con la ficha de
-`contexto_ejemplo.json`, `porcentaje`, `semaforo`, `avisos_de` y `armar_reporte`. Solo los pasos
-del video, el vectorizador y el juez están guionados (sin Gemma 4 ni MiniLM), así que el resultado
-es siempre el mismo. Los tiempos y las citas salen de la transcripción (regla 4). Los umbrales son
-los valores por defecto de `Settings`, sin leer `.env`.
+`contexto_ejemplo.json`, los tiempos y el horario (RF-16, ADR-021), `porcentaje`, `semaforo`,
+`avisos_de` y `armar_reporte`. Solo los pasos del video, el vectorizador y el juez están
+guionados (sin Gemma 4 ni MiniLM), así que el resultado es siempre el mismo. Los tiempos y las
+citas salen de la transcripción (regla 4). Los umbrales son los valores por defecto de
+`Settings`, sin leer `.env`.
 
-La afinidad va guionada (su valor depende de MiniLM, que aquí no corre), y los tiempos y el
-horario (RF-16) todavía no tienen lógica: se agregan al final (`completar_s5`) y el reporte se
-valida de nuevo. Solo `observado_min` sale del video (t_fin − t_inicio del paso, o la duración).
+La afinidad va guionada (su valor depende de MiniLM, que aquí no corre): se agrega al final
+(`completar_afinidad`) y el reporte se valida de nuevo.
 
 Uso:
     python scripts/ejemplo_reporte.py
@@ -41,7 +41,6 @@ from unittest import mock
 import numpy as np
 
 from sopvid.contrato import (
-    ESTADOS_PAR,
     SOP,
     Analisis,
     Contexto,
@@ -52,7 +51,9 @@ from sopvid.contrato import (
     PasoSOP,
     PasoVideo,
     ReporteValidacion,
+    ResultadoEmparejamiento,
     ResultadoValidacion,
+    TiempoFila,
 )
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.lenguaje.juez import respaldo
@@ -63,6 +64,7 @@ from sopvid.lenguaje.personas import (
     roles_del_sop,
 )
 from sopvid.lenguaje.reporte import armar_reporte, porcentaje, semaforo
+from sopvid.lenguaje.tiempos import comparar_horario, tiempo_total, tiempos_por_paso
 from sopvid.lenguaje.validacion import avisos_de, umbrales_de
 from sopvid.percepcion.segmentacion import Segmentacion
 from sopvid.plataforma.config import Settings
@@ -118,9 +120,10 @@ SEGUNDOS = {
 }
 CREADO = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
 
-# ── Guion de S5 (RF-15 a RF-17): todavía sin lógica ──────────────────────────────────────────
+# ── Guion de S5 (RF-15 a RF-17) ──────────────────────────────────────────────────────────────
 # Tiempo esperado (min) de cada paso del SOP del ejemplo, en el orden ya intercambiado, y el
-# estado que da con la tolerancia por defecto (20 %) frente a la duración medida en el video.
+# estado que debe dar `tiempos_por_paso` con la tolerancia por defecto (20 %) frente a la
+# duración medida en el video (se comprueba al construir).
 TIEMPOS: dict[int, tuple[float | None, str]] = {
     1: (0.25, "en_tiempo"),  # Cerrar la llave: 0.23 medido
     2: (0.2, "en_tiempo"),  # Guantes y lentes: 0.19
@@ -135,11 +138,6 @@ AFINIDAD = (
     87,
     "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de "
     "enjuague) y el mismo equipo: llave de carcasa, cubeta y manómetro.",
-)
-HORARIO = (
-    "cada tres meses o cuando el manómetro marca menos de dos bar",
-    12.53,
-    "se cambia cada tres meses o cuando el manómetro marca menos de dos bar",
 )
 
 
@@ -216,82 +214,37 @@ def _cita_en(analisis: Analisis, t: float, cita: str) -> None:
     assert cita in segmento.texto, f"la cita del segundo {t} no es literal"
 
 
-def _estado_tiempo(esperado: float, observado: float, tolerancia: float) -> str:
-    """Solo para comprobar el guion; la lógica de RF-16 llega en S5."""
-    if observado > esperado * (1 + tolerancia):
-        return "excede"
-    if observado < esperado * (1 - tolerancia):
-        return "menor"
-    return "en_tiempo"
-
-
-def completar_s5(
-    reporte: ReporteValidacion,
-    sop: SOP,
-    analisis: Analisis,
-    pasos_video: list[PasoVideo],
-    settings: Settings,
+def completar_afinidad(
+    reporte: ReporteValidacion, analisis: Analisis, settings: Settings
 ) -> ReporteValidacion:
-    """Agrega al reporte la afinidad, los tiempos y el horario guionados, y lo revalida."""
-    por_numero = {p.numero: p for p in pasos_video}
-    filas = []
-    fuera_de_tiempo = 0
-    for fila in reporte.filas:
-        datos = fila.model_dump()
-        if fila.estado in ESTADOS_PAR:
-            assert fila.paso_sop is not None and fila.paso_video is not None
-            video = por_numero[fila.paso_video]
-            esperado, estado = TIEMPOS[fila.paso_sop]
-            observado = round((video.t_fin - video.t_inicio) / 60, 2)
-            if esperado is not None:
-                assert _estado_tiempo(esperado, observado, settings.tolerancia_tiempo) == estado
-            datos["tiempo"] = {
-                "esperado_min": esperado,
-                "observado_min": observado,
-                "origen": "medido",
-                "estado": estado,
-            }
-            fuera_de_tiempo += estado in ("excede", "menor")
-        filas.append(datos)
-    for rol in reporte.roles:  # las citas de la ficha son literales (regla 4)
+    """Agrega al reporte la afinidad guionada y lo revalida. Comprueba que las citas de los roles
+    y del horario sean literales (regla 4)."""
+    for rol in reporte.roles:
         if rol.t is not None:
             _cita_en(analisis, rol.t, rol.cita)
-    esperado_total = sop.resumen.duracion_total_min
-    assert esperado_total is not None
-    observado_total = round(analisis.duracion_s / 60, 2)
-    observado_horario, t_horario, cita_horario = HORARIO
-    _cita_en(analisis, t_horario, cita_horario)
+    if reporte.horario is not None and reporte.horario.t is not None:
+        _cita_en(analisis, reporte.horario.t, reporte.horario.cita)
     valor, explicacion = AFINIDAD
-    datos = reporte.model_dump()
     return ReporteValidacion.model_validate(
         {
-            **datos,
+            **reporte.model_dump(),
             "afinidad": {
                 "valor": valor,
                 "explicacion": explicacion,
                 "bajo_umbral": valor < settings.afinidad_min,
             },
-            "conteo": {
-                **datos["conteo"],
-                "pasos_fuera_de_tiempo": fuera_de_tiempo,
-            },
-            "filas": filas,
-            "tiempo_total": {
-                "esperado_min": esperado_total,
-                "observado_min": observado_total,
-                "estado": _estado_tiempo(
-                    esperado_total, observado_total, settings.tolerancia_tiempo
-                ),
-            },
-            "horario": {
-                "esperado": sop.resumen.horario_frecuencia.valor,
-                "observado": observado_horario,
-                "estado": "coincide",
-                "t": t_horario,
-                "cita": cita_horario,
-            },
         }
     )
+
+
+def _comprobar_tiempos(
+    resultado: ResultadoEmparejamiento, tiempos: list[TiempoFila | None], sop: SOP
+) -> None:
+    """Los estados que da `tiempos_por_paso` son los del guion (`TIEMPOS`)."""
+    for paso, tiempo in zip(resultado.clasificacion.pasos, tiempos, strict=True):
+        if tiempo is not None and paso.indice_sop is not None:
+            numero = sop.pasos[paso.indice_sop].numero
+            assert tiempo.estado == TIEMPOS[numero][1], f"paso {numero}: {tiempo.estado}"
 
 
 def pasos_del_video(analisis: Analisis) -> list[PasoVideo]:
@@ -358,6 +311,8 @@ def construir_validacion(caido: bool) -> ResultadoValidacion:
     responsables = asignar_responsables(
         resultado, sop, contexto, analisis.transcripcion, pasos, comparador=comparador
     )
+    tiempos = tiempos_por_paso(resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo)
+    _comprobar_tiempos(resultado, tiempos, sop)
     pct = porcentaje(resultado)
     return ResultadoValidacion(
         resultado=resultado,
@@ -377,6 +332,11 @@ def construir_validacion(caido: bool) -> ResultadoValidacion:
         ),
         roles=roles,
         responsables=responsables,
+        tiempos=tiempos,
+        tiempo_total=tiempo_total(tiempos, sop, settings.tolerancia_tiempo),
+        horario=comparar_horario(
+            sop, contexto, analisis.transcripcion, embedder, settings.umbral_horario
+        ),
     )
 
 
@@ -393,13 +353,7 @@ def construir(caido: bool) -> ReporteValidacion:
         cumplimiento=round(validacion.cumplimiento, 2),
         creado=CREADO,
     )
-    return completar_s5(
-        reporte,
-        sop,
-        analisis_del_ejemplo(),
-        validacion.resultado.pasos_video,
-        Settings(_env_file=None),
-    )
+    return completar_afinidad(reporte, analisis_del_ejemplo(), Settings(_env_file=None))
 
 
 def serializar(reporte: ReporteValidacion) -> str:

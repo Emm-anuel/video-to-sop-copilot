@@ -404,3 +404,68 @@ def test_responsables_desalineados_no_validan(ejemplo):
     datos["responsables"][falta] = datos["responsables"][0]
     with pytest.raises(ValidationError, match="solo va en un par"):
         ResultadoValidacion.model_validate(datos)
+
+
+# ── Tiempos en el reporte (RF-16, ADR-021) ───────────────────────────────────────────────────
+
+
+def test_un_reporte_guardado_antes_de_p4_se_sigue_leyendo(ejemplo):
+    from datetime import UTC, datetime
+
+    from sopvid.contrato import ResultadoValidacion
+
+    datos = ejemplo.construir_validacion(caido=False).model_dump(mode="json")
+    for clave in ("tiempos", "tiempo_total", "horario"):
+        datos.pop(clave)
+    datos["metadatos"]["umbrales"].pop("umbral_horario")
+    validacion = ResultadoValidacion.model_validate(datos)
+    assert (validacion.tiempos, validacion.tiempo_total, validacion.horario) == ([], None, None)
+    assert validacion.metadatos.umbrales.umbral_horario is None
+    r = reporte.armar_reporte(
+        validacion,
+        ejemplo.sop_del_ejemplo(),
+        video_id=1,
+        sop_id=1,
+        codigo="SOP-0001",
+        cumplimiento=round(validacion.cumplimiento, 2),
+        creado=datetime(2026, 11, 7, tzinfo=UTC),
+    )
+    assert all(f.tiempo is None for f in r.filas)
+    assert (r.tiempo_total, r.horario, r.conteo.pasos_fuera_de_tiempo) == (None, None, 0)
+    # Los responsables, que sí estaban, se siguen mostrando.
+    assert any(f.responsable is not None for f in r.filas)
+
+
+def test_el_reporte_lleva_el_tiempo_de_cada_par_y_cuenta_solo_los_que_exceden(ejemplo):
+    r = ReporteValidacion.model_validate_json(ejemplo.SALIDAS["definitivo"].read_text("utf-8"))
+    pares = [f for f in r.filas if f.estado in ("Cumple", "Parcial", "zona_gris")]
+    assert all(f.tiempo is not None for f in pares)
+    assert all(f.tiempo is None for f in r.filas if f.estado in ("Falta", "Sobra"))
+    estados = [f.tiempo.estado for f in pares]
+    assert "menor" in estados and "excede" in estados
+    assert r.conteo.pasos_fuera_de_tiempo == estados.count("excede")
+    # El total suma lo observado en los pares, tal como lo muestra la tabla.
+    assert r.tiempo_total is not None
+    assert r.tiempo_total.observado_min == pytest.approx(sum(f.tiempo.observado_min for f in pares))
+    assert r.tiempo_total.esperado_min == 3.0
+    # El porcentaje no cambia por el tiempo (§5.6).
+    assert r.cumplimiento == round(
+        reporte.porcentaje(ejemplo.construir_validacion(False).resultado), 2
+    )
+
+
+def test_tiempos_desalineados_no_validan(ejemplo):
+    from sopvid.contrato import ResultadoValidacion
+
+    datos = ejemplo.construir_validacion(caido=False).model_dump(mode="json")
+    datos["tiempos"] = datos["tiempos"][:-1]
+    with pytest.raises(ValidationError, match="tiempos para"):
+        ResultadoValidacion.model_validate(datos)
+    datos = ejemplo.construir_validacion(caido=False).model_dump(mode="json")
+    falta = next(
+        i for i, p in enumerate(datos["resultado"]["clasificacion"]["pasos"])
+        if p["estado"] == "Falta"
+    )  # fmt: skip
+    datos["tiempos"][falta] = datos["tiempos"][0]
+    with pytest.raises(ValidationError, match="el tiempo solo va en un par"):
+        ResultadoValidacion.model_validate(datos)

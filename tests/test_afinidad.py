@@ -341,6 +341,8 @@ def test_afinidad_baja_detiene_la_validacion_antes_de_segmentar(
     assert detencion.afinidad.bajo_umbral and detencion.afinidad.valor < 60
     assert "actividad distinta del título (dato inferido)" in detencion.afinidad.explicacion
     assert set(detencion.segundos) >= {"transcripcion", "contexto", "afinidad"}
+    # Detenida antes de segmentar: ni personas ni tiempos (ADR-021).
+    assert not {"personas", "tiempos"} & set(detencion.segundos)
     assert detencion.dispositivos is not None and detencion.dispositivos.llm == "gpu"
 
     estado = client.get(f"/videos/{video_id}").json()
@@ -368,6 +370,7 @@ def test_continuar_da_el_reporte_con_la_afinidad_bajo_el_umbral(
     reporte = client.get(f"/videos/{video_id}/reporte").json()
     assert reporte["afinidad"] == afinidad and reporte["afinidad"]["bajo_umbral"] is True
     assert reporte["cumplimiento"] == 83.33  # la afinidad no cambia el porcentaje (§5.6)
+    assert reporte["tiempo_total"] is not None  # al continuar sí se calculan los tiempos
     assert client.get(f"/videos/{video_id}").json()["afinidad"] == afinidad
     fila = _reporte(entorno.session, video_id)
     assert (fila.afinidad, fila.cumplimiento) == (afinidad["valor"], Decimal("83.33"))

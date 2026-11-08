@@ -1037,9 +1037,10 @@ def test_el_ejemplo_del_reporte_tiene_los_casos_de_s5():
     # (ADR-020).
     assert r.roles[-1].con_pasos is False
     assert r.conteo.personas_con_diferencias == 1
-    assert r.conteo.pasos_fuera_de_tiempo == 2  # el que excede y el menor
+    assert r.conteo.pasos_fuera_de_tiempo == 1  # solo el que excede; el menor no (ADR-021)
     assert r.horario is not None and r.horario.estado == "coincide"
-    assert r.tiempo_total is not None and r.tiempo_total.estado == "en_tiempo"
+    # El total suma solo los pares (sin intro, cierre ni Sobra): menos que los 3 min del SOP.
+    assert r.tiempo_total is not None and r.tiempo_total.estado == "menor"
     assert r.metadatos.umbrales.afinidad_min == 60
 
 

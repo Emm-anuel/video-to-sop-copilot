@@ -11,8 +11,9 @@ validación, ADR-019), se reusa sin llamar al modelo. Si queda vacía (`generar_
 la validación sigue y el reporte lleva el aviso "contexto_sin_generar".
 
 Después del emparejamiento, ya sin Gemma, los roles del SOP y el responsable de cada paso
-emparejado (RF-15, ADR-020; `lenguaje/personas.py`). Con la ficha se calcula la afinidad de
-contexto (RF-17, ADR-020; MiniLM, sin LLM). Si queda bajo
+emparejado (RF-15, ADR-020; `lenguaje/personas.py`) y los tiempos: la duración de cada par, el
+total y el horario (RF-16, ADR-021; `lenguaje/tiempos.py`, solo código y MiniLM). Con la ficha
+se calcula la afinidad de contexto (RF-17, ADR-020; MiniLM, sin LLM). Si queda bajo
 `AFINIDAD_MIN` y no se pidió `continuar`, la validación se detiene ahí, antes de segmentar:
 `validar` devuelve una `Detenida` y el procesador deja el video en "afinidad_baja" hasta que
 quien carga decida. Sin ficha no hay afinidad y la validación sigue.
@@ -61,6 +62,7 @@ from sopvid.lenguaje.personas import (
     roles_del_sop,
 )
 from sopvid.lenguaje.reporte import porcentaje, semaforo
+from sopvid.lenguaje.tiempos import comparar_horario, tiempo_total, tiempos_por_paso
 from sopvid.percepcion.contexto import ResultadoContexto, aviso_contexto, generar_contexto
 from sopvid.percepcion.segmentacion import Segmentacion, segmentar
 from sopvid.percepcion.transcripcion import aviso_transcripcion
@@ -241,6 +243,18 @@ def validar(
         comparador=comparador,
     )
     segundos["personas"] = reloj() - inicio
+    # Tiempos (RF-16, ADR-021): código sobre la transcripción; MiniLM solo para el horario.
+    inicio = reloj()
+    tiempos = tiempos_por_paso(resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo)
+    total = tiempo_total(tiempos, sop, settings.tolerancia_tiempo)
+    horario = comparar_horario(
+        sop,
+        contexto if con_ficha else None,
+        analisis.transcripcion,
+        embedder,
+        settings.umbral_horario,
+    )
+    segundos["tiempos"] = reloj() - inicio
     pct = porcentaje(resultado)
     avisos = avisos_de(segmentacion, resultado, resultado_contexto, analisis)
     metadatos = MetadatosValidacion(
@@ -272,6 +286,9 @@ def validar(
             afinidad=afinidad_video,
             roles=roles,
             responsables=responsables,
+            tiempos=tiempos,
+            tiempo_total=total,
+            horario=horario,
         ),
         contexto=contexto,
         resultado_contexto=resultado_contexto,
@@ -293,6 +310,7 @@ def umbrales_de(settings: Settings) -> Umbrales:
         afinidad_cos_cien=settings.afinidad_cos_cien,
         afinidad_umbral_equipo=settings.afinidad_umbral_equipo,
         umbral_rol_complemento=settings.umbral_rol_complemento,
+        umbral_horario=settings.umbral_horario,
     )
 
 

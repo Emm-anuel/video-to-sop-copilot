@@ -67,7 +67,7 @@
     },
     "ConteoReporte": {
       "additionalProperties": false,
-      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).\n\n`personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las\nfilas con responsable \"distinto\" más los roles \"ausente\" que son responsables de algún paso\n(`RolReporte.con_pasos`, ADR-020), y las filas con tiempo \"excede\" o \"menor\". 0 mientras no\nse calculen.",
+      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).\n\n`personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las\nfilas con responsable \"distinto\" más los roles \"ausente\" que son responsables de algún paso\n(`RolReporte.con_pasos`, ADR-020), y las filas con tiempo \"excede\" (ADR-021: \"menor\" es más\nrápido de lo esperado, no un incumplimiento). 0 en los reportes que no los calculaban.",
       "properties": {
         "cumple": {
           "minimum": 0,
@@ -189,7 +189,7 @@
     },
     "FilaReporte": {
       "additionalProperties": false,
-      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.\n\n`responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un\nFalta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` mientras no\nse calculen.",
+      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.\n\n`responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un\nFalta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los\nreportes guardados antes de ADR-020 y ADR-021.",
       "properties": {
         "estado": {
           "enum": [
@@ -704,7 +704,7 @@
     },
     "TiempoFila": {
       "additionalProperties": false,
-      "description": "Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).\n\n`observado_min` es la que narra el operador (\"narrado\", con la frase en `cita`, regla 4) o\nt_fin − t_inicio del paso del video (\"medido\", sin cita). Sin tiempo esperado en el SOP, el\nestado es \"sin_referencia\".",
+      "description": "Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).\n\n`observado_min` es la que narra el operador (\"narrado\", con la frase en `cita`, regla 4) o\nt_fin − t_inicio del paso del video ya fusionado (\"medido\", sin cita); la narrada solo si es\nmayor o igual que la medida (ADR-021). Sin tiempo esperado en el SOP, el estado es\n\"sin_referencia\". Solo \"excede\" cuenta como fuera de tiempo; \"menor\" se muestra, pero no es\nun incumplimiento.",
       "properties": {
         "esperado_min": {
           "anyOf": [
@@ -758,7 +758,7 @@
     },
     "TiempoTotal": {
       "additionalProperties": false,
-      "description": "Duración total del procedimiento frente a la del SOP (§5.5).",
+      "description": "Duración total del procedimiento frente a la del SOP (§5.5, ADR-021): la suma de lo\nobservado en los pares (Falta y Sobra no suman) frente a `resumen.duracion_total_min` o, si\nel SOP no lo trae, la suma de los esperados cuando todos los pasos lo tienen.",
       "properties": {
         "esperado_min": {
           "anyOf": [
@@ -927,6 +927,20 @@
           ],
           "default": null,
           "title": "Umbral Rol Complemento"
+        },
+        "umbral_horario": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Umbral Horario"
         }
       },
       "required": [
@@ -941,7 +955,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-019).\n\n`afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10\ndel documento; hasta que su lógica exista quedan en `None` o `[]`, igual que `responsable` y\n`tiempo` de cada fila.",
+  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-019).\n\n`afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10\ndel documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,\nigual que `responsable` y `tiempo` de cada fila.",
   "properties": {
     "version_contrato": {
       "const": 1,
