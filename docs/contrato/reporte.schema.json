@@ -36,7 +36,8 @@
           "enum": [
             "segmentacion_heuristica",
             "juez_sin_revisar",
-            "pasos_sin_redactar"
+            "pasos_sin_redactar",
+            "contexto_sin_generar"
           ],
           "title": "Tipo",
           "type": "string"

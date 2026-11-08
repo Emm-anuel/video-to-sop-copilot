@@ -40,6 +40,7 @@ const ETIQUETA_AVISO: Record<Tipo, string> = {
   segmentacion_heuristica: 'Pasos del video por heurística (el modelo de lenguaje no respondió)',
   juez_sin_revisar: 'Pares sin revisar por el juez',
   pasos_sin_redactar: 'Pasos del video sin redactar',
+  contexto_sin_generar: 'Ficha de contexto sin generar',
 };
 
 const ETIQUETA_MARCO = { intro: 'Intro del operador', cierre: 'Cierre del operador' } as const;

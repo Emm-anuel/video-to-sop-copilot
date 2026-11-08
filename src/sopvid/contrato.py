@@ -726,8 +726,12 @@ class Contexto(_Modelo):
 # Por qué un reporte es provisional (ADR-019): Ollama falló después de la revisión inicial.
 # "segmentacion_heuristica": los pasos del video salieron de la heurística de respaldo;
 # "juez_sin_revisar": quedaron pares en zona_gris; "pasos_sin_redactar": respondió la llamada de
-# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja).
-TipoAviso = Literal["segmentacion_heuristica", "juez_sin_revisar", "pasos_sin_redactar"]
+# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja);
+# "contexto_sin_generar": la ficha de contexto (RF-12) quedó vacía porque Ollama no respondió, se
+# cortó por tiempo, no dio un JSON válido o la transcripción estaba vacía.
+TipoAviso = Literal[
+    "segmentacion_heuristica", "juez_sin_revisar", "pasos_sin_redactar", "contexto_sin_generar"
+]
 
 
 class Aviso(_Modelo):

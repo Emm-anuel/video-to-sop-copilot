@@ -834,6 +834,17 @@ def test_los_ejemplos_de_s5_van_y_vuelven_en_json_sin_cambios(archivo, modelo):
     assert modelo.model_validate_json(json.dumps(datos)).model_dump(mode="json") == datos
 
 
+def test_la_ficha_sin_generar_es_un_aviso_que_vuelve_provisional_al_reporte():
+    reporte = _fixture("reporte_ejemplo_provisional.json")
+    reporte["metadatos"]["avisos"] = [
+        {"tipo": "contexto_sin_generar", "detalle": "ficha de contexto vacía: llm_no_disponible"}
+    ]
+    assert ReporteValidacion.model_validate(reporte).provisional
+    reporte["metadatos"]["avisos"][0]["tipo"] = "contexto_vacio"
+    with pytest.raises(ValidationError):
+        ReporteValidacion.model_validate(reporte)
+
+
 def test_las_citas_de_personas_roles_y_horario_son_literales(ejemplo):
     """Regla 4: cada cita aparece tal cual en el segmento que empieza en su segundo."""
     contexto = _fixture("contexto_ejemplo.json")
