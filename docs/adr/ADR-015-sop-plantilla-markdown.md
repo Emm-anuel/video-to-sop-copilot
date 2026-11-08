@@ -89,6 +89,35 @@ guarda nada (criterio de ADR-019). Markdown y TXT siguen solo con la plantilla.
       texto (o relajar la verificación a cobertura de palabras) y la descripción completa, y
       dejar vacía la descripción del equipo si el documento no la trae. Medir con SOP reales en
       cuanto lleguen. Mientras, la salida del LLM debe pasar por la corrección humana (RF-04).
+  - **v1 contra v2 con `cita_origen` (7 nov 2026,
+    [`prosa-v1-20261107-1858.json`](datos/sop/prosa-v1-20261107-1858.json),
+    [`prosa-v2-20261107-1858.json`](datos/sop/prosa-v2-20261107-1858.json)).** Mismo Word en
+    prosa, mismo modelo y GPU, 3 corridas por prompt, todas válidas en el primer intento (26–31
+    s). El esquema ya pide `cita_origen` en los dos; v2 (`sop_texto_libre_v2.md`, el que queda
+    por defecto) además la explica, pide descripción completa sin repetir el nombre y equipo sin
+    descripciones genéricas. Medidas: pasos con evidencia = cita verificada; descripción cortada
+    = empieza en minúscula (a media frase) o repite el nombre; equipo inventado = descripción
+    del equipo que no aparece en el documento.
+
+    | Medida (por corrida) | v1 | v2 |
+    |---|---|---|
+    | Pasos (la referencia tiene 6) | 8 · 8 · 8 | 8 · 8 · 8 |
+    | Pasos con evidencia | 7 de 8 en las 3 | 8 de 8 en las 3 |
+    | Descripciones cortadas | 6 · 2 · 2 | 0 · 0 · 0 |
+    | Equipo con descripción inventada | 7 de 7 en las 3 ("Herramienta", "Equipo de protección") | 0 de 7 |
+    | Roles con descripción inventada | 1 de 1 | 0 de 1 |
+    | Corridas idénticas | no (la 1.ª difiere) | casi (una palabra en 1 de 3) |
+
+    - v2 corrige los tres problemas que se midieron. La cita no se resume: aparece tal cual en
+      los 8 pasos. Las descripciones de v2 parafrasean un poco ("hasta que cese la salida de
+      aire"); la evidencia queda en la cita, no en la descripción.
+    - Hallazgo nuevo: con `cita_origen` en el esquema, los dos prompts parten la prosa en 8 pasos
+      en lugar de 6: "Colocar la cubeta debajo del filtro" y "Revisar y cambiar el anillo de
+      hule" salen como pasos propios (en la plantilla son la segunda oración de los pasos 3 y 4).
+      Son acciones reales, pero un SOP con más pasos que el original deja más *Falta* posibles en
+      el reporte. Sin la cita (corrida de las 18:45), v1 daba 6. Pendiente para un v3: decir que
+      en prosa cada párrafo es un paso salvo que el documento separe las acciones, y medir con SOP
+      reales antes de decidir.
     - Riesgos abiertos: `POST /sops` convierte dentro de la petición (≈25 s en GPU, más en CPU)
       y no pasa por la cola de un trabajador, así que Gemma puede cargarse mientras Whisper
       transcribe otro video (ADR-014); un documento largo puede no caber en `LLM_NUM_CTX`

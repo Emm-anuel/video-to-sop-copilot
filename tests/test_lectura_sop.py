@@ -349,7 +349,8 @@ def test_prompt_versionado_lleva_el_texto_del_documento() -> None:
     prompt = cargar_prompt()
     mensajes = lectura_sop.construir_mensajes(prompt, "  Texto inventado del documento.  ")
 
-    assert prompt.version == "sop_texto_libre_v1"
+    assert prompt.version == "sop_texto_libre_v2"
+    assert cargar_prompt("sop_texto_libre_v1").version == "sop_texto_libre_v1"  # se conserva
     assert mensajes[0]["role"] == "system" and "infinitivo" in mensajes[0]["content"]
     assert "Texto inventado del documento." in mensajes[1]["content"]
 

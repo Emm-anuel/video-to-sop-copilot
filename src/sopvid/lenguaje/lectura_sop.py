@@ -79,7 +79,7 @@ MENSAJE_WORD_VACIO = "El archivo de Word no tiene texto."
 # Un .docx es un zip: más de esto descomprimido se rechaza sin abrirlo (zip bomb).
 MAX_DESCOMPRIMIDO = 200 * 1024 * 1024
 
-PROMPT = "sop_texto_libre_v1"  # archivo en prompts/; un prompt nuevo es un archivo nuevo
+PROMPT = "sop_texto_libre_v2"  # archivo en prompts/; un prompt nuevo es un archivo nuevo
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es válida
 PALABRAS_CITA_ORIGEN = (4, 25)  # largo de la cita de cada paso; una más larga se recorta
 # Advertencias de `convertir_sop` que dicen que se ignoró texto: con alguna, la plantilla no
