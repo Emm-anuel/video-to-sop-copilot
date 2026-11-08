@@ -70,7 +70,12 @@ export type SemaforoAmarillo = number;
 export type AfinidadMin = number | null;
 export type ToleranciaTiempo = number | null;
 export type UmbralRol = number | null;
-export type Tipo = "segmentacion_heuristica" | "juez_sin_revisar" | "pasos_sin_redactar" | "contexto_sin_generar";
+export type Tipo =
+  | "segmentacion_heuristica"
+  | "juez_sin_revisar"
+  | "pasos_sin_redactar"
+  | "contexto_sin_generar"
+  | "transcripcion_no_referencia";
 export type Detalle = string;
 export type Avisos = Aviso[];
 export type Gpu = string | null;
@@ -265,7 +270,7 @@ export interface Segundos {
   [k: string]: number;
 }
 /**
- * Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP.
+ * Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.
  */
 export interface Aviso {
   tipo: Tipo;

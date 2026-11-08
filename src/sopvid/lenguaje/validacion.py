@@ -48,6 +48,7 @@ from sopvid.lenguaje.llm import ClienteLLM, LLMNoDisponible
 from sopvid.lenguaje.reporte import porcentaje, semaforo
 from sopvid.percepcion.contexto import ResultadoContexto, aviso_contexto, generar_contexto
 from sopvid.percepcion.segmentacion import Segmentacion, segmentar
+from sopvid.percepcion.transcripcion import aviso_transcripcion
 from sopvid.plataforma.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,7 @@ def validar(
 
     avanzar("reporte", INICIO_ETAPA["reporte"])
     pct = porcentaje(resultado)
-    avisos = avisos_de(segmentacion, resultado, resultado_contexto)
+    avisos = avisos_de(segmentacion, resultado, resultado_contexto, analisis)
     metadatos = MetadatosValidacion(
         segmentacion=segmentacion.metodo,
         motivo_respaldo=segmentacion.motivo_respaldo,
@@ -206,10 +207,14 @@ def avisos_de(
     segmentacion: Segmentacion,
     resultado: ResultadoEmparejamiento,
     resultado_contexto: ResultadoContexto | None = None,
+    analisis: Analisis | None = None,
 ) -> list[Aviso]:
-    """Las fallas del LLM que vuelven provisional al reporte (ADR-019), en el orden de las
-    etapas. Sin `resultado_contexto` (ficha reusada), no hay aviso de la ficha."""
+    """Lo que vuelve provisional al reporte (ADR-019), en el orden de las etapas: Whisper que no
+    es el de referencia (ADR-018) y las fallas del LLM. Sin `resultado_contexto` (ficha
+    reusada), no hay aviso de la ficha."""
     avisos = []
+    if analisis is not None and (aviso := aviso_transcripcion(analisis)):
+        avisos.append(aviso)
     if resultado_contexto is not None and (aviso := aviso_contexto(resultado_contexto)):
         avisos.append(aviso)
     if segmentacion.metodo == "heuristica":

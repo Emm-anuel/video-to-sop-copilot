@@ -27,6 +27,13 @@ Con `WHISPER_DISPOSITIVO=auto`, se usa cuda si ctranslate2 ve una GPU NVIDIA. Si
 antes del primer segmento (p. ej. faltan las DLL de cuBLAS), se repite en CPU con int8 y queda un
 aviso. Con `cuda` explícito no hay respaldo: el error sale tal cual.
 
+`WHISPER_MODELO_CPU` (opcional) es el modelo cuando Whisper corre en CPU: `WHISPER_DISPOSITIVO=cpu`,
+`auto` sin GPU o el respaldo cuando cuda falla. Sin definir, se usa `WHISPER_MODELO`. El modelo de
+referencia es `large-v3-turbo` (ADR-018): si se transcribe con otro, el `Analisis` lo registra en
+`modelo_transcripcion` y el reporte y la ficha de contexto llevan el aviso
+`transcripcion_no_referencia` (el reporte queda provisional). Los números de `large-v3-turbo` contra
+`small` en CPU están en el seguimiento de ADR-018.
+
 ## Uso
 
 ```python

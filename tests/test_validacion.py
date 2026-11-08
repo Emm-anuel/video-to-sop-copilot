@@ -259,6 +259,38 @@ def test_transcripcion_vacia_no_llama_al_modelo_para_la_ficha(
     }
 
 
+def test_whisper_que_no_es_el_de_referencia_da_aviso_en_el_reporte_y_la_ficha(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    entorno.transcriptor.modelo = "small"
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    [aviso] = reporte["metadatos"]["avisos"]
+    assert aviso["tipo"] == "transcripcion_no_referencia"
+    assert "manómetro" not in aviso["detalle"]
+    assert reporte["provisional"] is True
+    assert reporte["cumplimiento"] == 83.33  # el porcentaje no cambia
+    contexto = client.get(f"/videos/{video_id}/contexto").json()
+    assert contexto["avisos"] == [aviso]
+
+    # Al repetir solo la validación, el modelo sale del análisis guardado.
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+    assert _avisos(client, video_id) == [aviso]
+
+
+def test_whisper_de_referencia_no_da_aviso(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()  # TranscriptorFalso dice "large-v3-turbo"
+    entorno.correr_pendientes()
+
+    assert _avisos(client, video_id) == []
+    assert client.get(f"/videos/{video_id}/contexto").json()["avisos"] == []
+
+
 def test_repetir_la_validacion_reusa_la_ficha_guardada(
     client: TestClient, entorno: Entorno, subir_validar
 ) -> None:

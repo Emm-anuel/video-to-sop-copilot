@@ -41,6 +41,7 @@ const ETIQUETA_AVISO: Record<Tipo, string> = {
   juez_sin_revisar: 'Pares sin revisar por el juez',
   pasos_sin_redactar: 'Pasos del video sin redactar',
   contexto_sin_generar: 'Ficha de contexto sin generar',
+  transcripcion_no_referencia: 'Transcripción con un Whisper que no es el de referencia',
 };
 
 const ETIQUETA_MARCO = { intro: 'Intro del operador', cierre: 'Cierre del operador' } as const;

@@ -357,9 +357,11 @@ def test_analisis_409_antes_de_terminar_y_completo_despues(
     assert analisis.video_id == video_id
     assert [s.texto for s in analisis.transcripcion] == [s.texto for s in SEGMENTOS]
     assert analisis.idioma == Idioma(codigo="es", confianza=0.97, fijado_a_mano=False)
-    # Opción 1: el idioma completo y los segmentos van en el JSONB `transcripcion`.
+    assert analisis.modelo_transcripcion == "large-v3-turbo"
+    # Opción 1: el idioma completo, el modelo de Whisper y los segmentos van en el JSONB
+    # `transcripcion`.
     guardado = entorno.video(video_id).transcripcion
-    assert set(guardado) == {"version_contrato", "idioma", "segmentos"}
+    assert set(guardado) == {"version_contrato", "idioma", "modelo_transcripcion", "segmentos"}
 
 
 def test_idioma_fijado_llega_al_transcriptor(

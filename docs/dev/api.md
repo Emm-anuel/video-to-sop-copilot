@@ -72,6 +72,8 @@ listo sin ficha.
   `metadatos.avisos` (`contexto_sin_generar`, `segmentacion_heuristica`, `juez_sin_revisar`,
   `pasos_sin_redactar`). La ficha sin generar queda en NULL y `POST /videos/{id}/validar` la
   vuelve a intentar; si ya estaba guardada, la reusa sin llamar al modelo.
+- **Whisper que no es el de referencia** (`large-v3-turbo`, ADR-018; p. ej. `small` en CPU): el
+  reporte y la ficha llevan el aviso `transcripcion_no_referencia` y el reporte queda provisional.
 - Al terminar la etapa del LLM se pide a Ollama que suelte el modelo (`keep_alive: 0`), en GPU o
   en CPU, para que el siguiente Whisper tenga la memoria libre.
 

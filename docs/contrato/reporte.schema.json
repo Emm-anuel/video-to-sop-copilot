@@ -30,14 +30,15 @@
     },
     "Aviso": {
       "additionalProperties": false,
-      "description": "Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP.",
+      "description": "Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.",
       "properties": {
         "tipo": {
           "enum": [
             "segmentacion_heuristica",
             "juez_sin_revisar",
             "pasos_sin_redactar",
-            "contexto_sin_generar"
+            "contexto_sin_generar",
+            "transcripcion_no_referencia"
           ],
           "title": "Tipo",
           "type": "string"

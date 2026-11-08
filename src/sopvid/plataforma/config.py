@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # WHISPER_MODELO=large-v3-turbo, WHISPER_DISPOSITIVO=cuda, WHISPER_COMPUTE_TYPE=float16.
     # El modelo es un nombre de faster-whisper ("small", "large-v3-turbo") o una carpeta local.
     whisper_modelo: str = "small"
+    # Modelo cuando Whisper corre en CPU (WHISPER_DISPOSITIVO=cpu, "auto" sin GPU o el respaldo si
+    # cuda falla). Sin definir, el mismo WHISPER_MODELO. El de referencia es large-v3-turbo
+    # (ADR-018): con otro, el reporte y la ficha llevan el aviso "transcripcion_no_referencia".
+    whisper_modelo_cpu: str | None = None
     # "auto": cuda si ctranslate2 ve una GPU NVIDIA; si falla antes del primer segmento, CPU.
     whisper_dispositivo: Literal["auto", "cpu", "cuda"] = "auto"
     # "auto": float16 en cuda, int8 en cpu. Cualquier otro valor se pasa tal cual a ctranslate2.
@@ -153,6 +157,12 @@ class Settings(BaseSettings):
     @property
     def subida_max_bytes(self) -> int:
         return self.subida_max_mb * 1024 * 1024
+
+    def modelo_whisper(self, dispositivo: str) -> str:
+        """El modelo de Whisper para `dispositivo` ya resuelto ("cpu" o "cuda")."""
+        if dispositivo == "cpu" and self.whisper_modelo_cpu:
+            return self.whisper_modelo_cpu
+        return self.whisper_modelo
 
     @property
     def whisper_cache_path(self) -> Path:

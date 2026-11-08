@@ -8,7 +8,8 @@ terminar guarda el `Analisis` en las columnas (`guardar_analisis`).
 
 Cómo se guarda el `Analisis` (sin migración): `duracion`, `idioma` (código) y `fotogramas` en
 sus columnas, y en `transcripcion` (JSONB) un dict con la versión del contrato, el idioma
-completo (código, confianza y si se fijó a mano) y los segmentos. `leer_analisis` lo rearma.
+completo (código, confianza y si se fijó a mano), el modelo de Whisper y los segmentos.
+`leer_analisis` lo rearma.
 
 En modo validar (con `sop_id`), tras guardar el `Analisis` y hacer commit sigue la validación
 (`sopvid.lenguaje.validacion.validar`: ficha de contexto → pasos del video → emparejamiento con
@@ -120,6 +121,7 @@ def guardar_analisis(video: Video, analisis: Analisis) -> None:
     video.transcripcion = {
         "version_contrato": analisis.version_contrato,
         "idioma": analisis.idioma.model_dump(mode="json"),
+        "modelo_transcripcion": analisis.modelo_transcripcion,
         "segmentos": [s.model_dump(mode="json") for s in analisis.transcripcion],
     }
     video.fotogramas = [f.model_dump(mode="json") for f in analisis.fotogramas]
@@ -136,6 +138,7 @@ def leer_analisis(video: Video) -> Analisis:
             "idioma": datos.get("idioma"),
             "transcripcion": datos.get("segmentos"),
             "fotogramas": video.fotogramas or [],
+            "modelo_transcripcion": datos.get("modelo_transcripcion"),
         }
     )
 

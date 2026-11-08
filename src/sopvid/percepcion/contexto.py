@@ -61,6 +61,7 @@ from sopvid.lenguaje.llm import (
     tokens_por_segundo,
 )
 from sopvid.percepcion.segmentacion import _sin_refs
+from sopvid.percepcion.transcripcion import aviso_transcripcion
 from sopvid.plataforma.config import get_settings
 from sopvid.texto import (
     NO_IDENTIFICADO,
@@ -403,6 +404,7 @@ class _Armado:
             ),
             personas=list(self._personas.values()),
             equipos=self._equipos(r.equipos),
+            avisos=[a for a in (aviso_transcripcion(self.analisis),) if a is not None],
         )
 
     def _evidencia(self, cita: str, f: int | None) -> tuple[float, str] | tuple[None, None]:

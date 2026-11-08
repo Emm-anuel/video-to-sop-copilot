@@ -87,6 +87,8 @@ class TranscriptorFalso:
         eventos: list[str] | None = None,
     ):
         self.antes, self.error = antes, error
+        # El de referencia (ADR-018); con otro, el reporte lleva "transcripcion_no_referencia".
+        self.modelo = "large-v3-turbo"
         self.eventos = eventos if eventos is not None else []
         self.idiomas: list[str | None] = []
 
@@ -108,7 +110,7 @@ class TranscriptorFalso:
             ),
             segmentos=list(SEGMENTOS),
             duracion_s=3.0,
-            modelo="falso",
+            modelo=self.modelo,
             dispositivo="cpu",
             compute_type="int8",
             segundos=0.0,

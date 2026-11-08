@@ -1,6 +1,33 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "Aviso": {
+      "additionalProperties": false,
+      "description": "Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.",
+      "properties": {
+        "tipo": {
+          "enum": [
+            "segmentacion_heuristica",
+            "juez_sin_revisar",
+            "pasos_sin_redactar",
+            "contexto_sin_generar",
+            "transcripcion_no_referencia"
+          ],
+          "title": "Tipo",
+          "type": "string"
+        },
+        "detalle": {
+          "title": "Detalle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "detalle"
+      ],
+      "title": "Aviso",
+      "type": "object"
+    },
     "Dato": {
       "additionalProperties": false,
       "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.",
@@ -128,7 +155,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Ficha de contexto del video, en `videos.contexto` (JSONB). Entrada de la afinidad (RF-17)\ny del SOP generado.\n\nReusa `Dato`, pero solo con fuentes del video: nunca \"documento\". Un dato de audio o visual\nlleva `t` (el segundo de la transcripción o del fotograma, regla 4); uno inferido puede no\nllevarlo. Lo que no se dice ni se ve queda vacío, inferido y con confianza baja.",
+  "description": "Ficha de contexto del video, en `videos.contexto` (JSONB). Entrada de la afinidad (RF-17)\ny del SOP generado.\n\nReusa `Dato`, pero solo con fuentes del video: nunca \"documento\". Un dato de audio o visual\nlleva `t` (el segundo de la transcripción o del fotograma, regla 4); uno inferido puede no\nllevarlo. Lo que no se dice ni se ve queda vacío, inferido y con confianza baja.\n\n`avisos` dice qué afecta a la ficha (p. ej. \"transcripcion_no_referencia\"); vacía, ninguno.",
   "properties": {
     "version_contrato": {
       "const": 1,
@@ -168,6 +195,14 @@
         "$ref": "#/$defs/Elemento"
       },
       "title": "Equipos",
+      "type": "array"
+    },
+    "avisos": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Aviso"
+      },
+      "title": "Avisos",
       "type": "array"
     }
   },

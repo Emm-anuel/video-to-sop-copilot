@@ -147,6 +147,18 @@ def test_el_resumen_va_inferido_con_confianza_media_y_sin_cita():
     }
 
 
+def test_la_ficha_lleva_el_aviso_si_whisper_no_es_el_de_referencia():
+    analisis = _analisis().model_copy(update={"modelo_transcripcion": "small"})
+    r, _ = _generar([_ficha()], analisis)
+    [aviso] = r.contexto.avisos
+    assert aviso.tipo == "transcripcion_no_referencia"
+
+    r, _ = _generar(
+        [_ficha()], _analisis().model_copy(update={"modelo_transcripcion": "large-v3-turbo"})
+    )
+    assert r.contexto.avisos == []
+
+
 # ── Fotogramas: solo si existen ─────────────────────────────────────────────────────────────
 
 

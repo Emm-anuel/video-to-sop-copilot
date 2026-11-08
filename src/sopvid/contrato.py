@@ -97,7 +97,11 @@ class Fotograma(_Modelo):
 
 
 class Analisis(_Modelo):
-    """Salida del pipeline de video y entrada de la extracción de pasos."""
+    """Salida del pipeline de video y entrada de la extracción de pasos.
+
+    `modelo_transcripcion` es el modelo de Whisper con que se transcribió (nombre de
+    faster-whisper o carpeta); None en los análisis guardados antes de registrarlo.
+    """
 
     version_contrato: Literal[1] = 1
     video_id: int
@@ -105,6 +109,7 @@ class Analisis(_Modelo):
     idioma: Idioma
     transcripcion: list[Segmento]
     fotogramas: list[Fotograma] = []
+    modelo_transcripcion: str | None = None
 
     @model_validator(mode="after")
     def _transcripcion_ordenada(self) -> Self:
@@ -683,6 +688,31 @@ class EstadoSop(_Modelo):
         return self
 
 
+# ── Avisos: fallas del sistema que vuelven provisional un resultado (ADR-019) ────────────────
+
+# "segmentacion_heuristica": los pasos del video salieron de la heurística de respaldo;
+# "juez_sin_revisar": quedaron pares en zona_gris; "pasos_sin_redactar": respondió la llamada de
+# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja);
+# "contexto_sin_generar": la ficha de contexto (RF-12) quedó vacía porque Ollama no respondió, se
+# cortó por tiempo, no dio un JSON válido o la transcripción estaba vacía;
+# "transcripcion_no_referencia": Whisper no fue el modelo de referencia (large-v3-turbo, ADR-018),
+# así que la transcripción, y lo que se cita de ella, puede traer errores de reconocimiento.
+TipoAviso = Literal[
+    "segmentacion_heuristica",
+    "juez_sin_revisar",
+    "pasos_sin_redactar",
+    "contexto_sin_generar",
+    "transcripcion_no_referencia",
+]
+
+
+class Aviso(_Modelo):
+    """Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP."""
+
+    tipo: TipoAviso
+    detalle: str
+
+
 # ── Ficha de contexto del video (RF-12; SOP V1.0 §6) ────────────────────────────────────────
 
 
@@ -698,6 +728,8 @@ class Contexto(_Modelo):
     Reusa `Dato`, pero solo con fuentes del video: nunca "documento". Un dato de audio o visual
     lleva `t` (el segundo de la transcripción o del fotograma, regla 4); uno inferido puede no
     llevarlo. Lo que no se dice ni se ve queda vacío, inferido y con confianza baja.
+
+    `avisos` dice qué afecta a la ficha (p. ej. "transcripcion_no_referencia"); vacía, ninguno.
     """
 
     version_contrato: Literal[1] = 1
@@ -709,6 +741,7 @@ class Contexto(_Modelo):
     resumen: Dato = Field(default_factory=_sin_evidencia)
     personas: list[Persona] = []
     equipos: list[Elemento] = []
+    avisos: list[Aviso] = []
 
     @model_validator(mode="after")
     def _fuentes_del_video(self) -> Self:
@@ -722,23 +755,6 @@ class Contexto(_Modelo):
 
 
 # ── Reporte de validación (RF-14, RF-19, base de RF-20; ADR-019) ────────────────────────────
-
-# Por qué un reporte es provisional (ADR-019): Ollama falló después de la revisión inicial.
-# "segmentacion_heuristica": los pasos del video salieron de la heurística de respaldo;
-# "juez_sin_revisar": quedaron pares en zona_gris; "pasos_sin_redactar": respondió la llamada de
-# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja);
-# "contexto_sin_generar": la ficha de contexto (RF-12) quedó vacía porque Ollama no respondió, se
-# cortó por tiempo, no dio un JSON válido o la transcripción estaba vacía.
-TipoAviso = Literal[
-    "segmentacion_heuristica", "juez_sin_revisar", "pasos_sin_redactar", "contexto_sin_generar"
-]
-
-
-class Aviso(_Modelo):
-    """Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP."""
-
-    tipo: TipoAviso
-    detalle: str
 
 
 class Umbrales(_Modelo):
