@@ -17,7 +17,7 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` y luego `POST /videos` con `modo=validar` y `sop_id`; al recibir el 202 navega al reporte | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. Falta adaptarla a `POST /sops` asíncrono (sección siguiente) |
+| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov (sección siguiente) |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -27,13 +27,12 @@ carcasa) que, al darle clic, salta a ~74 s.
 
 El único componente provisional fue el del reporte, que reemplaza RF-20. `/nuevo` se queda: es la
 base de la pantalla **"Nuevo análisis"** del documento SOP V1.0 y en S5 se amplía sobre el mismo
-componente, sin rehacerlo. Hoy cubre solo el camino del MVP: un SOP nuevo en Markdown o TXT, modo
-`validar` y subida simple. Le falta:
+componente, sin rehacerlo. Hoy cubre el camino del MVP: un SOP nuevo en Markdown, TXT, PDF o
+Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 
 | Qué falta | RF | Semana |
 |---|---|---|
 | Elegir el modo: SOP de la biblioteca, subir uno nuevo o sin SOP (modo `generar`) | RF-07, RF-02 | S5 |
-| Leer el SOP en PDF y Word, no solo Markdown o TXT | RF-01 | S5 |
 | Mostrar el SOP convertido para corregirlo antes de validar | RF-04 | S5 |
 | Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | S5 |
 | Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | S5 |
@@ -73,9 +72,26 @@ Con el video:
   `sop_id`. Responde 202 con `sop_id`; consulta `GET /sops/{sop_id}/estado` como arriba. Si la
   conversión falla, el video queda en `proceso: "error"` con el mensaje del SOP en `error`.
 
-Qué cambia para `/nuevo`: `POST /sops` responde 202 (no 201) y en ese momento `titulo` viene en
-`null` y `advertencias` vacía; el resto del flujo sigue funcionando porque el video espera al SOP.
-Para mostrar las advertencias y el error del SOP hay que agregar el paso 2.
+### Cómo lo hace `/nuevo` (desde el 8 nov, Emmanuel)
+
+Cambio mínimo sobre el mismo componente, sin librerías nuevas (`src/app/nuevo/`):
+
+- El selector del SOP acepta `.md`, `.txt`, `.pdf` y `.docx`.
+- Con el 202 de `POST /sops` arrancan **en paralelo** la subida del video (`POST /videos` con el
+  `sop_id`, sin esperar la conversión) y la consulta de `GET /sops/{id}/estado` cada 2 s
+  (`SONDEO_SOP_MS`, con `timer` + `switchMap` + `takeWhile` de RxJS). Mientras el SOP está en
+  `en_cola` o `convirtiendo` se ve "Convirtiendo el SOP…".
+- **Listo sin advertencias** y video subido: navega al reporte, como antes.
+- **Listo con advertencias:** las muestra (y "lo convirtió el modelo, vale la pena revisarlo" si
+  `metodo` es `llm`) y cambia "Validar" por **"Ver el reporte"**, para que se alcancen a leer.
+- **Error:** muestra `mensaje` tal cual, cancela la subida si seguía y olvida el SOP: el
+  reintento vuelve a subir un SOP y el video. Si el video ya había subido, avisa que no se
+  validará con ese SOP (en el backend ese video termina en `error` con el mensaje del SOP).
+- Si falla el video y el SOP está bien, el reintento sube solo el video con el mismo `sop_id`
+  (la consulta del SOP sigue mientras tanto).
+- `EstadoSop` (antes `SopCreado`) va a mano en `src/app/api/tipos.ts`, con `estadoSop(id)` en
+  `ApiService`. Pruebas en `nuevo.spec.ts`, con temporizadores falsos de Vitest
+  (`vi.useFakeTimers({ shouldAdvanceTime: true })` y `vi.advanceTimersByTimeAsync`).
 
 ## Pantalla del reporte (RF-20): lo que hay que saber
 
@@ -112,15 +128,21 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
     - Por fila, solo en pares: `responsable` (desde el 8 nov, ADR-020: `coincide` / `distinto` /
       `no_identificado`, con `esperado`, `observado` como "Nombre (rol)" o el rol, y una `nota`
       que dice cómo se identificó a la persona; muéstrala como ayuda, p. ej. en un tooltip) y
-      `tiempo` (`en_tiempo` / `excede` / `menor` / `sin_referencia`, origen `narrado` o
-      `medido`; sin lógica todavía, en `null`).
+      `tiempo` (desde el 8 nov, ADR-021: `en_tiempo` / `excede` / `menor` / `sin_referencia`,
+      con `esperado_min` y `observado_min` en minutos y `origen`: `medido` es la duración del
+      paso en el video; `narrado`, la que dijo el operador, con su frase en `cita`). Solo
+      `excede` es un incumplimiento; `menor` es más rápido de lo esperado: muéstralo, pero sin
+      alarma.
     - `roles` (desde el 8 nov: `presente` / `mencionado` / `ausente`, con su segundo para saltar
       al video, `persona` y `confianza`; con `confianza: "baja"` el rol lo infirió el modelo, no
       se dijo). Un rol ausente con `con_pasos: false` (de apoyo, p. ej. un supervisor que solo
-      atiende si algo falla) se muestra, pero no es una diferencia. `tiempo_total` y `horario`,
-      sin lógica todavía.
+      atiende si algo falla) se muestra, pero no es una diferencia.
+    - `tiempo_total` (desde el 8 nov: la suma de lo observado en los pares frente al total del
+      SOP; Falta y Sobra no suman) y `horario` (`coincide` / `distinto` / `no_mencionado` /
+      `sin_referencia`, con lo que se dijo en el video, su segundo y su frase).
     - `conteo.personas_con_diferencias` (responsables `distinto` más roles ausentes con pasos) y
-      `conteo.pasos_fuera_de_tiempo` van junto al porcentaje (§5.6).
+      `conteo.pasos_fuera_de_tiempo` (solo las filas `excede`) van junto al porcentaje (§5.6).
+      El tiempo no cambia el porcentaje.
     - Ficha de contexto y SOP generado: `tests/fixtures/contexto_ejemplo.json` y
       `tests/fixtures/sop_generado_ejemplo.json` (esquemas en `docs/contrato/contexto.schema.json`
       y `sop.schema.json`).
@@ -141,9 +163,8 @@ clases de `.avisos`) con el valor y la explicación, y el botón "Continuar de t
 envía queda deshabilitado y, si falla, sale el error en español. `tipos.ts` agrega
 `afinidad_baja` a `Proceso` y `afinidad` a `EstadoVideo`. Pruebas en `reporte.spec.ts`
 ("afinidad baja"). Para Sara, si quiere pulirlo: el estilo propio del aviso, un enlace "Elegir
-otro SOP" a `/nuevo`, mostrar la afinidad con `bajo_umbral` junto al porcentaje del reporte, y
-regenerar `reporte-validacion.ts` con `npm run tipos` (está atrasado frente al esquema: le faltan
-`Afinidad.componentes`, los campos nuevos de `RolReporte` y `ResponsableFila.nota`).
+otro SOP" a `/nuevo`, mostrar la afinidad con `bajo_umbral` junto al porcentaje del reporte. `reporte-validacion.ts` ya se regeneró el 8 nov con los tiempos
+(ADR-021): trae `Afinidad.componentes`, los campos nuevos de `RolReporte` y `ResponsableFila.nota`.
 
 1. Mientras consultas `GET /videos/{id}` cada 3 s, el video puede terminar en
    `proceso: "afinidad_baja"` (con `etapa: "afinidad"`) en lugar de `listo` o `error`. **Es un
@@ -193,7 +214,7 @@ npm run tipos             # regenera src/app/api/reporte-validacion.ts desde el 
 - **Tipos:** `ReporteValidacion` (y `FilaReporte`, `ConteoReporte`, `Aviso`…) están en
   `src/app/api/reporte-validacion.ts`, generado con `json-schema-to-typescript` desde
   `docs/contrato/reporte.schema.json`. Se versiona y no se edita a mano: si cambia el esquema,
-  `npm run tipos`. `SopCreado`, `VideoCreado` y `EstadoVideo` van a mano en `src/app/api/tipos.ts`.
+  `npm run tipos`. `EstadoSop`, `VideoCreado` y `EstadoVideo` van a mano en `src/app/api/tipos.ts`.
 - **Errores:** `mensajeDeError` (`src/app/api/errores.ts`) convierte un `HttpErrorResponse` en un
   mensaje en español (sin conexión, 413, 415, 422 con el detalle de la API, 404).
 - **Estructura:** `src/app/nuevo/` (subir SOP y video), `src/app/reporte-provisional/` (estado y

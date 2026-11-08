@@ -2,19 +2,29 @@
 
 <form [formGroup]="form" (ngSubmit)="validar()" novalidate>
   <div class="campo">
-    <label for="sop">SOP de referencia (.md o .txt)</label>
+    <label for="sop">SOP de referencia (.md, .txt, .pdf o .docx)</label>
     <input
       id="sop"
       type="file"
-      accept=".md,.txt"
+      accept=".md,.txt,.pdf,.docx"
       (change)="elegirSop($event)"
       [disabled]="enviando()"
     />
     @if (intentado() && !archivoSop()) {
       <p class="campo-error">Elige el archivo del SOP.</p>
     }
-    @if (sopGuardado(); as sop) {
-      <p class="nota">SOP guardado como {{ sop.codigo }}: {{ sop.titulo }}</p>
+    @if (convirtiendo()) {
+      <p class="nota" role="status">Convirtiendo el SOP…</p>
+    }
+    @if (sop(); as s) {
+      @if (s.estado === 'listo') {
+        <p class="nota">SOP guardado como {{ s.codigo }}: {{ s.titulo }}</p>
+        @if (s.metodo === 'llm') {
+          <p class="nota">
+            No seguía la plantilla: lo convirtió el modelo. Vale la pena revisarlo.
+          </p>
+        }
+      }
     }
   </div>
 
@@ -66,19 +76,31 @@
     </div>
   }
 
-  @if (progreso() !== null) {
+  @if (progreso() !== null && !video()) {
     <div class="subida">
       <label for="avance">Subiendo el video: {{ progreso() }} %</label>
       <progress id="avance" max="100" [value]="progreso()"></progress>
     </div>
   }
+  @if (video() && convirtiendo()) {
+    <p class="nota" role="status">Video subido. Falta que termine la conversión del SOP.</p>
+  }
 
   @if (error(); as mensaje) {
     <p class="error" role="alert">{{ mensaje }}</p>
-    @if (sopGuardado()) {
+    @if (videoSinSop()) {
+      <p class="nota">
+        El video ya se había subido, pero no se validará con ese SOP. Elige un SOP y valida de
+        nuevo: se sube otra vez.
+      </p>
+    } @else if (sop()) {
       <p class="nota">El SOP ya quedó guardado: al validar de nuevo solo se sube el video.</p>
     }
   }
 
-  <button type="submit" [disabled]="enviando()">Validar</button>
+  @if (listoParaVer()) {
+    <button type="button" (click)="verReporte()">Ver el reporte</button>
+  } @else {
+    <button type="submit" [disabled]="enviando()">Validar</button>
+  }
 </form>

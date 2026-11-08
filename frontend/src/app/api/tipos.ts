@@ -6,18 +6,28 @@
 
 import { Afinidad } from './reporte-validacion';
 
-/** Advertencia de la conversión del SOP (`POST /sops`): no detiene el flujo. */
+/** Advertencia de la conversión del SOP (`AvisoConversion`): no detiene el flujo. */
 export interface AdvertenciaSOP {
   tipo: string;
   linea: number | null;
   mensaje: string;
 }
 
-/** `POST /sops` → 201. */
-export interface SopCreado {
+/** Dónde va la conversión del SOP; `listo` y `error` son finales. */
+export type EstadoConversionSop = 'en_cola' | 'convirtiendo' | 'listo' | 'error';
+
+/**
+ * `POST /sops` → 202 y `GET /sops/{id}/estado` (`EstadoSop`, docs/contrato/sop_estado.schema.json).
+ * `titulo`, `metodo` y `advertencias` llegan con `listo`; `mensaje`, con `error`.
+ */
+export interface EstadoSop {
   id: number;
   codigo: string;
-  titulo: string;
+  estado: EstadoConversionSop;
+  titulo: string | null;
+  /** `llm`: el SOP no seguía la plantilla y lo convirtió Gemma 4 (conviene revisarlo, RF-04). */
+  metodo: 'plantilla' | 'llm' | null;
+  mensaje: string | null;
   advertencias: AdvertenciaSOP[];
 }
 
