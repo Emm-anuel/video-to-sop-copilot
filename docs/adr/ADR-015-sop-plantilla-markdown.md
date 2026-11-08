@@ -50,8 +50,9 @@ Un PDF sin texto se rechaza con un mensaje que pide Word, TXT o Markdown (el OCR
 `clave_desconocida` o `seccion_desconocida`), convierte con Gemma 4: prompt
 `prompts/sop_texto_libre_v1.md`, JSON restringido a un esquema sin números de paso, fuente ni
 tiempos (los pone el código), temperatura 0, `SEMILLA` y hasta 3 intentos como el juez. El código
-pone `fuente="documento"`, hereda el responsable del resumen igual que la plantilla y marca con
-`nombre_sin_evidencia` cada paso cuyo nombre no aparece tal cual en el texto (normalizado). La
+pone `fuente="documento"` y hereda el responsable del resumen igual que la plantilla. Cada paso
+trae `cita_origen` (4 a 25 palabras copiadas del documento); si no aparece tal cual en el texto
+(normalizado), el paso lleva la advertencia `paso_sin_evidencia`. El nombre queda libre. La
 respuesta de `POST /sops` dice `metodo: "plantilla" | "llm"`. Si Ollama no responde, 503 y no se
 guarda nada (criterio de ADR-019). Markdown y TXT siguen solo con la plantilla.
 
@@ -79,7 +80,8 @@ guarda nada (criterio de ADR-019). Markdown y TXT siguen solo con la plantilla.
       equipo por paso salen del texto.
     - Mal: (1) los nombres son telegráficos ("Girar llave de paso antes del filtro" por "girar
       la llave de paso que está antes del filtro"), así que la verificación literal los marca a
-      los 6 como `nombre_sin_evidencia` y el aviso pierde valor; (2) en 3 pasos la acción quedó
+      los 6 como `nombre_sin_evidencia` y el aviso pierde valor (por eso se cambió a verificar
+      una cita por paso, `paso_sin_evidencia`); (2) en 3 pasos la acción quedó
       solo en el nombre y la descripción empieza a media frase ("antes de tocar el filtro.");
       (3) inventó descripciones genéricas para el equipo ("material necesario") y puso como
       punto de validación una acción ("Revisar el anillo de hule…").

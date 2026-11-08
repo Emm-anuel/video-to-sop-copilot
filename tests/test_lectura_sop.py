@@ -184,6 +184,7 @@ def respuesta_llm(sop: SOP = SOP_MD, **cambios: Any) -> dict[str, Any]:
         },
         "pasos": [
             {
+                "cita_origen": p.descripcion,  # está en la plantilla, en la tabla y en la prosa
                 "nombre": p.nombre,
                 "descripcion": p.descripcion,
                 "responsable": p.responsable,
@@ -367,17 +368,22 @@ def test_validar_respuesta_arma_el_sop_con_fuente_documento() -> None:
 
 def test_validar_respuesta_marca_lo_que_no_esta_en_el_documento() -> None:
     datos = respuesta_llm()
-    datos["pasos"][1] |= {"nombre": "Girar la manija roja", "responsable": None}
+    # El nombre es libre: lo que se verifica es la cita.
+    datos["pasos"][0] |= {"nombre": "Equiparse con el EPP"}
+    datos["pasos"][1] |= {"cita_origen": "girar la manija roja dos vueltas", "responsable": None}
     datos["pasos"][2] |= {"nombre": "Liberación de presión", "campos_inferidos": ["equipo"]}
+    datos["pasos"][3] |= {"cita_origen": "Aflojar el vaso"}  # 3 palabras: no alcanza
     datos["resumen"]["riesgos"][0] |= {"paso": 9, "nivel": None}
     texto = extraer_texto(docx_con_tabla(SOP_MD), ".docx")
 
     resultado = validar_respuesta(datos, texto)
 
     avisos = {(a.tipo, a.mensaje.split(";")[0]) for a in resultado.advertencias}
-    assert ("nombre_sin_evidencia", "el nombre del paso 2 no aparece tal cual en el documento") in (
-        avisos
-    )
+    sin_evidencia = {m for t, m in avisos if t == "paso_sin_evidencia"}
+    assert sin_evidencia == {
+        "la cita del paso 2 no aparece tal cual en el documento",
+        "la cita del paso 4 no aparece tal cual en el documento",
+    }
     assert ("infinitivo", "el nombre del paso 3 no empieza con un infinitivo") in avisos
     assert ("valor_invalido", "el riesgo 1 no trae nivel en el documento") in avisos
     assert ("valor_invalido", "el riesgo 1 cita el paso 9, que no existe") in avisos
@@ -392,6 +398,22 @@ def test_validar_respuesta_marca_lo_que_no_esta_en_el_documento() -> None:
     riesgo = resultado.sop.resumen.riesgos[0]
     assert (riesgo.nivel, riesgo.paso) == ("medio", None)
     assert all(a.linea is None for a in resultado.advertencias)
+
+
+@pytest.mark.parametrize(
+    ("cita", "verificada"),
+    [
+        ("Girar la llave de paso que está antes del filtro", True),
+        ("GIRAR LA LLAVE, de paso que está", True),  # normalizada
+        ("la llave", False),  # menos de 4 palabras
+        ("girar la llave de paso hacia la izquierda", False),  # no está
+        # Más de 25 palabras: se recortan a 25 y el recorte sigue siendo literal.
+        (SOP_MD.pasos[3].descripcion + " y algo más que no está", True),
+    ],
+)
+def test_cita_verificada(cita: str, verificada: bool) -> None:
+    texto = MD
+    assert lectura_sop.cita_verificada(cita, texto) is verificada
 
 
 def test_validar_respuesta_sin_responsable_en_ningun_lado() -> None:
@@ -453,9 +475,8 @@ def test_convertir_documento_sin_plantilla_usa_el_llm_y_lo_descarga() -> None:
     assert resultado.metodo == "llm"
     assert ollama.eventos == ["tags", "chat:sop", "descargar"]
     assert "hay que colocarse los guantes" in ollama.mensajes_sop[0][1]["content"]
-    # Los nombres de la plantilla no están en la prosa: cada uno queda marcado para revisar.
-    sin_evidencia = [a for a in resultado.advertencias if a.tipo == "nombre_sin_evidencia"]
-    assert len(sin_evidencia) == len(SOP_MD.pasos)
+    # Los nombres de la plantilla no están en la prosa, pero las citas sí: hay evidencia.
+    assert not [a for a in resultado.advertencias if a.tipo == "paso_sin_evidencia"]
 
 
 def test_convertir_documento_con_texto_ignorado_usa_el_llm() -> None:

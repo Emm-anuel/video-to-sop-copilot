@@ -37,7 +37,7 @@ TipoAdvertencia = Literal[
     "tiempos",
     "infinitivo",
     "valor_invalido",
-    "nombre_sin_evidencia",  # solo en la conversión con el LLM (lectura_sop.py)
+    "paso_sin_evidencia",  # solo en la conversión con el LLM (lectura_sop.py)
 ]
 MetodoConversion = Literal["plantilla", "llm"]
 

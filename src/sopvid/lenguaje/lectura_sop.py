@@ -16,10 +16,12 @@ Dos piezas:
       un Word que sigue la plantilla sale igual que un .md (`metodo="plantilla"`).
    b) Si no, Gemma 4 (`convertir_con_llm`): prompt versionado `prompts/<PROMPT>.md`, salida
       restringida a `ESQUEMA_SOP_LIBRE`, temperatura 0 y `SEMILLA` (las fija el cliente), hasta
-      `MAX_INTENTOS` como el juez. El código numera los pasos, pone `fuente="documento"`, hereda
-      el responsable del resumen como `convertir_sop` y verifica que el nombre de cada paso
-      aparezca en el texto (`contiene_cita`); si no, deja una advertencia. El LLM no ve ni
-      escribe tiempos del video (regla 4): un SOP cargado no los tiene.
+      `MAX_INTENTOS` como el juez. Cada paso trae `cita_origen`, un fragmento del documento
+      (`PALABRAS_CITA_ORIGEN`); el código la verifica con `contiene_cita` y, si no aparece, deja
+      la advertencia `paso_sin_evidencia` (el nombre queda libre: puede resumir). El código
+      numera los pasos, pone `fuente="documento"` y hereda el responsable del resumen como
+      `convertir_sop`. El LLM no ve ni escribe tiempos del video (regla 4): un SOP cargado no
+      los tiene.
 
 Si Ollama no responde, `convertir_documento` lanza `LLMNoDisponible` antes de convertir nada
 (la API responde 503, ADR-019). Los errores, las advertencias y el log citan números de paso o
@@ -56,7 +58,7 @@ from sopvid.lenguaje.sop_markdown import (
     empieza_con_infinitivo,
 )
 from sopvid.percepcion.segmentacion import _sin_refs
-from sopvid.texto import NO_IDENTIFICADO, contiene_cita
+from sopvid.texto import NO_IDENTIFICADO, contar_palabras, contiene_cita, recortar_palabras
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,7 @@ MAX_DESCOMPRIMIDO = 200 * 1024 * 1024
 
 PROMPT = "sop_texto_libre_v1"  # archivo en prompts/; un prompt nuevo es un archivo nuevo
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es válida
+PALABRAS_CITA_ORIGEN = (4, 25)  # largo de la cita de cada paso; una más larga se recorta
 # Advertencias de `convertir_sop` que dicen que se ignoró texto: con alguna, la plantilla no
 # se reconoció del todo y el documento pasa al LLM para no perder pasos.
 _TEXTO_IGNORADO = frozenset({"clave_desconocida", "seccion_desconocida"})
@@ -451,6 +454,8 @@ class _ResumenLibre(_Libre):
 
 
 class _PasoLibre(_Libre):
+    # La cita va primero: el nombre y la descripción se apoyan en ella.
+    cita_origen: str
     nombre: str
     descripcion: str
     responsable: str | None
@@ -543,10 +548,10 @@ def validar_respuesta(datos: Any, texto: str) -> ResultadoConversion:
     """Valida la respuesta del LLM y arma el `SOP` (`metodo="llm"`).
 
     Inválida (se reintenta) si no cumple el esquema, si el título está vacío o si no hay pasos
-    o uno no tiene nombre. Lo demás se corrige y queda en las advertencias: un nombre de paso que
-    no aparece en `texto` (normalizado, `contiene_cita`), un nombre que no empieza con un
-    infinitivo, un riesgo sin nivel o que cita un paso que no existe, y tiempos que no suman la
-    duración total.
+    o uno no tiene nombre. Lo demás se corrige y queda en las advertencias: un paso sin evidencia
+    (`cita_origen` que no aparece en `texto` o con menos de `PALABRAS_CITA_ORIGEN[0]` palabras),
+    un nombre que no empieza con un infinitivo, un riesgo sin nivel o que cita un paso que no
+    existe, y tiempos que no suman la duración total. La cita no viaja en el `SOP`.
     """
     try:
         r = _SOPLibre.model_validate(datos)
@@ -564,12 +569,12 @@ def validar_respuesta(datos: Any, texto: str) -> ResultadoConversion:
     avisos = _Avisos()
     resumen = _resumen(r.resumen, len(r.pasos), avisos)
     pasos = [_paso(n, p, resumen.responsable.valor) for n, p in enumerate(r.pasos, start=1)]
-    for paso in pasos:
-        if not contiene_cita(texto, paso.nombre):
+    for paso, libre in zip(pasos, r.pasos, strict=True):
+        if not cita_verificada(libre.cita_origen, texto):
             avisos.agregar(
-                "nombre_sin_evidencia",
+                "paso_sin_evidencia",
                 None,
-                f"el nombre del paso {paso.numero} no aparece tal cual en el documento; revísalo",
+                f"la cita del paso {paso.numero} no aparece tal cual en el documento; revísalo",
             )
         if not empieza_con_infinitivo(paso.nombre):
             avisos.agregar(
@@ -578,6 +583,17 @@ def validar_respuesta(datos: Any, texto: str) -> ResultadoConversion:
     _revisar_tiempos(pasos, resumen.duracion_total_min, avisos)
     sop = SOP(titulo=titulo, resumen=resumen, pasos=pasos)
     return ResultadoConversion(sop, list(avisos), metodo="llm")
+
+
+def cita_verificada(cita: str, texto: str) -> bool:
+    """True si la cita, recortada a `PALABRAS_CITA_ORIGEN[1]` palabras (el recorte de una cita
+    literal sigue siendo literal), tiene al menos `PALABRAS_CITA_ORIGEN[0]` (o todo el texto, si
+    es más corto) y aparece tal cual en `texto`, normalizada (`contiene_cita`)."""
+    minimo, maximo = PALABRAS_CITA_ORIGEN
+    recortada = recortar_palabras(" ".join(cita.split()), maximo)
+    if contar_palabras(recortada) < min(minimo, contar_palabras(texto)):
+        return False
+    return contiene_cita(texto, recortada)
 
 
 def _resumen_errores(exc: ValidationError) -> str:
