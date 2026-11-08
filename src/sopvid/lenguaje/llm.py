@@ -121,13 +121,16 @@ class ClienteLLM:
         *,
         esquema: dict[str, Any] | None = None,
         think: bool | None = None,
+        num_ctx: int | None = None,
     ) -> RespuestaLLM:
         """Envía `mensajes` y devuelve la respuesta completa (sin streaming).
 
         Con `esquema`, Ollama restringe la salida a ese JSON Schema y aquí se interpreta el
-        JSON; validar el contenido contra las reglas del dominio le toca a quien llama.
+        JSON; validar el contenido contra las reglas del dominio le toca a quien llama. Con
+        `num_ctx`, esa ventana de contexto solo en esta petición (Ollama recarga el modelo si
+        cambia).
         """
-        cuerpo = self.cuerpo(mensajes, esquema=esquema, think=think)
+        cuerpo = self.cuerpo(mensajes, esquema=esquema, think=think, num_ctx=num_ctx)
         return self._interpretar(self._post("/api/chat", cuerpo), con_esquema=esquema is not None)
 
     def cuerpo(
@@ -137,6 +140,7 @@ class ClienteLLM:
         esquema: dict[str, Any] | None = None,
         think: bool | None = None,
         stream: bool = False,
+        num_ctx: int | None = None,
     ) -> dict[str, Any]:
         """Cuerpo de `/api/chat` con las opciones fijas del cliente (lo reutiliza el benchmark)."""
         cuerpo: dict[str, Any] = {
@@ -144,7 +148,11 @@ class ClienteLLM:
             "messages": mensajes,
             "stream": stream,
             "think": self.think if think is None else think,
-            "options": {"num_ctx": self.num_ctx, "temperature": 0, "seed": self.seed},
+            "options": {
+                "num_ctx": num_ctx or self.num_ctx,
+                "temperature": 0,
+                "seed": self.seed,
+            },
         }
         if self.num_gpu is not None:
             cuerpo["options"]["num_gpu"] = self.num_gpu

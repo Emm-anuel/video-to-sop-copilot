@@ -433,7 +433,11 @@ class Procesador:
         try:
             texto = extraer_texto(datos, ruta.suffix)
             conversion = convertir_documento(
-                texto, lambda: nullcontext(llm), plazo_s=settings.llm_health_timeout_s
+                texto,
+                lambda: nullcontext(llm),
+                plazo_s=settings.llm_health_timeout_s,
+                num_ctx=settings.llm_num_ctx,
+                num_ctx_max=settings.llm_num_ctx_sop,
             )
         except LLMNoDisponible:
             raise

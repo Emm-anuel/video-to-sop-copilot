@@ -138,6 +138,8 @@ def leer_sop(
             fabrica_llm,
             plazo_s=settings.llm_health_timeout_s,
             candado=lambda: candado.tomar(settings.llm_espera_gpu_s),
+            num_ctx=settings.llm_num_ctx,
+            num_ctx_max=settings.llm_num_ctx_sop,
         )
     except ErrorConversionLLM as exc:
         raise HTTPException(422, str(exc)) from None

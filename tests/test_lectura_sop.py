@@ -453,10 +453,10 @@ def test_convertir_con_llm_reintenta_con_el_motivo() -> None:
     assert resultado.metodo == "llm"
     assert ollama.eventos == ["chat:sop"] * 3
     tercera = ollama.mensajes_sop[2]
-    # 2 iniciales + corrección del JSON roto + respuesta anterior y su corrección.
-    assert [m["role"] for m in tercera] == ["system", "user", "user", "assistant", "user"]
-    assert "JSON válido" in tercera[2]["content"]
-    assert "no hay pasos" in tercera[4]["content"]
+    # Los 2 iniciales y solo la última corrección, sin la respuesta anterior (no cabría).
+    assert [m["role"] for m in tercera] == ["system", "user", "user"]
+    assert "JSON válido" in ollama.mensajes_sop[1][2]["content"]
+    assert "no hay pasos" in tercera[2]["content"]
 
 
 def test_convertir_con_llm_sin_respuesta_valida() -> None:
@@ -853,3 +853,59 @@ def test_trabajador_espera_a_la_conversion(
 
     assert entorno.transcriptor.idiomas == [None]
     assert entorno.video(r.json()["id"]).proceso == "listo"
+
+
+# ── Ventana de contexto ──────────────────────────────────────────────────────────────────────
+
+
+def _largo(caracteres: int) -> str:
+    """Texto en prosa sin plantilla de unos `caracteres`: la prosa del SOP y notas inventadas."""
+    lineas = prosa(SOP_MD)
+    n = 0
+    while len("\n".join(lineas)) < caracteres:
+        n += 1
+        lineas.append(f"Nota inventada {n}: revisar que la zona de trabajo quede limpia y seca.")
+    return "\n".join(lineas)
+
+
+def test_contexto_necesario_crece_con_el_texto() -> None:
+    prompt = cargar_prompt()
+    corto, largo = (lectura_sop.contexto_necesario(_largo(n), prompt) for n in (2000, 8000))
+    assert lectura_sop.estimar_tokens("a" * 35) == 10
+    # Cada token del texto cuesta 1 (entrada) + SALIDA_POR_TOKEN_DE_TEXTO (salida).
+    assert largo - corto == pytest.approx((8000 - 2000) / 3.5 * 4, rel=0.02)
+
+
+@pytest.mark.parametrize(
+    ("caracteres", "num_ctx"),
+    [(2000, 8192), (9000, 16384)],  # cabe en LLM_NUM_CTX · pide LLM_NUM_CTX_SOP
+)
+def test_num_ctx_por_peticion(caracteres: int, num_ctx: int) -> None:
+    ollama = OllamaFalso([])
+    ollama.respuestas_sop = ["{roto", respuesta_llm()]  # dos peticiones, las dos con la ventana
+
+    convertir_documento(_largo(caracteres), ollama.cliente, num_ctx=8192, num_ctx_max=16384)
+
+    assert [o["num_ctx"] for o in ollama.opciones_sop] == [num_ctx, num_ctx]
+
+
+def test_documento_demasiado_largo_sin_llamar_al_llm() -> None:
+    ollama = OllamaFalso([])
+
+    with pytest.raises(lectura_sop.DocumentoDemasiadoLargo) as exc:
+        convertir_documento(_largo(20000), ollama.cliente, num_ctx=8192, num_ctx_max=16384)
+
+    assert str(exc.value) == lectura_sop.MENSAJE_DEMASIADO_LARGO
+    assert ollama.eventos == []
+
+
+def test_api_documento_demasiado_largo_422(client: TestClient, entorno: Entorno) -> None:
+    entorno.settings.llm_num_ctx_sop = 8192  # el texto de 9000 caracteres ya no cabe
+    antes = _filas(entorno.session)
+
+    r = cargar(client, _largo(9000).encode(), "largo.txt")
+
+    assert r.status_code == 422
+    assert r.json()["detail"].startswith("El documento es demasiado largo; divídelo o usa")
+    assert _filas(entorno.session) == antes
+    assert entorno.eventos == []

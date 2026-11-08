@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     # Cubre la carga en frío: la primera llamada tras arrancar tardó 56-107 s (ADR-006).
     llm_timeout_s: float = 180.0
     llm_num_ctx: int = 8192
+    # Ventana para convertir un SOP sin plantilla cuando el documento no cabe en `llm_num_ctx`
+    # (ADR-015); más allá, 422. Con 16384, Gemma 4 sigue entero en la GPU de 8 GB (docs/dev/llm.md).
+    llm_num_ctx_sop: int = 16384
     llm_health_timeout_s: float = 2.0
     # Cuánto espera la conversión de un SOP con Gemma a que el trabajador suelte el candado de
     # modelo pesado (está usando Whisper o Gemma con un video); si no, 503 (ADR-014).

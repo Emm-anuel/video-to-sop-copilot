@@ -154,7 +154,7 @@ class OllamaFalso:
 
     `respuestas_sop` es lo que responde cada conversión de un SOP sin plantilla, en orden (la
     última se repite): un objeto se manda como JSON y un `str`, tal cual (p. ej. JSON roto).
-    `mensajes_sop` guarda los mensajes que recibió cada una.
+    `mensajes_sop` y `opciones_sop` guardan los mensajes y las opciones (`num_ctx`) de cada una.
     """
 
     def __init__(self, eventos: list[str], *, disponible: bool = True):
@@ -165,6 +165,7 @@ class OllamaFalso:
         self.descargas: list[dict[str, Any]] = []
         self.respuestas_sop: list[Any] = []
         self.mensajes_sop: list[list[dict[str, str]]] = []
+        self.opciones_sop: list[dict[str, Any]] = []
         # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
         self.vram = 100
 
@@ -196,6 +197,7 @@ class OllamaFalso:
         if cuerpo.get("format") == ESQUEMA_SOP_LIBRE:
             self.eventos.append("chat:sop")
             self.mensajes_sop.append(cuerpo["messages"])
+            self.opciones_sop.append(cuerpo["options"])
             i = min(len(self.mensajes_sop), len(self.respuestas_sop)) - 1
             contenido = self.respuestas_sop[i] if self.respuestas_sop else None
         elif cuerpo.get("format") == ESQUEMA_FRONTERAS:

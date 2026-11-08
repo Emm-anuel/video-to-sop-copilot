@@ -143,6 +143,36 @@ with ClienteLLM.desde_settings() as llm:
 El cliente fija `temperature=0`, `seed=42` y `num_ctx=LLM_NUM_CTX`, envía `"think": false` salvo
 que se pida lo contrario, reintenta una sola vez ante timeout o error de red y lanza
 `LLMNoDisponible`, `LLMRespuestaInvalida` o `LLMError` en lugar de excepciones de httpx.
+`chat(..., num_ctx=N)` cambia la ventana solo en esa petición (Ollama recarga el modelo si cambia).
+
+## Ventana de contexto para convertir un SOP (`LLM_NUM_CTX_SOP`, ADR-015)
+
+La conversión de un SOP sin plantilla (`lectura_sop.convertir_documento`) estima los tokens antes
+de llamar al LLM: caracteres / 3.5 de los mensajes (prompt y documento), más una salida de 3 veces
+los tokens del documento + 512, más una corrección (cada reintento manda solo la última, sin la
+respuesta anterior). Si cabe en `LLM_NUM_CTX` (8192), se usa esa ventana; si no, cada petición
+pide `LLM_NUM_CTX_SOP` (16384); si tampoco cabe, 422 "El documento es demasiado largo; divídelo o
+usa la plantilla". Con el prompt v2, eso deja ≈ 5 800 caracteres de documento en 8192 y
+≈ 12 900 en 16384.
+
+La estimación es conservadora a propósito: en el Word en prosa del fixture (2 300 caracteres)
+estimó 4 190 tokens y usó 3 049 (1 220 de entrada, 1 829 de salida); en un texto de 9 047
+caracteres con notas que no son pasos estimó 11 899 y usó 5 105 (3 262 + 1 843), porque la salida
+crece con los pasos, no con todo el texto. El texto medido da ≈ 3.35 caracteres por token.
+
+**VRAM en la RTX 2070 SUPER (8 GB), 7 nov 2026, Ollama 0.40.2, `gemma4:e4b-it-q4_K_M`, FA y caché
+KV f16** (`nvidia-smi` antes y después de cargar; el escritorio ya ocupaba 2 055 MiB):
+
+| `num_ctx` | VRAM en uso | Del modelo | Capas en GPU |
+|---|---|---|---|
+| — (sin modelo) | 2 055 MiB | — | — |
+| 8192 | 6 827 MiB | +4 772 MiB | todas (`gpu_layers=-1`) |
+| 16384 | 7 030 MiB | +4 975 MiB | todas |
+
+Doblar la ventana cuesta solo ≈ 200 MiB: Gemma 4 usa atención de ventana deslizante en la mayoría de
+sus capas y la caché KV casi no crece. Con 16384 quedan ≈ 1.1 GB libres en esta GPU; la conversión
+de 9 047 caracteres pidió 16384, tardó 25 s y dejó la VRAM total en 6 917 MiB. Whisper no está
+cargado al mismo tiempo: lo impide el candado de modelo pesado (ADR-014).
 
 ## Carga en frío, `OLLAMA_KEEP_ALIVE` y `LLM_TIMEOUT_S`
 

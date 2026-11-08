@@ -32,6 +32,7 @@ de página, tipos de error y conteos; nunca texto del documento (puede ser mater
 
 import io
 import logging
+import math
 import re
 import statistics
 import zipfile
@@ -85,6 +86,15 @@ MAX_DESCOMPRIMIDO = 200 * 1024 * 1024
 PROMPT = "sop_texto_libre_v2"  # archivo en prompts/; un prompt nuevo es un archivo nuevo
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es válida
 PALABRAS_CITA_ORIGEN = (4, 25)  # largo de la cita de cada paso; una más larga se recorta
+# Estimación del contexto (`contexto_necesario`): ~3.5 caracteres por token en español, y la
+# salida JSON repite el documento (cita, descripción) con sus claves: con Gemma 4 y el Word en
+# prosa salió 2.8 veces los tokens del texto (1829 por 657, docs/adr/datos/sop/prosa-v2-…).
+CARACTERES_POR_TOKEN = 3.5
+SALIDA_POR_TOKEN_DE_TEXTO = 3.0
+SALIDA_FIJA = 512  # título, resumen y claves del JSON aunque el texto sea corto
+MENSAJE_DEMASIADO_LARGO = (
+    "El documento es demasiado largo; divídelo o usa la plantilla (docs/contrato/plantilla_sop.md)."
+)
 # Advertencias de `convertir_sop` que dicen que se ignoró texto: con alguna, la plantilla no
 # se reconoció del todo y el documento pasa al LLM para no perder pasos.
 _TEXTO_IGNORADO = frozenset({"clave_desconocida", "seccion_desconocida"})
@@ -96,6 +106,10 @@ class ErrorLectura(ValueError):  # noqa: N818 (nombre de dominio)
 
 class ErrorConversionLLM(ValueError):  # noqa: N818
     """El LLM respondió, pero ninguna de sus `MAX_INTENTOS` respuestas fue un SOP válido."""
+
+
+class DocumentoDemasiadoLargo(ErrorConversionLLM):
+    """El documento no cabe en la ventana de contexto más grande permitida; no se llama al LLM."""
 
 
 # ── Extracción de texto ──────────────────────────────────────────────────────────────────────
@@ -386,6 +400,8 @@ def convertir_documento(
     *,
     plazo_s: float = 2.0,
     candado: Callable[[], AbstractContextManager[object]] = nullcontext,
+    num_ctx: int = 8192,
+    num_ctx_max: int = 16384,
 ) -> ResultadoConversion:
     """Convierte el texto del SOP (de cualquier formato): plantilla primero, Gemma 4 si no
     (ADR-015).
@@ -397,6 +413,10 @@ def convertir_documento(
     Al terminar, con o sin error, se le pide a Ollama que suelte el modelo (ADR-014, ADR-019).
     Lanza `LLMError` si Ollama se cae durante la conversión y `ErrorConversionLLM` si no logró
     una respuesta válida.
+
+    Contexto: si `contexto_necesario` pasa de `num_ctx` (la ventana del cliente, `LLM_NUM_CTX`),
+    cada petición pide `num_ctx_max` (`LLM_NUM_CTX_SOP`); si tampoco cabe,
+    `DocumentoDemasiadoLargo` antes de tomar el candado o llamar al LLM.
     """
     try:
         resultado = convertir_sop(texto)
@@ -408,11 +428,20 @@ def convertir_documento(
             return resultado
         logger.info("La plantilla ignoró %d bloques de texto; se convierte con el LLM", ignorado)
 
+    prompt = cargar_prompt()
+    necesario = contexto_necesario(texto, prompt)
+    if necesario > num_ctx_max:
+        logger.info("Documento de ~%d tokens: no cabe en %d", necesario, num_ctx_max)
+        raise DocumentoDemasiadoLargo(MENSAJE_DEMASIADO_LARGO)
+    ventana = num_ctx_max if necesario > num_ctx else None
+    if ventana is not None:
+        logger.info("Documento de ~%d tokens: se pide num_ctx=%d", necesario, ventana)
+
     with candado(), fabrica_llm() as llm:
         if not llm.disponible(plazo_s):
             raise LLMNoDisponible("Ollama no responde o no tiene el modelo")
         try:
-            return convertir_con_llm(texto, llm)
+            return convertir_con_llm(texto, llm, prompt, num_ctx=ventana)
         finally:
             llm.descargar()
 
@@ -500,6 +529,20 @@ def cargar_prompt(version: str = PROMPT) -> Prompt:
     return leer_prompt(version, texto_del_prompt(version), _MARCADORES)
 
 
+def estimar_tokens(texto: str) -> int:
+    """Tokens aproximados de `texto` (`CARACTERES_POR_TOKEN`); basta para elegir la ventana."""
+    return math.ceil(len(texto) / CARACTERES_POR_TOKEN)
+
+
+def contexto_necesario(texto: str, prompt: Prompt) -> int:
+    """Tokens que necesita la conversión más larga: los mensajes con el documento, la salida
+    estimada y una corrección (cada reintento manda solo la última, sin respuestas anteriores)."""
+    mensajes = sum(estimar_tokens(m["content"]) for m in construir_mensajes(prompt, texto))
+    salida = math.ceil(SALIDA_POR_TOKEN_DE_TEXTO * estimar_tokens(texto)) + SALIDA_FIJA
+    correccion = estimar_tokens(prompt.correccion.template) + 50  # el motivo
+    return mensajes + salida + correccion
+
+
 def construir_mensajes(prompt: Prompt, texto: str) -> list[dict[str, str]]:
     return [
         {"role": "system", "content": prompt.sistema},
@@ -508,28 +551,29 @@ def construir_mensajes(prompt: Prompt, texto: str) -> list[dict[str, str]]:
 
 
 def convertir_con_llm(
-    texto: str, llm: ClienteLLM, prompt: Prompt | None = None
+    texto: str, llm: ClienteLLM, prompt: Prompt | None = None, *, num_ctx: int | None = None
 ) -> ResultadoConversion:
-    """Convierte con el LLM, con hasta `MAX_INTENTOS` llamadas.
+    """Convierte con el LLM, con hasta `MAX_INTENTOS` llamadas (con `num_ctx` si se da).
 
     Se reintenta si el modelo no devolvió JSON válido o si la respuesta no pasa
-    `validar_respuesta`: cada reintento agrega la respuesta anterior (si se pudo leer) y la
-    corrección con el motivo. Un `LLMError` de transporte o de Ollama sale tal cual (el cliente
-    ya reintentó). Sin respuesta válida, `ErrorConversionLLM`.
+    `validar_respuesta`: cada reintento manda los mensajes iniciales y solo la corrección con el
+    último motivo, sin la respuesta anterior (puede ser tan larga como el documento y no cabría
+    en el contexto). Un `LLMError` de transporte o de Ollama sale tal cual (el cliente ya
+    reintentó). Sin respuesta válida, `ErrorConversionLLM`.
     """
     prompt = prompt or cargar_prompt()
-    historial = construir_mensajes(prompt, texto)
+    base = construir_mensajes(prompt, texto)
+    historial = list(base)
     for intento in range(1, MAX_INTENTOS + 1):
-        anterior: str | None = None
         try:
-            respuesta = llm.chat(historial, esquema=ESQUEMA_SOP_LIBRE)
+            respuesta = llm.chat(historial, esquema=ESQUEMA_SOP_LIBRE, num_ctx=num_ctx)
         except LLMRespuestaInvalida:
             motivo = "no devolviste un JSON válido"
         else:
             try:
                 resultado = validar_respuesta(respuesta.datos, texto)
             except RespuestaInvalida as exc:
-                motivo, anterior = str(exc), respuesta.texto
+                motivo = str(exc)
             else:
                 logger.info(
                     "SOP convertido con el LLM (%s, intento %d): %d pasos, %d advertencias",
@@ -545,9 +589,8 @@ def convertir_con_llm(
             MAX_INTENTOS,
             motivo,
         )
-        if anterior is not None:
-            historial.append({"role": "assistant", "content": anterior})
-        historial.append({"role": "user", "content": prompt.correccion.substitute(motivo=motivo)})
+        correccion = prompt.correccion.substitute(motivo=motivo)
+        historial = [*base, {"role": "user", "content": correccion}]
     raise ErrorConversionLLM(
         f"El LLM no logró convertir el documento en {MAX_INTENTOS} intentos. Súbelo con la "
         "plantilla (docs/contrato/plantilla_sop.md) o en Markdown."

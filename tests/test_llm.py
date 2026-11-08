@@ -283,6 +283,21 @@ def test_cuerpo_para_streaming_conserva_las_opciones_fijas():
     assert cuerpo["options"] == {"num_ctx": 8192, "temperature": 0, "seed": SEMILLA}
 
 
+def test_num_ctx_por_peticion_sin_cambiar_el_cliente():
+    pedidos = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        pedidos.append(json.loads(request.content)["options"]["num_ctx"])
+        return respuesta_chat("x")
+
+    with cliente_con(responder) as cliente:
+        cliente.chat([{"role": "user", "content": "x"}], num_ctx=16384)
+        cliente.chat([{"role": "user", "content": "x"}])
+
+    assert pedidos == [16384, 8192]
+    assert cliente.num_ctx == 8192
+
+
 # ── descargar (ADR-014, ADR-019) ─────────────────────────────────────────────────────────────
 
 
