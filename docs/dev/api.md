@@ -3,8 +3,8 @@
 Carga del SOP de referencia (RF-01 a RF-03), subida de un video completo (RF-06 del MVP; la
 subida por partes es de S5), conversión del SOP, análisis y validación en una cola de un
 trabajador con prioridad (un modelo en memoria a la vez, ADR-014; un SOP va antes que el
-siguiente video) y consulta del avance, el TXT en vivo (RF-10), el `Analisis` y el reporte (RF-14,
-RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.procesamiento` y
+siguiente video) y consulta del avance, el TXT en vivo (RF-10), el `Analisis`, la ficha de
+contexto (RF-12) y el reporte (RF-14, RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.procesamiento` y
 `sopvid.lenguaje.validacion`.
 
 | Método y ruta | Qué hace |
@@ -13,9 +13,10 @@ RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.
 | `GET /sops/{id}/estado` | `EstadoSop`: `estado` (`en_cola`, `convirtiendo`, `listo`, `error`), `titulo`, `metodo` (`plantilla` o `llm`) y `advertencias` al terminar, `mensaje` si falló (título de más de 300 caracteres, Ollama caído, conversión que pasó de `LLM_TIMEOUT_SOP_S`…). Consultarlo cada 2 s |
 | `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "metodo", "advertencias", "sop"}` con el `SOP` del contrato; **409** con `{"mensaje", "estado", "error"}` mientras no esté listo |
 | `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`), en modo validar `sop_id` **o** `sop` (archivo del SOP, RF-02; prohibidos con `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola", "sop_id"}` y `Location: /videos/<id>`. Con `sop`, el SOP se crea en cola como en `POST /sops` y su estado se consulta en `GET /sops/{sop_id}/estado`; el video lo espera y, si la conversión falla, queda en error con el mensaje del SOP. 415 si la extensión no está permitida, 422 si el formulario no es válido, si el SOP adjunto no se puede leer o si `sop_id` es de un SOP en error, 404 si el SOP no existe, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
-| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`; en modo validar también `segmentacion`, `emparejamiento`, `reporte`; al final `listo`), `progreso` (0–100), duración, idioma, `error` y `sop_id` |
+| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`, `contexto`; en modo validar también `segmentacion`, `emparejamiento`, `reporte`; al final `listo`), `progreso` (0–100), duración, idioma, `error` y `sop_id` |
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
+| `GET /videos/{id}/contexto` | La ficha de contexto (`Contexto`, esquema en `docs/contrato/contexto.schema.json`; ejemplo en `tests/fixtures/contexto_ejemplo.json`). **409** con `{"mensaje", "proceso"}` mientras no se genere: el video sigue en proceso, Ollama falló (en modo validar el reporte lleva el aviso `contexto_sin_generar`) o el video se procesó antes de que existiera la ficha |
 | `GET /videos/{id}/reporte` | El `ReporteValidacion` (esquema en `docs/contrato/reporte.schema.json`; ejemplos en `tests/fixtures/reporte_ejemplo*.json`). **409** si no está listo, 404 si el video no tiene reporte (p. ej. modo generar) |
 | `GET /videos/{id}/video` | El archivo del video para el reproductor del reporte (RF-20), en cualquier estado (también en cola o en proceso). `Content-Type` según la extensión (`video/mp4`, …) y `Accept-Ranges: bytes`; con `Range` responde **206** con `Content-Range` (`bytes=a-b`, `bytes=a-`, `bytes=-n`) y **416** si el rango no cabe. 404 con `{"mensaje"}` si el archivo no está en disco |
 | `POST /videos/{id}/validar` | Repite solo la validación con la transcripción guardada, sin Whisper (ADR-019). **202**; 422 si el video no es de modo validar; 409 si está en cola o procesando, o si no tiene análisis guardado |
@@ -55,16 +56,22 @@ irA(fila: FilaReporte): void {
 
 ## Validación (modo validar)
 
-Después de guardar el `Analisis`: revisión de Ollama (`/api/tags`) → pasos del video con Gemma 4
-(ADR-010) → fusión, emparejamiento y juez de la zona gris (ADR-012, ADR-013) → orden y marco del
-operador (ADR-016) → porcentaje y semáforo (RF-19). El reporte se guarda en `reportes` y los pasos
-del video en `videos.pasos_video`. El avance: el análisis va de 0 a 45, `segmentacion` 45,
-`emparejamiento` 80, `reporte` 95 y `listo` 100.
+Después de guardar el `Analisis`: revisión de Ollama (`/api/tags`) → ficha de contexto con Gemma
+4 (RF-12, `percepcion/contexto.py`) → pasos del video (ADR-010) → fusión, emparejamiento y juez
+de la zona gris (ADR-012, ADR-013) → orden y marco del operador (ADR-016) → porcentaje y semáforo
+(RF-19). La ficha, los pasos y el juez usan la misma carga de Gemma. El reporte se guarda en
+`reportes`, los pasos del video en `videos.pasos_video` y la ficha en `videos.contexto` (solo si
+se generó). El avance: el análisis va de 0 a 40, `contexto` 40, `segmentacion` 50,
+`emparejamiento` 80, `reporte` 95 y `listo` 100. En modo generar, el análisis va de 0 a 85 y
+`contexto` 85, con la ficha en su propia carga de Gemma; si Ollama no responde, el video queda
+listo sin ficha.
 
 - **Ollama no responde al empezar:** `proceso="error"` con "LLM no disponible: el análisis quedó
   guardado…". Cuando Ollama responda, `POST /videos/{id}/validar` (ADR-019).
 - **Ollama se cae a medias:** el reporte se guarda con `provisional: true` y
-  `metadatos.avisos` (`segmentacion_heuristica`, `juez_sin_revisar`, `pasos_sin_redactar`).
+  `metadatos.avisos` (`contexto_sin_generar`, `segmentacion_heuristica`, `juez_sin_revisar`,
+  `pasos_sin_redactar`). La ficha sin generar queda en NULL y `POST /videos/{id}/validar` la
+  vuelve a intentar; si ya estaba guardada, la reusa sin llamar al modelo.
 - Al terminar la etapa del LLM se pide a Ollama que suelte el modelo (`keep_alive: 0`), en GPU o
   en CPU, para que el siguiente Whisper tenga la memoria libre.
 

@@ -305,6 +305,38 @@ def test_avance_hasta_listo_y_txt_en_vivo(
     assert len(client.get(f"{url}/transcripcion.txt").text.splitlines()) == 3
 
 
+def test_contexto_404_409_y_200(client: TestClient, entorno: Entorno, generar_video) -> None:
+    assert client.get("/videos/999999999/contexto").status_code == 404
+
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    r = client.get(f"/videos/{video_id}/contexto")
+    assert r.status_code == 409
+    assert r.json()["detail"] == {
+        "mensaje": "la ficha de contexto no se ha generado",
+        "proceso": "en_cola",
+    }
+
+    entorno.correr_pendientes()
+    r = client.get(f"/videos/{video_id}/contexto")
+    assert r.status_code == 200
+    contexto = Contexto.model_validate(r.json())
+    assert contexto.actividad.fuente == "audio"
+    assert contexto.lugar.valor is None  # no se dice: vacío
+    assert r.json() == contexto.model_dump(mode="json")
+
+
+def test_contexto_409_si_la_ficha_no_se_genero(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    entorno.ollama.contexto_caido = True
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    entorno.correr_pendientes()
+
+    assert entorno.video(video_id).proceso == "listo"
+    r = client.get(f"/videos/{video_id}/contexto")
+    assert (r.status_code, r.json()["detail"]["proceso"]) == (409, "listo")
+
+
 def test_analisis_409_antes_de_terminar_y_completo_despues(
     client: TestClient, entorno: Entorno, generar_video
 ) -> None:

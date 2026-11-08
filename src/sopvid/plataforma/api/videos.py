@@ -16,6 +16,7 @@ del SOP. Un `sop_id` de un SOP en error da 422; uno que todavía convierte se ac
 `POST /videos/{id}/validar` repite la validación sin volver a transcribir (ADR-019) y
 `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
 `GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
+`GET /videos/{id}/contexto` devuelve la ficha de contexto (RF-12) si ya se generó.
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
@@ -34,7 +35,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis, ReporteValidacion, ResultadoValidacion
+from sopvid.contrato import SOP, Analisis, Contexto, ReporteValidacion, ResultadoValidacion
 from sopvid.lenguaje.lectura_sop import AjustesConversion
 from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
@@ -286,6 +287,23 @@ def analisis_video(video_id: int, session: Annotated[Session, Depends(get_sessio
             409, {"mensaje": "el análisis no ha terminado", "proceso": video.proceso}
         )
     return leer_analisis(video)
+
+
+@router.get("/videos/{video_id}/contexto", response_model=Contexto)
+def contexto_video(video_id: int, session: Annotated[Session, Depends(get_session)]) -> Contexto:
+    """Ficha de contexto (RF-12): 409 mientras no se genere.
+
+    Se genera en los dos modos, después de la transcripción. Queda sin generar si el video sigue
+    en proceso, si Ollama falló (en modo validar el reporte lo dice con el aviso
+    "contexto_sin_generar"; `POST /videos/{id}/validar` la vuelve a intentar) o si el video se
+    procesó antes de que existiera la ficha.
+    """
+    video = _buscar(session, video_id)
+    if video.contexto is None:
+        raise HTTPException(
+            409, {"mensaje": "la ficha de contexto no se ha generado", "proceso": video.proceso}
+        )
+    return Contexto.model_validate(video.contexto)
 
 
 @router.get("/videos/{video_id}/reporte", response_model=ReporteValidacion)
