@@ -69,7 +69,13 @@ from sopvid.lenguaje.sop_markdown import (
 )
 from sopvid.percepcion.segmentacion import _sin_refs
 from sopvid.plataforma.config import Settings
-from sopvid.texto import NO_IDENTIFICADO, contar_palabras, contiene_cita, recortar_palabras
+from sopvid.texto import (
+    NO_IDENTIFICADO,
+    comparable,
+    contar_palabras,
+    contiene_cita,
+    recortar_palabras,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +96,7 @@ MENSAJE_WORD_VACIO = "El archivo de Word no tiene texto."
 # Un .docx es un zip: más de esto descomprimido se rechaza sin abrirlo (zip bomb).
 MAX_DESCOMPRIMIDO = 200 * 1024 * 1024
 
-PROMPT = "sop_texto_libre_v2"  # archivo en prompts/; un prompt nuevo es un archivo nuevo
+PROMPT = "sop_texto_libre_v3"  # archivo en prompts/; un prompt nuevo es un archivo nuevo
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es válida
 PALABRAS_CITA_ORIGEN = (4, 25)  # largo de la cita de cada paso; una más larga se recorta
 # Estimación del contexto (`contexto_necesario`): ~3.5 caracteres por token en español, y la
@@ -483,18 +489,15 @@ def convertir_documento(
 
 # ── Respuesta del LLM ────────────────────────────────────────────────────────────────────────
 
-CampoInferible = Literal[
-    "descripcion", "responsable", "equipo", "puntos_validacion", "tiempo_esperado_min"
-]
+# Esquema recortado (v3): fuera lo que el código ya pone o casi siempre salía vacío. Con v2,
+# en los dos documentos de prueba la confianza de cada paso y de cada dato salió siempre "alta",
+# `campos_inferidos` siempre vacío y `equipo_operacion` repetía, sin descripción, el equipo de
+# los pasos. Ahora la confianza sale de la evidencia (`_paso`, `_dato`) y el equipo de operación
+# es la unión del de los pasos (`_equipo_operacion`).
 
 
 class _Libre(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
-
-class _DatoLibre(_Libre):
-    valor: str | None
-    confianza: Confianza
 
 
 class _ElementoLibre(_Libre):
@@ -515,14 +518,13 @@ class _FallaLibre(_Libre):
 
 
 class _ResumenLibre(_Libre):
-    objetivo: _DatoLibre
-    alcance: _DatoLibre
-    responsable: _DatoLibre
-    lugar: _DatoLibre
-    horario_frecuencia: _DatoLibre
+    objetivo: str | None
+    alcance: str | None
+    responsable: str | None
+    lugar: str | None
+    horario_frecuencia: str | None
     duracion_total_min: float | None = Field(ge=0)
     roles: list[_ElementoLibre]
-    equipo_operacion: list[_ElementoLibre]
     riesgos: list[_RiesgoLibre]
     en_caso_de_falla: list[_FallaLibre]
 
@@ -536,8 +538,6 @@ class _PasoLibre(_Libre):
     equipo: list[str]
     puntos_validacion: list[str]
     tiempo_esperado_min: float | None = Field(ge=0)
-    confianza: Confianza
-    campos_inferidos: list[CampoInferible]
 
 
 # Lo que devuelve el LLM: el SOP del contrato sin lo que pone el código (números de paso, fuente,
@@ -681,10 +681,14 @@ def validar_respuesta(datos: Any, texto: str) -> ResultadoConversion:
             raise RespuestaInvalida(f"el paso {n} no tiene nombre")
 
     avisos = _Avisos()
-    resumen = _resumen(r.resumen, len(r.pasos), avisos)
-    pasos = [_paso(n, p, resumen.responsable.valor) for n, p in enumerate(r.pasos, start=1)]
-    for paso, libre in zip(pasos, r.pasos, strict=True):
-        if not cita_verificada(libre.cita_origen, texto):
+    resumen = _resumen(r.resumen, r.pasos, texto, avisos)
+    evidencia = [cita_verificada(p.cita_origen, texto) for p in r.pasos]
+    pasos = [
+        _paso(n, p, resumen.responsable.valor, con_evidencia)
+        for n, (p, con_evidencia) in enumerate(zip(r.pasos, evidencia, strict=True), start=1)
+    ]
+    for paso, con_evidencia in zip(pasos, evidencia, strict=True):
+        if not con_evidencia:
             avisos.agregar(
                 "paso_sin_evidencia",
                 None,
@@ -717,22 +721,46 @@ def _resumen_errores(exc: ValidationError) -> str:
     )
 
 
+# Lo que el modelo escribe a veces en lugar de dejar el campo vacío (con el JSON compacto de v3
+# salía ["null"] en listas vacías): se trata como vacío.
+_VACIOS = frozenset({"null", "none", "ninguno", "ninguna", "n a", "na"})
+
+
 def _limpio(texto: str | None) -> str:
-    return " ".join((texto or "").split())
+    limpio = " ".join((texto or "").split())
+    return "" if comparable(limpio) in _VACIOS else limpio
 
 
 def _lista(elementos: Iterable[str]) -> list[str]:
     return [e for x in elementos if (e := _limpio(x))]
 
 
-def _dato(d: _DatoLibre) -> Dato:
-    valor = _limpio(d.valor)
-    return Dato(valor=valor, confianza=d.confianza, fuente="documento") if valor else Dato()
+def _dato(valor: str | None, texto: str) -> Dato:
+    """Dato del resumen: "alta" si está tal cual en el documento, "media" si el modelo lo juntó
+    o lo resumió. Vacío, sin dato."""
+    valor = _limpio(valor)
+    if not valor:
+        return Dato()
+    confianza: Confianza = "alta" if contiene_cita(texto, valor) else "media"
+    return Dato(valor=valor, confianza=confianza, fuente="documento")
 
 
-def _resumen(r: _ResumenLibre, n_pasos: int, avisos: _Avisos) -> Resumen:
+def _equipo_operacion(pasos: Sequence[_PasoLibre]) -> list[Elemento]:
+    """El equipo de todos los pasos, sin repetir (comparado normalizado) y en orden de aparición."""
+    vistos: set[str] = set()
+    equipo = []
+    for p in pasos:
+        for nombre in _lista(p.equipo):
+            if (clave := comparable(nombre)) not in vistos:
+                vistos.add(clave)
+                equipo.append(Elemento(nombre=nombre))
+    return equipo
+
+
+def _resumen(r: _ResumenLibre, pasos: Sequence[_PasoLibre], texto: str, avisos: _Avisos) -> Resumen:
+    n_pasos = len(pasos)
     riesgos = []
-    for i, x in enumerate(r.riesgos, start=1):
+    for i, x in enumerate((x for x in r.riesgos if _limpio(x.descripcion)), start=1):
         nivel = x.nivel
         if nivel is None:
             nivel = "medio"
@@ -758,14 +786,14 @@ def _resumen(r: _ResumenLibre, n_pasos: int, avisos: _Avisos) -> Resumen:
             )
         )
     return Resumen(
-        objetivo=_dato(r.objetivo),
-        alcance=_dato(r.alcance),
-        responsable=_dato(r.responsable),
-        lugar=_dato(r.lugar),
-        horario_frecuencia=_dato(r.horario_frecuencia),
+        objetivo=_dato(r.objetivo, texto),
+        alcance=_dato(r.alcance, texto),
+        responsable=_dato(r.responsable, texto),
+        lugar=_dato(r.lugar, texto),
+        horario_frecuencia=_dato(r.horario_frecuencia, texto),
         duracion_total_min=r.duracion_total_min,
         roles=_elementos(r.roles),
-        equipo_operacion=_elementos(r.equipo_operacion),
+        equipo_operacion=_equipo_operacion(pasos),
         riesgos=riesgos,
         en_caso_de_falla=[
             Falla(situacion=_limpio(f.situacion), accion=_limpio(f.accion))
@@ -783,19 +811,20 @@ def _elementos(elementos: Sequence[_ElementoLibre]) -> list[Elemento]:
     ]
 
 
-def _paso(numero: int, p: _PasoLibre, responsable_resumen: str | None) -> PasoSOP:
-    """Lo que el LLM dice que infirió baja la confianza a "baja"; el responsable que falta se
+def _paso(
+    numero: int, p: _PasoLibre, responsable_resumen: str | None, con_evidencia: bool
+) -> PasoSOP:
+    """Confianza "alta" si la cita se verificó y "baja" si no. El responsable que falta se
     hereda del resumen (confianza "media" a lo más) o queda `NO_IDENTIFICADO` ("baja"), igual
     que en `convertir_sop`."""
-    inferidos = list(dict.fromkeys(p.campos_inferidos))
-    confianza: Confianza = "baja" if inferidos else p.confianza
+    inferidos: list[str] = []
+    confianza: Confianza = "alta" if con_evidencia else "baja"
     responsable = _limpio(p.responsable)
     if responsable == NO_IDENTIFICADO:
         responsable = ""
     if not responsable and responsable_resumen:
         responsable = responsable_resumen
-        if "responsable" not in inferidos:
-            inferidos.append("responsable")
+        inferidos.append("responsable")
         confianza = min(confianza, "media", key=_RANGO_CONFIANZA.__getitem__)
     elif not responsable:
         responsable, confianza = NO_IDENTIFICADO, "baja"

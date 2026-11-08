@@ -161,14 +161,16 @@ La conversión de un SOP sin plantilla (`lectura_sop.convertir_documento`) estim
 de llamar al LLM: caracteres / 3.5 de los mensajes (prompt y documento), más una salida de 3 veces
 los tokens del documento + 512, más una corrección (cada reintento manda solo la última, sin la
 respuesta anterior). Si cabe en `LLM_NUM_CTX` (8192), se usa esa ventana; si no, cada petición
-pide `LLM_NUM_CTX_SOP` (16384); si tampoco cabe, 422 "El documento es demasiado largo; divídelo o
-usa la plantilla". Con el prompt v2, eso deja ≈ 5 800 caracteres de documento en 8192 y
-≈ 12 900 en 16384.
+pide `LLM_NUM_CTX_SOP` (16384); si tampoco cabe, el SOP queda en error "El documento es demasiado
+largo; divídelo o usa la plantilla". Con el prompt v3, eso deja ≈ 5 800 caracteres de documento
+en 8192 y ≈ 13 000 en 16384.
 
-La estimación es conservadora a propósito: en el Word en prosa del fixture (2 300 caracteres)
-estimó 4 190 tokens y usó 3 049 (1 220 de entrada, 1 829 de salida); en un texto de 9 047
-caracteres con notas que no son pasos estimó 11 899 y usó 5 105 (3 262 + 1 843), porque la salida
-crece con los pasos, no con todo el texto. El texto medido da ≈ 3.35 caracteres por token.
+La estimación es conservadora a propósito. Con el prompt v3 y el esquema recortado, en el Word en
+prosa del fixture (1 420 caracteres) estimó 3 118 tokens y usó 2 303 (1 147 de entrada, 1 156 de
+salida); en un texto de 9 047 caracteres con notas que no son pasos estimó 11 834 y usó 4 352
+(3 189 + 1 163), porque la salida crece con los pasos, no con todo el texto. Con v2 la salida era
+1 829 y 1 842 tokens (`docs/adr/datos/sop/antes-v2-…` y `despues-v3-…`). El texto medido da
+≈ 3.35 caracteres por token.
 
 **VRAM en la RTX 2070 SUPER (8 GB), 7 nov 2026, Ollama 0.40.2, `gemma4:e4b-it-q4_K_M`, FA y caché
 KV f16** (`nvidia-smi` antes y después de cargar; el escritorio ya ocupaba 2 055 MiB):

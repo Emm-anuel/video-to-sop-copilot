@@ -127,6 +127,18 @@ conversión falla, queda en error con ese mensaje.
       el reporte. Sin la cita (corrida de las 18:45), v1 daba 6. Pendiente para un v3: decir que
       en prosa cada párrafo es un paso salvo que el documento separe las acciones, y medir con SOP
       reales antes de decidir.
+    - **Esquema recortado y prompt v3 (7 nov 2026,
+      [`antes-v2-20261107-1949.json`](datos/sop/antes-v2-20261107-1949.json),
+      [`despues-v3-20261107-2014.json`](datos/sop/despues-v3-20261107-2014.json)).** Del esquema
+      de la conversión salen la confianza y `campos_inferidos` de cada paso (con v2 siempre
+      "alta" y vacíos; ahora la confianza sale de la cita verificada), la confianza de los datos
+      del resumen ("alta" si el valor está tal cual en el texto, "media" si no) y
+      `equipo_operacion` (repetía, sin descripción, el equipo de los pasos; ahora es su unión).
+      v3 además pide el JSON compacto: con v2 Gemma lo escribía con sangría (177 saltos y 515
+      dobles espacios en 6 197 caracteres). Tokens de salida, v2 → v3: Word en prosa 1 829 →
+      1 156 (GPU) y 1 829 → 1 130 (CPU); texto largo 1 842 → 1 163 (GPU) y 1 999 → 1 181 (CPU):
+      ≈ −37 %. En la primera corrida de v3, Gemma escribió `["null"]` en listas vacías; el prompt
+      lo prohíbe y el código descarta esos "null".
     - Resuelto (P1, punto 5): un documento largo podía no caber en `LLM_NUM_CTX` (8192) y fallar
       los 3 intentos. Ahora se estiman los tokens antes de llamar al LLM; si no caben, cada
       petición pide `LLM_NUM_CTX_SOP` (16384, +200 MiB de VRAM) y, si tampoco, 422 "el documento

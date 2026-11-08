@@ -130,15 +130,12 @@ def test_carga_con_bom_y_crlf(client: TestClient, entorno: Entorno) -> None:
 
 
 SIN_PLANTILLA = "# Procedimiento inventado\n\nPrimero se cierra la llave de paso y se purga.\n"
-_VACIO = {"valor": None, "confianza": "alta"}
 RESPUESTA_SIN_PLANTILLA = {
     "titulo": "Procedimiento inventado",
     "resumen": {
-        **dict.fromkeys(
-            ["objetivo", "alcance", "responsable", "lugar", "horario_frecuencia"], _VACIO
-        ),
+        **dict.fromkeys(["objetivo", "alcance", "responsable", "lugar", "horario_frecuencia"]),
         "duracion_total_min": None,
-        **{c: [] for c in ["roles", "equipo_operacion", "riesgos", "en_caso_de_falla"]},
+        **{c: [] for c in ["roles", "riesgos", "en_caso_de_falla"]},
     },
     "pasos": [
         {
@@ -149,8 +146,6 @@ RESPUESTA_SIN_PLANTILLA = {
             "equipo": [],
             "puntos_validacion": [],
             "tiempo_esperado_min": None,
-            "confianza": "alta",
-            "campos_inferidos": [],
         }
     ],
 }

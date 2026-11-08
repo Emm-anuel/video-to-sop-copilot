@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dobles import Entorno, OllamaFalso
-from sopvid.contrato import SOP
+from sopvid.contrato import SOP, Dato
 from sopvid.lenguaje import lectura_sop
 from sopvid.lenguaje.juez import RespuestaInvalida
 from sopvid.lenguaje.lectura_sop import (
@@ -164,23 +164,18 @@ def _guardar(documento: Any) -> bytes:
 
 
 def respuesta_llm(sop: SOP = SOP_MD, **cambios: Any) -> dict[str, Any]:
-    """Lo que respondería Gemma 4 por `ESQUEMA_SOP_LIBRE` para `sop`."""
+    """Lo que respondería Gemma 4 por `ESQUEMA_SOP_LIBRE` (v3, recortado) para `sop`."""
     r = sop.resumen
-
-    def dato(d: Any) -> dict[str, Any]:
-        return {"valor": d.valor, "confianza": d.confianza}
-
     datos = {
         "titulo": sop.titulo,
         "resumen": {
-            "objetivo": dato(r.objetivo),
-            "alcance": dato(r.alcance),
-            "responsable": dato(r.responsable),
-            "lugar": dato(r.lugar),
-            "horario_frecuencia": dato(r.horario_frecuencia),
+            "objetivo": r.objetivo.valor,
+            "alcance": r.alcance.valor,
+            "responsable": r.responsable.valor,
+            "lugar": r.lugar.valor,
+            "horario_frecuencia": r.horario_frecuencia.valor,
             "duracion_total_min": r.duracion_total_min,
             "roles": [e.model_dump() for e in r.roles],
-            "equipo_operacion": [e.model_dump() for e in r.equipo_operacion],
             "riesgos": [x.model_dump() for x in r.riesgos],
             "en_caso_de_falla": [f.model_dump() for f in r.en_caso_de_falla],
         },
@@ -193,8 +188,6 @@ def respuesta_llm(sop: SOP = SOP_MD, **cambios: Any) -> dict[str, Any]:
                 "equipo": p.equipo,
                 "puntos_validacion": p.puntos_validacion,
                 "tiempo_esperado_min": p.tiempo_esperado_min,
-                "confianza": "alta",
-                "campos_inferidos": [],
             }
             for p in sop.pasos
         ],
@@ -345,14 +338,20 @@ def test_esquema_sin_referencias_ni_tiempos_del_video() -> None:
     pasos = ESQUEMA_SOP_LIBRE["properties"]["pasos"]["items"]["properties"]
     assert not {"numero", "t_inicio", "t_fin"} & set(pasos)
     assert "fuente" not in texto  # la pone el código
+    # Recortado (v3): la confianza la pone el código y el equipo de operación sale de los pasos.
+    assert not {"confianza", "campos_inferidos"} & set(pasos)
+    assert "equipo_operacion" not in ESQUEMA_SOP_LIBRE["properties"]["resumen"]["properties"]
+    assert "confianza" not in texto
 
 
 def test_prompt_versionado_lleva_el_texto_del_documento() -> None:
     prompt = cargar_prompt()
     mensajes = lectura_sop.construir_mensajes(prompt, "  Texto inventado del documento.  ")
 
-    assert prompt.version == "sop_texto_libre_v2"
-    assert cargar_prompt("sop_texto_libre_v1").version == "sop_texto_libre_v1"  # se conserva
+    assert prompt.version == "sop_texto_libre_v3"
+    for anterior in ("sop_texto_libre_v1", "sop_texto_libre_v2"):  # se conservan
+        assert cargar_prompt(anterior).version == anterior
+    assert "compacto" in mensajes[0]["content"]
     assert mensajes[0]["role"] == "system" and "infinitivo" in mensajes[0]["content"]
     assert "Texto inventado del documento." in mensajes[1]["content"]
 
@@ -366,7 +365,24 @@ def test_validar_respuesta_arma_el_sop_con_fuente_documento() -> None:
     assert resultado.advertencias == []  # los nombres están en la tabla y en infinitivo
     assert [p.numero for p in resultado.sop.pasos] == [1, 2, 3, 4, 5, 6]
     assert resultado.sop.resumen.objetivo.fuente == "documento"
-    assert resultado.sop.pasos == SOP_MD.pasos
+    assert resultado.sop.pasos == SOP_MD.pasos  # citas verificadas: confianza "alta"
+
+
+def test_validar_respuesta_pone_la_confianza_y_junta_el_equipo() -> None:
+    datos = respuesta_llm()
+    datos["resumen"]["objetivo"] = "Cambiar el cartucho"  # resumido: no está tal cual
+    datos["resumen"]["alcance"] = None
+    datos["pasos"][1]["equipo"] = ["Llave de paso", "guantes de NITRILO"]  # repetido, normalizado
+    texto = extraer_texto(docx_con_tabla(SOP_MD), ".docx") + "\nResponsable: Técnico"
+
+    resumen = validar_respuesta(datos, texto).sop.resumen
+
+    assert (resumen.objetivo.confianza, resumen.responsable.confianza) == ("media", "alta")
+    assert resumen.alcance == Dato()  # null: vacío, no inventado
+    nombres = [e.nombre for e in resumen.equipo_operacion]
+    assert nombres[:3] == ["Guantes de nitrilo", "Lentes de seguridad", "Llave de paso"]
+    assert len(nombres) == len({n.lower() for n in nombres})
+    assert all(e.descripcion == "" for e in resumen.equipo_operacion)
 
 
 def test_validar_respuesta_marca_lo_que_no_esta_en_el_documento() -> None:
@@ -374,7 +390,7 @@ def test_validar_respuesta_marca_lo_que_no_esta_en_el_documento() -> None:
     # El nombre es libre: lo que se verifica es la cita.
     datos["pasos"][0] |= {"nombre": "Equiparse con el EPP"}
     datos["pasos"][1] |= {"cita_origen": "girar la manija roja dos vueltas", "responsable": None}
-    datos["pasos"][2] |= {"nombre": "Liberación de presión", "campos_inferidos": ["equipo"]}
+    datos["pasos"][2] |= {"nombre": "Liberación de presión"}
     datos["pasos"][3] |= {"cita_origen": "Aflojar el vaso"}  # 3 palabras: no alcanza
     datos["resumen"]["riesgos"][0] |= {"paso": 9, "nivel": None}
     texto = extraer_texto(docx_con_tabla(SOP_MD), ".docx")
@@ -390,14 +406,14 @@ def test_validar_respuesta_marca_lo_que_no_esta_en_el_documento() -> None:
     assert ("infinitivo", "el nombre del paso 3 no empieza con un infinitivo") in avisos
     assert ("valor_invalido", "el riesgo 1 no trae nivel en el documento") in avisos
     assert ("valor_invalido", "el riesgo 1 cita el paso 9, que no existe") in avisos
-    paso2, paso3 = resultado.sop.pasos[1:3]
-    # Sin responsable: se hereda del resumen, con confianza media, como en la plantilla.
+    paso2, paso3, paso4 = resultado.sop.pasos[1:4]
+    # Sin cita verificada: confianza baja; y sin responsable, se hereda del resumen.
     assert (paso2.responsable, paso2.confianza, paso2.campos_inferidos) == (
         "Técnico de mantenimiento",
-        "media",
+        "baja",
         ["responsable"],
     )
-    assert (paso3.confianza, paso3.campos_inferidos) == ("baja", ["equipo"])
+    assert (paso3.confianza, paso4.confianza) == ("alta", "baja")
     riesgo = resultado.sop.resumen.riesgos[0]
     assert (riesgo.nivel, riesgo.paso) == ("medio", None)
     assert all(a.linea is None for a in resultado.advertencias)
@@ -419,9 +435,28 @@ def test_cita_verificada(cita: str, verificada: bool) -> None:
     assert lectura_sop.cita_verificada(cita, texto) is verificada
 
 
+def test_validar_respuesta_descarta_los_null_escritos_como_texto() -> None:
+    """Con el JSON compacto, Gemma escribió ["null"] en listas vacías y un riesgo "null"."""
+    datos = respuesta_llm()
+    datos["pasos"][0] |= {"puntos_validacion": ["null"], "equipo": ["Guantes", "None"]}
+    datos["resumen"] |= {
+        "lugar": "null",
+        "riesgos": [{"descripcion": "null", "nivel": None, "paso": None, "control": "null"}],
+        "roles": [{"nombre": "null", "descripcion": ""}],
+    }
+
+    resultado = validar_respuesta(datos, extraer_texto(docx_con_tabla(SOP_MD), ".docx"))
+
+    paso = resultado.sop.pasos[0]
+    assert (paso.puntos_validacion, paso.equipo) == ([], ["Guantes"])
+    r = resultado.sop.resumen
+    assert (r.lugar, r.riesgos, r.roles) == (Dato(), [], [])
+    assert not [a for a in resultado.advertencias if a.tipo == "valor_invalido"]
+
+
 def test_validar_respuesta_sin_responsable_en_ningun_lado() -> None:
     datos = respuesta_llm()
-    datos["resumen"]["responsable"] = {"valor": None, "confianza": "alta"}
+    datos["resumen"]["responsable"] = None
     datos["pasos"][0]["responsable"] = None
 
     paso = validar_respuesta(datos, "texto").sop.pasos[0]

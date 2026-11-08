@@ -1,0 +1,1025 @@
+{
+  "fecha": "2026-11-07T20:10:19",
+  "prompt": "sop_texto_libre_v3",
+  "corridas": [
+    {
+      "documento": "prosa",
+      "caracteres": 1420,
+      "dispositivo_pedido": "auto",
+      "dispositivo": "gpu",
+      "segundos": 17.5,
+      "intentos": 1,
+      "num_ctx": 8192,
+      "tokens_entrada": 1147,
+      "tokens_salida": 1156,
+      "tokens_por_s": 110.2,
+      "pasos": [
+        "Colocarse EPP",
+        "Cerrar llave de paso",
+        "Presionar botón rojo",
+        "Colocar cubeta",
+        "Aflojar y sacar cartucho",
+        "Revisar anillo de hule",
+        "Instalar cartucho nuevo",
+        "Abrir llave y purgar"
+      ],
+      "advertencias": [],
+      "sop": {
+        "version_contrato": 1,
+        "titulo": "Cambio del cartucho del filtro de agua",
+        "resumen": {
+          "objetivo": {
+            "valor": "reemplazar el cartucho del filtro de agua de la línea de enjuague sin fugas y con la presión de trabajo restablecida.",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "alcance": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "responsable": {
+            "valor": "técnico de mantenimiento",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "lugar": {
+            "valor": "línea de enjuague, filtro de agua de entrada",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "horario_frecuencia": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "duracion_total_min": null,
+          "equipo_operacion": [
+            {
+              "nombre": "guantes de nitrilo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "lentes de seguridad",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de paso",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo de la carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "manómetro",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cubeta",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "bolsa de residuos",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho nuevo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "toalla de papel",
+              "descripcion": ""
+            }
+          ],
+          "roles": [
+            {
+              "nombre": "técnico de mantenimiento",
+              "descripcion": ""
+            }
+          ],
+          "personas": [],
+          "riesgos": [],
+          "en_caso_de_falla": []
+        },
+        "pasos": [
+          {
+            "numero": 1,
+            "nombre": "Colocarse EPP",
+            "descripcion": "Colocarse los guantes de nitrilo y los lentes de seguridad antes de tocar el filtro.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "guantes de nitrilo",
+              "lentes de seguridad"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 2,
+            "nombre": "Cerrar llave de paso",
+            "descripcion": "Girar la llave de paso que está antes del filtro a la derecha hasta el tope, asegurando que la manija quede atravesada a la tubería.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso"
+            ],
+            "puntos_validacion": [
+              "Manija atravesada a la tubería"
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 3,
+            "nombre": "Presionar botón rojo",
+            "descripcion": "Mantener presionado el botón rojo de la carcasa hasta que deje de salir aire y el manómetro marque cero.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "botón rojo de la carcasa",
+              "manómetro"
+            ],
+            "puntos_validacion": [
+              "Deje de salir aire",
+              "Manómetro marque cero"
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 4,
+            "nombre": "Colocar cubeta",
+            "descripcion": "Colocar la cubeta debajo del filtro para recoger cualquier posible derrame.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cubeta"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 5,
+            "nombre": "Aflojar y sacar cartucho",
+            "descripcion": "Aflojar el vaso con la llave de carcasa girando a la izquierda, bajarlo con cuidado y sacar el cartucho usado a la bolsa de residuos.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de carcasa",
+              "bolsa de residuos"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 6,
+            "nombre": "Revisar anillo de hule",
+            "descripcion": "Revisar el anillo de hule y cambiarlo si se encuentra aplastado o cuarteado.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 7,
+            "nombre": "Instalar cartucho nuevo",
+            "descripcion": "Quitar el plástico al cartucho nuevo, meterlo centrado en el vaso con la ranura hacia arriba, enroscar el vaso a mano y dar un cuarto de vuelta con la llave, sin apretar de más.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cartucho nuevo",
+              "llave de carcasa"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 8,
+            "nombre": "Abrir llave y purgar",
+            "descripcion": "Abrir la llave de paso despacio, purgar el aire con el botón rojo hasta que salga solo agua y revisar la unión del vaso y las conexiones con una toalla de papel.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso",
+              "botón rojo",
+              "toalla de papel"
+            ],
+            "puntos_validacion": [
+              "Salga solo agua",
+              "Unión del vaso y conexiones sin fugas"
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          }
+        ],
+        "puntos_clave": [],
+        "palabras_clave": []
+      }
+    },
+    {
+      "documento": "largo",
+      "caracteres": 9047,
+      "dispositivo_pedido": "auto",
+      "dispositivo": "gpu",
+      "segundos": 19.1,
+      "intentos": 1,
+      "num_ctx": 16384,
+      "tokens_entrada": 3189,
+      "tokens_salida": 1163,
+      "tokens_por_s": 103.8,
+      "pasos": [
+        "Colocarse EPP",
+        "Cerrar llave de paso",
+        "Presionar botón rojo",
+        "Colocar cubeta",
+        "Sacar cartucho usado",
+        "Revisar anillo de hule",
+        "Instalar cartucho nuevo",
+        "Purgar y revisar"
+      ],
+      "advertencias": [],
+      "sop": {
+        "version_contrato": 1,
+        "titulo": "Reemplazo de cartucho del filtro de agua de la línea de enjuague",
+        "resumen": {
+          "objetivo": {
+            "valor": "reemplazar el cartucho del filtro de agua de la línea de enjuague sin fugas y con la presión de trabajo restablecida.",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "alcance": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "responsable": {
+            "valor": "técnico de mantenimiento",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "lugar": {
+            "valor": "línea de enjuague, filtro de agua de entrada",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "horario_frecuencia": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "duracion_total_min": null,
+          "equipo_operacion": [
+            {
+              "nombre": "guantes de nitrilo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "lentes de seguridad",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de paso",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo de la carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "manómetro",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cubeta",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho usado",
+              "descripcion": ""
+            },
+            {
+              "nombre": "bolsa de residuos",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho nuevo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "toalla de papel",
+              "descripcion": ""
+            }
+          ],
+          "roles": [
+            {
+              "nombre": "técnico de mantenimiento",
+              "descripcion": ""
+            }
+          ],
+          "personas": [],
+          "riesgos": [],
+          "en_caso_de_falla": []
+        },
+        "pasos": [
+          {
+            "numero": 1,
+            "nombre": "Colocarse EPP",
+            "descripcion": "Colocarse los guantes de nitrilo y los lentes de seguridad antes de tocar el filtro.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "guantes de nitrilo",
+              "lentes de seguridad"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 2,
+            "nombre": "Cerrar llave de paso",
+            "descripcion": "Girar la llave de paso que está antes del filtro a la derecha hasta el tope, de modo que la manija quede atravesada a la tubería.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso"
+            ],
+            "puntos_validacion": [
+              "Manija atravesada a la tubería"
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 3,
+            "nombre": "Presionar botón rojo",
+            "descripcion": "Mantener presionado el botón rojo de la carcasa hasta que deje de salir aire y el manómetro marque cero.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "botón rojo de la carcasa",
+              "manómetro"
+            ],
+            "puntos_validacion": [
+              "Deje de salir aire",
+              "Manómetro marque cero"
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 4,
+            "nombre": "Colocar cubeta",
+            "descripcion": "Colocar la cubeta debajo del filtro.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cubeta"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 5,
+            "nombre": "Sacar cartucho usado",
+            "descripcion": "Aflojar el vaso con la llave de carcasa girando a la izquierda, bajarlo con cuidado y sacar el cartucho usado a la bolsa de residuos.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de carcasa",
+              "cubeta",
+              "cartucho usado",
+              "bolsa de residuos"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 6,
+            "nombre": "Revisar anillo de hule",
+            "descripcion": "Revisar el anillo de hule y cambiarlo si se encuentra aplastado o cuarteado.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 7,
+            "nombre": "Instalar cartucho nuevo",
+            "descripcion": "Quitar el plástico al cartucho nuevo, meterlo centrado en el vaso con la ranura hacia arriba, enroscar el vaso a mano y dar un cuarto de vuelta con la llave, sin apretar de más.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cartucho nuevo",
+              "llave de carcasa"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 8,
+            "nombre": "Purgar y revisar",
+            "descripcion": "Abrir la llave de paso despacio, purgar el aire con el botón rojo hasta que salga solo agua y revisar la unión del vaso y las conexiones con una toalla de papel.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso",
+              "botón rojo",
+              "toalla de papel"
+            ],
+            "puntos_validacion": [
+              "Salga solo agua",
+              "Unión del vaso y conexiones sin fugas"
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          }
+        ],
+        "puntos_clave": [],
+        "palabras_clave": []
+      }
+    },
+    {
+      "documento": "prosa",
+      "caracteres": 1420,
+      "dispositivo_pedido": "cpu",
+      "dispositivo": "cpu",
+      "segundos": 95.9,
+      "intentos": 1,
+      "num_ctx": 8192,
+      "tokens_entrada": 1147,
+      "tokens_salida": 1130,
+      "tokens_por_s": 17.2,
+      "pasos": [
+        "Colocarse EPP",
+        "Cerrar llave de paso",
+        "Presionar botón rojo",
+        "Colocar cubeta",
+        "Sacar cartucho usado",
+        "Revisar anillo de hule",
+        "Instalar cartucho nuevo",
+        "Purgar y revisar sistema"
+      ],
+      "advertencias": [],
+      "sop": {
+        "version_contrato": 1,
+        "titulo": "Cambio del cartucho del filtro de agua",
+        "resumen": {
+          "objetivo": {
+            "valor": "reemplazar el cartucho del filtro de agua de la línea de enjuague sin fugas y con la presión de trabajo restablecida.",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "alcance": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "responsable": {
+            "valor": "técnico de mantenimiento",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "lugar": {
+            "valor": "línea de enjuague, filtro de agua de entrada",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "horario_frecuencia": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "duracion_total_min": null,
+          "equipo_operacion": [
+            {
+              "nombre": "guantes de nitrilo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "lentes de seguridad",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de paso",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo de la carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "manómetro",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cubeta",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho usado",
+              "descripcion": ""
+            },
+            {
+              "nombre": "bolsa de residuos",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho nuevo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "toalla de papel",
+              "descripcion": ""
+            }
+          ],
+          "roles": [
+            {
+              "nombre": "técnico de mantenimiento",
+              "descripcion": ""
+            }
+          ],
+          "personas": [],
+          "riesgos": [],
+          "en_caso_de_falla": []
+        },
+        "pasos": [
+          {
+            "numero": 1,
+            "nombre": "Colocarse EPP",
+            "descripcion": "Colocarse los guantes de nitrilo y los lentes de seguridad antes de tocar el filtro.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "guantes de nitrilo",
+              "lentes de seguridad"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 2,
+            "nombre": "Cerrar llave de paso",
+            "descripcion": "Girar la llave de paso que está antes del filtro a la derecha hasta el tope.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso"
+            ],
+            "puntos_validacion": [
+              "La manija debe quedar atravesada a la tubería."
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 3,
+            "nombre": "Presionar botón rojo",
+            "descripcion": "Mantener presionado el botón rojo de la carcasa hasta que deje de salir aire y el manómetro marque cero.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "botón rojo de la carcasa",
+              "manómetro"
+            ],
+            "puntos_validacion": [
+              "El manómetro marque cero."
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 4,
+            "nombre": "Colocar cubeta",
+            "descripcion": "Colocar la cubeta debajo del filtro.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cubeta"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 5,
+            "nombre": "Sacar cartucho usado",
+            "descripcion": "Aflojar el vaso con la llave de carcasa girando a la izquierda, bajarlo con cuidado y sacar el cartucho usado a la bolsa de residuos.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de carcasa",
+              "cubeta",
+              "cartucho usado",
+              "bolsa de residuos"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 6,
+            "nombre": "Revisar anillo de hule",
+            "descripcion": "Revisar el anillo de hule y cambiarlo si está aplastado o cuarteado.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 7,
+            "nombre": "Instalar cartucho nuevo",
+            "descripcion": "Quitar el plástico al cartucho nuevo, meterlo centrado en el vaso con la ranura hacia arriba, enroscar el vaso a mano y dar un cuarto de vuelta con la llave, sin apretar de más.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cartucho nuevo",
+              "llave de carcasa"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 8,
+            "nombre": "Purgar y revisar sistema",
+            "descripcion": "Abrir la llave de paso despacio, purgar el aire con el botón rojo hasta que salga solo agua y revisar la unión del vaso y las conexiones con una toalla de papel.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso",
+              "botón rojo",
+              "toalla de papel"
+            ],
+            "puntos_validacion": [
+              "Que salga solo agua al purgar."
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          }
+        ],
+        "puntos_clave": [],
+        "palabras_clave": []
+      }
+    },
+    {
+      "documento": "largo",
+      "caracteres": 9047,
+      "dispositivo_pedido": "cpu",
+      "dispositivo": "cpu",
+      "segundos": 146.8,
+      "intentos": 1,
+      "num_ctx": 16384,
+      "tokens_entrada": 3189,
+      "tokens_salida": 1181,
+      "tokens_por_s": 14.9,
+      "pasos": [
+        "Colocarse EPP de seguridad",
+        "Cerrar llave de paso",
+        "Presionar botón y purgar aire",
+        "Colocar cubeta debajo filtro",
+        "Retirar cartucho usado",
+        "Revisar y cambiar anillo hule",
+        "Instalar cartucho nuevo",
+        "Abrir llave y purgar aire"
+      ],
+      "advertencias": [],
+      "sop": {
+        "version_contrato": 1,
+        "titulo": "Reemplazo de cartucho del filtro de agua de la línea de enjuague",
+        "resumen": {
+          "objetivo": {
+            "valor": "reemplazar el cartucho del filtro de agua de la línea de enjuague sin fugas y con la presión de trabajo restablecida.",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "alcance": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "responsable": {
+            "valor": "técnico de mantenimiento",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "lugar": {
+            "valor": "línea de enjuague, filtro de agua de entrada",
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "horario_frecuencia": {
+            "valor": null,
+            "confianza": "alta",
+            "fuente": "documento",
+            "t": null
+          },
+          "duracion_total_min": null,
+          "equipo_operacion": [
+            {
+              "nombre": "guantes de nitrilo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "lentes de seguridad",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de paso",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo de la carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "manómetro",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cubeta",
+              "descripcion": ""
+            },
+            {
+              "nombre": "llave de carcasa",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho usado",
+              "descripcion": ""
+            },
+            {
+              "nombre": "bolsa de residuos",
+              "descripcion": ""
+            },
+            {
+              "nombre": "cartucho nuevo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "botón rojo",
+              "descripcion": ""
+            },
+            {
+              "nombre": "toalla de papel",
+              "descripcion": ""
+            }
+          ],
+          "roles": [
+            {
+              "nombre": "técnico de mantenimiento",
+              "descripcion": ""
+            }
+          ],
+          "personas": [],
+          "riesgos": [],
+          "en_caso_de_falla": []
+        },
+        "pasos": [
+          {
+            "numero": 1,
+            "nombre": "Colocarse EPP de seguridad",
+            "descripcion": "Colocarse los guantes de nitrilo y los lentes de seguridad antes de tocar el filtro.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "guantes de nitrilo",
+              "lentes de seguridad"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 2,
+            "nombre": "Cerrar llave de paso",
+            "descripcion": "Girar la llave de paso que está antes del filtro a la derecha hasta el tope, de modo que la manija quede atravesada a la tubería.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso"
+            ],
+            "puntos_validacion": [
+              "La manija debe quedar atravesada a la tubería."
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 3,
+            "nombre": "Presionar botón y purgar aire",
+            "descripcion": "Mantener presionado el botón rojo de la carcasa hasta que deje de salir aire y el manómetro marque cero.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "botón rojo de la carcasa",
+              "manómetro"
+            ],
+            "puntos_validacion": [
+              "El manómetro marque cero."
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 4,
+            "nombre": "Colocar cubeta debajo filtro",
+            "descripcion": "Colocar la cubeta debajo del filtro para recoger cualquier derrame.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cubeta"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 5,
+            "nombre": "Retirar cartucho usado",
+            "descripcion": "Aflojar el vaso con la llave de carcasa girando a la izquierda, bajarlo con cuidado y sacar el cartucho usado a la bolsa de residuos.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de carcasa",
+              "cubeta",
+              "cartucho usado",
+              "bolsa de residuos"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 6,
+            "nombre": "Revisar y cambiar anillo hule",
+            "descripcion": "Revisar el anillo de hule y cambiarlo si se encuentra aplastado o cuarteado.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 7,
+            "nombre": "Instalar cartucho nuevo",
+            "descripcion": "Quitar el plástico al cartucho nuevo, meterlo centrado en el vaso con la ranura hacia arriba, enroscar el vaso a mano y dar un cuarto de vuelta con la llave, sin apretar de más.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "cartucho nuevo",
+              "llave de carcasa"
+            ],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          },
+          {
+            "numero": 8,
+            "nombre": "Abrir llave y purgar aire",
+            "descripcion": "Abrir la llave de paso despacio, purgar el aire con el botón rojo hasta que salga solo agua y revisar la unión del vaso y las conexiones con una toalla de papel.",
+            "responsable": "técnico de mantenimiento",
+            "equipo": [
+              "llave de paso",
+              "botón rojo",
+              "toalla de papel"
+            ],
+            "puntos_validacion": [
+              "Que salga solo agua de la purga.",
+              "Revisar la unión del vaso y las conexiones."
+            ],
+            "tiempo_esperado_min": null,
+            "t_inicio": null,
+            "t_fin": null,
+            "confianza": "alta",
+            "campos_inferidos": []
+          }
+        ],
+        "puntos_clave": [],
+        "palabras_clave": []
+      }
+    }
+  ]
+}

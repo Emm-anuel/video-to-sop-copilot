@@ -125,7 +125,7 @@ docs/
 >   `docs/contrato/plantilla_sop.md` (`lenguaje/sop_markdown.py`, `scripts/convertir_sop.py`,
 >   ADR-015). PDF y Word (7 nov, rama `feat/sop-pdf-word`): `lenguaje/lectura_sop.py` saca el
 >   texto y prueba la plantilla; si no la sigue (también un .md o .txt), Gemma 4
->   (`prompts/sop_texto_libre_v2.md`, una cita verificada por paso, `num_ctx` según el largo).
+>   (`prompts/sop_texto_libre_v3.md`, una cita verificada por paso, `num_ctx` según el largo).
 >   `POST /sops` es asíncrono: 202 y `GET /sops/{id}/estado`; la conversión corre en el
 >   trabajador, con prioridad sobre el siguiente video, en flujo con corte por inactividad
 >   (`ClienteLLM.chat_en_flujo`). Un SOP adjunto a `POST /videos` (RF-02) sigue el mismo camino.
