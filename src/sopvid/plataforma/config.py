@@ -137,6 +137,9 @@ class Settings(BaseSettings):
     # los dos roles traen complemento ("de mantenimiento"), los complementos deben llegar a
     # `umbral_rol_complemento` (o compartir palabras). SIN CALIBRAR.
     umbral_rol_complemento: float = Field(default=0.70, ge=0, le=1)
+    # Coseno MiniLM (en minúsculas) desde el que el horario del SOP y el que menciona el video
+    # coinciden, si ninguno contiene al otro (RF-16, ADR-021). SIN CALIBRAR.
+    umbral_horario: float = Field(default=0.75, ge=0, le=1)
 
     @model_validator(mode="after")
     def _umbrales_ordenados(self) -> Self:
