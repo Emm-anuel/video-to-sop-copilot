@@ -889,6 +889,9 @@ def _largo(caracteres: int) -> str:
     return "\n".join(lineas)
 
 
+AJUSTES = lectura_sop.AjustesConversion(num_ctx=8192, num_ctx_max=16384)
+
+
 def test_contexto_necesario_crece_con_el_texto() -> None:
     prompt = cargar_prompt()
     corto, largo = (lectura_sop.contexto_necesario(_largo(n), prompt) for n in (2000, 8000))
@@ -905,7 +908,7 @@ def test_num_ctx_por_peticion(caracteres: int, num_ctx: int) -> None:
     ollama = OllamaFalso([])
     ollama.respuestas_sop = ["{roto", respuesta_llm()]  # dos peticiones, las dos con la ventana
 
-    convertir_documento(_largo(caracteres), ollama.cliente, num_ctx=8192, num_ctx_max=16384)
+    convertir_documento(_largo(caracteres), ollama.cliente, ajustes=AJUSTES)
 
     assert [o["num_ctx"] for o in ollama.opciones_sop] == [num_ctx, num_ctx]
 
@@ -914,7 +917,7 @@ def test_documento_demasiado_largo_sin_llamar_al_llm() -> None:
     ollama = OllamaFalso([])
 
     with pytest.raises(lectura_sop.DocumentoDemasiadoLargo) as exc:
-        convertir_documento(_largo(20000), ollama.cliente, num_ctx=8192, num_ctx_max=16384)
+        convertir_documento(_largo(20000), ollama.cliente, ajustes=AJUSTES)
 
     assert str(exc.value) == lectura_sop.MENSAJE_DEMASIADO_LARGO
     assert ollama.eventos == []

@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # Cuánto espera la conversión de un SOP con Gemma a que el trabajador suelte el candado de
     # modelo pesado (está usando Whisper o Gemma con un video); si no, 503 (ADR-014).
     llm_espera_gpu_s: float = 60.0
+    # Conversión de un SOP con Gemma en flujo (`ClienteLLM.chat_en_flujo`): corta si pasan
+    # `llm_inactividad_s` sin un token (después del primero, que espera `llm_timeout_s`) o, aunque
+    # siga generando, al llegar a `llm_timeout_sop_s` en total. En CPU tarda 150-200 s (ADR-018).
+    llm_inactividad_s: float = 60.0
+    llm_timeout_sop_s: float = 900.0
     # Dónde corre Gemma (ADR-018): "auto" deja que Ollama use la GPU si la ve; "cpu" pide
     # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
     llm_dispositivo: Literal["auto", "cpu"] = "auto"

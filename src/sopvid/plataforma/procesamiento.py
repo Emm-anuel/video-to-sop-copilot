@@ -50,12 +50,13 @@ from sqlalchemy.orm import Session
 from sopvid.contrato import SOP, Analisis, Dispositivos
 from sopvid.lenguaje.lectura_sop import (
     EXTENSIONES,
+    AjustesConversion,
     ErrorConversionLLM,
     ErrorLectura,
     convertir_documento,
     extraer_texto,
 )
-from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible
+from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible, LLMTiempoExcedido
 from sopvid.lenguaje.sop_markdown import ResultadoConversion
 from sopvid.lenguaje.validacion import INICIO_ETAPA, FabricaValidacion, Validacion, validar
 from sopvid.percepcion.medios import ErrorMedios
@@ -436,14 +437,12 @@ class Procesador:
         try:
             texto = extraer_texto(datos, ruta.suffix)
             conversion = convertir_documento(
-                texto,
-                lambda: nullcontext(llm),
-                plazo_s=settings.llm_health_timeout_s,
-                num_ctx=settings.llm_num_ctx,
-                num_ctx_max=settings.llm_num_ctx_sop,
+                texto, lambda: nullcontext(llm), ajustes=AjustesConversion.desde_settings(settings)
             )
         except LLMNoDisponible:
             raise
+        except LLMTiempoExcedido as exc:
+            raise _ErrorAdjunto(f"SOP adjunto: {exc}") from None
         except LLMError as exc:
             mensaje = f"Ollama falló al convertir el SOP ({type(exc).__name__})"
             raise LLMNoDisponible(mensaje) from exc

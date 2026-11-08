@@ -35,6 +35,7 @@ import logging
 import math
 import re
 import statistics
+import time
 import zipfile
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, nullcontext
@@ -52,7 +53,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from sopvid.contrato import SOP, Confianza, Dato, Elemento, Falla, PasoSOP, Resumen, Riesgo
 from sopvid.lenguaje.juez import Prompt, RespuestaInvalida, leer_prompt, texto_del_prompt
-from sopvid.lenguaje.llm import ClienteLLM, LLMNoDisponible, LLMRespuestaInvalida
+from sopvid.lenguaje.llm import (
+    ClienteLLM,
+    LLMNoDisponible,
+    LLMRespuestaInvalida,
+    LLMTiempoExcedido,
+)
 from sopvid.lenguaje.sop_markdown import (
     ErrorSOP,
     ResultadoConversion,
@@ -62,6 +68,7 @@ from sopvid.lenguaje.sop_markdown import (
     empieza_con_infinitivo,
 )
 from sopvid.percepcion.segmentacion import _sin_refs
+from sopvid.plataforma.config import Settings
 from sopvid.texto import NO_IDENTIFICADO, contar_palabras, contiene_cita, recortar_palabras
 
 logger = logging.getLogger(__name__)
@@ -394,14 +401,33 @@ class _Numeracion:
 # ── Conversión en dos caminos ────────────────────────────────────────────────────────────────
 
 
+@dataclass(frozen=True)
+class AjustesConversion:
+    """Plazos y ventanas de la conversión con el LLM (variables LLM_* de `Settings`)."""
+
+    plazo_s: float = 2.0  # revisar que Ollama responda (LLM_HEALTH_TIMEOUT_S)
+    num_ctx: int = 8192  # ventana del cliente (LLM_NUM_CTX)
+    num_ctx_max: int = 16384  # ventana para documentos largos (LLM_NUM_CTX_SOP)
+    inactividad_s: float = 60.0  # sin un token nuevo (LLM_INACTIVIDAD_S)
+    tope_s: float = 900.0  # toda la conversión, con sus reintentos (LLM_TIMEOUT_SOP_S)
+
+    @classmethod
+    def desde_settings(cls, s: Settings) -> "AjustesConversion":
+        return cls(
+            plazo_s=s.llm_health_timeout_s,
+            num_ctx=s.llm_num_ctx,
+            num_ctx_max=s.llm_num_ctx_sop,
+            inactividad_s=s.llm_inactividad_s,
+            tope_s=s.llm_timeout_sop_s,
+        )
+
+
 def convertir_documento(
     texto: str,
     fabrica_llm: Callable[[], AbstractContextManager[ClienteLLM]],
     *,
-    plazo_s: float = 2.0,
+    ajustes: AjustesConversion | None = None,
     candado: Callable[[], AbstractContextManager[object]] = nullcontext,
-    num_ctx: int = 8192,
-    num_ctx_max: int = 16384,
 ) -> ResultadoConversion:
     """Convierte el texto del SOP (de cualquier formato): plantilla primero, Gemma 4 si no
     (ADR-015).
@@ -409,10 +435,11 @@ def convertir_documento(
     Solo el camino del LLM toma `candado` (el de modelo pesado, ADR-014; puede lanzar si no se
     libera a tiempo) y crea el cliente (`fabrica_llm` da un context manager: un `ClienteLLM`, o
     `nullcontext(cliente)` para uno que no se debe cerrar). Antes de convertir se revisa que
-    Ollama responda y tenga el modelo (`plazo_s`); si no, `LLMNoDisponible` sin haber hecho nada.
+    Ollama responda y tenga el modelo (`ajustes.plazo_s`); si no, `LLMNoDisponible` sin haber
+    hecho nada.
     Al terminar, con o sin error, se le pide a Ollama que suelte el modelo (ADR-014, ADR-019).
-    Lanza `LLMError` si Ollama se cae durante la conversión y `ErrorConversionLLM` si no logró
-    una respuesta válida.
+    Lanza `LLMError` si Ollama se cae durante la conversión, `LLMTiempoExcedido` si pasa de
+    `ajustes.tope_s` y `ErrorConversionLLM` si no logró una respuesta válida.
 
     Contexto: si `contexto_necesario` pasa de `num_ctx` (la ventana del cliente, `LLM_NUM_CTX`),
     cada petición pide `num_ctx_max` (`LLM_NUM_CTX_SOP`); si tampoco cabe,
@@ -428,20 +455,28 @@ def convertir_documento(
             return resultado
         logger.info("La plantilla ignoró %d bloques de texto; se convierte con el LLM", ignorado)
 
+    ajustes = ajustes or AjustesConversion()
     prompt = cargar_prompt()
     necesario = contexto_necesario(texto, prompt)
-    if necesario > num_ctx_max:
-        logger.info("Documento de ~%d tokens: no cabe en %d", necesario, num_ctx_max)
+    if necesario > ajustes.num_ctx_max:
+        logger.info("Documento de ~%d tokens: no cabe en %d", necesario, ajustes.num_ctx_max)
         raise DocumentoDemasiadoLargo(MENSAJE_DEMASIADO_LARGO)
-    ventana = num_ctx_max if necesario > num_ctx else None
+    ventana = ajustes.num_ctx_max if necesario > ajustes.num_ctx else None
     if ventana is not None:
         logger.info("Documento de ~%d tokens: se pide num_ctx=%d", necesario, ventana)
 
     with candado(), fabrica_llm() as llm:
-        if not llm.disponible(plazo_s):
+        if not llm.disponible(ajustes.plazo_s):
             raise LLMNoDisponible("Ollama no responde o no tiene el modelo")
         try:
-            return convertir_con_llm(texto, llm, prompt, num_ctx=ventana)
+            return convertir_con_llm(
+                texto,
+                llm,
+                prompt,
+                num_ctx=ventana,
+                inactividad_s=ajustes.inactividad_s,
+                tope_s=ajustes.tope_s,
+            )
         finally:
             llm.descargar()
 
@@ -551,9 +586,20 @@ def construir_mensajes(prompt: Prompt, texto: str) -> list[dict[str, str]]:
 
 
 def convertir_con_llm(
-    texto: str, llm: ClienteLLM, prompt: Prompt | None = None, *, num_ctx: int | None = None
+    texto: str,
+    llm: ClienteLLM,
+    prompt: Prompt | None = None,
+    *,
+    num_ctx: int | None = None,
+    inactividad_s: float = 60.0,
+    tope_s: float = 900.0,
 ) -> ResultadoConversion:
     """Convierte con el LLM, con hasta `MAX_INTENTOS` llamadas (con `num_ctx` si se da).
+
+    Cada llamada va en flujo (`ClienteLLM.chat_en_flujo`): corta tras `inactividad_s` sin un
+    token, y `tope_s` vale para toda la conversión (cada intento recibe lo que queda). Un corte
+    por tiempo no se reintenta: `LLMTiempoExcedido` ("La conversión pasó de N s") o
+    `LLMNoDisponible`.
 
     Se reintenta si el modelo no devolvió JSON válido o si la respuesta no pasa
     `validar_respuesta`: cada reintento manda los mensajes iniciales y solo la corrección con el
@@ -564,9 +610,24 @@ def convertir_con_llm(
     prompt = prompt or cargar_prompt()
     base = construir_mensajes(prompt, texto)
     historial = list(base)
+    inicio = time.monotonic()
     for intento in range(1, MAX_INTENTOS + 1):
+        restante = tope_s - (time.monotonic() - inicio)
         try:
-            respuesta = llm.chat(historial, esquema=ESQUEMA_SOP_LIBRE, num_ctx=num_ctx)
+            if restante <= 0:
+                raise LLMTiempoExcedido("sin tiempo para otro intento")
+            respuesta = llm.chat_en_flujo(
+                historial,
+                esquema=ESQUEMA_SOP_LIBRE,
+                num_ctx=num_ctx,
+                inactividad_s=inactividad_s,
+                tope_s=restante,
+            )
+        except LLMTiempoExcedido:
+            logger.warning("SOP con el LLM: pasó de %g s (intento %d)", tope_s, intento)
+            raise LLMTiempoExcedido(
+                f"La conversión pasó de {tope_s:g} s; súbelo con la plantilla o en partes."
+            ) from None
         except LLMRespuestaInvalida:
             motivo = "no devolviste un JSON válido"
         else:

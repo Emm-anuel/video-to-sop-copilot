@@ -3,8 +3,9 @@
 - `TranscriptorFalso`: entrega `SEGMENTOS` (tres frases inventadas de 0 a 2.8 s).
 - `OllamaFalso`: Ollama simulado con `httpx.MockTransport` para `ClienteLLM`: `/api/tags`, las
   dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido), la
-  conversión de un SOP sin plantilla (`respuestas_sop`), `/api/generate` con `keep_alive: 0` y
-  `/api/ps` (el modelo en GPU, salvo `vram=0`).
+  conversión de un SOP sin plantilla (`respuestas_sop`, en flujo NDJSON como `chat_en_flujo`),
+  `/api/generate` con `keep_alive: 0` y `/api/ps` (el modelo en GPU, salvo `vram=0`).
+- `flujo_ndjson`: cuerpo en flujo de Ollama, con tokens lentos o un Ollama que se calla.
 - `JuezFalso`: decide cada par de la zona gris con un veredicto fijo, o deja el respaldo.
 - `VectorizadorGuionado`: el vector de cada texto según su prefijo, para fijar el coseno de cada
   par sin MiniLM.
@@ -18,6 +19,7 @@ en orden, cuándo Whisper soltó la memoria y cada petición a Ollama (ADR-014).
 import hashlib
 import json
 import math
+import time
 from collections.abc import Callable, Iterator
 from contextlib import nullcontext
 from pathlib import Path
@@ -209,16 +211,41 @@ class OllamaFalso:
             contenido = REDACCION
         if self.caido_en_chat:
             raise httpx.ConnectError("Ollama se cayó", request=request)
+        texto = contenido if isinstance(contenido, str) else json.dumps(contenido)
+        if cuerpo.get("stream"):  # chat_en_flujo (conversión del SOP)
+            return httpx.Response(200, content=flujo_ndjson(texto))
         return httpx.Response(
-            200,
-            json={
-                "model": MODELO,
-                "message": {
-                    "role": "assistant",
-                    "content": contenido if isinstance(contenido, str) else json.dumps(contenido),
-                },
-            },
+            200, json={"model": MODELO, "message": {"role": "assistant", "content": texto}}
         )
+
+
+def flujo_ndjson(
+    texto: str, *, tamano: int = 40, pausa_s: float = 0.0, callar_tras: int | None = None
+) -> Iterator[bytes]:
+    """Respuesta de `/api/chat` con `stream: true`: `texto` en fragmentos de `tamano`
+    caracteres, uno por línea NDJSON, y la línea final con `done` y las métricas de Ollama.
+
+    `pausa_s` espera antes de cada fragmento (tokens lentos). Con `callar_tras=n`, después de
+    `n` fragmentos se queda callado (sin cerrar) hasta 30 s, como un Ollama colgado.
+    """
+    fragmentos = [texto[i : i + tamano] for i in range(0, len(texto), tamano)] or [""]
+    for n, fragmento in enumerate(fragmentos):
+        if callar_tras is not None and n >= callar_tras:
+            time.sleep(30)
+            return
+        time.sleep(pausa_s)
+        linea = {"model": MODELO, "message": {"role": "assistant", "content": fragmento}}
+        yield (json.dumps(linea | {"done": False}) + "\n").encode()
+    final = {
+        "model": MODELO,
+        "message": {"role": "assistant", "content": ""},
+        "done": True,
+        "done_reason": "stop",
+        "prompt_eval_count": 100,
+        "eval_count": len(fragmentos),
+        "eval_duration": len(fragmentos) * 50_000_000,  # 20 tokens/s
+    }
+    yield (json.dumps(final) + "\n").encode()
 
 
 # ── Juez y vectorizador ──────────────────────────────────────────────────────────────────────

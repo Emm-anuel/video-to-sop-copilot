@@ -35,12 +35,13 @@ from sopvid.contrato import SOP
 from sopvid.lenguaje.lectura_sop import (
     EXTENSIONES,
     EXTENSIONES_TEXTO,
+    AjustesConversion,
     ErrorConversionLLM,
     ErrorLectura,
     convertir_documento,
     extraer_texto,
 )
-from sopvid.lenguaje.llm import ClienteLLM, LLMError
+from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMTiempoExcedido
 from sopvid.lenguaje.sop_markdown import MetodoConversion, ResultadoConversion
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
@@ -141,16 +142,16 @@ def leer_sop(
         conversion = convertir_documento(
             leido.texto,
             fabrica_llm,
-            plazo_s=settings.llm_health_timeout_s,
+            ajustes=AjustesConversion.desde_settings(settings),
             candado=lambda: candado.tomar(settings.llm_espera_gpu_s),
-            num_ctx=settings.llm_num_ctx,
-            num_ctx_max=settings.llm_num_ctx_sop,
         )
     except ErrorConversionLLM as exc:
         raise HTTPException(422, str(exc)) from None
     except ModeloPesadoOcupado:
         logger.warning("SOP sin convertir: el trabajador tiene el modelo pesado")
         raise HTTPException(503, MENSAJE_OCUPADO) from None
+    except LLMTiempoExcedido as exc:  # estaba generando: reintentar no ayuda
+        raise HTTPException(422, str(exc)) from None
     except LLMError as exc:
         logger.warning("SOP sin convertir: LLM no disponible (%s)", type(exc).__name__)
         raise HTTPException(503, MENSAJE_LLM_NO_DISPONIBLE) from None

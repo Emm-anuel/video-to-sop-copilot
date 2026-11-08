@@ -8,13 +8,21 @@ Dónde corre el modelo lo decide Ollama (GPU si la ve) salvo que se pase `num_gp
 todas las capas van a la CPU (`LLM_DISPOSITIVO=cpu`, ADR-018). `dispositivo_cargado` pregunta
 después dónde quedó de verdad.
 
-Las excepciones de httpx no salen de este módulo: se traducen a `LLMNoDisponible` o
-`LLMRespuestaInvalida`, que heredan de `LLMError`. Los mensajes de error nunca incluyen el
-texto enviado ni el devuelto (pueden contener material del cliente).
+Las excepciones de httpx no salen de este módulo: se traducen a `LLMNoDisponible`,
+`LLMRespuestaInvalida` o `LLMTiempoExcedido`, que heredan de `LLMError`. Los mensajes de error
+nunca incluyen el texto enviado ni el devuelto (pueden contener material del cliente).
+
+`chat` espera la respuesta completa con un plazo fijo (`timeout_s`). `chat_en_flujo` la pide con
+`stream: true` (el `format` con JSON Schema sigue valiendo) y mide el tiempo por fragmento: sirve
+para respuestas largas en CPU, donde un plazo fijo corta generaciones sanas (ADR-018). Cada
+llamada registra en el log los tokens generados y los tokens/s (`eval_count`, `eval_duration`).
 """
 
 import json
 import logging
+import queue
+import threading
+import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -55,6 +63,10 @@ class LLMNoDisponible(LLMError):  # noqa: N818 (nombres de dominio acordados)
 
 class LLMRespuestaInvalida(LLMError):  # noqa: N818
     """Ollama respondió, pero la respuesta no tiene la forma esperada (p. ej. JSON roto)."""
+
+
+class LLMTiempoExcedido(LLMError):  # noqa: N818
+    """El modelo seguía generando y pasó el tope total (`chat_en_flujo`). No se reintenta."""
 
 
 @dataclass(frozen=True)
@@ -250,6 +262,123 @@ class ClienteLLM:
             )
         return respuesta
 
+    def chat_en_flujo(
+        self,
+        mensajes: list[dict[str, str]],
+        *,
+        inactividad_s: float,
+        tope_s: float,
+        primer_token_s: float | None = None,
+        esquema: dict[str, Any] | None = None,
+        think: bool | None = None,
+        num_ctx: int | None = None,
+    ) -> RespuestaLLM:
+        """Como `chat`, pero con `stream: true` y plazos por fragmento en lugar de uno fijo.
+
+        - Hasta el primer fragmento espera `primer_token_s` (por defecto `timeout_s`, que cubre
+          la carga en frío y la lectura del prompt: en CPU, ~70 s para 3 000 tokens).
+        - Después, corta si pasan `inactividad_s` sin un fragmento nuevo.
+        - En total, corta en `tope_s` aunque siga llegando texto.
+
+        Sin conexión, sin ningún fragmento o con Ollama callado a media respuesta:
+        `LLMNoDisponible` ("Ollama no responde"). Generando y pasado el tope: `LLMTiempoExcedido`.
+        No reintenta nada (un corte por tiempo repetido solo duplica la espera); los reintentos
+        por JSON inválido le tocan a quien llama. Un hilo lee el flujo y este espera con plazo:
+        al cortar, el hilo cierra la conexión en el siguiente fragmento y Ollama deja de generar.
+        """
+        primer = self.timeout_s if primer_token_s is None else primer_token_s
+        cuerpo = self.cuerpo(mensajes, esquema=esquema, think=think, stream=True, num_ctx=num_ctx)
+        cola: queue.Queue[tuple[str, Any]] = queue.Queue()
+        cancelar = threading.Event()
+        lectura_s = max(primer, inactividad_s) + 5  # red de seguridad del hilo; manda la cola
+        hilo = threading.Thread(
+            target=self._leer_flujo,
+            args=(cuerpo, cola, cancelar, lectura_s),
+            name="llm-flujo",
+            daemon=True,
+        )
+        inicio = time.monotonic()
+        hilo.start()
+        partes: list[str] = []
+        final: dict[str, Any] | None = None
+        try:
+            while final is None:
+                restante = tope_s - (time.monotonic() - inicio)
+                plazo = primer if not partes else inactividad_s
+                if restante <= 0:
+                    raise LLMTiempoExcedido(f"la generación pasó de {tope_s:g} s")
+                try:
+                    tipo, valor = cola.get(timeout=min(plazo, restante))
+                except queue.Empty:
+                    if time.monotonic() - inicio >= tope_s:
+                        raise LLMTiempoExcedido(f"la generación pasó de {tope_s:g} s") from None
+                    if not partes:
+                        raise LLMNoDisponible(
+                            f"Ollama no responde: ningún token en {primer:g} s"
+                        ) from None
+                    raise LLMNoDisponible(
+                        f"Ollama no responde: {inactividad_s:g} s sin tokens a media respuesta"
+                    ) from None
+                if tipo == "error":
+                    raise valor
+                if tipo == "fin":
+                    raise LLMNoDisponible("Ollama cortó la respuesta antes de terminar")
+                if "error" in valor:
+                    raise LLMError(f"Ollama informó un error: {str(valor['error'])[:200]}")
+                contenido = (valor.get("message") or {}).get("content", "")
+                if not isinstance(contenido, str):
+                    raise LLMRespuestaInvalida("message.content no es texto")
+                partes.append(contenido)
+                if valor.get("done"):
+                    final = valor
+        finally:
+            cancelar.set()
+        return self._respuesta("".join(partes), final, con_esquema=esquema is not None)
+
+    def _leer_flujo(
+        self,
+        cuerpo: dict[str, Any],
+        cola: "queue.Queue[tuple[str, Any]]",
+        cancelar: threading.Event,
+        lectura_s: float,
+    ) -> None:
+        """Hilo de `chat_en_flujo`: pone en `cola` cada línea NDJSON ya leída, un error o "fin"."""
+        try:
+            with self._http.stream(
+                "POST",
+                "/api/chat",
+                json=cuerpo,
+                timeout=httpx.Timeout(self.timeout_s, read=lectura_s),
+            ) as respuesta:
+                if respuesta.status_code == 404 or respuesta.status_code >= 500:
+                    respuesta.read()
+                    cola.put(("error", LLMNoDisponible(
+                        f"Ollama respondió {respuesta.status_code}: {_mensaje_de_error(respuesta)}"
+                    )))  # fmt: skip
+                    return
+                if respuesta.is_error:
+                    respuesta.read()
+                    cola.put(("error", LLMError(
+                        f"Ollama rechazó la petición ({respuesta.status_code}): "
+                        f"{_mensaje_de_error(respuesta)}"
+                    )))  # fmt: skip
+                    return
+                for linea in respuesta.iter_lines():
+                    if cancelar.is_set():
+                        return
+                    if not linea.strip():
+                        continue
+                    try:
+                        cola.put(("dato", json.loads(linea)))
+                    except ValueError:
+                        cola.put(("error", LLMRespuestaInvalida("Ollama mandó una línea sin JSON")))
+                        return
+            cola.put(("fin", None))
+        except httpx.HTTPError as exc:
+            cola.put(("error", LLMNoDisponible(
+                f"Ollama no responde en {self.base_url} ({type(exc).__name__})"
+            )))  # fmt: skip
+
     def _interpretar(self, respuesta: httpx.Response, *, con_esquema: bool) -> RespuestaLLM:
         try:
             cuerpo = respuesta.json()
@@ -258,7 +387,13 @@ class ClienteLLM:
             raise LLMRespuestaInvalida("Ollama devolvió un cuerpo sin message.content") from exc
         if not isinstance(texto, str):
             raise LLMRespuestaInvalida("message.content no es texto")
+        return self._respuesta(texto, cuerpo, con_esquema=con_esquema)
 
+    def _respuesta(self, texto: str, cuerpo: dict[str, Any], *, con_esquema: bool) -> RespuestaLLM:
+        """Arma la `RespuestaLLM` con el texto completo y el cuerpo final de Ollama (métricas),
+        y registra los tokens generados y su velocidad."""
+        metricas = {c: cuerpo[c] for c in CAMPOS_METRICAS if c in cuerpo}
+        _registrar_metricas(metricas)
         razon_fin = cuerpo.get("done_reason")
         datos = None
         if con_esquema:
@@ -275,8 +410,28 @@ class ClienteLLM:
             datos=datos,
             modelo=cuerpo.get("model", self.modelo),
             razon_fin=razon_fin,
-            metricas={c: cuerpo[c] for c in CAMPOS_METRICAS if c in cuerpo},
+            metricas=metricas,
         )
+
+
+def tokens_por_segundo(metricas: dict[str, int]) -> float | None:
+    """Velocidad de generación según Ollama (`eval_count` / `eval_duration`), o None."""
+    tokens, duracion = metricas.get("eval_count"), metricas.get("eval_duration")
+    if not tokens or not duracion:
+        return None
+    return tokens / (duracion / 1e9)
+
+
+def _registrar_metricas(metricas: dict[str, int]) -> None:
+    velocidad = tokens_por_segundo(metricas)
+    if velocidad is None:
+        return
+    logger.info(
+        "LLM: %d tokens de entrada, %d generados a %.1f tokens/s",
+        metricas.get("prompt_eval_count", 0),
+        metricas["eval_count"],
+        velocidad,
+    )
 
 
 def get_cliente_llm() -> Iterator[ClienteLLM]:

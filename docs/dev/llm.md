@@ -145,6 +145,16 @@ que se pida lo contrario, reintenta una sola vez ante timeout o error de red y l
 `LLMNoDisponible`, `LLMRespuestaInvalida` o `LLMError` en lugar de excepciones de httpx.
 `chat(..., num_ctx=N)` cambia la ventana solo en esa petición (Ollama recarga el modelo si cambia).
 
+`chat_en_flujo` pide la respuesta con `stream: true` (el `format` con JSON Schema sigue valiendo) y
+cambia el plazo fijo por plazos por fragmento: espera el primero hasta `LLM_TIMEOUT_S` (carga y
+lectura del prompt), después corta si pasan `LLM_INACTIVIDAD_S` (60 s) sin un fragmento, y en
+total corta en el tope que se le pase. Lo usa la conversión del SOP, con tope `LLM_TIMEOUT_SOP_S`
+(900 s) para toda la conversión: en CPU genera ≈ 16 tokens/s y un SOP tarda 150-200 s, más que
+el `LLM_TIMEOUT_S` de 180 s con que fallaba. Los errores se distinguen: `LLMNoDisponible`
+("Ollama no responde": sin conexión, sin ningún token o callado a media respuesta) y
+`LLMTiempoExcedido` (seguía generando y pasó el tope). Ninguno se reintenta. Cada llamada, en
+flujo o no, deja en el log los tokens generados y los tokens/s (`eval_count`, `eval_duration`).
+
 ## Ventana de contexto para convertir un SOP (`LLM_NUM_CTX_SOP`, ADR-015)
 
 La conversión de un SOP sin plantilla (`lectura_sop.convertir_documento`) estima los tokens antes

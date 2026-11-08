@@ -6,6 +6,7 @@ import time
 import httpx
 import pytest
 
+from dobles import flujo_ndjson
 from sopvid.lenguaje.llm import (
     PLAZO_DESCARGA_S,
     SEMILLA,
@@ -13,7 +14,9 @@ from sopvid.lenguaje.llm import (
     LLMError,
     LLMNoDisponible,
     LLMRespuestaInvalida,
+    LLMTiempoExcedido,
     dispositivo_de,
+    tokens_por_segundo,
 )
 from sopvid.plataforma.config import Settings
 
@@ -392,3 +395,126 @@ def test_dispositivo_de_con_tamanos_raros_es_desconocido():
     assert dispositivo_de(None, 0) == "desconocido"
     assert dispositivo_de(0, 0) == "desconocido"
     assert dispositivo_de(100, "100") == "desconocido"
+
+
+# ── chat_en_flujo: plazos por fragmento (ADR-018) ────────────────────────────────────────────
+
+
+def _flujo(texto: str, **kwargs):
+    """Manejador que responde en flujo con `flujo_ndjson` y guarda el cuerpo pedido."""
+    pedidos: list[dict] = []
+
+    def manejador(request: httpx.Request) -> httpx.Response:
+        pedidos.append(json.loads(request.content))
+        return httpx.Response(200, content=flujo_ndjson(texto, **kwargs))
+
+    return manejador, pedidos
+
+
+def test_flujo_arma_la_respuesta_y_registra_tokens_por_segundo(caplog):
+    texto = json.dumps({"respuesta": "Cerrar la llave de paso antes de abrir la carcasa."})
+    manejador, pedidos = _flujo(texto, tamano=7)
+
+    with cliente_con(manejador) as cliente, caplog.at_level("INFO", logger="sopvid.lenguaje.llm"):
+        r = cliente.chat_en_flujo(
+            [{"role": "user", "content": "x"}],
+            esquema=ESQUEMA,
+            num_ctx=16384,
+            inactividad_s=1,
+            tope_s=5,
+        )
+
+    assert r.datos == json.loads(texto)
+    assert r.texto == texto
+    assert r.metricas["eval_count"] == -(-len(texto) // 7)
+    assert pedidos[0]["stream"] is True and pedidos[0]["format"] == ESQUEMA
+    assert pedidos[0]["options"]["num_ctx"] == 16384
+    assert tokens_por_segundo(r.metricas) == pytest.approx(20.0)
+    assert "generados a 20.0 tokens/s" in caplog.text
+
+
+def test_flujo_con_tokens_lentos_no_corta_si_siguen_llegando():
+    """Cada fragmento tarda 0.15 s: más que la mitad del plazo, pero nunca más que el plazo."""
+    manejador, _ = _flujo(json.dumps({"respuesta": "lento"}), tamano=5, pausa_s=0.15)
+
+    with cliente_con(manejador) as cliente:
+        r = cliente.chat_en_flujo(
+            [{"role": "user", "content": "x"}], esquema=ESQUEMA, inactividad_s=0.3, tope_s=10
+        )
+
+    assert r.datos == {"respuesta": "lento"}
+
+
+def test_flujo_mudo_desde_el_inicio_es_ollama_no_responde():
+    manejador, _ = _flujo("{}", callar_tras=0)
+    inicio = time.monotonic()
+
+    with cliente_con(manejador) as cliente, pytest.raises(LLMNoDisponible) as exc:
+        cliente.chat_en_flujo(
+            [{"role": "user", "content": "x"}], primer_token_s=0.3, inactividad_s=0.1, tope_s=10
+        )
+
+    assert str(exc.value) == "Ollama no responde: ningún token en 0.3 s"
+    assert time.monotonic() - inicio < 2  # espera el primer token, no el tope
+
+
+def test_flujo_que_se_calla_a_media_respuesta():
+    manejador, _ = _flujo(json.dumps({"respuesta": "x" * 100}), tamano=10, callar_tras=3)
+
+    with cliente_con(manejador) as cliente, pytest.raises(LLMNoDisponible) as exc:
+        cliente.chat_en_flujo([{"role": "user", "content": "x"}], inactividad_s=0.2, tope_s=10)
+
+    assert "0.2 s sin tokens a media respuesta" in str(exc.value)
+
+
+def test_flujo_que_pasa_el_tope_aunque_siga_generando():
+    manejador, pedidos = _flujo(json.dumps({"respuesta": "x" * 200}), tamano=5, pausa_s=0.05)
+    inicio = time.monotonic()
+
+    with cliente_con(manejador) as cliente, pytest.raises(LLMTiempoExcedido) as exc:
+        cliente.chat_en_flujo([{"role": "user", "content": "x"}], inactividad_s=1, tope_s=0.4)
+
+    assert str(exc.value) == "la generación pasó de 0.4 s"
+    assert time.monotonic() - inicio < 1.5
+    assert len(pedidos) == 1  # sin reintento
+
+
+def test_flujo_sin_conexion_no_reintenta():
+    pedidos = []
+
+    def manejador(request):
+        pedidos.append(request)
+        raise httpx.ConnectError("apagado", request=request)
+
+    with cliente_con(manejador) as cliente, pytest.raises(LLMNoDisponible, match="no responde"):
+        cliente.chat_en_flujo([{"role": "user", "content": "x"}], inactividad_s=1, tope_s=5)
+    assert len(pedidos) == 1
+
+
+@pytest.mark.parametrize(
+    ("estado", "error"), [(404, LLMNoDisponible), (500, LLMNoDisponible), (400, LLMError)]
+)
+def test_flujo_con_error_http(estado, error):
+    def manejador(request):
+        return httpx.Response(estado, json={"error": "model not found"})
+
+    with cliente_con(manejador) as cliente, pytest.raises(error, match="model not found"):
+        cliente.chat_en_flujo([{"role": "user", "content": "x"}], inactividad_s=1, tope_s=5)
+
+
+def test_flujo_con_json_roto_es_respuesta_invalida():
+    manejador, _ = _flujo('{"respuesta": "sin cerrar')
+
+    with cliente_con(manejador) as cliente, pytest.raises(LLMRespuestaInvalida):
+        cliente.chat_en_flujo(
+            [{"role": "user", "content": "x"}], esquema=ESQUEMA, inactividad_s=1, tope_s=5
+        )
+
+
+def test_flujo_cortado_antes_de_done():
+    def manejador(request):
+        linea = {"model": MODELO, "message": {"content": "{"}, "done": False}
+        return httpx.Response(200, content=(json.dumps(linea) + "\n").encode())
+
+    with cliente_con(manejador) as cliente, pytest.raises(LLMNoDisponible, match="cortó"):
+        cliente.chat_en_flujo([{"role": "user", "content": "x"}], inactividad_s=1, tope_s=5)
