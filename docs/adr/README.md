@@ -24,6 +24,7 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 | [ADR-017](ADR-017-validacion-en-el-trabajo.md) | Validar en el mismo trabajo que el análisis, sin cola ni migración propias | Propuesto | 2026-10-31 |
 | [ADR-018](ADR-018-cpu-base-gpu-opcional.md) | Usar la CPU como base y la GPU solo para acelerar, sin cambiar de modelo | Propuesto; reemplazará a ADR-014 tras medir en CPU | 2026-10-27 |
 | [ADR-019](ADR-019-validacion-sin-llm.md) | Validar sin LLM: error reprocesable antes de empezar, reporte provisional a medias | Aprobado por el equipo | 2026-10-27 |
+| [ADR-020](ADR-020-afinidad-personas-minilm.md) | Afinidad y personas con MiniLM: afinidad por campo con mapeo explícito, detención tras la ficha, roles por núcleo y complemento, responsable por paso | Propuesto (decisiones de diseño del equipo, 8 nov) | 2026-11-08 |
 
 Los ADR-002, 003 y 008 se aprueban con el documento "Requerimientos técnicos y funcionales de proyecto
 SOP V1.0", escrito por el patrocinador (16 oct 2026), que deja fuera de la versión 1.0 lo que el NDA
