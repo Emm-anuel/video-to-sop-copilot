@@ -120,6 +120,49 @@ Siguientes pasos:
   (`video_a=… video_a=…`); repetir cada configuración al menos 3 veces antes de atribuir una
   diferencia al dispositivo.
 
+## Seguimiento: conversión del SOP con Gemma 4 en CPU y en GPU (7 nov 2026)
+
+Mismo equipo de referencia (RTX 2070 SUPER, i7-10700K), `gemma4:e4b-it-q4_K_M`, Ollama 0.40.2.
+En CPU, `LLM_DISPOSITIVO=cpu` y el resto de los valores por defecto (Ollama confirmó "cpu" en
+`/api/ps`). Dos documentos inventados: el Word en prosa del fixture (1 420 caracteres) y un texto
+de 9 047 caracteres con la misma prosa y notas que no son pasos (`num_ctx` 16384). Una corrida por
+celda; datos en `docs/adr/datos/sop/antes-v2-20261107-1949.json` (prompt v2) y
+`despues-v3-20261107-2014.json` (prompt v3, esquema recortado, ADR-015).
+
+| Documento · prompt | GPU: tiempo · tokens/s · pasos | CPU: tiempo · tokens/s · pasos | Tokens de salida (GPU / CPU) |
+|---|---|---|---|
+| Prosa · v2 | 26.5 s · 110.0 · 8 | 138.0 s · 17.0 · 8 | 1 829 / 1 829 |
+| Largo · v2 | 25.7 s · 103.5 · **8** | 201.2 s · 15.3 · **9** | 1 842 / 1 999 |
+| Prosa · v3 | 17.5 s · 110.2 · 8 | 95.9 s · 17.2 · 8 | 1 156 / 1 130 |
+| Largo · v3 | 19.1 s · 103.8 · 8 | 146.8 s · 14.9 · 8 | 1 163 / 1 181 |
+
+- **CPU, unas 6.5 veces más lento:** genera ≈ 15-17 tokens/s contra ≈ 104-110 en GPU, y lee el
+  prompt a ≈ 55 tokens/s. Con el plazo fijo de 180 s el texto largo con v2 (201 s) fallaba; con la
+  respuesta en flujo (corte por inactividad, tope de 900 s) y `POST /sops` asíncrono, los dos
+  documentos convierten sin error en CPU con los valores por defecto. El esquema recortado bajó el
+  peor caso en CPU de 201 a 147 s.
+- **El texto largo con v2: 8 pasos en GPU, 9 en CPU.** Los dos parten igual hasta el paso 2
+  ("Girar la llave de paso a la derecha"). La CPU agrega un paso 3, "Verificar posición de la
+  manija", con la frase "La manija debe quedar atravesada a la tubería."; la GPU pone esa misma
+  frase como punto de validación del paso 2. **Se apega más al documento la de 8 (GPU):** la
+  frase no es una acción nueva, es cómo se comprueba que la llave quedó cerrada; en la plantilla
+  original del fixture es la "Validación" del paso 2. Del paso 4 en adelante coinciden (con
+  palabras distintas). Con v3, los dos dispositivos dan 8 pasos en los dos documentos, con la
+  misma división y nombres que cambian de palabras ("Presionar botón rojo" en GPU, "Presionar botón
+  y purgar aire" en CPU).
+- **RNF-07 significa el mismo modelo, no la misma salida idéntica.** En CPU y en GPU corren los
+  mismos pesos (`gemma4:e4b-it-q4_K_M`), el mismo prompt, temperatura 0 y la misma semilla; lo que
+  cambia es la aritmética de punto flotante de cada dispositivo, que en los tokens casi empatados
+  elige otro y desde ahí el texto diverge. No se puede exigir la salida idéntica byte a byte (ya se
+  veía en GPU sola, ver arriba: A dio 100 / 83.3 / 100 %). Lo que sí se exige es no cambiar de
+  modelo según el equipo (opción B, descartada).
+- **RF-04 cubre la diferencia.** Un SOP convertido con el LLM sale con `metodo: "llm"` y sus
+  advertencias, y debe pasar por la corrección humana antes de usarse para validar (RF-04,
+  ADR-008; la pantalla es de S5 y todavía no existe): un paso de más como el "Verificar posición
+  de la manija" es justo lo que esa revisión corrige. El
+  código ya garantiza lo que no puede variar: cada paso trae una cita verificada contra el
+  documento, y lo que no la tiene sale con confianza baja y la advertencia `paso_sin_evidencia`.
+
 ## Referencias
 
 - ADR-006 (Gemma 4 y Ollama), ADR-012 (MiniLM en CPU), ADR-014 (hardware de referencia),
