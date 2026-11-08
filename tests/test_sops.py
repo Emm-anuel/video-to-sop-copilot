@@ -91,7 +91,12 @@ def test_carga_txt_con_advertencias(client: TestClient, db_session: Session) -> 
     [advertencia] = cuerpo["advertencias"]
     assert (advertencia["tipo"], advertencia["linea"]) == ("numeracion", 11)
     assert "se esperaba el paso 6 y llegó el 7" in advertencia["mensaje"]
-    assert db_session.get(Sop, cuerpo["id"]).archivo_original.endswith("/original.txt")
+    fila = db_session.get(Sop, cuerpo["id"])
+    assert fila.archivo_original.endswith("/original.txt")
+    # La conversión queda en la base (migración 0003), igual que en la respuesta.
+    assert (fila.metodo, fila.advertencias) == ("plantilla", [advertencia])
+    detalle = client.get(f"/sops/{cuerpo['id']}").json()
+    assert (detalle["metodo"], detalle["advertencias"]) == ("plantilla", [advertencia])
 
 
 def test_carga_con_bom_y_crlf(client: TestClient) -> None:
@@ -217,7 +222,21 @@ def test_consulta_del_sop(client: TestClient) -> None:
         "cargado",
     )
     assert cuerpo["sop"] == SOP_EJEMPLO
+    assert (cuerpo["metodo"], cuerpo["advertencias"]) == ("plantilla", [])
     assert "creado" in cuerpo
+
+
+def test_consulta_de_un_sop_sin_conversion_guardada(
+    client: TestClient, db_session: Session
+) -> None:
+    """Un SOP generado o cargado antes de la migración 0003: metodo None y sin advertencias."""
+    fila = Sop(titulo="Generado", origen="generado", contenido=SOP_EJEMPLO)
+    db_session.add(fila)
+    db_session.commit()
+
+    cuerpo = client.get(f"/sops/{fila.id}").json()
+
+    assert (cuerpo["metodo"], cuerpo["advertencias"]) == (None, [])
 
 
 def test_consulta_404(client: TestClient) -> None:

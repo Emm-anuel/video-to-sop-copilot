@@ -38,7 +38,7 @@ import time
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
@@ -145,6 +145,7 @@ class SopLeido:
 def guardar_sop(session: Session, media: Path, leido: SopLeido) -> Sop:
     """Agrega la fila del SOP (sin commit) y escribe el original en
     `media/sops/<id>/original.<ext>`; en la fila va la ruta relativa, nunca el nombre original.
+    También guarda cómo se convirtió: `metodo` y las advertencias (tipo, línea y mensaje).
 
     Si la escritura falla, revierte la sesión y borra la carpeta. Quien llama hace el commit y,
     si algo falla después, borra `carpeta_sop(media, fila.id)`.
@@ -155,6 +156,8 @@ def guardar_sop(session: Session, media: Path, leido: SopLeido) -> Sop:
         origen="cargado",
         archivo_original="",
         contenido=sop.model_dump(mode="json"),
+        metodo=leido.conversion.metodo,
+        advertencias=[asdict(a) for a in leido.conversion.advertencias],
     )
     session.add(fila)
     session.flush()  # asigna el id

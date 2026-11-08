@@ -554,6 +554,26 @@ def test_api_word_con_tabla_de_pasos(client: TestClient, entorno: Entorno) -> No
     fila = entorno.session.get(Sop, cuerpo["id"])
     assert SOP.model_validate(fila.contenido).pasos == SOP_MD.pasos
     assert fila.archivo_original.endswith("/original.docx")
+    assert (fila.metodo, fila.advertencias) == ("llm", [])
+
+
+def test_api_guarda_las_advertencias_del_llm(client: TestClient, entorno: Entorno) -> None:
+    datos = respuesta_llm()
+    datos["pasos"][1]["cita_origen"] = "girar la manija roja dos vueltas"
+    entorno.ollama.respuestas_sop = [datos]
+
+    cuerpo = cargar(client, docx_con_tabla(SOP_MD), "procedimiento.docx").json()
+
+    esperada = {
+        "tipo": "paso_sin_evidencia",
+        "linea": None,
+        "mensaje": "la cita del paso 2 no aparece tal cual en el documento; revísalo",
+    }
+    assert cuerpo["advertencias"] == [esperada]
+    fila = entorno.session.get(Sop, cuerpo["id"])
+    assert (fila.metodo, fila.advertencias) == ("llm", [esperada])
+    detalle = client.get(f"/sops/{cuerpo['id']}").json()
+    assert (detalle["metodo"], detalle["advertencias"]) == ("llm", [esperada])
 
 
 def test_api_pdf_sin_texto_422(client: TestClient, entorno: Entorno) -> None:
@@ -663,6 +683,7 @@ def test_api_video_con_sop_adjunto_lo_convierte_el_trabajador(
     assert _adjunto(entorno, video_id) == []
     fila = entorno.session.get(Sop, video.sop_id)
     assert fila.archivo_original == f"sops/{fila.id}/original.{formato}"
+    assert fila.metodo == metodo  # el trabajador también guarda cómo lo convirtió
     directo = cargar(client, sop[1], sop[0]).json()  # el mismo archivo por POST /sops
     assert directo["metodo"] == metodo
     assert fila.contenido == entorno.session.get(Sop, directo["id"]).contenido

@@ -121,14 +121,17 @@ docs/
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
 >   en Docker, estado del LLM en `/health`, ADR-006 con su benchmark y el prototipo de segmentación
 >   (`percepcion/segmentacion.py`, ADR-010). Se reutilizan en 1.0.
-> - **Lectura del SOP en Markdown/TXT:** con código, sin LLM, según la plantilla de
+> - **Lectura del SOP:** con código, sin LLM, según la plantilla de
 >   `docs/contrato/plantilla_sop.md` (`lenguaje/sop_markdown.py`, `scripts/convertir_sop.py`,
 >   ADR-015). PDF y Word (7 nov, rama `feat/sop-pdf-word`): `lenguaje/lectura_sop.py` saca el
->   texto y prueba la plantilla; si no la sigue, Gemma 4 (`prompts/sop_texto_libre_v1.md`). También
->   como SOP adjunto en `POST /videos` (RF-02).
+>   texto y prueba la plantilla; si no la sigue (también un .md o .txt), Gemma 4
+>   (`prompts/sop_texto_libre_v2.md`, una cita verificada por paso, `num_ctx` según el largo).
+>   La conversión con Gemma y el trabajador comparten el candado de modelo pesado
+>   (`plataforma/hardware.py`); un SOP adjunto a `POST /videos` (RF-02) lo convierte el
+>   trabajador. `sops.metodo` y `sops.advertencias` guardan cómo se convirtió (migración `0003`).
 > - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
->   `palabras`, `busquedas`) en `plataforma/modelos.py` y la migración `0002`; `sops.codigo` es
->   una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
+>   `palabras`, `busquedas`) en `plataforma/modelos.py` y las migraciones `0002` y `0003`;
+>   `sops.codigo` es una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
 > - **Ingesta de audio y transcripción (25 oct, en `main`):**
 >   `percepcion/medios.py` (duración con ffprobe, audio mp3 mono 16 kHz con ffmpeg) y
 >   `percepcion/transcripcion.py` (RF-09 idioma con confianza o fijado a mano; RF-10 tiempo por

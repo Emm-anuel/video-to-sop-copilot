@@ -81,10 +81,15 @@ class SopCreado(BaseModel):
 
 
 class SopDetalle(BaseModel):
+    """`metodo` y `advertencias`: cómo se convirtió (None y [] en un SOP generado o anterior a
+    la migración 0003)."""
+
     id: int
     codigo: str
     origen: str
     creado: datetime
+    metodo: MetodoConversion | None
+    advertencias: list[AdvertenciaSOP]
     sop: SOP
 
 
@@ -205,5 +210,7 @@ def detalle_sop(sop_id: int, session: Annotated[Session, Depends(get_session)]) 
         codigo=fila.codigo,
         origen=fila.origen,
         creado=fila.creado,
+        metodo=fila.metodo,
+        advertencias=[AdvertenciaSOP.model_validate(a) for a in fila.advertencias],
         sop=SOP.model_validate(fila.contenido),
     )
