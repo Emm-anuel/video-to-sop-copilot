@@ -123,7 +123,9 @@ docs/
 >   (`percepcion/segmentacion.py`, ADR-010). Se reutilizan en 1.0.
 > - **Lectura del SOP en Markdown/TXT:** con código, sin LLM, según la plantilla de
 >   `docs/contrato/plantilla_sop.md` (`lenguaje/sop_markdown.py`, `scripts/convertir_sop.py`,
->   ADR-015). PDF y Word siguen pendientes (S5).
+>   ADR-015). PDF y Word (7 nov, rama `feat/sop-pdf-word`): `lenguaje/lectura_sop.py` saca el
+>   texto y prueba la plantilla; si no la sigue, Gemma 4 (`prompts/sop_texto_libre_v1.md`). También
+>   como SOP adjunto en `POST /videos` (RF-02).
 > - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
 >   `palabras`, `busquedas`) en `plataforma/modelos.py` y la migración `0002`; `sops.codigo` es
 >   una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
@@ -173,8 +175,7 @@ docs/
 > - **Frontend (7 nov):** Emmanuel crea la base de Angular y la pantalla `/nuevo` (subir SOP y video);
 >   Sara hace la pantalla del reporte (`/videos/:id/reporte`, RF-20) sobre esa base, reemplazando un
 >   componente provisional. Detalle, contrato y reglas de presentación: `frontend/README.md`.
-> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
->   SOP en PDF y Word, SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
+> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
 >   MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en

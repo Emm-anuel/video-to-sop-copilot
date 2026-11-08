@@ -41,6 +41,20 @@ archivo a JSON.
 Gemma 4 convierte solo los SOP sin plantilla (texto libre, PDF y Word) en S5. Su salida se
 valida contra el mismo contrato `SOP`; el diseño de ese camino se decide al implementarlo.
 
+**Diseño del camino con Gemma 4 (S5, 7 nov 2026, `sopvid.lenguaje.lectura_sop`).**
+`extraer_texto` saca el texto sin LLM: PDF con pdfplumber (líneas partidas por el ancho de la
+página vueltas a unir, tablas como líneas "Encabezado: valor | …" en su lugar) y Word con
+python-docx (cuerpo en orden de documento, encabezados como "#", listas con su viñeta o número).
+Un PDF sin texto se rechaza con un mensaje que pide Word, TXT o Markdown (el OCR es PR-10). Luego
+`convertir_documento` intenta `convertir_sop`; si falla o ignoró texto (advertencias
+`clave_desconocida` o `seccion_desconocida`), convierte con Gemma 4: prompt
+`prompts/sop_texto_libre_v1.md`, JSON restringido a un esquema sin números de paso, fuente ni
+tiempos (los pone el código), temperatura 0, `SEMILLA` y hasta 3 intentos como el juez. El código
+pone `fuente="documento"`, hereda el responsable del resumen igual que la plantilla y marca con
+`nombre_sin_evidencia` cada paso cuyo nombre no aparece tal cual en el texto (normalizado). La
+respuesta de `POST /sops` dice `metodo: "plantilla" | "llm"`. Si Ollama no responde, 503 y no se
+guarda nada (criterio de ADR-019). Markdown y TXT siguen solo con la plantilla.
+
 ## Consecuencias
 
 - **Positivas:** la conversión es determinista, se prueba sin Ollama ni base de datos y cuesta
@@ -54,6 +68,29 @@ valida contra el mismo contrato `SOP`; el diseño de ese camino se decide al imp
 - **Seguimiento:** en S5, al implementar RF-01 y RF-02, se mide cuántos SOP reales (por
   identificador, sin copiarlos al repo) siguen la plantilla y cuántos necesitan a Gemma 4. Se
   decide entonces si la salida del LLM pasa por la misma revisión humana (RF-04).
+  - **Primera prueba con Gemma 4 real (7 nov 2026,
+    [`datos/sop/prosa-20261107-1845.json`](datos/sop/prosa-20261107-1845.json)).** Entrada: un
+    Word en prosa generado por `docx_en_prosa` a partir de `tests/fixtures/sop_filtro_agua.md`
+    (inventado; sin secciones, listas ni nombres de paso). `gemma4:e4b-it-q4_K_M` en la RTX 2070
+    SUPER, 3 corridas: las 3 idénticas, en el primer intento, 22–27 s cada una.
+    - Bien: 6 de 6 pasos, en el orden del documento, sin juntar ni partir; nombres en
+      infinitivo; objetivo, lugar y responsable copiados del texto; alcance, horario, tiempos,
+      riesgos y fallas en vacío, porque la prosa no los trae (no inventó). Puntos de validación y
+      equipo por paso salen del texto.
+    - Mal: (1) los nombres son telegráficos ("Girar llave de paso antes del filtro" por "girar
+      la llave de paso que está antes del filtro"), así que la verificación literal los marca a
+      los 6 como `nombre_sin_evidencia` y el aviso pierde valor; (2) en 3 pasos la acción quedó
+      solo en el nombre y la descripción empieza a media frase ("antes de tocar el filtro.");
+      (3) inventó descripciones genéricas para el equipo ("material necesario") y puso como
+      punto de validación una acción ("Revisar el anillo de hule…").
+    - Siguiente: un `sop_texto_libre_v2` que pida copiar el nombre como fragmento contiguo del
+      texto (o relajar la verificación a cobertura de palabras) y la descripción completa, y
+      dejar vacía la descripción del equipo si el documento no la trae. Medir con SOP reales en
+      cuanto lleguen. Mientras, la salida del LLM debe pasar por la corrección humana (RF-04).
+    - Riesgos abiertos: `POST /sops` convierte dentro de la petición (≈25 s en GPU, más en CPU)
+      y no pasa por la cola de un trabajador, así que Gemma puede cargarse mientras Whisper
+      transcribe otro video (ADR-014); un documento largo puede no caber en `LLM_NUM_CTX`
+      (8192) y fallar los 3 intentos.
 
 ## Referencias
 
@@ -61,3 +98,5 @@ valida contra el mismo contrato `SOP`; el diseño de ese camino se decide al imp
 - RF-01 a RF-05; ADR-004, ADR-006 (usos de Gemma 4), ADR-011, ADR-014.
 - `docs/contrato/plantilla_sop.md`, `src/sopvid/lenguaje/sop_markdown.py`,
   `scripts/convertir_sop.py`, `tests/test_sop_markdown.py`.
+- `src/sopvid/lenguaje/lectura_sop.py`, `src/sopvid/lenguaje/prompts/sop_texto_libre_v1.md`,
+  `tests/test_lectura_sop.py`; ADR-019 (503 sin LLM).

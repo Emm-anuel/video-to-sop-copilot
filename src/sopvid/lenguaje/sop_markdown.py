@@ -37,7 +37,9 @@ TipoAdvertencia = Literal[
     "tiempos",
     "infinitivo",
     "valor_invalido",
+    "nombre_sin_evidencia",  # solo en la conversión con el LLM (lectura_sop.py)
 ]
+MetodoConversion = Literal["plantilla", "llm"]
 
 TOLERANCIA_TIEMPOS = 0.20  # la suma de los pasos puede alejarse ±20 % de la duración total
 _TERMINACIONES_INFINITIVO = ("ar", "er", "ir", "arse", "erse", "irse")
@@ -114,8 +116,11 @@ class Advertencia:
 
 @dataclass
 class ResultadoConversion:
+    """`metodo`: "plantilla" si lo convirtió este parser; "llm" si fue Gemma 4 (ADR-015)."""
+
     sop: SOP
     advertencias: list[Advertencia] = field(default_factory=list)
+    metodo: MetodoConversion = "plantilla"
 
 
 @dataclass
@@ -499,10 +504,15 @@ def _revisar_tiempos(pasos: Sequence[PasoSOP], total: float | None, avisos: _Avi
         )
 
 
+def empieza_con_infinitivo(nombre: str) -> bool:
+    """True si la primera palabra del nombre de un paso termina como infinitivo (-ar, -er…)."""
+    palabras = _clave(nombre).split()
+    return bool(palabras) and palabras[0].endswith(_TERMINACIONES_INFINITIVO)
+
+
 def _revisar_infinitivos(pasos: Sequence[_PasoLeido], avisos: _Avisos) -> None:
     for numero, p in enumerate(pasos, start=1):
-        palabras = _clave(p.nombre).split()
-        if not palabras or not palabras[0].endswith(_TERMINACIONES_INFINITIVO):
+        if not empieza_con_infinitivo(p.nombre):
             avisos.agregar(
                 "infinitivo", p.linea, f"el nombre del paso {numero} no empieza con un infinitivo"
             )

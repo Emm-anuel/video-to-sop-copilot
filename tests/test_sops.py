@@ -105,7 +105,7 @@ def test_error_sop_da_422_con_el_mensaje(
     assert not (settings.media_path / "sops").exists()
 
 
-@pytest.mark.parametrize("nombre", ["procedimiento.pdf", "procedimiento.docx", "sin_extension"])
+@pytest.mark.parametrize("nombre", ["procedimiento.doc", "procedimiento.odt", "sin_extension"])
 def test_extension_no_permitida(
     client: TestClient, db_session: Session, settings: Settings, nombre: str
 ) -> None:

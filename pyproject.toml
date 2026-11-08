@@ -44,6 +44,13 @@ dependencies = [
     # se transcribe) y av decodifica el audio; las dos mueven segmentos y tiempos (RNF-07).
     "onnxruntime==1.31.0",
     "av==18.1.0",
+    # Lectura del SOP en PDF y Word (RF-01, RF-02, lenguaje/lectura_sop.py). pdfplumber fija
+    # pdfminer.six (el que saca el texto) a una versión exacta.
+    "pdfplumber==0.11.10",
+    "python-docx==1.2.0",
+    # Motor nativo (PDFium) que pdfplumber pide >=5.9; 5.15.1 salió el 7 nov 2026, se fija la
+    # anterior.
+    "pypdfium2==5.14.0",
 ]
 
 [project.optional-dependencies]
@@ -80,6 +87,9 @@ dev = [
     "jsonschema==4.26.0",
     # RAM máxima en scripts/medir_dispositivos.py (antes llegaba solo por jupyter).
     "psutil==7.2.2",
+    # Genera en las pruebas los PDF de los SOP inventados (tests/test_lectura_sop.py). Pasará a
+    # las dependencias base con el PDF del reporte (RF-29).
+    "reportlab==5.1.0",
     "ruff==0.17.0",
 ]
 

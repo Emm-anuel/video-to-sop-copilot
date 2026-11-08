@@ -6,9 +6,12 @@ bloques; en la fila va la ruta relativa a `MEDIA_DIR`, nunca el nombre original.
 limita dos veces: `limitar_content_length` rechaza la petición antes de recibirla si el
 `Content-Length` ya excede el límite, y la copia cuenta los bytes reales.
 
-En modo validar, `sop_id` es obligatorio y el trabajo sigue con la validación (pasos del video,
-emparejamiento y reporte). `POST /videos/{id}/validar` la repite sin volver a transcribir
-(ADR-019) y `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
+En modo validar hace falta un SOP de referencia y el trabajo sigue con la validación (pasos del
+video, emparejamiento y reporte). El SOP es uno de la biblioteca (`sop_id`) o uno nuevo adjunto
+(`sop`, RF-02), que pasa por el mismo camino que `POST /sops` (`leer_sop`, `guardar_sop`) y se
+guarda en la misma transacción que el video: si algo falla, no queda ninguno de los dos.
+`POST /videos/{id}/validar` repite la validación sin volver a transcribir (ADR-019) y
+`GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
 `GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
@@ -33,6 +36,15 @@ from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
+from sopvid.plataforma.api.sops import (
+    FabricaLLM,
+    SopCreado,
+    carpeta_sop,
+    get_fabrica_llm,
+    guardar_sop,
+    leer_sop,
+    sop_creado,
+)
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
@@ -50,14 +62,19 @@ router = APIRouter(tags=["videos"])
 
 EXTENSIONES = (".mp4", ".mov", ".mkv", ".webm")
 BLOQUE = 1024 * 1024
-# Holgura para los campos del formulario y los separadores multipart en el Content-Length.
+# Holgura para los campos del formulario y los separadores multipart en el Content-Length. No
+# cubre un SOP adjunto grande (hasta `sops.SOP_DOCUMENTO_MAX_BYTES`): con un video justo en el
+# límite, el middleware rechaza la petición antes de leerla; con los límites reales (GB) no pasa.
 HOLGURA_FORMULARIO = 1024 * 1024
 _IDIOMA = re.compile(r"^[a-z]{2,3}$")
 
 
 class VideoCreado(BaseModel):
+    """`sop`: el SOP adjunto ya guardado (RF-02), con su método y sus advertencias."""
+
     id: int
     proceso: str
+    sop: SopCreado | None = None
 
 
 class EstadoVideo(BaseModel):
@@ -114,9 +131,14 @@ def subir_video(
     procesador: Annotated[Procesador, Depends(get_procesador)],
     transcriptor: Annotated[Transcriptor, Depends(get_transcriptor)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+    fabrica_llm: Annotated[FabricaLLM, Depends(get_fabrica_llm)],
     idioma: Annotated[str | None, Form(description="ISO 639-1 para fijarlo (p. ej. es)")] = None,
     sop_id: Annotated[
-        int | None, Form(description="SOP de referencia; obligatorio con modo=validar")
+        int | None, Form(description="SOP de la biblioteca; con modo=validar, este o `sop`")
+    ] = None,
+    sop: Annotated[
+        UploadFile | None,
+        File(description="SOP nuevo (.md, .txt, .pdf o .docx); con modo=validar, este o sop_id"),
     ] = None,
 ) -> VideoCreado:
     extension = Path(archivo.filename or "").suffix.lower()
@@ -130,39 +152,61 @@ def subir_video(
     idioma = (idioma or "").strip().lower() or None
     if idioma is not None and not _IDIOMA.match(idioma):
         raise HTTPException(422, "idioma debe ser un código ISO 639-1, p. ej. 'es'")
-    if modo == "validar" and sop_id is None:
-        raise HTTPException(422, "sop_id es obligatorio con modo=validar")
-    if modo == "generar" and sop_id is not None:
-        raise HTTPException(422, "sop_id no va con modo=generar: el SOP sale del video")
+    if sop is not None and sop_id is not None:
+        raise HTTPException(422, "usa sop_id o sop, no los dos")
+    if modo == "validar" and sop_id is None and sop is None:
+        raise HTTPException(422, "sop_id o sop es obligatorio con modo=validar")
+    if modo == "generar" and (sop_id is not None or sop is not None):
+        raise HTTPException(422, "sop_id y sop no van con modo=generar: el SOP sale del video")
     if sop_id is not None and session.get(Sop, sop_id) is None:
         raise HTTPException(404, "SOP no encontrado")
+    # El SOP adjunto se lee y se convierte antes de tocar la base (puede dar 422 o 503).
+    leido = leer_sop(sop, settings, fabrica_llm) if sop is not None else None
 
-    video = Video(
-        titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
-    )
-    session.add(video)
-    session.flush()  # asigna el id
-    relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
-    destino = settings.media_path / relativa
+    carpetas: list[Path] = []
     try:
+        fila_sop = None
+        if leido is not None:
+            fila_sop = guardar_sop(session, settings, leido)
+            carpetas.append(carpeta_sop(settings, fila_sop.id))
+            sop_id = fila_sop.id
+        video = Video(
+            titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
+        )
+        session.add(video)
+        session.flush()  # asigna el id
+        relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
+        destino = settings.media_path / relativa
+        carpetas.append(destino.parent)
         _copiar(archivo.file, destino, settings.subida_max_bytes)
-    except _TamanoExcedido:
+        video.archivo = str(relativa)
+        session.commit()
+    except BaseException as exc:
         session.rollback()
-        shutil.rmtree(destino.parent, ignore_errors=True)
-        raise HTTPException(413, _detalle_tamano(settings)) from None
-    except BaseException:
-        session.rollback()
-        shutil.rmtree(destino.parent, ignore_errors=True)
+        for carpeta in carpetas:
+            shutil.rmtree(carpeta, ignore_errors=True)
+        if isinstance(exc, _TamanoExcedido):
+            raise HTTPException(413, _detalle_tamano(settings)) from None
         raise
-    video.archivo = str(relativa)
-    session.commit()
     logger.info(
         "Video %d recibido (%s, %.1f MB)", video.id, extension, destino.stat().st_size / 1e6
     )
 
+    creado = None
+    if fila_sop is not None and leido is not None:
+        session.refresh(fila_sop)  # `codigo` lo calcula la base
+        creado = sop_creado(fila_sop, leido.conversion)
+        logger.info(
+            "SOP %d adjunto al video %d (%s, %s)",
+            fila_sop.id,
+            video.id,
+            leido.extension,
+            leido.conversion.metodo,
+        )
+
     procesador.encolar(video.id, idioma, transcriptor, validacion if modo == "validar" else None)
     response.headers["Location"] = f"/videos/{video.id}"
-    return VideoCreado(id=video.id, proceso=video.proceso)
+    return VideoCreado(id=video.id, proceso=video.proceso, sop=creado)
 
 
 @router.post("/videos/{video_id}/validar", status_code=202, response_model=VideoCreado)

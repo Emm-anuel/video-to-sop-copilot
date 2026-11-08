@@ -2,8 +2,9 @@
 
 - `TranscriptorFalso`: entrega `SEGMENTOS` (tres frases inventadas de 0 a 2.8 s).
 - `OllamaFalso`: Ollama simulado con `httpx.MockTransport` para `ClienteLLM`: `/api/tags`, las
-  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido),
-  `/api/generate` con `keep_alive: 0` y `/api/ps` (el modelo en GPU, salvo `vram=0`).
+  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido), la
+  conversión de un SOP sin plantilla (`respuestas_sop`), `/api/generate` con `keep_alive: 0` y
+  `/api/ps` (el modelo en GPU, salvo `vram=0`).
 - `JuezFalso`: decide cada par de la zona gris con un veredicto fijo, o deja el respaldo.
 - `VectorizadorGuionado`: el vector de cada texto según su prefijo, para fijar el coseno de cada
   par sin MiniLM.
@@ -29,11 +30,13 @@ from sqlalchemy.orm import Session
 from sopvid.contrato import SOP, Idioma, Juicio, Palabra, PasoSOP, PasoVideo, Segmento
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.lenguaje.juez import respaldo
+from sopvid.lenguaje.lectura_sop import ESQUEMA_SOP_LIBRE
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.validacion import DependenciasValidacion
 from sopvid.percepcion.segmentacion import ESQUEMA_FRONTERAS, ESQUEMA_REDACCION
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion
 from sopvid.plataforma.api.main import create_app
+from sopvid.plataforma.api.sops import get_fabrica_llm
 from sopvid.plataforma.api.videos import get_procesador, get_transcriptor, get_validacion
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
@@ -145,8 +148,12 @@ class OllamaFalso:
     """Ollama simulado. `disponible=False`: no responde a nada; `caido_en_chat=True`: responde
     `/api/tags` pero se cae en `/api/chat` y `/api/generate` (Ollama cae a medias).
 
-    Registra en `eventos` "tags", "chat:fronteras", "chat:redaccion" y "descargar"; `al_pedir`
-    corre en cada petición (para ver el estado del video mientras segmenta).
+    Registra en `eventos` "tags", "chat:fronteras", "chat:redaccion", "chat:sop" y "descargar";
+    `al_pedir` corre en cada petición (para ver el estado del video mientras segmenta).
+
+    `respuestas_sop` es lo que responde cada conversión de un SOP sin plantilla, en orden (la
+    última se repite): un objeto se manda como JSON y un `str`, tal cual (p. ej. JSON roto).
+    `mensajes_sop` guarda los mensajes que recibió cada una.
     """
 
     def __init__(self, eventos: list[str], *, disponible: bool = True):
@@ -155,6 +162,8 @@ class OllamaFalso:
         self.caido_en_chat = False
         self.al_pedir: Callable[[], None] | None = None
         self.descargas: list[dict[str, Any]] = []
+        self.respuestas_sop: list[Any] = []
+        self.mensajes_sop: list[list[dict[str, str]]] = []
         # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
         self.vram = 100
 
@@ -183,7 +192,12 @@ class OllamaFalso:
                 raise httpx.ConnectError("Ollama se cayó", request=request)
             return httpx.Response(200, json={"model": MODELO, "done": True})
         assert ruta == "/api/chat", ruta
-        if cuerpo.get("format") == ESQUEMA_FRONTERAS:
+        if cuerpo.get("format") == ESQUEMA_SOP_LIBRE:
+            self.eventos.append("chat:sop")
+            self.mensajes_sop.append(cuerpo["messages"])
+            i = min(len(self.mensajes_sop), len(self.respuestas_sop)) - 1
+            contenido = self.respuestas_sop[i] if self.respuestas_sop else None
+        elif cuerpo.get("format") == ESQUEMA_FRONTERAS:
             self.eventos.append("chat:fronteras")
             contenido = FRONTERAS
         else:
@@ -196,7 +210,10 @@ class OllamaFalso:
             200,
             json={
                 "model": MODELO,
-                "message": {"role": "assistant", "content": json.dumps(contenido)},
+                "message": {
+                    "role": "assistant",
+                    "content": contenido if isinstance(contenido, str) else json.dumps(contenido),
+                },
             },
         )
 
@@ -319,6 +336,7 @@ class Entorno:
         self.app.dependency_overrides[get_procesador] = lambda: procesador
         self.app.dependency_overrides[get_transcriptor] = lambda: self.transcriptor
         self.app.dependency_overrides[get_validacion] = lambda: dependencias
+        self.app.dependency_overrides[get_fabrica_llm] = lambda: self.ollama.cliente
 
     def correr_pendientes(self) -> None:
         while self.pendientes:

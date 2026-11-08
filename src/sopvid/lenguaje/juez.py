@@ -101,16 +101,25 @@ class Prompt:
 @cache
 def cargar_prompt(version: str = PROMPT) -> Prompt:
     """Lee `prompts/<version>.md` del paquete (ver `leer_prompt`)."""
+    return leer_prompt(version, texto_del_prompt(version))
+
+
+def texto_del_prompt(version: str) -> str:
+    """Contenido de `prompts/<version>.md`, el archivo versionado del paquete."""
     archivo = resources.files("sopvid.lenguaje") / "prompts" / f"{version}.md"
-    return leer_prompt(version, archivo.read_text(encoding="utf-8"))
+    return archivo.read_text(encoding="utf-8")
 
 
-def leer_prompt(version: str, texto: str) -> Prompt:
+def leer_prompt(
+    version: str, texto: str, marcadores: dict[str, frozenset[str]] | None = None
+) -> Prompt:
     """Separa las secciones `## sistema`, `## usuario` y `## correccion` de `texto`.
 
     Lo que va antes de la primera sección es documentación y se ignora. Falla si falta o sobra
-    una sección, o si una plantilla no usa exactamente sus marcadores (`$nombre`).
+    una sección, o si una plantilla no usa exactamente sus marcadores (`$nombre`). Sin
+    `marcadores`, los del juez; otro prompt con las mismas tres secciones pasa los suyos.
     """
+    marcadores = _MARCADORES if marcadores is None else marcadores
     secciones: dict[str, list[str]] = {}
     actual: list[str] | None = None
     for linea in texto.splitlines():
@@ -121,13 +130,13 @@ def leer_prompt(version: str, texto: str) -> Prompt:
             actual = secciones[nombre] = []
         elif actual is not None:
             actual.append(linea)
-    if set(secciones) != set(_MARCADORES):
+    if set(secciones) != set(marcadores):
         raise ValueError(
-            f"prompt {version}: se esperaban las secciones {sorted(_MARCADORES)} "
+            f"prompt {version}: se esperaban las secciones {sorted(marcadores)} "
             f"y hay {sorted(secciones)}"
         )
     cuerpo = {nombre: "\n".join(lineas).strip() for nombre, lineas in secciones.items()}
-    for nombre, esperados in _MARCADORES.items():
+    for nombre, esperados in marcadores.items():
         plantilla = string.Template(cuerpo[nombre])
         if not plantilla.is_valid() or set(plantilla.get_identifiers()) != esperados:
             raise ValueError(
