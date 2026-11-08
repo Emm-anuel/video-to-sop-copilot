@@ -54,7 +54,8 @@ pone `fuente="documento"` y hereda el responsable del resumen igual que la plant
 trae `cita_origen` (4 a 25 palabras copiadas del documento); si no aparece tal cual en el texto
 (normalizado), el paso lleva la advertencia `paso_sin_evidencia`. El nombre queda libre. La
 respuesta de `POST /sops` dice `metodo: "plantilla" | "llm"`. Si Ollama no responde, 503 y no se
-guarda nada (criterio de ADR-019). Markdown y TXT siguen solo con la plantilla.
+guarda nada (criterio de ADR-019). Markdown y TXT pasan por el mismo camino: si no siguen la
+plantilla, ya no dan error, los convierte Gemma 4.
 
 ## Consecuencias
 

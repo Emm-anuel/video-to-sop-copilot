@@ -1,7 +1,8 @@
 """Pruebas de `/sops`: carga del SOP de referencia en Markdown o TXT (RF-03, ADR-015).
 
 Usan la base de conftest.py (`db_session`, revertida al final) y los SOP inventados de
-tests/fixtures/ (README de esa carpeta).
+tests/fixtures/ (README de esa carpeta). El LLM es el `OllamaFalso` de tests/dobles.py; PDF y
+Word se prueban en test_lectura_sop.py.
 """
 
 import json
@@ -15,8 +16,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from dobles import OllamaFalso
 from sopvid.plataforma.api.main import create_app
-from sopvid.plataforma.api.sops import SOP_MAX_BYTES
+from sopvid.plataforma.api.sops import MENSAJE_LLM_NO_DISPONIBLE, SOP_MAX_BYTES, get_fabrica_llm
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import Sop
@@ -32,13 +34,19 @@ def settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def client(db_session: Session, settings: Settings) -> Iterator[TestClient]:
+def ollama() -> OllamaFalso:
+    return OllamaFalso([])
+
+
+@pytest.fixture
+def client(db_session: Session, settings: Settings, ollama: OllamaFalso) -> Iterator[TestClient]:
     def sesion() -> Iterator[Session]:
         yield db_session
 
     app = create_app(sesiones=lambda: nullcontext(db_session), recuperar_interrumpidos=False)
     app.dependency_overrides[get_session] = sesion
     app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_fabrica_llm] = lambda: ollama.cliente
     with TestClient(app) as cliente:
         yield cliente
 
@@ -51,14 +59,17 @@ def _filas(session: Session) -> int:
     return session.scalar(select(func.count()).select_from(Sop))
 
 
-def test_carga_markdown(client: TestClient, db_session: Session, settings: Settings) -> None:
+def test_carga_markdown(
+    client: TestClient, db_session: Session, settings: Settings, ollama: OllamaFalso
+) -> None:
     r = cargar(client, MD)
 
     assert r.status_code == 201
     cuerpo = r.json()
     assert re.fullmatch(r"SOP-\d{4,}", cuerpo["codigo"])
     assert cuerpo["titulo"] == "Cambio del cartucho del filtro de agua"
-    assert cuerpo["advertencias"] == []
+    assert (cuerpo["metodo"], cuerpo["advertencias"]) == ("plantilla", [])
+    assert ollama.eventos == []  # con plantilla, sin LLM
     assert r.headers["location"] == f"/sops/{cuerpo['id']}"
     fila = db_session.get(Sop, cuerpo["id"])
     assert (fila.origen, fila.codigo) == ("cargado", cuerpo["codigo"])
@@ -92,15 +103,60 @@ def test_carga_con_bom_y_crlf(client: TestClient) -> None:
     assert r.json()["advertencias"] == []
 
 
-def test_error_sop_da_422_con_el_mensaje(
-    client: TestClient, db_session: Session, settings: Settings
+SIN_PLANTILLA = "# Procedimiento inventado\n\nPrimero se cierra la llave de paso y se purga.\n"
+_VACIO = {"valor": None, "confianza": "alta"}
+RESPUESTA_SIN_PLANTILLA = {
+    "titulo": "Procedimiento inventado",
+    "resumen": {
+        **dict.fromkeys(
+            ["objetivo", "alcance", "responsable", "lugar", "horario_frecuencia"], _VACIO
+        ),
+        "duracion_total_min": None,
+        **{c: [] for c in ["roles", "equipo_operacion", "riesgos", "en_caso_de_falla"]},
+    },
+    "pasos": [
+        {
+            "cita_origen": "Primero se cierra la llave de paso",
+            "nombre": "Cerrar la llave de paso",
+            "descripcion": "",
+            "responsable": None,
+            "equipo": [],
+            "puntos_validacion": [],
+            "tiempo_esperado_min": None,
+            "confianza": "alta",
+            "campos_inferidos": [],
+        }
+    ],
+}
+
+
+@pytest.mark.parametrize("nombre", ["procedimiento.md", "procedimiento.txt"])
+def test_sin_plantilla_lo_convierte_el_llm(
+    client: TestClient, db_session: Session, ollama: OllamaFalso, nombre: str
 ) -> None:
+    """Cambio a propósito (P1, punto 3): antes un .md o .txt sin plantilla daba 422 ("no tiene
+    pasos"); ahora pasa por el mismo camino del LLM que PDF y Word (ADR-015)."""
+    ollama.respuestas_sop = [RESPUESTA_SIN_PLANTILLA]
+
+    r = cargar(client, SIN_PLANTILLA.encode(), nombre=nombre)
+
+    assert r.status_code == 201
+    assert (r.json()["metodo"], r.json()["advertencias"]) == ("llm", [])
+    assert ollama.eventos == ["tags", "chat:sop", "descargar"]
+    fila = db_session.get(Sop, r.json()["id"])
+    assert fila.contenido["pasos"][0]["nombre"] == "Cerrar la llave de paso"
+
+
+def test_sin_plantilla_y_sin_ollama_da_503(
+    client: TestClient, db_session: Session, settings: Settings, ollama: OllamaFalso
+) -> None:
+    ollama.disponible = False
     antes = _filas(db_session)
 
-    r = cargar(client, "# Procedimiento inventado\n\nSolo un párrafo.\n".encode())
+    r = cargar(client, SIN_PLANTILLA.encode())
 
-    assert r.status_code == 422
-    assert "no tiene pasos" in r.json()["detail"]
+    assert r.status_code == 503
+    assert r.json()["detail"] == MENSAJE_LLM_NO_DISPONIBLE
     assert _filas(db_session) == antes
     assert not (settings.media_path / "sops").exists()
 

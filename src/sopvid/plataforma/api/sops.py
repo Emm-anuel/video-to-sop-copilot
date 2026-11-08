@@ -1,9 +1,9 @@
 """Carga del SOP de referencia (RF-01, RF-02, RF-03, ADR-015) y su consulta.
 
 `POST /sops` acepta Markdown, TXT, PDF y Word (.docx). `leer_sop` saca el texto
-(`lectura_sop.extraer_texto`) y lo convierte: Markdown y TXT solo con la plantilla
-(`convertir_sop`, sin LLM); PDF y Word con la plantilla si la siguen y, si no, con Gemma 4
-(`lectura_sop.convertir_documento`). La respuesta dice cuál (`metodo`). Si hace falta el LLM y
+(`lectura_sop.extraer_texto`) y lo convierte igual en los cuatro formatos
+(`lectura_sop.convertir_documento`): con la plantilla si la sigue (`convertir_sop`, sin LLM) y,
+si no, con Gemma 4. La respuesta dice cuál (`metodo`). Si hace falta el LLM y
 Ollama no responde, 503 sin guardar nada: el usuario vuelve a subir el archivo cuando Ollama esté
 arriba (mismo criterio que ADR-019). `POST /videos` usa `leer_sop` y `guardar_sop` cuando el SOP
 viene adjunto al video (RF-02).
@@ -36,12 +36,7 @@ from sopvid.lenguaje.lectura_sop import (
     extraer_texto,
 )
 from sopvid.lenguaje.llm import ClienteLLM, LLMError
-from sopvid.lenguaje.sop_markdown import (
-    ErrorSOP,
-    MetodoConversion,
-    ResultadoConversion,
-    convertir_sop,
-)
+from sopvid.lenguaje.sop_markdown import MetodoConversion, ResultadoConversion
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import Sop
@@ -114,13 +109,8 @@ def leer_sop(archivo: UploadFile, settings: Settings, fabrica_llm: FabricaLLM) -
         raise HTTPException(413, f"el SOP pasa del límite de {maximo // (1024 * 1024)} MB")
     try:
         texto = extraer_texto(datos, extension)
-        if extension in EXTENSIONES_TEXTO:
-            conversion = convertir_sop(texto)
-        else:
-            conversion = convertir_documento(
-                texto, fabrica_llm, plazo_s=settings.llm_health_timeout_s
-            )
-    except (ErrorLectura, ErrorSOP, ErrorConversionLLM) as exc:
+        conversion = convertir_documento(texto, fabrica_llm, plazo_s=settings.llm_health_timeout_s)
+    except (ErrorLectura, ErrorConversionLLM) as exc:
         raise HTTPException(422, str(exc)) from None
     except LLMError as exc:
         logger.warning("SOP sin convertir: LLM no disponible (%s)", type(exc).__name__)

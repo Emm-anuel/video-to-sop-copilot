@@ -1,4 +1,4 @@
-"""Lectura del SOP de referencia en PDF y Word (RF-01, RF-02) y su conversión al esquema `SOP`.
+"""Lectura del SOP de referencia (RF-01, RF-02, RF-03) y su conversión al esquema `SOP`.
 
 Dos piezas:
 
@@ -11,9 +11,11 @@ Dos piezas:
    - Word (python-docx): el cuerpo en orden de documento, párrafos y tablas intercalados. Los
      estilos de encabezado se vuelven "#", "##"…, y las listas de Word llevan su viñeta o su
      número ("- ", "1. "), que en el XML no vienen como texto.
-2. `convertir_documento` convierte el texto en dos caminos (ADR-015):
+2. `convertir_documento` convierte el texto en dos caminos (ADR-015), igual para los cuatro
+   formatos:
    a) `convertir_sop` (plantilla y código). Si no falla y no ignoró texto, ese es el resultado:
-      un Word que sigue la plantilla sale igual que un .md (`metodo="plantilla"`).
+      un Word que sigue la plantilla sale igual que un .md (`metodo="plantilla"`). Un .md o .txt
+      que no la sigue ya no es un error: pasa al camino b.
    b) Si no, Gemma 4 (`convertir_con_llm`): prompt versionado `prompts/<PROMPT>.md`, salida
       restringida a `ESQUEMA_SOP_LIBRE`, temperatura 0 y `SEMILLA` (las fija el cliente), hasta
       `MAX_INTENTOS` como el juez. Cada paso trae `cita_origen`, un fragmento del documento
@@ -380,7 +382,8 @@ class _Numeracion:
 def convertir_documento(
     texto: str, fabrica_llm: Callable[[], ClienteLLM], *, plazo_s: float = 2.0
 ) -> ResultadoConversion:
-    """Convierte el texto de un PDF o Word: plantilla primero, Gemma 4 si no (ADR-015).
+    """Convierte el texto del SOP (de cualquier formato): plantilla primero, Gemma 4 si no
+    (ADR-015).
 
     El cliente del LLM solo se crea si hace falta. Antes de convertir se revisa que Ollama
     responda y tenga el modelo (`plazo_s`); si no, `LLMNoDisponible` sin haber hecho nada. Al
