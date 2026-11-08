@@ -14,13 +14,22 @@ mismo resultado con o sin tarjeta de video; con GPU solo tarda menos.
 el equipo cuenta como sin GPU. `planear` combina eso con la configuración y deja avisos cuando
 algo no cuadra (p. ej. hay GPU pero ctranslate2 no la ve). La API registra el plan al arrancar
 y lo informa en `/health`. Se detecta una vez por proceso: la GPU no cambia mientras corre.
+
+**Un modelo pesado a la vez (ADR-014).** faster-whisper y Gemma 4 no caben juntos en la GPU de
+referencia. `CANDADO_MODELO_PESADO` lo comparten el trabajador de la cola (todo el trabajo de un
+video: Whisper y Gemma) y la conversión de un SOP con Gemma en `POST /sops`. Es un candado de
+hilos: el trabajador es un hilo del mismo proceso de la API (`Procesador.con_hilo`, uvicorn sin
+`--workers`, docs/dev/api.md). Con varios procesos habría que cambiarlo por uno entre procesos.
+Es reentrante: la conversión del SOP adjunto a un video corre dentro del trabajo, que ya lo tiene.
 """
 
 import logging
 import os
 import shutil
 import subprocess
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal
@@ -223,3 +232,36 @@ def registrar(plan: PlanDispositivos, motivo_sin_gpu: str | None = None) -> None
     )
     for aviso in plan.avisos:
         logger.warning("Dispositivos: %s", aviso)
+
+
+# ── Un modelo pesado a la vez ────────────────────────────────────────────────────────────────
+
+
+class ModeloPesadoOcupado(Exception):  # noqa: N818 (nombre de dominio)
+    """El candado de modelo pesado no se liberó en el plazo: otro trabajo usa Whisper o Gemma."""
+
+
+class CandadoModeloPesado:
+    """Candado reentrante para cargar un solo modelo pesado (Whisper o Gemma 4) a la vez."""
+
+    def __init__(self) -> None:
+        self._candado = threading.RLock()
+
+    @contextmanager
+    def tomar(self, espera_s: float | None = None) -> Iterator[None]:
+        """Toma el candado mientras dura el bloque. Sin `espera_s`, espera lo que haga falta;
+        con `espera_s`, lanza `ModeloPesadoOcupado` si no se libera a tiempo."""
+        if not self._candado.acquire(timeout=-1 if espera_s is None else max(espera_s, 0)):
+            raise ModeloPesadoOcupado(f"modelo pesado ocupado tras {espera_s:g} s")
+        try:
+            yield
+        finally:
+            self._candado.release()
+
+
+CANDADO_MODELO_PESADO = CandadoModeloPesado()
+
+
+def get_candado() -> CandadoModeloPesado:
+    """Dependencia de FastAPI: el candado del proceso (las pruebas lo reemplazan)."""
+    return CANDADO_MODELO_PESADO

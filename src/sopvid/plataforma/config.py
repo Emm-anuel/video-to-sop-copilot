@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 180.0
     llm_num_ctx: int = 8192
     llm_health_timeout_s: float = 2.0
+    # Cuánto espera la conversión de un SOP con Gemma a que el trabajador suelte el candado de
+    # modelo pesado (está usando Whisper o Gemma con un video); si no, 503 (ADR-014).
+    llm_espera_gpu_s: float = 60.0
     # Dónde corre Gemma (ADR-018): "auto" deja que Ollama use la GPU si la ve; "cpu" pide
     # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
     llm_dispositivo: Literal["auto", "cpu"] = "auto"

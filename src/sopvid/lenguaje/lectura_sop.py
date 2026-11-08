@@ -36,6 +36,7 @@ import re
 import statistics
 import zipfile
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from functools import cache
 from typing import Any, Literal
@@ -380,14 +381,20 @@ class _Numeracion:
 
 
 def convertir_documento(
-    texto: str, fabrica_llm: Callable[[], ClienteLLM], *, plazo_s: float = 2.0
+    texto: str,
+    fabrica_llm: Callable[[], AbstractContextManager[ClienteLLM]],
+    *,
+    plazo_s: float = 2.0,
+    candado: Callable[[], AbstractContextManager[object]] = nullcontext,
 ) -> ResultadoConversion:
     """Convierte el texto del SOP (de cualquier formato): plantilla primero, Gemma 4 si no
     (ADR-015).
 
-    El cliente del LLM solo se crea si hace falta. Antes de convertir se revisa que Ollama
-    responda y tenga el modelo (`plazo_s`); si no, `LLMNoDisponible` sin haber hecho nada. Al
-    terminar, con o sin error, se le pide a Ollama que suelte el modelo (ADR-014, ADR-019).
+    Solo el camino del LLM toma `candado` (el de modelo pesado, ADR-014; puede lanzar si no se
+    libera a tiempo) y crea el cliente (`fabrica_llm` da un context manager: un `ClienteLLM`, o
+    `nullcontext(cliente)` para uno que no se debe cerrar). Antes de convertir se revisa que
+    Ollama responda y tenga el modelo (`plazo_s`); si no, `LLMNoDisponible` sin haber hecho nada.
+    Al terminar, con o sin error, se le pide a Ollama que suelte el modelo (ADR-014, ADR-019).
     Lanza `LLMError` si Ollama se cae durante la conversión y `ErrorConversionLLM` si no logró
     una respuesta válida.
     """
@@ -401,7 +408,7 @@ def convertir_documento(
             return resultado
         logger.info("La plantilla ignoró %d bloques de texto; se convierte con el LLM", ignorado)
 
-    with fabrica_llm() as llm:
+    with candado(), fabrica_llm() as llm:
         if not llm.disponible(plazo_s):
             raise LLMNoDisponible("Ollama no responde o no tiene el modelo")
         try:

@@ -132,8 +132,8 @@ de compose.
    HF_HUB_OFFLINE=1               # cuando el modelo ya está descargado en models/whisper
    ```
 
-4. Levantar la API con **un solo proceso** (la cola y la GPU son de ese proceso; no uses
-   `--workers` ni `--reload`):
+4. Levantar la API con **un solo proceso** (la cola, la GPU y el candado de modelo pesado que
+   comparten el trabajador y `POST /sops` son de ese proceso; no uses `--workers` ni `--reload`):
 
    ```powershell
    uvicorn sopvid.plataforma.api.main:app --host 127.0.0.1 --port 8000

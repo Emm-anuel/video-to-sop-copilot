@@ -8,8 +8,11 @@ limita dos veces: `limitar_content_length` rechaza la petición antes de recibir
 
 En modo validar hace falta un SOP de referencia y el trabajo sigue con la validación (pasos del
 video, emparejamiento y reporte). El SOP es uno de la biblioteca (`sop_id`) o uno nuevo adjunto
-(`sop`, RF-02), que pasa por el mismo camino que `POST /sops` (`leer_sop`, `guardar_sop`) y se
-guarda en la misma transacción que el video: si algo falla, no queda ninguno de los dos.
+(`sop`, RF-02). Del adjunto, la petición solo revisa la extensión y el tamaño y saca el texto
+(`leer_archivo_sop`: 415, 413 o 422 antes de guardar nada) y lo deja junto al video como
+`sop_adjunto.<ext>`; la conversión (plantilla o Gemma 4) la hace el trabajador al empezar la
+validación, con el candado de modelo pesado (ADR-014). El SOP aparece en `sop_id` de
+`GET /videos/{id}` cuando el trabajador lo guarda.
 `POST /videos/{id}/validar` repite la validación sin volver a transcribir (ADR-019) y
 `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
 `GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
@@ -36,15 +39,7 @@ from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
-from sopvid.plataforma.api.sops import (
-    FabricaLLM,
-    SopCreado,
-    carpeta_sop,
-    get_fabrica_llm,
-    guardar_sop,
-    leer_sop,
-    sop_creado,
-)
+from sopvid.plataforma.api.sops import leer_archivo_sop
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
@@ -54,6 +49,7 @@ from sopvid.plataforma.procesamiento import (
     PROCESANDO,
     Procesador,
     leer_analisis,
+    ruta_sop_adjunto,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,11 +66,8 @@ _IDIOMA = re.compile(r"^[a-z]{2,3}$")
 
 
 class VideoCreado(BaseModel):
-    """`sop`: el SOP adjunto ya guardado (RF-02), con su método y sus advertencias."""
-
     id: int
     proceso: str
-    sop: SopCreado | None = None
 
 
 class EstadoVideo(BaseModel):
@@ -88,6 +81,8 @@ class EstadoVideo(BaseModel):
     idioma: str | None
     error: str | None
     creado: datetime
+    # SOP de referencia; con un SOP adjunto queda en None hasta que el trabajador lo convierte.
+    sop_id: int | None = None
 
 
 def get_procesador(request: Request) -> Procesador:
@@ -131,7 +126,6 @@ def subir_video(
     procesador: Annotated[Procesador, Depends(get_procesador)],
     transcriptor: Annotated[Transcriptor, Depends(get_transcriptor)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
-    fabrica_llm: Annotated[FabricaLLM, Depends(get_fabrica_llm)],
     idioma: Annotated[str | None, Form(description="ISO 639-1 para fijarlo (p. ej. es)")] = None,
     sop_id: Annotated[
         int | None, Form(description="SOP de la biblioteca; con modo=validar, este o `sop`")
@@ -160,53 +154,40 @@ def subir_video(
         raise HTTPException(422, "sop_id y sop no van con modo=generar: el SOP sale del video")
     if sop_id is not None and session.get(Sop, sop_id) is None:
         raise HTTPException(404, "SOP no encontrado")
-    # El SOP adjunto se lee y se convierte antes de tocar la base (puede dar 422 o 503).
-    leido = leer_sop(sop, settings, fabrica_llm) if sop is not None else None
+    # Del SOP adjunto solo se revisa que se pueda leer; lo convierte el trabajador.
+    adjunto = leer_archivo_sop(sop) if sop is not None else None
 
-    carpetas: list[Path] = []
+    video = Video(
+        titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
+    )
+    session.add(video)
+    session.flush()  # asigna el id
+    relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
+    destino = settings.media_path / relativa
     try:
-        fila_sop = None
-        if leido is not None:
-            fila_sop = guardar_sop(session, settings, leido)
-            carpetas.append(carpeta_sop(settings, fila_sop.id))
-            sop_id = fila_sop.id
-        video = Video(
-            titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
-        )
-        session.add(video)
-        session.flush()  # asigna el id
-        relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
-        destino = settings.media_path / relativa
-        carpetas.append(destino.parent)
         _copiar(archivo.file, destino, settings.subida_max_bytes)
+        if adjunto is not None:
+            ruta = settings.media_path / ruta_sop_adjunto(video.id, adjunto.extension)
+            ruta.write_bytes(adjunto.datos)
         video.archivo = str(relativa)
         session.commit()
     except BaseException as exc:
         session.rollback()
-        for carpeta in carpetas:
-            shutil.rmtree(carpeta, ignore_errors=True)
+        shutil.rmtree(destino.parent, ignore_errors=True)
         if isinstance(exc, _TamanoExcedido):
             raise HTTPException(413, _detalle_tamano(settings)) from None
         raise
     logger.info(
-        "Video %d recibido (%s, %.1f MB)", video.id, extension, destino.stat().st_size / 1e6
+        "Video %d recibido (%s, %.1f MB%s)",
+        video.id,
+        extension,
+        destino.stat().st_size / 1e6,
+        f", SOP adjunto {adjunto.extension}" if adjunto is not None else "",
     )
-
-    creado = None
-    if fila_sop is not None and leido is not None:
-        session.refresh(fila_sop)  # `codigo` lo calcula la base
-        creado = sop_creado(fila_sop, leido.conversion)
-        logger.info(
-            "SOP %d adjunto al video %d (%s, %s)",
-            fila_sop.id,
-            video.id,
-            leido.extension,
-            leido.conversion.metodo,
-        )
 
     procesador.encolar(video.id, idioma, transcriptor, validacion if modo == "validar" else None)
     response.headers["Location"] = f"/videos/{video.id}"
-    return VideoCreado(id=video.id, proceso=video.proceso, sop=creado)
+    return VideoCreado(id=video.id, proceso=video.proceso)
 
 
 @router.post("/videos/{video_id}/validar", status_code=202, response_model=VideoCreado)

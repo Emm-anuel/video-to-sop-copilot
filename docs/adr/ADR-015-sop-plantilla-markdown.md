@@ -119,10 +119,15 @@ plantilla, ya no dan error, los convierte Gemma 4.
       el reporte. Sin la cita (corrida de las 18:45), v1 daba 6. Pendiente para un v3: decir que
       en prosa cada párrafo es un paso salvo que el documento separe las acciones, y medir con SOP
       reales antes de decidir.
-    - Riesgos abiertos: `POST /sops` convierte dentro de la petición (≈25 s en GPU, más en CPU)
-      y no pasa por la cola de un trabajador, así que Gemma puede cargarse mientras Whisper
-      transcribe otro video (ADR-014); un documento largo puede no caber en `LLM_NUM_CTX`
-      (8192) y fallar los 3 intentos.
+    - Riesgos abiertos: un documento largo puede no caber en `LLM_NUM_CTX` (8192) y fallar los
+      3 intentos.
+    - Resuelto (P1, punto 4): `POST /sops` convierte dentro de la petición (≈25 s en GPU) y antes
+      no se coordinaba con el trabajador, así que Gemma podía cargarse mientras Whisper
+      transcribía otro video (ADR-014). Ahora la conversión con Gemma y cada trabajo de la cola
+      comparten `CANDADO_MODELO_PESADO` (`plataforma/hardware.py`, un `RLock`: el trabajador es
+      un hilo del mismo proceso). La conversión espera hasta `LLM_ESPERA_GPU_S` (60 s) y, si no
+      se libera, 503 "el servidor está procesando un video". Un SOP adjunto a `POST /videos` ya
+      no se convierte en la petición: lo convierte el trabajador al empezar la validación.
 
 ## Referencias
 
