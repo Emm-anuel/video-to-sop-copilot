@@ -10,13 +10,14 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-from sopvid.contrato import Analisis, PasoVideo
+from sopvid.contrato import Analisis, PasoVideo, Segmento
 from sopvid.lenguaje.llm import SEMILLA, ClienteLLM
 from sopvid.percepcion.segmentacion import (
     ESQUEMA_FRONTERAS,
     ESQUEMA_PASOS,
     ESQUEMA_REDACCION,
     NO_IDENTIFICADO,
+    PALABRAS_CITA,
     RECORDATORIO_REDACCION,
     RECORDATORIO_SEGMENTOS,
     SISTEMA,
@@ -27,6 +28,7 @@ from sopvid.percepcion.segmentacion import (
     _texto_comparable,
     _validar_propuestas,
     _validar_redaccion,
+    ampliar_cita,
     cargar_transcripcion_prueba,
     construir_mensajes,
     construir_mensajes_fronteras,
@@ -43,6 +45,7 @@ from sopvid.percepcion.segmentacion import (
     segmentos_de_inicio,
     verificar_cita,
 )
+from sopvid.texto import contiene_cita
 
 FIXTURES = Path(__file__).parent / "fixtures" / "transcripciones"
 ANALISIS_EJEMPLO = Path(__file__).parent / "fixtures" / "analisis_ejemplo.json"
@@ -1149,9 +1152,10 @@ def test_el_prompt_de_redaccion_sin_introduccion():
 
 
 def test_redaccion_reintenta_solo_los_pasos_que_fallaron(analisis):
-    corta = json.dumps(redaccion_ejemplo(p3={"cita": "libero la presión"}), ensure_ascii=False)
+    # Un tiempo en la respuesta invalida el paso (el LLM nunca escribe tiempos, regla 4).
+    con_tiempo = json.dumps(redaccion_ejemplo(p3={"t_inicio": 55.5}), ensure_ascii=False)
     solo_3 = json.dumps([redaccion(3, "libero la presión con el botón rojo")], ensure_ascii=False)
-    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta, solo_3])
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, con_tiempo, solo_3])
 
     assert (r.metodo, r.intentos, r.intentos_redaccion, len(peticiones)) == ("llm", 1, 2, 3)
     assert (r.pasos_sin_redactar, r.motivo_sin_redaccion) == (0, None)
@@ -1163,12 +1167,10 @@ def test_redaccion_reintenta_solo_los_pasos_que_fallaron(analisis):
     assert [m["role"] for m in reintento] == ["system", "user", "user"]
     assert reintento[:2] == peticiones[1]["messages"]
     correccion = reintento[-1]["content"]
-    assert (
-        "paso 3: cita (value_error): la cita tiene 3 palabras y debe tener de 4 a 15" in correccion
-    )
+    assert "paso 3: t_inicio (extra_forbidden)" in correccion
     assert "(numero 3)" in correccion
     assert RECORDATORIO_REDACCION in correccion
-    assert "libero la presión" not in correccion  # el motivo no copia la cita
+    assert "libero la presión" not in correccion  # el motivo no copia texto
     for n in (1, 2, 4, 5, 6):
         assert f"paso {n}:" not in correccion
 
@@ -1177,11 +1179,11 @@ ESPERADOS = [1, 2, 3, 4, 5, 6]
 
 
 def test_validar_redaccion_acepta_los_pasos_validos_aunque_otros_fallen():
-    datos = redaccion_ejemplo(p2={"cita": "me pongo"}, p4={"t_inicio": 74.76})[:5]
+    datos = redaccion_ejemplo(p2={"responsable": 5}, p4={"t_inicio": 74.76})[:5]
     validos, fallos = _validar_redaccion(datos, ESPERADOS)
 
     assert sorted(validos) == [1, 3, 5]
-    assert fallos[2].startswith("cita (value_error): la cita tiene 2 palabras")
+    assert fallos[2] == "responsable (string_type)"
     assert fallos[4] == "t_inicio (extra_forbidden)"
     assert fallos[6] == "falta en la respuesta"
 
@@ -1189,7 +1191,7 @@ def test_validar_redaccion_acepta_los_pasos_validos_aunque_otros_fallen():
 def test_validar_redaccion_no_depende_del_orden_e_ignora_lo_que_no_se_pidio():
     datos = list(reversed(redaccion_ejemplo()))
     datos.append(redaccion(7, "un paso que no se pidió"))
-    datos.append(redaccion(2, "me pongo"))  # repetido e inválido: vale el primero
+    datos.append(redaccion(2, "me pongo"))  # repetido: vale el primero
     validos, fallos = _validar_redaccion(datos, ESPERADOS)
 
     assert sorted(validos) == ESPERADOS and fallos == {}
@@ -1225,9 +1227,61 @@ def test_la_cita_redactada_de_4_a_15_palabras_y_las_largas_se_recortan(cita, esp
 
 
 @pytest.mark.parametrize("cita", ["me pongo guantes", "… ¿? …", ""])
-def test_la_cita_de_menos_de_4_palabras_es_invalida(cita):
-    _, fallos = _validar_redaccion([redaccion(1, cita)], [1])
-    assert "la cita tiene" in fallos[1] and "debe tener de 4 a 15" in fallos[1]
+def test_la_cita_de_menos_de_4_palabras_no_invalida_el_paso(cita):
+    """ADR-010 (8 nov): la descripción y el responsable sirven igual; `_armar` amplía la cita."""
+    validos, fallos = _validar_redaccion([redaccion(1, cita)], [1])
+    assert fallos == {} and validos[1].cita == cita.strip()
+
+
+SEGMENTOS_PASO = [
+    Segmento(id=1, t_inicio=0.0, t_fin=2.0, texto="Primero libero la presión"),
+    Segmento(id=2, t_inicio=2.5, t_fin=5.0, texto="con el botón rojo, hasta que marque cero."),
+]
+
+
+@pytest.mark.parametrize(
+    ("cita", "esperada"),
+    [
+        # Se agregan las palabras que siguen, aunque crucen al segmento siguiente.
+        ("libero la presión", "libero la presión con"),
+        ("presión", "presión con el botón"),
+        # Al final del paso se completa con las anteriores.
+        ("marque cero", "hasta que marque cero."),
+        ("Botón rojo", "botón rojo, hasta que"),  # mayúsculas y puntuación no cuentan
+        # Ya tiene 4 palabras, no aparece en el paso, o está vacía: tal cual.
+        ("libero la presión con", "libero la presión con"),
+        ("cierro la llave", "cierro la llave"),
+        ("", ""),
+        ("… ¿? …", "… ¿? …"),
+    ],
+)
+def test_ampliar_cita_con_las_palabras_del_paso(cita, esperada):
+    ampliada = ampliar_cita(cita, SEGMENTOS_PASO)
+    assert ampliada == esperada
+    if ampliada != cita:  # lo ampliado es literal del paso
+        texto = " ".join(s.texto for s in SEGMENTOS_PASO)
+        assert contiene_cita(texto, ampliada)
+
+
+def test_ampliar_cita_usa_la_primera_aparicion_y_no_sale_del_paso():
+    segmentos = [Segmento(id=1, t_inicio=0.0, t_fin=3.0, texto="giro la llave, giro la llave")]
+    assert ampliar_cita("giro la", segmentos) == "giro la llave, giro"
+    corto = [Segmento(id=1, t_inicio=0.0, t_fin=1.0, texto="abro despacio")]
+    assert ampliar_cita("abro", corto) == "abro despacio"  # el paso no tiene 4 palabras
+
+
+def test_un_paso_con_cita_corta_se_redacta_con_la_cita_ampliada(analisis):
+    """El caso de A (ADR-018): una cita de 3 palabras ya no deja el paso sin redactar."""
+    corta = json.dumps(redaccion_ejemplo(p3={"cita": "libero la presión"}), ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta])
+
+    assert (r.intentos_redaccion, len(peticiones)) == (1, 2)  # sin reintento
+    assert (r.pasos_sin_redactar, r.motivo_sin_redaccion) == (0, None)
+    paso = r.pasos[2]
+    assert paso.descripcion and paso.responsable != NO_IDENTIFICADO
+    assert _texto_comparable(paso.cita).startswith("libero la presion")
+    assert len(_texto_comparable(paso.cita).split()) == PALABRAS_CITA[0]
+    assert (paso.confianza, paso.fuente) == ("alta", "audio")
 
 
 def test_recortar_cita_cuenta_como_la_verificacion():
@@ -1292,8 +1346,8 @@ def test_si_toda_la_redaccion_falla_se_conservan_todas_las_fronteras(analisis):
 
 
 def test_si_ollama_se_cae_a_media_redaccion_se_conserva_lo_redactado(analisis):
-    corta = json.dumps(redaccion_ejemplo(p3={"cita": "libero la presión"}), ensure_ascii=False)
-    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, corta, 500, REDACCION_EJEMPLO])
+    con_tiempo = json.dumps(redaccion_ejemplo(p3={"t_inicio": 55.5}), ensure_ascii=False)
+    r, peticiones = _extraer_a(analisis, [FRONTERAS_EJEMPLO, con_tiempo, 500, REDACCION_EJEMPLO])
 
     assert (r.metodo, r.intentos_redaccion, r.pasos_sin_redactar, len(peticiones)) == (
         "llm",
@@ -1364,9 +1418,9 @@ def test_cita_redactada_de_otro_paso_queda_media(analisis):
 def test_opcion_a_nunca_envia_el_sop_ni_tiempos(analisis):
     con_99 = json.loads(FRONTERAS_EJEMPLO)
     con_99[0]["segmento_id"] = 99
-    corta = json.dumps(redaccion_ejemplo(p1={"cita": "me pongo"}), ensure_ascii=False)
+    invalida = json.dumps(redaccion_ejemplo(p1={"responsable": 5}), ensure_ascii=False)
     _, peticiones = _extraer_a(
-        analisis, [JSON_ROTO, json.dumps(con_99), FRONTERAS_EJEMPLO, corta, REDACCION_EJEMPLO]
+        analisis, [JSON_ROTO, json.dumps(con_99), FRONTERAS_EJEMPLO, invalida, REDACCION_EJEMPLO]
     )
 
     assert len(peticiones) == 5
