@@ -98,6 +98,18 @@ class Settings(BaseSettings):
     semaforo_verde: float = Field(default=90, ge=0, le=100)
     semaforo_amarillo: float = Field(default=70, ge=0, le=100)
 
+    # Contexto, personas y tiempos del reporte (RNF-14; SOP V1.0 §5.2, §5.4, §5.5).
+    # Afinidad mínima (0–100) para no advertir que el video no es de este SOP (RF-17).
+    afinidad_min: float = Field(default=60, ge=0, le=100)
+    # Margen sobre el tiempo esperado de cada paso y del total (RF-16): 0.20 = ±20 %.
+    tolerancia_tiempo: float = Field(default=0.20, ge=0, le=1)
+    # Coseno MiniLM desde el que un rol del SOP coincide con el de una persona (RF-15).
+    # SIN CALIBRAR. Medido el 7 nov con roles inventados: "Técnico" ~ "Técnica de mantenimiento"
+    # 0.88, pero "Supervisor de mantenimiento" ~ "Técnico de mantenimiento" también 0.89, y con
+    # el nombre de la persona ("Laura (técnica…)") baja a 0.58. Comparar rol contra rol, sin el
+    # nombre, y no depender solo del coseno.
+    umbral_rol: float = Field(default=0.85, ge=0, le=1)
+
     @model_validator(mode="after")
     def _umbrales_ordenados(self) -> Self:
         if self.umbral_bajo > self.umbral_alto:

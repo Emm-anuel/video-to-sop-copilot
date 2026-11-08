@@ -311,7 +311,11 @@ def test_el_ejemplo_definitivo_cubre_todos_los_casos(ejemplo):
     assert any(f.justificacion for f in r.filas if f.estado == "Parcial")
     assert all(f.t_inicio is None and f.cita == "" for f in r.filas if f.estado == "Falta")
     assert all(p.descripcion for p in r.sop.pasos)
-    assert r.afinidad is None
+    # S5 (guionado en el script): afinidad, un responsable distinto, un paso que excede.
+    assert r.afinidad is not None and r.afinidad.valor == 87
+    assert any(f.responsable and f.responsable.estado == "distinto" for f in r.filas)
+    assert any(f.tiempo and f.tiempo.estado == "excede" for f in r.filas)
+    assert any(rol.estado == "ausente" for rol in r.roles)
 
 
 def test_el_ejemplo_provisional_marca_sin_revisar_y_el_aviso(ejemplo):

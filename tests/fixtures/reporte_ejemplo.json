@@ -46,7 +46,11 @@
   "cumplimiento": 71.43,
   "semaforo": "amarillo",
   "provisional": false,
-  "afinidad": null,
+  "afinidad": {
+    "valor": 87,
+    "explicacion": "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de enjuague) y el mismo equipo: llave de carcasa, cubeta y manómetro.",
+    "bajo_umbral": false
+  },
   "conteo": {
     "cumple": 5,
     "parcial": 1,
@@ -54,7 +58,9 @@
     "falta": 1,
     "sobra": 1,
     "sin_revisar": 0,
-    "marco_operador": 2
+    "marco_operador": 2,
+    "personas_con_diferencias": 2,
+    "pasos_fuera_de_tiempo": 2
   },
   "filas": [
     {
@@ -68,7 +74,20 @@
       "confianza": "alta",
       "fuera_de_orden": true,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 0.88
+      },
+      "tiempo": {
+        "esperado_min": 0.25,
+        "observado_min": 0.23,
+        "origen": "medido",
+        "estado": "en_tiempo",
+        "cita": ""
+      }
     },
     {
       "estado": "Cumple",
@@ -81,7 +100,20 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 0.88
+      },
+      "tiempo": {
+        "esperado_min": 0.2,
+        "observado_min": 0.19,
+        "origen": "medido",
+        "estado": "en_tiempo",
+        "cita": ""
+      }
     },
     {
       "estado": "Parcial",
@@ -94,7 +126,20 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": "Libera la presión con el botón rojo, pero no menciona colocar la cubeta debajo del filtro."
+      "justificacion": "Libera la presión con el botón rojo, pero no menciona colocar la cubeta debajo del filtro.",
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 0.88
+      },
+      "tiempo": {
+        "esperado_min": null,
+        "observado_min": 0.21,
+        "origen": "medido",
+        "estado": "sin_referencia",
+        "cita": ""
+      }
     },
     {
       "estado": "Cumple",
@@ -107,7 +152,20 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 0.88
+      },
+      "tiempo": {
+        "esperado_min": 0.4,
+        "observado_min": 0.58,
+        "origen": "medido",
+        "estado": "excede",
+        "cita": ""
+      }
     },
     {
       "estado": "Cumple",
@@ -120,7 +178,20 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 0.88
+      },
+      "tiempo": {
+        "esperado_min": 0.5,
+        "observado_min": 0.35,
+        "origen": "medido",
+        "estado": "menor",
+        "cita": ""
+      }
     },
     {
       "estado": "Cumple",
@@ -133,7 +204,20 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Supervisor de turno",
+        "observado": "Laura (técnica de mantenimiento)",
+        "estado": "distinto",
+        "similitud": 0.36
+      },
+      "tiempo": {
+        "esperado_min": 0.4,
+        "observado_min": 0.39,
+        "origen": "medido",
+        "estado": "en_tiempo",
+        "cita": ""
+      }
     },
     {
       "estado": "Falta",
@@ -146,7 +230,9 @@
       "confianza": null,
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null
     },
     {
       "estado": "Sobra",
@@ -159,7 +245,9 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": "intro",
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null
     },
     {
       "estado": "Sobra",
@@ -172,7 +260,9 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null
     },
     {
       "estado": "Sobra",
@@ -185,9 +275,43 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": "cierre",
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null
     }
   ],
+  "roles": [
+    {
+      "rol": "Técnico de mantenimiento",
+      "estado": "presente",
+      "t": 0.4,
+      "cita": "soy Laura, técnica de mantenimiento"
+    },
+    {
+      "rol": "Supervisor de turno",
+      "estado": "mencionado",
+      "t": 47.68,
+      "cita": "mejor avisen al supervisor de turno"
+    },
+    {
+      "rol": "Almacenista",
+      "estado": "ausente",
+      "t": null,
+      "cita": ""
+    }
+  ],
+  "tiempo_total": {
+    "esperado_min": 3.0,
+    "observado_min": 2.63,
+    "estado": "en_tiempo"
+  },
+  "horario": {
+    "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+    "observado": "cada tres meses o cuando el manómetro marca menos de dos bar",
+    "estado": "coincide",
+    "t": 12.53,
+    "cita": "se cambia cada tres meses o cuando el manómetro marca menos de dos bar"
+  },
   "metadatos": {
     "segmentacion": "llm",
     "motivo_respaldo": null,
@@ -198,7 +322,10 @@
       "alto": 0.75,
       "fusion": 0.55,
       "semaforo_verde": 90.0,
-      "semaforo_amarillo": 70.0
+      "semaforo_amarillo": 70.0,
+      "afinidad_min": 60.0,
+      "tolerancia_tiempo": 0.2,
+      "umbral_rol": 0.85
     },
     "segundos": {
       "duracion": 0.2,

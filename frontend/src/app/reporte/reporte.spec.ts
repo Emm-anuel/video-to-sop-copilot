@@ -315,7 +315,8 @@ describe('Reporte', () => {
     expect(el.querySelector('.semaforo-amarillo')).not.toBeNull();
     expect(el.querySelector('.semaforo-texto')?.textContent).toContain('Amarillo');
     expect(el.querySelector('.avisos')).toBeNull();
-    expect(texto()).not.toContain('Afinidad');
+    // Desde el contrato de S5 el ejemplo trae afinidad (objeto); en producción sigue en null.
+    expect(texto()).toContain(`Afinidad: ${NORMAL.afinidad!.valor}`);
 
     expect(texto()).toContain('5 de 7 pasos cumplen');
     expect(conteo('parcial')).toBe(String(NORMAL.conteo.parcial));

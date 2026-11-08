@@ -13,19 +13,30 @@ from sopvid.contrato import (
     SOP,
     Analisis,
     Clasificacion,
+    Contexto,
     Dato,
+    FilaReporte,
     Fotograma,
     Fusion,
+    Horario,
     Idioma,
     Juicio,
     Palabra,
+    PalabraClave,
     Par,
     PasoSOP,
     PasoVideo,
+    ReporteValidacion,
+    ResponsableFila,
     ResultadoEmparejamiento,
     ResultadoPaso,
     ResumenClasificacion,
+    RolReporte,
+    TiempoFila,
+    TiempoTotal,
+    Umbrales,
     esquema_analisis,
+    esquema_contexto,
     esquema_reporte,
     esquema_sop,
 )
@@ -777,6 +788,296 @@ def test_el_sobra_con_marco_no_cuenta_en_el_conteo_de_sobra():
     _falla(Clasificacion, {"pasos": pasos, "resumen": resumen | {"marco_operador": 0}}, "marco")
 
 
+# ── S5: contexto, personas, tiempos, afinidad y palabras clave ───────────────────────────────
+
+FIXTURES = RAIZ / "tests" / "fixtures"
+REPORTES = ["reporte_ejemplo.json", "reporte_ejemplo_provisional.json"]
+# Campos que agregó S5 al reporte: sin ellos, un reporte tiene la forma de antes.
+NUEVOS_RAIZ = ("roles", "tiempo_total", "horario")
+NUEVOS_CONTEO = ("personas_con_diferencias", "pasos_fuera_de_tiempo")
+NUEVOS_FILA = ("responsable", "tiempo")
+NUEVOS_UMBRALES = ("afinidad_min", "tolerancia_tiempo", "umbral_rol")
+
+
+def _fixture(nombre: str) -> dict:
+    return json.loads((FIXTURES / nombre).read_text(encoding="utf-8"))
+
+
+def _segmento_en(ejemplo: dict, t: float) -> str:
+    """Texto del segmento de `analisis_ejemplo.json` que empieza en `t`."""
+    return next(s["texto"] for s in ejemplo["transcripcion"] if s["t_inicio"] == t)
+
+
+def _forma_anterior(reporte: dict) -> dict:
+    """El reporte como se escribía antes de S5: sin los campos nuevos y con afinidad null."""
+    viejo = {k: v for k, v in copy.deepcopy(reporte).items() if k not in NUEVOS_RAIZ}
+    viejo["afinidad"] = None
+    viejo["conteo"] = {k: v for k, v in viejo["conteo"].items() if k not in NUEVOS_CONTEO}
+    viejo["filas"] = [{k: v for k, v in f.items() if k not in NUEVOS_FILA} for f in viejo["filas"]]
+    umbrales = viejo["metadatos"]["umbrales"]
+    viejo["metadatos"]["umbrales"] = {k: v for k, v in umbrales.items() if k not in NUEVOS_UMBRALES}
+    return viejo
+
+
+@pytest.mark.parametrize(
+    ("archivo", "modelo"),
+    [
+        ("contexto_ejemplo.json", Contexto),
+        ("sop_generado_ejemplo.json", SOP),
+        *((archivo, ReporteValidacion) for archivo in REPORTES),
+    ],
+)
+def test_los_ejemplos_de_s5_van_y_vuelven_en_json_sin_cambios(archivo, modelo):
+    datos = _fixture(archivo)
+    assert modelo.model_validate(datos).model_dump(mode="json") == datos
+    assert modelo.model_validate_json(json.dumps(datos)).model_dump(mode="json") == datos
+
+
+def test_las_citas_de_personas_roles_y_horario_son_literales(ejemplo):
+    """Regla 4: cada cita aparece tal cual en el segmento que empieza en su segundo."""
+    contexto = _fixture("contexto_ejemplo.json")
+    sop = _fixture("sop_generado_ejemplo.json")
+    reporte = _fixture("reporte_ejemplo.json")
+    citas = [
+        *contexto["personas"],
+        *sop["resumen"]["personas"],
+        *(r for r in reporte["roles"] if r["t"] is not None),
+        reporte["horario"],
+    ]
+    assert len(citas) == 7
+    for c in citas:
+        assert c["cita"] and c["cita"] in _segmento_en(ejemplo, c["t"])
+    datos = [contexto[k] for k in ("actividad", "lugar", "horario_mencionado", "proposito")]
+    for dato in datos + [sop["resumen"][k] for k in ("objetivo", "responsable", "lugar")]:
+        assert dato["fuente"] == "audio"
+        _segmento_en(ejemplo, dato["t"])  # existe un segmento que empieza ahí
+
+
+def test_el_sop_generado_lleva_tiempos_y_palabras_clave_de_la_transcripcion(ejemplo):
+    sop = SOP.model_validate(_fixture("sop_generado_ejemplo.json"))
+    inicios = {s["t_inicio"] for s in ejemplo["transcripcion"]}
+    finales = {s["t_fin"] for s in ejemplo["transcripcion"]}
+    assert all(p.t_inicio in inicios and p.t_fin in finales for p in sop.pasos)
+    assert any(p.campos_inferidos for p in sop.pasos)  # RF-25: algo inferido que resaltar
+    palabras = {
+        p["t"]: p["w"].strip(".,;:").lower()
+        for s in ejemplo["transcripcion"]
+        for p in s["palabras"]
+    }
+    for clave in sop.palabras_clave:
+        assert clave.menciones == len(clave.t) > 0
+        primera = clave.termino.split()[0]
+        assert all(palabras[t] == primera for t in clave.t), clave.termino
+
+
+def test_contexto_vacio_queda_inferido_con_confianza_baja():
+    c = Contexto()
+    assert c.personas == [] and c.equipos == []
+    assert c.actividad == Dato(valor=None, confianza="baja", fuente="inferido")
+    assert c.resumen is not c.actividad  # cada campo, su propio Dato
+
+
+@pytest.mark.parametrize(
+    ("dato", "texto"),
+    [
+        ({"valor": "Línea", "fuente": "documento"}, "documento"),
+        ({"valor": "Línea", "fuente": "audio", "t": None}, "lleva su segundo"),
+        ({"valor": "Línea", "fuente": "visual"}, "lleva su segundo"),
+    ],
+    ids=["documento", "audio_sin_t", "visual_sin_t"],
+)
+def test_contexto_con_fuente_ajena_al_video_falla(dato, texto):
+    _falla(Contexto, {"lugar": dato}, texto)
+
+
+def test_persona_sin_segundo_o_con_participacion_desconocida_falla():
+    persona = {"participacion": "participa", "t": 3.0}
+    assert Contexto.model_validate({"personas": [persona]}).personas[0].nombre == "No identificado"
+    _falla(Contexto, {"personas": [{"participacion": "participa"}]}, "personas.0.t")
+    _falla(Contexto, {"personas": [{**persona, "participacion": "observa"}]}, "participacion")
+
+
+def test_palabra_clave_cuenta_sus_menciones():
+    base = {"termino": "manómetro", "categoria": "equipo"}
+    assert PalabraClave.model_validate(base).model_dump() == {**base, "menciones": 0, "t": []}
+    assert PalabraClave.model_validate({**base, "menciones": 2, "t": [1.0, 4.5]}).menciones == 2
+    _falla(PalabraClave, {**base, "menciones": 2, "t": [1.0]}, "2 menciones y 1 segundos")
+    _falla(PalabraClave, {**base, "menciones": 0, "t": [1.0]}, "0 menciones")
+    _falla(PalabraClave, {**base, "menciones": 2, "t": [4.5, 1.0]}, "fuera de orden")
+
+
+def test_los_sop_guardados_antes_de_s5_se_siguen_leyendo():
+    sop = _fixture("sop_ejemplo.json")
+    sop["palabras_clave"] = [{"termino": "manómetro", "categoria": "equipo"}]
+    sop["resumen"].pop("personas", None)
+    leido = SOP.model_validate(sop)
+    assert leido.resumen.personas == []
+    assert (leido.palabras_clave[0].menciones, leido.palabras_clave[0].t) == (0, [])
+
+
+@pytest.mark.parametrize(
+    ("modelo", "datos"),
+    [
+        (ResponsableFila, {"esperado": "Técnico", "observado": "Laura", "estado": "coincide"}),
+        (ResponsableFila, {"esperado": "Técnico", "estado": "no_identificado"}),
+        (
+            TiempoFila,
+            {"esperado_min": 2, "observado_min": 3.5, "origen": "medido", "estado": "excede"},
+        ),
+        (
+            TiempoFila,
+            {"observado_min": 5, "origen": "narrado", "estado": "sin_referencia", "cita": "unos"},
+        ),
+        (RolReporte, {"rol": "Supervisor", "estado": "mencionado", "t": 47.68}),
+        (RolReporte, {"rol": "Almacenista", "estado": "ausente"}),
+        (TiempoTotal, {"esperado_min": 40, "observado_min": 46, "estado": "en_tiempo"}),
+        (TiempoTotal, {"observado_min": 46, "estado": "sin_referencia"}),
+        (Horario, {"estado": "sin_referencia"}),
+        (Horario, {"estado": "sin_referencia", "observado": "a las 7", "t": 3.0}),
+        (Horario, {"esperado": "7:00", "estado": "no_mencionado"}),
+        (Horario, {"esperado": "7:00", "observado": "a las 7", "estado": "coincide", "t": 3.0}),
+    ],
+)
+def test_personas_y_tiempos_coherentes_validan(modelo, datos):
+    assert modelo.model_validate(datos).estado == datos["estado"]
+
+
+@pytest.mark.parametrize(
+    ("modelo", "datos", "texto"),
+    [
+        (ResponsableFila, {"esperado": "Técnico", "estado": "coincide"}, "sin observado"),
+        (
+            ResponsableFila,
+            {"esperado": "Técnico", "observado": "Laura", "estado": "no_identificado"},
+            "sin observado",
+        ),
+        (
+            ResponsableFila,
+            {"esperado": "Técnico", "estado": "no_identificado", "similitud": 0.2},
+            "sin similitud",
+        ),
+        (
+            TiempoFila,
+            {"observado_min": 3, "origen": "medido", "estado": "excede"},
+            "sin_referencia",
+        ),
+        (
+            TiempoFila,
+            {"esperado_min": 2, "observado_min": 3, "origen": "medido", "estado": "sin_referencia"},
+            "sin_referencia",
+        ),
+        (
+            TiempoFila,
+            {"esperado_min": 2, "observado_min": 3, "origen": "narrado", "estado": "excede"},
+            "narrado",
+        ),
+        (
+            TiempoFila,
+            {
+                "esperado_min": 2,
+                "observado_min": 3,
+                "origen": "medido",
+                "estado": "excede",
+                "cita": "x",
+            },
+            "medido",
+        ),
+        (RolReporte, {"rol": "Supervisor", "estado": "presente"}, "lleva el segundo"),
+        (RolReporte, {"rol": "Almacenista", "estado": "ausente", "t": 3.0}, "sin t ni cita"),
+        (TiempoTotal, {"observado_min": 46, "estado": "menor"}, "sin_referencia"),
+        (Horario, {"esperado": "7:00", "estado": "sin_referencia"}, "sin_referencia"),
+        (Horario, {"esperado": "7:00", "estado": "coincide"}, "no_mencionado"),
+        (
+            Horario,
+            {"esperado": "7:00", "observado": "a las 7", "estado": "no_mencionado", "t": 3.0},
+            "no_mencionado",
+        ),
+        (Horario, {"esperado": "7:00", "observado": "a las 7", "estado": "coincide"}, "su segundo"),
+    ],
+)
+def test_personas_y_tiempos_incoherentes_fallan(modelo, datos, texto):
+    _falla(modelo, datos, texto)
+
+
+@pytest.mark.parametrize("estado", ["Falta", "Sobra"])
+@pytest.mark.parametrize(
+    "campo",
+    [
+        {"responsable": {"esperado": "Técnico", "estado": "no_identificado"}},
+        {"tiempo": {"observado_min": 1, "origen": "medido", "estado": "sin_referencia"}},
+    ],
+    ids=["responsable", "tiempo"],
+)
+def test_responsable_y_tiempo_solo_van_en_un_par(estado, campo):
+    _falla(FilaReporte, {"estado": estado, **campo}, "solo van en un par")
+    assert FilaReporte.model_validate({"estado": "zona_gris", **campo}).estado == "zona_gris"
+
+
+def test_el_ejemplo_del_reporte_tiene_los_casos_de_s5():
+    r = ReporteValidacion.model_validate(_fixture("reporte_ejemplo.json"))
+    assert r.afinidad is not None and (r.afinidad.valor, r.afinidad.bajo_umbral) == (87, False)
+    responsables = [f.responsable.estado for f in r.filas if f.responsable]
+    tiempos = [f.tiempo.estado for f in r.filas if f.tiempo]
+    assert responsables.count("distinto") == 1
+    assert {"excede", "menor", "en_tiempo", "sin_referencia"} == set(tiempos)
+    assert [x.estado for x in r.roles] == ["presente", "mencionado", "ausente"]
+    assert r.conteo.personas_con_diferencias == 2  # el distinto más el rol ausente
+    assert r.conteo.pasos_fuera_de_tiempo == 2  # el que excede y el menor
+    assert r.horario is not None and r.horario.estado == "coincide"
+    assert r.tiempo_total is not None and r.tiempo_total.estado == "en_tiempo"
+    assert r.metadatos.umbrales.afinidad_min == 60
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [("personas_con_diferencias", 1), ("pasos_fuera_de_tiempo", 3)],
+)
+def test_el_conteo_de_personas_y_tiempos_debe_cuadrar(campo, valor):
+    reporte = _fixture("reporte_ejemplo.json")
+    reporte["conteo"][campo] = valor
+    _falla(ReporteValidacion, reporte, "no coincide con las filas y los roles")
+
+
+def test_quitar_un_rol_ausente_descuadra_el_conteo():
+    reporte = _fixture("reporte_ejemplo.json")
+    reporte["roles"] = [r for r in reporte["roles"] if r["estado"] != "ausente"]
+    _falla(ReporteValidacion, reporte, "no coincide")
+    reporte["conteo"]["personas_con_diferencias"] = 1
+    assert ReporteValidacion.model_validate(reporte).conteo.personas_con_diferencias == 1
+
+
+def test_bajo_umbral_cuadra_con_la_afinidad_minima():
+    reporte = _fixture("reporte_ejemplo.json")
+    reporte["afinidad"]["bajo_umbral"] = True
+    _falla(ReporteValidacion, reporte, "bajo_umbral debe ser False")
+    reporte["afinidad"]["valor"] = 59
+    assert ReporteValidacion.model_validate(reporte).afinidad.bajo_umbral is True
+    # Sin AFINIDAD_MIN registrado (reporte anterior a S5) no hay con qué comparar.
+    del reporte["metadatos"]["umbrales"]["afinidad_min"]
+    reporte["afinidad"]["valor"] = 87
+    assert ReporteValidacion.model_validate(reporte).afinidad.bajo_umbral is True
+
+
+def test_la_afinidad_ya_no_es_un_entero():
+    reporte = _fixture("reporte_ejemplo.json") | {"afinidad": 87}
+    _falla(ReporteValidacion, reporte, "afinidad")
+
+
+@pytest.mark.parametrize("archivo", REPORTES)
+def test_los_reportes_anteriores_a_s5_se_siguen_leyendo(archivo):
+    viejo = _forma_anterior(_fixture(archivo))
+    r = ReporteValidacion.model_validate(viejo)
+    assert r.afinidad is None and r.roles == [] and r.tiempo_total is None and r.horario is None
+    assert (r.conteo.personas_con_diferencias, r.conteo.pasos_fuera_de_tiempo) == (0, 0)
+    assert all(f.responsable is None and f.tiempo is None for f in r.filas)
+    assert r.metadatos.umbrales.afinidad_min is None
+
+
+def test_umbrales_anteriores_a_s5_validan():
+    u = Umbrales(bajo=0.55, alto=0.75, fusion=0.55, semaforo_verde=90, semaforo_amarillo=70)
+    assert (u.afinidad_min, u.tolerancia_tiempo, u.umbral_rol) == (None, None, None)
+
+
 # ── JSON Schema exportado ────────────────────────────────────────────────────────────────────
 
 
@@ -785,6 +1086,7 @@ def test_el_sobra_con_marco_no_cuenta_en_el_conteo_de_sobra():
     [
         ("analisis.schema.json", esquema_analisis),
         ("sop.schema.json", esquema_sop),
+        ("contexto.schema.json", esquema_contexto),
         ("reporte.schema.json", esquema_reporte),
     ],
 )

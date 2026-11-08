@@ -39,7 +39,7 @@
           </p>
         }
         @if (r.afinidad != null) {
-          <p class="afinidad">Afinidad: {{ r.afinidad | number: '1.2-2' }}</p>
+          <p class="afinidad">Afinidad: {{ r.afinidad.valor }}</p>
         }
         @if (r.provisional) {
           <div class="avisos" role="status">

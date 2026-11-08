@@ -5,15 +5,21 @@
   un paso "sin revisar" y el aviso `juez_sin_revisar`.
 
 Datos INVENTADOS (tests/fixtures/README.md): la transcripción de `analisis_ejemplo.json` (Laura,
-cambio del cartucho del filtro) y el SOP de `sop_ejemplo.json` con dos cambios para que salgan
+cambio del cartucho del filtro) y el SOP de `sop_ejemplo.json` con cambios para que salgan
 todos los casos: los pasos 1 y 2 intercambiados (Laura se pone los guantes antes de cerrar la
-llave: fuera de orden) y un paso 7 que no narra (bitácora: Falta).
+llave: fuera de orden), un paso 7 que no narra (bitácora: Falta), tiempos esperados por paso
+(uno excede, uno menor, uno sin referencia), el paso 6 a cargo del supervisor (responsable
+distinto) y un rol "Almacenista" que no aparece (ausente).
 
 Corre el código real de `emparejar` (fusión, húngaro, umbrales, juez, orden y marco del
 operador), `porcentaje`, `semaforo`, `avisos_de` y `armar_reporte`. Solo los pasos del video, el
 vectorizador y el juez están guionados (sin Gemma 4 ni MiniLM), así que el resultado es siempre
 el mismo. Los tiempos y las citas salen de la transcripción (regla 4). Los umbrales son los
 valores por defecto de `Settings`, sin leer `.env`.
+
+La afinidad, los responsables, los tiempos, los roles y el horario (RF-15 a RF-17) todavía no
+tienen lógica: se agregan guionados al final (`completar_s5`) y el reporte se valida de nuevo.
+Solo `observado_min` sale del video (t_fin − t_inicio del paso, o la duración del video).
 
 Uso:
     python scripts/ejemplo_reporte.py
@@ -33,9 +39,11 @@ from unittest import mock
 import numpy as np
 
 from sopvid.contrato import (
+    ESTADOS_PAR,
     SOP,
     Analisis,
     Dispositivos,
+    Elemento,
     Juicio,
     MetadatosValidacion,
     PasoSOP,
@@ -102,6 +110,39 @@ SEGUNDOS = {
 }
 CREADO = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
 
+# ── Guion de S5 (RF-15 a RF-17): todavía sin lógica ──────────────────────────────────────────
+# Tiempo esperado (min) de cada paso del SOP del ejemplo, en el orden ya intercambiado, y el
+# estado que da con la tolerancia por defecto (20 %) frente a la duración medida en el video.
+TIEMPOS: dict[int, tuple[float | None, str]] = {
+    1: (0.25, "en_tiempo"),  # Cerrar la llave: 0.23 medido
+    2: (0.2, "en_tiempo"),  # Guantes y lentes: 0.19
+    3: (None, "sin_referencia"),  # Liberar la presión: el SOP no dice cuánto
+    4: (0.4, "excede"),  # Retirar el cartucho: 0.58
+    5: (0.5, "menor"),  # Colocar el cartucho: 0.35
+    6: (0.4, "en_tiempo"),  # Abrir la llave y revisar fugas: 0.39
+}
+RESPONSABLE_DISTINTO = (6, "Supervisor de turno")  # paso del SOP y su responsable
+OBSERVADO = "Laura (técnica de mantenimiento)"
+# Coseno entre roles (UMBRAL_ROL = 0.85): rol contra rol, sin el nombre de la persona.
+SIMILITUD_ROL = {"coincide": 0.88, "distinto": 0.36}
+ALMACENISTA = Elemento(nombre="Almacenista", descripcion="Entrega el cartucho nuevo.")
+# (rol, estado, segundo, cita literal de la transcripción)
+ROLES: list[tuple[str, str, float | None, str]] = [
+    ("Técnico de mantenimiento", "presente", 0.4, "soy Laura, técnica de mantenimiento"),
+    ("Supervisor de turno", "mencionado", 47.68, "mejor avisen al supervisor de turno"),
+    ("Almacenista", "ausente", None, ""),
+]
+AFINIDAD = (
+    87,
+    "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de "
+    "enjuague) y el mismo equipo: llave de carcasa, cubeta y manómetro.",
+)
+HORARIO = (
+    "cada tres meses o cuando el manómetro marca menos de dos bar",
+    12.53,
+    "se cambia cada tres meses o cuando el manómetro marca menos de dos bar",
+)
+
 
 class VectorizadorGuionado:
     """El vector de cada texto según el prefijo más largo de `GUION` con que empieza."""
@@ -159,8 +200,111 @@ def sop_del_ejemplo() -> SOP:
             puntos_validacion=["Bitácora firmada"],
         )
     )
-    return sop.model_copy(
-        update={"pasos": [p.model_copy(update={"numero": n}) for n, p in enumerate(pasos, 1)]}
+    pasos = [p.model_copy(update={"numero": n}) for n, p in enumerate(pasos, 1)]
+    for numero, (esperado, _) in TIEMPOS.items():
+        pasos[numero - 1] = pasos[numero - 1].model_copy(update={"tiempo_esperado_min": esperado})
+    numero, responsable = RESPONSABLE_DISTINTO
+    pasos[numero - 1] = pasos[numero - 1].model_copy(update={"responsable": responsable})
+    resumen = sop.resumen.model_copy(update={"roles": [*sop.resumen.roles, ALMACENISTA]})
+    return SOP.model_validate(
+        sop.model_copy(update={"pasos": pasos, "resumen": resumen}).model_dump()
+    )
+
+
+def _cita_en(analisis: Analisis, t: float, cita: str) -> None:
+    """La cita aparece tal cual en el segmento que empieza en `t` (regla 4)."""
+    segmento = next(s for s in analisis.transcripcion if s.t_inicio == t)
+    assert cita in segmento.texto, f"la cita del segundo {t} no es literal"
+
+
+def _estado_tiempo(esperado: float, observado: float, tolerancia: float) -> str:
+    """Solo para comprobar el guion; la lógica de RF-16 llega en S5."""
+    if observado > esperado * (1 + tolerancia):
+        return "excede"
+    if observado < esperado * (1 - tolerancia):
+        return "menor"
+    return "en_tiempo"
+
+
+def completar_s5(
+    reporte: ReporteValidacion,
+    sop: SOP,
+    analisis: Analisis,
+    pasos_video: list[PasoVideo],
+    settings: Settings,
+) -> ReporteValidacion:
+    """Agrega al reporte la afinidad, personas, tiempos y horario guionados, y lo revalida."""
+    por_numero = {p.numero: p for p in pasos_video}
+    filas = []
+    distintos = fuera_de_tiempo = 0
+    for fila in reporte.filas:
+        datos = fila.model_dump()
+        if fila.estado in ESTADOS_PAR:
+            assert fila.paso_sop is not None and fila.paso_video is not None
+            paso_sop = sop.pasos[fila.paso_sop - 1]
+            video = por_numero[fila.paso_video]
+            esperado, estado = TIEMPOS[fila.paso_sop]
+            observado = round((video.t_fin - video.t_inicio) / 60, 2)
+            if esperado is not None:
+                assert _estado_tiempo(esperado, observado, settings.tolerancia_tiempo) == estado
+            coincide = "coincide" if paso_sop.responsable != RESPONSABLE_DISTINTO[1] else "distinto"
+            datos["responsable"] = {
+                "esperado": paso_sop.responsable,
+                "observado": OBSERVADO,
+                "estado": coincide,
+                "similitud": SIMILITUD_ROL[coincide],
+            }
+            datos["tiempo"] = {
+                "esperado_min": esperado,
+                "observado_min": observado,
+                "origen": "medido",
+                "estado": estado,
+            }
+            distintos += coincide == "distinto"
+            fuera_de_tiempo += estado in ("excede", "menor")
+        filas.append(datos)
+    roles = []
+    for rol, estado, t, cita in ROLES:
+        if t is not None:
+            _cita_en(analisis, t, cita)
+        roles.append({"rol": rol, "estado": estado, "t": t, "cita": cita})
+    esperado_total = sop.resumen.duracion_total_min
+    assert esperado_total is not None
+    observado_total = round(analisis.duracion_s / 60, 2)
+    observado_horario, t_horario, cita_horario = HORARIO
+    _cita_en(analisis, t_horario, cita_horario)
+    valor, explicacion = AFINIDAD
+    datos = reporte.model_dump()
+    return ReporteValidacion.model_validate(
+        {
+            **datos,
+            "afinidad": {
+                "valor": valor,
+                "explicacion": explicacion,
+                "bajo_umbral": valor < settings.afinidad_min,
+            },
+            "conteo": {
+                **datos["conteo"],
+                "personas_con_diferencias": distintos + sum(r[1] == "ausente" for r in ROLES),
+                "pasos_fuera_de_tiempo": fuera_de_tiempo,
+            },
+            "filas": filas,
+            "roles": roles,
+            "tiempo_total": {
+                "esperado_min": esperado_total,
+                "observado_min": observado_total,
+                "estado": _estado_tiempo(
+                    esperado_total, observado_total, settings.tolerancia_tiempo
+                ),
+            },
+            "horario": {
+                "esperado": sop.resumen.horario_frecuencia.valor,
+                "observado": observado_horario,
+                "estado": "coincide",
+                "t": t_horario,
+                "cita": cita_horario,
+            },
+        }
     )
 
 
@@ -226,6 +370,9 @@ def construir(caido: bool) -> ReporteValidacion:
                 fusion=settings.umbral_fusion,
                 semaforo_verde=settings.semaforo_verde,
                 semaforo_amarillo=settings.semaforo_amarillo,
+                afinidad_min=settings.afinidad_min,
+                tolerancia_tiempo=settings.tolerancia_tiempo,
+                umbral_rol=settings.umbral_rol,
             ),
             segundos=SEGUNDOS,
             avisos=avisos_de(segmentacion, resultado),
@@ -235,7 +382,7 @@ def construir(caido: bool) -> ReporteValidacion:
             ),
         ),
     )
-    return armar_reporte(
+    reporte = armar_reporte(
         validacion,
         sop,
         video_id=1,
@@ -244,6 +391,7 @@ def construir(caido: bool) -> ReporteValidacion:
         cumplimiento=round(pct, 2),
         creado=CREADO,
     )
+    return completar_s5(reporte, sop, analisis, resultado.pasos_video, settings)
 
 
 def serializar(reporte: ReporteValidacion) -> str:

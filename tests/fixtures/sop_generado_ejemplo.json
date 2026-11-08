@@ -1,0 +1,319 @@
+{
+  "version_contrato": 1,
+  "titulo": "Cambio del cartucho del filtro de agua",
+  "resumen": {
+    "objetivo": {
+      "valor": "Cambiar el cartucho del filtro de agua de la línea de enjuague",
+      "confianza": "alta",
+      "fuente": "audio",
+      "t": 6.36
+    },
+    "alcance": {
+      "valor": "Filtro de cartucho de la línea de enjuague; incluye revisar el anillo de hule.",
+      "confianza": "media",
+      "fuente": "inferido",
+      "t": null
+    },
+    "responsable": {
+      "valor": "Técnica de mantenimiento",
+      "confianza": "alta",
+      "fuente": "audio",
+      "t": 0.4
+    },
+    "lugar": {
+      "valor": "Línea de enjuague",
+      "confianza": "alta",
+      "fuente": "audio",
+      "t": 0.4
+    },
+    "horario_frecuencia": {
+      "valor": "Cada tres meses o cuando el manómetro marca menos de dos bar",
+      "confianza": "alta",
+      "fuente": "audio",
+      "t": 12.53
+    },
+    "duracion_total_min": 2.17,
+    "equipo_operacion": [
+      {
+        "nombre": "Guantes de nitrilo",
+        "descripcion": "Protección de manos."
+      },
+      {
+        "nombre": "Lentes de seguridad",
+        "descripcion": "Obligatorios: al liberar la presión puede salpicar agua."
+      },
+      {
+        "nombre": "Llave de carcasa",
+        "descripcion": "Afloja y aprieta el vaso del filtro."
+      },
+      {
+        "nombre": "Cubeta",
+        "descripcion": "Recoge el agua que escurre."
+      },
+      {
+        "nombre": "Cartucho nuevo",
+        "descripcion": ""
+      },
+      {
+        "nombre": "Bolsa de residuos",
+        "descripcion": "Para el cartucho usado."
+      },
+      {
+        "nombre": "Toalla de papel",
+        "descripcion": "Para revisar fugas."
+      }
+    ],
+    "roles": [
+      {
+        "nombre": "Técnica de mantenimiento",
+        "descripcion": "Ejecuta el cambio completo del cartucho."
+      },
+      {
+        "nombre": "Supervisor de turno",
+        "descripcion": "Atiende si la llave de paso está muy dura."
+      }
+    ],
+    "personas": [
+      {
+        "nombre": "Laura",
+        "rol": "Técnica de mantenimiento",
+        "participacion": "participa",
+        "t": 0.4,
+        "cita": "soy Laura, técnica de mantenimiento"
+      },
+      {
+        "nombre": "No identificado",
+        "rol": "Supervisor de turno",
+        "participacion": "mencionado",
+        "t": 47.68,
+        "cita": "mejor avisen al supervisor de turno"
+      }
+    ],
+    "riesgos": [
+      {
+        "descripcion": "Salpicadura de agua al liberar la presión",
+        "nivel": "alto",
+        "paso": 3,
+        "control": "Lentes de seguridad; liberar la presión hasta que el manómetro marque cero."
+      },
+      {
+        "descripcion": "Piso mojado",
+        "nivel": "medio",
+        "paso": 3,
+        "control": "Cubeta debajo del filtro."
+      },
+      {
+        "descripcion": "Rosca barrida por apretar de más",
+        "nivel": "bajo",
+        "paso": 5,
+        "control": "Enroscar a mano y dar solo un cuarto de vuelta con la llave."
+      }
+    ],
+    "en_caso_de_falla": [
+      {
+        "situacion": "La llave de paso está muy dura",
+        "accion": "No usar extensión; avisar al supervisor de turno."
+      },
+      {
+        "situacion": "El anillo de hule está aplastado o cuarteado",
+        "accion": "Cambiar el anillo antes de colocar el vaso."
+      }
+    ]
+  },
+  "pasos": [
+    {
+      "numero": 1,
+      "nombre": "Ponerse guantes y lentes de seguridad",
+      "descripcion": "Ponerse guantes de nitrilo y lentes de seguridad antes de empezar.",
+      "responsable": "Técnica de mantenimiento",
+      "equipo": [
+        "Guantes de nitrilo",
+        "Lentes de seguridad"
+      ],
+      "puntos_validacion": [
+        "EPP completo antes de liberar la presión"
+      ],
+      "tiempo_esperado_min": 0.19,
+      "t_inicio": 20.45,
+      "t_fin": 31.64,
+      "confianza": "media",
+      "campos_inferidos": [
+        "puntos_validacion"
+      ]
+    },
+    {
+      "numero": 2,
+      "nombre": "Cerrar la llave de paso",
+      "descripcion": "Girar la llave de paso a la derecha hasta el tope; si está muy dura, avisar al supervisor de turno.",
+      "responsable": "Técnica de mantenimiento",
+      "equipo": [
+        "Llave de paso"
+      ],
+      "puntos_validacion": [
+        "La manija queda atravesada a la tubería"
+      ],
+      "tiempo_esperado_min": 0.34,
+      "t_inicio": 33.44,
+      "t_fin": 53.91,
+      "confianza": "alta",
+      "campos_inferidos": []
+    },
+    {
+      "numero": 3,
+      "nombre": "Liberar la presión",
+      "descripcion": "Mantener presionado el botón rojo de la carcasa con una cubeta debajo.",
+      "responsable": "Técnica de mantenimiento",
+      "equipo": [
+        "Cubeta",
+        "Manómetro"
+      ],
+      "puntos_validacion": [
+        "El manómetro baja a cero"
+      ],
+      "tiempo_esperado_min": 0.3,
+      "t_inicio": 55.51,
+      "t_fin": 73.56,
+      "confianza": "alta",
+      "campos_inferidos": []
+    },
+    {
+      "numero": 4,
+      "nombre": "Retirar el vaso y el cartucho usado",
+      "descripcion": "Aflojar el vaso con la llave de carcasa, bajarlo con cuidado, sacar el cartucho usado y revisar el anillo de hule.",
+      "responsable": "Técnica de mantenimiento",
+      "equipo": [
+        "Llave de carcasa",
+        "Bolsa de residuos"
+      ],
+      "puntos_validacion": [
+        "Anillo de hule sin aplastar ni cuartear"
+      ],
+      "tiempo_esperado_min": 0.48,
+      "t_inicio": 74.76,
+      "t_fin": 103.4,
+      "confianza": "alta",
+      "campos_inferidos": []
+    },
+    {
+      "numero": 5,
+      "nombre": "Colocar el cartucho nuevo",
+      "descripcion": "Meter el cartucho centrado, con la ranura hacia arriba, enroscar el vaso a mano y dar un cuarto de vuelta con la llave.",
+      "responsable": "Técnica de mantenimiento",
+      "equipo": [
+        "Cartucho nuevo",
+        "Llave de carcasa"
+      ],
+      "puntos_validacion": [
+        "Vaso sin apretar de más"
+      ],
+      "tiempo_esperado_min": 0.35,
+      "t_inicio": 104.9,
+      "t_fin": 125.62,
+      "confianza": "alta",
+      "campos_inferidos": []
+    },
+    {
+      "numero": 6,
+      "nombre": "Abrir la llave y revisar fugas",
+      "descripcion": "Abrir la llave de paso despacio, purgar el aire con el botón rojo y revisar la unión del vaso con una toalla de papel.",
+      "responsable": "Técnica de mantenimiento",
+      "equipo": [
+        "Toalla de papel",
+        "Manómetro"
+      ],
+      "puntos_validacion": [
+        "Sin fugas en la unión del vaso",
+        "El manómetro regresa a cuatro bar"
+      ],
+      "tiempo_esperado_min": 0.39,
+      "t_inicio": 127.32,
+      "t_fin": 150.86,
+      "confianza": "alta",
+      "campos_inferidos": []
+    }
+  ],
+  "puntos_clave": [
+    {
+      "texto": "Los lentes son obligatorios porque al liberar la presión puede salpicar agua.",
+      "t": 25.94
+    },
+    {
+      "texto": "Si la llave de paso está muy dura, no usar extensión: avisar al supervisor de turno.",
+      "t": 47.68
+    },
+    {
+      "texto": "Revisar el anillo de hule; si está aplastado o cuarteado, se cambia.",
+      "t": 91.42
+    },
+    {
+      "texto": "No apretar el vaso de más porque se barre la rosca.",
+      "t": 121.83
+    }
+  ],
+  "palabras_clave": [
+    {
+      "termino": "manómetro",
+      "categoria": "equipo",
+      "menciones": 3,
+      "t": [
+        16.53,
+        66.22,
+        148.14
+      ]
+    },
+    {
+      "termino": "cartucho",
+      "categoria": "material",
+      "menciones": 5,
+      "t": [
+        9.92,
+        12.82,
+        86.73,
+        106.05,
+        155.16
+      ]
+    },
+    {
+      "termino": "llave de paso",
+      "categoria": "equipo",
+      "menciones": 2,
+      "t": [
+        34.7,
+        128.74
+      ]
+    },
+    {
+      "termino": "presión",
+      "categoria": "seguridad",
+      "menciones": 2,
+      "t": [
+        29.65,
+        56.88
+      ]
+    },
+    {
+      "termino": "cubeta",
+      "categoria": "equipo",
+      "menciones": 1,
+      "t": [
+        69.57
+      ]
+    },
+    {
+      "termino": "fugas",
+      "categoria": "calidad",
+      "menciones": 1,
+      "t": [
+        146.95
+      ]
+    },
+    {
+      "termino": "purgar",
+      "categoria": "accion",
+      "menciones": 1,
+      "t": [
+        136.27
+      ]
+    }
+  ]
+}

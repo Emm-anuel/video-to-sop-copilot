@@ -217,7 +217,13 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
         "sobra": 0,
         "sin_revisar": 0,
         "marco_operador": 0,
+        # S5: sin lógica todavía, en producción quedan en 0 y vacíos.
+        "personas_con_diferencias": 0,
+        "pasos_fuera_de_tiempo": 0,
     }
+    assert (reporte.roles, reporte.tiempo_total, reporte.horario) == ([], None, None)
+    assert all(f.responsable is None and f.tiempo is None for f in reporte.filas)
+    assert reporte.metadatos.umbrales.afinidad_min == 60  # se registra la configuración
 
 
 def test_reporte_409_antes_de_terminar(client: TestClient, entorno: Entorno) -> None:

@@ -15,12 +15,17 @@ lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un 
 tiene tiempos; los llena el SOP generado desde el video) y todo el resumen tiene valores por
 defecto, para que un SOP mínimo (título y pasos) valide.
 
+`Contexto` es la ficha de contexto del video (RF-12), con `Persona` para quién aparece. El
+reporte lleva además, por fila, `ResponsableFila` y `TiempoFila` (RF-15, RF-16), y en la raíz
+`Afinidad` (RF-17), `RolReporte`, `TiempoTotal` y `Horario`; mientras su lógica no exista, van
+en `None` o vacíos.
+
 Todo tiempo de estos contratos sale de la transcripción o del video, nunca del LLM (regla 4 de
 CLAUDE.md). Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fin ≥ inicio, y las
 listas vacías se escriben `[]`, nunca `null`. Los mensajes de error solo citan ids, números de
 paso y tiempos, nunca texto de la transcripción ni del SOP (puede ser material del cliente).
 
-Los JSON Schema se exportan a docs/contrato/ (analisis, sop y reporte .schema.json) con
+Los JSON Schema se exportan a docs/contrato/ (analisis, sop, contexto y reporte .schema.json) con
 `python scripts/exportar_contrato.py`; no se editan a mano.
 """
 
@@ -216,6 +221,23 @@ RESULTADOS_JUEZ: tuple[ResultadoJuez, ...] = get_args(ResultadoJuez)
 MarcoOperador = Literal["intro", "cierre"]
 # Color del cumplimiento en el reporte (RF-19); los cortes viven en la configuración.
 Semaforo = Literal["verde", "amarillo", "rojo"]
+# Los estados que son un par SOP–video: los únicos con responsable y tiempo en el reporte.
+ESTADOS_PAR: tuple[EstadoPaso, ...] = ("Cumple", "Parcial", "zona_gris")
+
+# ── Personas y tiempos (SOP V1.0 §5.4 y §5.5) ───────────────────────────────────────────────
+
+# Una persona del video hace pasos ("participa") o solo se nombra ("mencionado").
+Participacion = Literal["participa", "mencionado"]
+# Quién hace un paso emparejado frente al responsable del SOP (RF-15).
+EstadoResponsable = Literal["coincide", "distinto", "no_identificado"]
+# Cada rol del SOP entre las personas del video (RF-15).
+EstadoRol = Literal["presente", "mencionado", "ausente"]
+# Duración frente al tiempo esperado del SOP, con la tolerancia de la configuración (RF-16).
+EstadoTiempo = Literal["en_tiempo", "excede", "menor", "sin_referencia"]
+# De dónde sale la duración observada: la que narra el operador o t_fin − t_inicio.
+OrigenTiempo = Literal["narrado", "medido"]
+# Horario o frecuencia del SOP frente a lo que se dice en el video.
+EstadoHorario = Literal["coincide", "distinto", "no_mencionado", "sin_referencia"]
 
 
 class Juicio(_Modelo):
@@ -511,6 +533,21 @@ class Elemento(_Modelo):
     descripcion: str = ""
 
 
+class Persona(_Modelo):
+    """Persona identificada en el video (RF-12, §5.4).
+
+    `nombre` es el que se dice o "No identificado"; `rol`, el que se dice o se infiere, o `None`.
+    `t` y `cita` salen de la transcripción (regla 4): el segundo y la frase donde aparece. La cita
+    solo va vacía si la persona se identificó por un fotograma (entonces `t` es el del fotograma).
+    """
+
+    nombre: str = Field(default="No identificado", min_length=1)
+    rol: str | None = None
+    participacion: Participacion
+    t: Tiempo
+    cita: str = ""
+
+
 class Riesgo(_Modelo):
     descripcion: str
     nivel: Literal["alto", "medio", "bajo"]
@@ -532,6 +569,8 @@ class Resumen(_Modelo):
     duracion_total_min: float | None = Field(default=None, ge=0)
     equipo_operacion: list[Elemento] = []
     roles: list[Elemento] = []
+    # Personas en el video (§6, SOP generado); un SOP cargado la deja vacía.
+    personas: list[Persona] = []
     riesgos: list[Riesgo] = []
     en_caso_de_falla: list[Falla] = []
 
@@ -564,8 +603,22 @@ class PuntoClave(_Modelo):
 
 
 class PalabraClave(_Modelo):
+    """Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio
+    (RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`."""
+
     termino: str
     categoria: Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
+    menciones: int = Field(default=0, ge=0)
+    t: list[Tiempo] = []
+
+    @model_validator(mode="after")
+    def _menciones(self) -> Self:
+        if len(self.t) != self.menciones:
+            raise ValueError(f"{self.menciones} menciones y {len(self.t)} segundos")
+        for a, b in pairwise(self.t):
+            if b < a:
+                raise ValueError(f"segundos de las menciones fuera de orden ({a} → {b})")
+        return self
 
 
 class SOP(_Modelo):
@@ -586,6 +639,44 @@ class SOP(_Modelo):
                 raise ValueError(
                     f"numeración de pasos: se esperaba el paso {esperado} y llegó el {paso.numero}"
                 )
+        return self
+
+
+# ── Ficha de contexto del video (RF-12; SOP V1.0 §6) ────────────────────────────────────────
+
+
+def _sin_evidencia() -> Dato:
+    """Dato vacío: sin evidencia, inferido con confianza baja (regla 4)."""
+    return Dato(valor=None, confianza="baja", fuente="inferido")
+
+
+class Contexto(_Modelo):
+    """Ficha de contexto del video, en `videos.contexto` (JSONB). Entrada de la afinidad (RF-17)
+    y del SOP generado.
+
+    Reusa `Dato`, pero solo con fuentes del video: nunca "documento". Un dato de audio o visual
+    lleva `t` (el segundo de la transcripción o del fotograma, regla 4); uno inferido puede no
+    llevarlo. Lo que no se dice ni se ve queda vacío, inferido y con confianza baja.
+    """
+
+    version_contrato: Literal[1] = 1
+    actividad: Dato = Field(default_factory=_sin_evidencia)
+    tema: Dato = Field(default_factory=_sin_evidencia)
+    lugar: Dato = Field(default_factory=_sin_evidencia)
+    horario_mencionado: Dato = Field(default_factory=_sin_evidencia)
+    proposito: Dato = Field(default_factory=_sin_evidencia)
+    resumen: Dato = Field(default_factory=_sin_evidencia)
+    personas: list[Persona] = []
+    equipos: list[Elemento] = []
+
+    @model_validator(mode="after")
+    def _fuentes_del_video(self) -> Self:
+        for campo in ("actividad", "tema", "lugar", "horario_mencionado", "proposito", "resumen"):
+            dato: Dato = getattr(self, campo)
+            if dato.fuente == "documento":
+                raise ValueError(f"{campo}: la ficha de contexto no tiene fuente 'documento'")
+            if dato.fuente in ("audio", "visual") and dato.t is None:
+                raise ValueError(f"{campo}: un dato de {dato.fuente} lleva su segundo (t)")
         return self
 
 
@@ -613,6 +704,10 @@ class Umbrales(_Modelo):
     fusion: float = Field(ge=0, le=1)
     semaforo_verde: float = Field(ge=0, le=100)
     semaforo_amarillo: float = Field(ge=0, le=100)
+    # None en los reportes guardados antes de S5, que no los registraban.
+    afinidad_min: float | None = Field(default=None, ge=0, le=100)
+    tolerancia_tiempo: float | None = Field(default=None, ge=0, le=1)
+    umbral_rol: float | None = Field(default=None, ge=0, le=1)
 
 
 # Dónde corrió un modelo (ADR-018). "gpu": al menos una parte en la GPU (Ollama no informa de
@@ -682,6 +777,53 @@ class SOPReporte(_Modelo):
     pasos: list[PasoSOPReporte]
 
 
+class ResponsableFila(_Modelo):
+    """Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).
+
+    `esperado` es el del SOP; `observado`, quien lo hace en el video (`None` si no se sabe, y
+    entonces el estado es "no_identificado" y no hay similitud). `similitud` es el coseno entre
+    los roles, si se comparó así (`UMBRAL_ROL`).
+    """
+
+    esperado: str = Field(min_length=1)
+    observado: str | None = None
+    estado: EstadoResponsable
+    similitud: float | None = Field(default=None, ge=-1, le=1)
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.observado is None) != (self.estado == "no_identificado"):
+            raise ValueError(
+                f"responsable {self.estado}: sin observado si y solo si es no_identificado"
+            )
+        if self.estado == "no_identificado" and self.similitud is not None:
+            raise ValueError("responsable no_identificado: sin similitud")
+        return self
+
+
+class TiempoFila(_Modelo):
+    """Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).
+
+    `observado_min` es la que narra el operador ("narrado", con la frase en `cita`, regla 4) o
+    t_fin − t_inicio del paso del video ("medido", sin cita). Sin tiempo esperado en el SOP, el
+    estado es "sin_referencia".
+    """
+
+    esperado_min: float | None = Field(default=None, ge=0)
+    observado_min: float = Field(ge=0)
+    origen: OrigenTiempo
+    estado: EstadoTiempo
+    cita: str = ""
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.esperado_min is None) != (self.estado == "sin_referencia"):
+            raise ValueError(f"tiempo {self.estado}: sin esperado si y solo si es sin_referencia")
+        if (self.origen == "narrado") != bool(self.cita.strip()):
+            raise ValueError(f"tiempo {self.origen}: la cita va si y solo si es narrado")
+        return self
+
+
 class FilaReporte(_Modelo):
     """Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.
 
@@ -689,6 +831,10 @@ class FilaReporte(_Modelo):
     número del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de
     la transcripción (regla 4). Un zona_gris se muestra como "sin revisar". `justificacion` es la
     del juez cuando decidió el par.
+
+    `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
+    Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` mientras no
+    se calculen.
     """
 
     estado: EstadoPaso
@@ -702,10 +848,25 @@ class FilaReporte(_Modelo):
     fuera_de_orden: bool = False
     marco_operador: MarcoOperador | None = None
     justificacion: str | None = None
+    responsable: ResponsableFila | None = None
+    tiempo: TiempoFila | None = None
+
+    @model_validator(mode="after")
+    def _personas_y_tiempo_solo_en_pares(self) -> Self:
+        if self.estado not in ESTADOS_PAR and (
+            self.responsable is not None or self.tiempo is not None
+        ):
+            raise ValueError(f"{self.estado}: responsable y tiempo solo van en un par")
+        return self
 
 
 class ConteoReporte(_Modelo):
-    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016)."""
+    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).
+
+    `personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las
+    filas con responsable "distinto" más los roles "ausente", y las filas con tiempo "excede" o
+    "menor". 0 mientras no se calculen.
+    """
 
     cumple: int = Field(ge=0)
     parcial: int = Field(ge=0)
@@ -714,14 +875,94 @@ class ConteoReporte(_Modelo):
     sobra: int = Field(ge=0)
     sin_revisar: int = Field(ge=0)
     marco_operador: int = Field(ge=0)
+    personas_con_diferencias: int = Field(default=0, ge=0)
+    pasos_fuera_de_tiempo: int = Field(default=0, ge=0)
+
+
+class Afinidad(_Modelo):
+    """¿El video es de este SOP? (§5.2, RF-17). `valor` entero de 0 a 100, como la columna
+    `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte)."""
+
+    valor: int = Field(ge=0, le=100)
+    explicacion: str
+    bajo_umbral: bool
+
+
+class RolReporte(_Modelo):
+    """Un rol del SOP entre las personas del video (§5.4, RF-15).
+
+    Presente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona
+    (regla 4); ausente no lleva ni uno ni otro.
+    """
+
+    rol: str = Field(min_length=1)
+    estado: EstadoRol
+    t: Tiempo | None = None
+    cita: str = ""
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.estado == "ausente":
+            if self.t is not None or self.cita:
+                raise ValueError("rol ausente: sin t ni cita")
+        elif self.t is None:
+            raise ValueError(f"rol {self.estado}: lleva el segundo donde aparece (t)")
+        return self
+
+
+class TiempoTotal(_Modelo):
+    """Duración total del procedimiento frente a la del SOP (§5.5)."""
+
+    esperado_min: float | None = Field(default=None, ge=0)
+    observado_min: float = Field(ge=0)
+    estado: EstadoTiempo
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.esperado_min is None) != (self.estado == "sin_referencia"):
+            raise ValueError(
+                f"tiempo total {self.estado}: sin esperado si y solo si es sin_referencia"
+            )
+        return self
+
+
+class Horario(_Modelo):
+    """Horario o frecuencia del SOP frente a lo que se dice en el video (§5.5).
+
+    Sin horario en el SOP, "sin_referencia". Si el SOP lo define y el video no lo menciona,
+    "no_mencionado". Lo observado lleva su segundo y su frase de la transcripción (regla 4).
+    """
+
+    esperado: str | None = None
+    observado: str | None = None
+    estado: EstadoHorario
+    t: Tiempo | None = None
+    cita: str = ""
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.esperado is None) != (self.estado == "sin_referencia"):
+            raise ValueError(f"horario {self.estado}: sin esperado si y solo si es sin_referencia")
+        if self.esperado is not None and (self.observado is None) != (
+            self.estado == "no_mencionado"
+        ):
+            raise ValueError(f"horario {self.estado}: sin observado si y solo si no_mencionado")
+        if (self.observado is None) != (self.t is None):
+            raise ValueError("horario: lo observado lleva su segundo (t), y sin observado no hay t")
+        if self.observado is None and self.cita:
+            raise ValueError("horario: sin observado no hay cita")
+        return self
 
 
 class ReporteValidacion(_Modelo):
     """Respuesta de `GET /videos/{id}/reporte`.
 
     `cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin
-    redondear. `provisional` es true si hay avisos (ADR-019). `afinidad` queda en `None` hasta
-    RF-17 (post-MVP).
+    redondear. `provisional` es true si hay avisos (ADR-019).
+
+    `afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10
+    del documento; hasta que su lógica exista quedan en `None` o `[]`, igual que `responsable` y
+    `tiempo` de cada fila.
     """
 
     version_contrato: Literal[1] = 1
@@ -730,9 +971,12 @@ class ReporteValidacion(_Modelo):
     cumplimiento: float = Field(ge=0, le=100)
     semaforo: Semaforo
     provisional: bool
-    afinidad: int | None = Field(default=None, ge=0, le=100)
+    afinidad: Afinidad | None = None
     conteo: ConteoReporte
     filas: list[FilaReporte]
+    roles: list[RolReporte] = []
+    tiempo_total: TiempoTotal | None = None
+    horario: Horario | None = None
     metadatos: MetadatosValidacion
     creado: datetime
 
@@ -740,6 +984,17 @@ class ReporteValidacion(_Modelo):
     def _coherente(self) -> Self:
         if self.provisional != bool(self.metadatos.avisos):
             raise ValueError("provisional va en true si y solo si hay avisos")
+        minimo = self.metadatos.umbrales.afinidad_min
+        afinidad = self.afinidad
+        if (
+            afinidad is not None
+            and minimo is not None
+            and afinidad.bajo_umbral != (afinidad.valor < minimo)
+        ):
+            raise ValueError(
+                f"afinidad {afinidad.valor}: bajo_umbral debe ser "
+                f"{afinidad.valor < minimo} con AFINIDAD_MIN {minimo}"
+            )
         filas = self.filas
         esperado = ConteoReporte(
             cumple=sum(f.estado == "Cumple" for f in filas),
@@ -749,9 +1004,16 @@ class ReporteValidacion(_Modelo):
             sobra=sum(f.estado == "Sobra" and f.marco_operador is None for f in filas),
             sin_revisar=sum(f.estado == "zona_gris" for f in filas),
             marco_operador=sum(f.marco_operador is not None for f in filas),
+            personas_con_diferencias=(
+                sum(f.responsable is not None and f.responsable.estado == "distinto" for f in filas)
+                + sum(r.estado == "ausente" for r in self.roles)
+            ),
+            pasos_fuera_de_tiempo=sum(
+                f.tiempo is not None and f.tiempo.estado in ("excede", "menor") for f in filas
+            ),
         )
         if self.conteo != esperado:
-            raise ValueError("el conteo no coincide con las filas")
+            raise ValueError("el conteo no coincide con las filas y los roles")
         n_sop = len(self.sop.pasos)
         for fila in filas:
             if fila.paso_sop is not None and fila.paso_sop > n_sop:
@@ -767,6 +1029,11 @@ def esquema_analisis() -> dict[str, Any]:
 def esquema_sop() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `SOP`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **SOP.model_json_schema()}
+
+
+def esquema_contexto() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `Contexto`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **Contexto.model_json_schema()}
 
 
 def esquema_reporte() -> dict[str, Any]:

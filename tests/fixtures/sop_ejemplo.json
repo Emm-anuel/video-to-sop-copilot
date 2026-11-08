@@ -73,6 +73,7 @@
         "descripcion": "Atiende si la llave de paso no cierra o hay una fuga que no se corrige."
       }
     ],
+    "personas": [],
     "riesgos": [
       {
         "descripcion": "Agua a presión al abrir la carcasa",

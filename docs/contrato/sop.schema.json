@@ -98,6 +98,7 @@
     },
     "PalabraClave": {
       "additionalProperties": false,
+      "description": "Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio\n(RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`.",
       "properties": {
         "termino": {
           "title": "Termino",
@@ -115,6 +116,22 @@
           ],
           "title": "Categoria",
           "type": "string"
+        },
+        "menciones": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Menciones",
+          "type": "integer"
+        },
+        "t": {
+          "default": [],
+          "items": {
+            "description": "Segundos desde el inicio del video.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "T",
+          "type": "array"
         }
       },
       "required": [
@@ -231,6 +248,55 @@
       "title": "PasoSOP",
       "type": "object"
     },
+    "Persona": {
+      "additionalProperties": false,
+      "description": "Persona identificada en el video (RF-12, §5.4).\n\n`nombre` es el que se dice o \"No identificado\"; `rol`, el que se dice o se infiere, o `None`.\n`t` y `cita` salen de la transcripción (regla 4): el segundo y la frase donde aparece. La cita\nsolo va vacía si la persona se identificó por un fotograma (entonces `t` es el del fotograma).",
+      "properties": {
+        "nombre": {
+          "default": "No identificado",
+          "minLength": 1,
+          "title": "Nombre",
+          "type": "string"
+        },
+        "rol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rol"
+        },
+        "participacion": {
+          "enum": [
+            "participa",
+            "mencionado"
+          ],
+          "title": "Participacion",
+          "type": "string"
+        },
+        "t": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        }
+      },
+      "required": [
+        "participacion",
+        "t"
+      ],
+      "title": "Persona",
+      "type": "object"
+    },
     "PuntoClave": {
       "additionalProperties": false,
       "properties": {
@@ -334,6 +400,14 @@
             "$ref": "#/$defs/Elemento"
           },
           "title": "Roles",
+          "type": "array"
+        },
+        "personas": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Persona"
+          },
+          "title": "Personas",
           "type": "array"
         },
         "riesgos": {
@@ -448,6 +522,7 @@
         "duracion_total_min": null,
         "equipo_operacion": [],
         "roles": [],
+        "personas": [],
         "riesgos": [],
         "en_caso_de_falla": []
       }

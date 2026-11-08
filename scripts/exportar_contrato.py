@@ -2,6 +2,7 @@
 
 - `Analisis` → docs/contrato/analisis.schema.json
 - `SOP`      → docs/contrato/sop.schema.json
+- `Contexto` → docs/contrato/contexto.schema.json
 - `ReporteValidacion` → docs/contrato/reporte.schema.json
 
 Los archivos no se editan a mano: se regeneran con este script cada vez que cambia el contrato,
@@ -19,12 +20,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from sopvid.contrato import esquema_analisis, esquema_reporte, esquema_sop
+from sopvid.contrato import esquema_analisis, esquema_contexto, esquema_reporte, esquema_sop
 
 DIRECTORIO = Path(__file__).resolve().parents[1] / "docs" / "contrato"
 ESQUEMAS: dict[str, Callable[[], dict[str, Any]]] = {
     "analisis.schema.json": esquema_analisis,
     "sop.schema.json": esquema_sop,
+    "contexto.schema.json": esquema_contexto,
     "reporte.schema.json": esquema_reporte,
 }
 

@@ -62,7 +62,20 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
   - Las filas con `marco_operador` (intro y cierre) van en gris y no cuentan como *Sobra*.
   - Una fila *Falta* no tiene `t_inicio`: no lleva enlace al video.
   - Si `provisional` es verdadero, muestra un aviso con `metadatos.avisos`.
-  - `afinidad` llega en `null` hasta S5: ocúltala o pon "pendiente".
+  - **Campos de S5** (contrato listo desde el 7 nov; en producción llegan en `null`, `[]` o 0
+    hasta que exista su lógica, así que la pantalla debe aguantar los dos casos; en los ejemplos
+    vienen llenos):
+    - `afinidad`: `{valor, explicacion, bajo_umbral}`; con `bajo_umbral`, el aviso "El video
+      parece no corresponder a este SOP" (§5.2).
+    - Por fila, solo en pares: `responsable` (`coincide` / `distinto` / `no_identificado`) y
+      `tiempo` (`en_tiempo` / `excede` / `menor` / `sin_referencia`, origen `narrado` o
+      `medido`).
+    - `roles` (`presente` / `mencionado` / `ausente`, con su segundo), `tiempo_total` y `horario`.
+    - `conteo.personas_con_diferencias` y `conteo.pasos_fuera_de_tiempo` van junto al porcentaje
+      (§5.6).
+    - Ficha de contexto y SOP generado: `tests/fixtures/contexto_ejemplo.json` y
+      `tests/fixtures/sop_generado_ejemplo.json` (esquemas en `docs/contrato/contexto.schema.json`
+      y `sop.schema.json`).
   - La miniatura de RF-20 depende de los fotogramas (S5): deja el espacio, sin imagen.
 - **Saltar al segundo:** `reproductor.currentTime = fila.t_inicio` y `play()`. Los segundos salen de
   la transcripción, nunca de un modelo (regla 4 de `CLAUDE.md`).
