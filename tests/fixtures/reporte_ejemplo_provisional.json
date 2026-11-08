@@ -49,7 +49,8 @@
   "afinidad": {
     "valor": 87,
     "explicacion": "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de enjuague) y el mismo equipo: llave de carcasa, cubeta y manómetro.",
-    "bajo_umbral": false
+    "bajo_umbral": false,
+    "componentes": {}
   },
   "conteo": {
     "cumple": 5,

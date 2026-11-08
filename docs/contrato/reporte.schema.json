@@ -3,7 +3,7 @@
   "$defs": {
     "Afinidad": {
       "additionalProperties": false,
-      "description": "¿El video es de este SOP? (§5.2, RF-17). `valor` entero de 0 a 100, como la columna\n`reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).",
+      "description": "¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la\ncolumna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).\n\n`explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada\ncomponente que se pudo calcular (\"global\", \"actividad\", \"objetivo\", \"equipos\"); vacío en las\nafinidades anteriores a ADR-020.",
       "properties": {
         "valor": {
           "maximum": 100,
@@ -18,6 +18,16 @@
         "bajo_umbral": {
           "title": "Bajo Umbral",
           "type": "boolean"
+        },
+        "componentes": {
+          "additionalProperties": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "default": {},
+          "title": "Componentes",
+          "type": "object"
         }
       },
       "required": [

@@ -90,6 +90,18 @@ coincidan.
 Se guardan en el repo con LF; las pruebas leen con `encoding="utf-8"` y construyen en memoria las
 variantes con CRLF y BOM.
 
+## `sop_otro_procedimiento.md` y `sop_procedimiento_cercano.md`
+
+SOP INVENTADOS con la plantilla de ADR-015 para medir la afinidad de contexto (RF-17, ADR-020).
+No corresponden a ningún video grabado.
+
+- `sop_otro_procedimiento.md`: "Preparar café en una cafetera de goteo", 5 pasos, un rol
+  (auxiliar de cafetería). Una tarea muy distinta del cambio del cartucho: la afinidad debe
+  quedar lejos del umbral.
+- `sop_procedimiento_cercano.md`: "Cambio del filtro de aire de un minisplit", 6 pasos, un rol
+  (técnico de aire acondicionado). Parecida al cambio del cartucho (mantenimiento, cambiar un
+  filtro, guantes de nitrilo) pero distinta: sirve para ver el margen.
+
 ## `contexto_ejemplo.json`
 
 Ejemplo de `sopvid.contrato.Contexto`, la ficha de contexto del video (RF-12; esquema en

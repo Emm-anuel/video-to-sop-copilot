@@ -10,6 +10,7 @@
 - `JuezFalso`: decide cada par de la zona gris con un veredicto fijo, o deja el respaldo.
 - `VectorizadorGuionado`: el vector de cada texto según su prefijo, para fijar el coseno de cada
   par sin MiniLM.
+- `VectorizadorPalabras`: bolsa de palabras, para probar la afinidad y los roles sin MiniLM.
 - `Entorno`: la app con la sesión de la prueba, ajustes en `tmp_path`, una `ColaTrabajos` que se
   corre a mano (`correr_pendientes`), un candado de modelo pesado propio y estos dobles inyectados.
 
@@ -47,6 +48,7 @@ from sopvid.plataforma.db import get_session
 from sopvid.plataforma.hardware import CandadoModeloPesado
 from sopvid.plataforma.modelos import Sop, Video
 from sopvid.plataforma.procesamiento import ColaTrabajos, Procesador
+from sopvid.texto import comparable
 
 # ── Transcripción ────────────────────────────────────────────────────────────────────────────
 
@@ -345,6 +347,34 @@ class VectorizadorGuionado:
 
 def _indice(texto: str) -> int:
     return int(hashlib.md5(texto.encode()).hexdigest(), 16) % (emp.DIMENSION - 100)
+
+
+# Palabras que el vectorizador por palabras no cuenta (artículos, preposiciones).
+_VACIAS_PALABRAS = frozenset(
+    "de del la el los las lo en y a al con un una para por que se su sus".split()  # noqa: SIM905
+)
+
+
+class VectorizadorPalabras:
+    """Bolsa de palabras sin MiniLM: cada palabra (sin acentos, recortada a sus primeras 5
+    letras, para unir "cambio" y "cambiar") suma 1 en una dimensión fija. El coseno entre dos
+    textos crece con las palabras que comparten; sin palabras en común, 0. Sirve para probar la
+    lógica de la afinidad y de los roles con textos inventados, no para medir MiniLM.
+    """
+
+    def encode(self, sentences: list[str], **kwargs: Any) -> np.ndarray:
+        x = np.zeros((len(sentences), emp.DIMENSION))
+        for i, texto in enumerate(sentences):
+            for palabra in comparable(texto).split():
+                if palabra not in _VACIAS_PALABRAS:
+                    raiz = palabra[:5]
+                    x[i, int(hashlib.md5(raiz.encode()).hexdigest(), 16) % emp.DIMENSION] += 1
+        return x
+
+
+def embedder_palabras(cache: Path) -> emp.Embedder:
+    vectorizador = VectorizadorPalabras()
+    return emp.Embedder("palabras-falso", cache, cargador=lambda modelo, ruta: vectorizador)
 
 
 # Paso 1 y 3: Cumple; paso 2 en zona gris (0.65): lo decide el juez.

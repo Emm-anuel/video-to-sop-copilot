@@ -941,12 +941,18 @@ class ConteoReporte(_Modelo):
 
 
 class Afinidad(_Modelo):
-    """¿El video es de este SOP? (§5.2, RF-17). `valor` entero de 0 a 100, como la columna
-    `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte)."""
+    """¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
+    columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+
+    `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
+    componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
+    afinidades anteriores a ADR-020.
+    """
 
     valor: int = Field(ge=0, le=100)
     explicacion: str
     bajo_umbral: bool
+    componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
 
 
 class RolReporte(_Modelo):

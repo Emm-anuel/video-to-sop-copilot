@@ -118,6 +118,13 @@ class Settings(BaseSettings):
     # Contexto, personas y tiempos del reporte (RNF-14; SOP V1.0 §5.2, §5.4, §5.5).
     # Afinidad mínima (0–100) para no advertir que el video no es de este SOP (RF-17).
     afinidad_min: float = Field(default=60, ge=0, le=100)
+    # Mapeo de un coseno MiniLM a 0–100 para cada componente de la afinidad (ADR-020): el coseno
+    # `afinidad_cos_cero` o menos vale 0, `afinidad_cos_cien` o más vale 100, lineal entre los
+    # dos. Un equipo del SOP está "en común" si su mejor equipo de la ficha tiene coseno ≥
+    # `afinidad_umbral_equipo`. SIN CALIBRAR: valores de la sonda del 8 nov (ADR-020).
+    afinidad_cos_cero: float = Field(default=0.30, ge=-1, le=1)
+    afinidad_cos_cien: float = Field(default=0.80, ge=-1, le=1)
+    afinidad_umbral_equipo: float = Field(default=0.75, ge=0, le=1)
     # Margen sobre el tiempo esperado de cada paso y del total (RF-16): 0.20 = ±20 %.
     tolerancia_tiempo: float = Field(default=0.20, ge=0, le=1)
     # Coseno MiniLM desde el que un rol del SOP coincide con el de una persona (RF-15).
@@ -126,6 +133,10 @@ class Settings(BaseSettings):
     # el nombre de la persona ("Laura (técnica…)") baja a 0.58. Comparar rol contra rol, sin el
     # nombre, y no depender solo del coseno.
     umbral_rol: float = Field(default=0.85, ge=0, le=1)
+    # Desde ADR-020 `umbral_rol` compara los núcleos de los roles ("técnico", "supervisor") y, si
+    # los dos roles traen complemento ("de mantenimiento"), los complementos deben llegar a
+    # `umbral_rol_complemento` (o compartir palabras). SIN CALIBRAR.
+    umbral_rol_complemento: float = Field(default=0.70, ge=0, le=1)
 
     @model_validator(mode="after")
     def _umbrales_ordenados(self) -> Self:
@@ -142,6 +153,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"SEMAFORO_VERDE ({self.semaforo_verde}) debe ser mayor que "
                 f"SEMAFORO_AMARILLO ({self.semaforo_amarillo})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _mapeo_afinidad(self) -> Self:
+        if self.afinidad_cos_cero >= self.afinidad_cos_cien:
+            raise ValueError(
+                f"AFINIDAD_COS_CERO ({self.afinidad_cos_cero}) debe ser menor que "
+                f"AFINIDAD_COS_CIEN ({self.afinidad_cos_cien})"
             )
         return self
 
