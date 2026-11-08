@@ -90,6 +90,7 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "afinidad",
         "segmentacion",
         "emparejamiento",
+        "personas",
     }
     assert (meta.umbrales.semaforo_verde, meta.umbrales.semaforo_amarillo) == (90, 70)
     assert meta.dispositivos == Dispositivos(
@@ -181,6 +182,7 @@ def test_ollama_caido_al_empezar_deja_error_reprocesable(
         "afinidad",
         "segmentacion",
         "emparejamiento",
+        "personas",
     }
     assert entorno.video(video_id).contexto is not None
 
@@ -313,7 +315,12 @@ def test_repetir_la_validacion_reusa_la_ficha_guardada(
     assert entorno.eventos.count("chat:contexto") == 1  # no volvió a llamar al modelo
     assert entorno.video(video_id).contexto == guardada
     reporte = client.get(f"/videos/{video_id}/reporte").json()
-    assert set(reporte["metadatos"]["segundos"]) == {"afinidad", "segmentacion", "emparejamiento"}
+    assert set(reporte["metadatos"]["segundos"]) == {
+        "afinidad",
+        "segmentacion",
+        "emparejamiento",
+        "personas",
+    }
     assert reporte["provisional"] is False
 
 

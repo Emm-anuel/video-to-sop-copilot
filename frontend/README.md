@@ -109,12 +109,18 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
       `bajo_umbral`, el aviso "El video parece no corresponder a este SOP" (§5.2). En un reporte
       `bajo_umbral` solo llega si quien cargó decidió continuar (sección siguiente). `null` si el
       video no tiene ficha de contexto.
-    - Por fila, solo en pares: `responsable` (`coincide` / `distinto` / `no_identificado`) y
+    - Por fila, solo en pares: `responsable` (desde el 8 nov, ADR-020: `coincide` / `distinto` /
+      `no_identificado`, con `esperado`, `observado` como "Nombre (rol)" o el rol, y una `nota`
+      que dice cómo se identificó a la persona; muéstrala como ayuda, p. ej. en un tooltip) y
       `tiempo` (`en_tiempo` / `excede` / `menor` / `sin_referencia`, origen `narrado` o
-      `medido`).
-    - `roles` (`presente` / `mencionado` / `ausente`, con su segundo), `tiempo_total` y `horario`.
-    - `conteo.personas_con_diferencias` y `conteo.pasos_fuera_de_tiempo` van junto al porcentaje
-      (§5.6).
+      `medido`; sin lógica todavía, en `null`).
+    - `roles` (desde el 8 nov: `presente` / `mencionado` / `ausente`, con su segundo para saltar
+      al video, `persona` y `confianza`; con `confianza: "baja"` el rol lo infirió el modelo, no
+      se dijo). Un rol ausente con `con_pasos: false` (de apoyo, p. ej. un supervisor que solo
+      atiende si algo falla) se muestra, pero no es una diferencia. `tiempo_total` y `horario`,
+      sin lógica todavía.
+    - `conteo.personas_con_diferencias` (responsables `distinto` más roles ausentes con pasos) y
+      `conteo.pasos_fuera_de_tiempo` van junto al porcentaje (§5.6).
     - Ficha de contexto y SOP generado: `tests/fixtures/contexto_ejemplo.json` y
       `tests/fixtures/sop_generado_ejemplo.json` (esquemas en `docs/contrato/contexto.schema.json`
       y `sop.schema.json`).

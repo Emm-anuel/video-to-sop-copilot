@@ -10,7 +10,9 @@ carga del modelo, ADR-014). Nunca ve el SOP (regla 5). Si ya hay una guardada (r
 validación, ADR-019), se reusa sin llamar al modelo. Si queda vacía (`generar_contexto` no lanza),
 la validación sigue y el reporte lleva el aviso "contexto_sin_generar".
 
-Con la ficha se calcula la afinidad de contexto (RF-17, ADR-020; MiniLM, sin LLM). Si queda bajo
+Después del emparejamiento, ya sin Gemma, los roles del SOP y el responsable de cada paso
+emparejado (RF-15, ADR-020; `lenguaje/personas.py`). Con la ficha se calcula la afinidad de
+contexto (RF-17, ADR-020; MiniLM, sin LLM). Si queda bajo
 `AFINIDAD_MIN` y no se pidió `continuar`, la validación se detiene ahí, antes de segmentar:
 `validar` devuelve una `Detenida` y el procesador deja el video en "afinidad_baja" hasta que
 quien carga decida. Sin ficha no hay afinidad y la validación sigue.
@@ -52,6 +54,12 @@ from sopvid.lenguaje.afinidad import afinidad
 from sopvid.lenguaje.emparejamiento import Embedder, emparejar, get_embedder
 from sopvid.lenguaje.juez import Juez, JuezGemma
 from sopvid.lenguaje.llm import ClienteLLM, LLMNoDisponible
+from sopvid.lenguaje.personas import (
+    ComparadorRoles,
+    asignar_responsables,
+    emparejar_roles,
+    roles_del_sop,
+)
 from sopvid.lenguaje.reporte import porcentaje, semaforo
 from sopvid.percepcion.contexto import ResultadoContexto, aviso_contexto, generar_contexto
 from sopvid.percepcion.segmentacion import Segmentacion, segmentar
@@ -214,6 +222,25 @@ def validar(
             )
 
     avanzar("reporte", INICIO_ETAPA["reporte"])
+    # Personas (RF-15, ADR-020): MiniLM y código, con Gemma ya descargado.
+    inicio = reloj()
+    personas = contexto.personas if con_ficha else []
+    comparador = ComparadorRoles(embedder, settings)
+    roles = emparejar_roles(
+        roles_del_sop(sop),
+        personas,
+        responsables=[p.responsable for p in sop.pasos],
+        comparador=comparador,
+    )
+    responsables = asignar_responsables(
+        resultado,
+        sop,
+        contexto if con_ficha else None,
+        analisis.transcripcion,
+        segmentacion.pasos,
+        comparador=comparador,
+    )
+    segundos["personas"] = reloj() - inicio
     pct = porcentaje(resultado)
     avisos = avisos_de(segmentacion, resultado, resultado_contexto, analisis)
     metadatos = MetadatosValidacion(
@@ -243,6 +270,8 @@ def validar(
             semaforo=semaforo(pct, settings),
             metadatos=metadatos,
             afinidad=afinidad_video,
+            roles=roles,
+            responsables=responsables,
         ),
         contexto=contexto,
         resultado_contexto=resultado_contexto,

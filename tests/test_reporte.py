@@ -311,7 +311,7 @@ def test_el_ejemplo_definitivo_cubre_todos_los_casos(ejemplo):
     assert any(f.justificacion for f in r.filas if f.estado == "Parcial")
     assert all(f.t_inicio is None and f.cita == "" for f in r.filas if f.estado == "Falta")
     assert all(p.descripcion for p in r.sop.pasos)
-    # S5 (guionado en el script): afinidad, un responsable distinto, un paso que excede.
+    # S5: afinidad y tiempos guionados en el script; roles y responsables con la lógica real.
     assert r.afinidad is not None and r.afinidad.valor == 87
     assert any(f.responsable and f.responsable.estado == "distinto" for f in r.filas)
     assert any(f.tiempo and f.tiempo.estado == "excede" for f in r.filas)
@@ -338,3 +338,69 @@ def test_reporte_con_conteo_distinto_de_las_filas_no_valida(ejemplo):
     datos["conteo"]["cumple"] += 1
     with pytest.raises(ValidationError, match="conteo"):
         ReporteValidacion.model_validate(datos)
+
+
+# ── Personas en el reporte (RF-15, ADR-020) ──────────────────────────────────────────────────
+
+
+def _guardado_antes_de_p3(ejemplo) -> dict:
+    """Un `ResultadoValidacion` en JSON como se guardaba antes de ADR-020: sin afinidad, roles,
+    responsables ni los umbrales nuevos."""
+    validacion = ejemplo.construir_validacion(caido=False)
+    datos = validacion.model_dump(mode="json")
+    for clave in ("afinidad", "roles", "responsables"):
+        datos.pop(clave)
+    for clave in ("afinidad_cos_cero", "afinidad_cos_cien", "afinidad_umbral_equipo",
+                  "umbral_rol_complemento"):  # fmt: skip
+        datos["metadatos"]["umbrales"].pop(clave)
+    for fila in datos["resultado"]["clasificacion"]["pasos"]:
+        assert "responsable" not in fila
+    return datos
+
+
+def test_un_reporte_guardado_antes_de_p3_se_sigue_leyendo(ejemplo):
+    from datetime import UTC, datetime
+
+    from sopvid.contrato import ResultadoValidacion
+
+    validacion = ResultadoValidacion.model_validate(_guardado_antes_de_p3(ejemplo))
+    assert (validacion.afinidad, validacion.roles, validacion.responsables) == (None, [], [])
+    r = reporte.armar_reporte(
+        validacion,
+        ejemplo.sop_del_ejemplo(),
+        video_id=1,
+        sop_id=1,
+        codigo="SOP-0001",
+        cumplimiento=round(validacion.cumplimiento, 2),
+        creado=datetime(2026, 10, 30, tzinfo=UTC),
+    )
+    assert (r.afinidad, r.roles, r.conteo.personas_con_diferencias) == (None, [], 0)
+    assert all(f.responsable is None for f in r.filas)
+
+
+def test_el_reporte_lleva_roles_responsables_y_personas_con_diferencias(ejemplo):
+    r = ReporteValidacion.model_validate_json(ejemplo.SALIDAS["definitivo"].read_text("utf-8"))
+    pares = [f for f in r.filas if f.estado in ("Cumple", "Parcial", "zona_gris")]
+    assert all(f.responsable is not None for f in pares)
+    assert all(f.responsable is None for f in r.filas if f.estado in ("Falta", "Sobra"))
+    # Un distinto (el paso del supervisor lo hace Laura) y el almacenista ausente sin pasos.
+    assert [rol.estado for rol in r.roles] == ["presente", "mencionado", "ausente"]
+    assert r.roles[-1].con_pasos is False
+    assert r.conteo.personas_con_diferencias == 1
+
+
+def test_responsables_desalineados_no_validan(ejemplo):
+    from sopvid.contrato import ResultadoValidacion
+
+    datos = ejemplo.construir_validacion(caido=False).model_dump(mode="json")
+    datos["responsables"] = datos["responsables"][:-1]
+    with pytest.raises(ValidationError, match="responsables para"):
+        ResultadoValidacion.model_validate(datos)
+    datos = ejemplo.construir_validacion(caido=False).model_dump(mode="json")
+    falta = next(
+        i for i, p in enumerate(datos["resultado"]["clasificacion"]["pasos"])
+        if p["estado"] == "Falta"
+    )  # fmt: skip
+    datos["responsables"][falta] = datos["responsables"][0]
+    with pytest.raises(ValidationError, match="solo va en un par"):
+        ResultadoValidacion.model_validate(datos)

@@ -9,17 +9,19 @@ cambio del cartucho del filtro) y el SOP de `sop_ejemplo.json` con cambios para 
 todos los casos: los pasos 1 y 2 intercambiados (Laura se pone los guantes antes de cerrar la
 llave: fuera de orden), un paso 7 que no narra (bitácora: Falta), tiempos esperados por paso
 (uno excede, uno menor, uno sin referencia), el paso 6 a cargo del supervisor (responsable
-distinto) y un rol "Almacenista" que no aparece (ausente).
+distinto) y un rol "Almacenista" que no aparece y no es responsable de ningún paso (ausente, sin
+contar como diferencia).
 
 Corre el código real de `emparejar` (fusión, húngaro, umbrales, juez, orden y marco del
-operador), `porcentaje`, `semaforo`, `avisos_de` y `armar_reporte`. Solo los pasos del video, el
-vectorizador y el juez están guionados (sin Gemma 4 ni MiniLM), así que el resultado es siempre
-el mismo. Los tiempos y las citas salen de la transcripción (regla 4). Los umbrales son los
-valores por defecto de `Settings`, sin leer `.env`.
+operador), `emparejar_roles` y `asignar_responsables` (RF-15, ADR-020) con la ficha de
+`contexto_ejemplo.json`, `porcentaje`, `semaforo`, `avisos_de` y `armar_reporte`. Solo los pasos
+del video, el vectorizador y el juez están guionados (sin Gemma 4 ni MiniLM), así que el resultado
+es siempre el mismo. Los tiempos y las citas salen de la transcripción (regla 4). Los umbrales son
+los valores por defecto de `Settings`, sin leer `.env`.
 
-La afinidad, los responsables, los tiempos, los roles y el horario (RF-15 a RF-17) todavía no
-tienen lógica: se agregan guionados al final (`completar_s5`) y el reporte se valida de nuevo.
-Solo `observado_min` sale del video (t_fin − t_inicio del paso, o la duración del video).
+La afinidad va guionada (su valor depende de MiniLM, que aquí no corre), y los tiempos y el
+horario (RF-16) todavía no tienen lógica: se agregan al final (`completar_s5`) y el reporte se
+valida de nuevo. Solo `observado_min` sale del video (t_fin − t_inicio del paso, o la duración).
 
 Uso:
     python scripts/ejemplo_reporte.py
@@ -42,6 +44,7 @@ from sopvid.contrato import (
     ESTADOS_PAR,
     SOP,
     Analisis,
+    Contexto,
     Dispositivos,
     Elemento,
     Juicio,
@@ -50,12 +53,17 @@ from sopvid.contrato import (
     PasoVideo,
     ReporteValidacion,
     ResultadoValidacion,
-    Umbrales,
 )
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.lenguaje.juez import respaldo
+from sopvid.lenguaje.personas import (
+    ComparadorRoles,
+    asignar_responsables,
+    emparejar_roles,
+    roles_del_sop,
+)
 from sopvid.lenguaje.reporte import armar_reporte, porcentaje, semaforo
-from sopvid.lenguaje.validacion import avisos_de
+from sopvid.lenguaje.validacion import avisos_de, umbrales_de
 from sopvid.percepcion.segmentacion import Segmentacion
 from sopvid.plataforma.config import Settings
 
@@ -122,16 +130,7 @@ TIEMPOS: dict[int, tuple[float | None, str]] = {
     6: (0.4, "en_tiempo"),  # Abrir la llave y revisar fugas: 0.39
 }
 RESPONSABLE_DISTINTO = (6, "Supervisor de turno")  # paso del SOP y su responsable
-OBSERVADO = "Laura (técnica de mantenimiento)"
-# Coseno entre roles (UMBRAL_ROL = 0.85): rol contra rol, sin el nombre de la persona.
-SIMILITUD_ROL = {"coincide": 0.88, "distinto": 0.36}
 ALMACENISTA = Elemento(nombre="Almacenista", descripcion="Entrega el cartucho nuevo.")
-# (rol, estado, segundo, cita literal de la transcripción)
-ROLES: list[tuple[str, str, float | None, str]] = [
-    ("Técnico de mantenimiento", "presente", 0.4, "soy Laura, técnica de mantenimiento"),
-    ("Supervisor de turno", "mencionado", 47.68, "mejor avisen al supervisor de turno"),
-    ("Almacenista", "ausente", None, ""),
-]
 AFINIDAD = (
     87,
     "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de "
@@ -233,41 +232,30 @@ def completar_s5(
     pasos_video: list[PasoVideo],
     settings: Settings,
 ) -> ReporteValidacion:
-    """Agrega al reporte la afinidad, personas, tiempos y horario guionados, y lo revalida."""
+    """Agrega al reporte la afinidad, los tiempos y el horario guionados, y lo revalida."""
     por_numero = {p.numero: p for p in pasos_video}
     filas = []
-    distintos = fuera_de_tiempo = 0
+    fuera_de_tiempo = 0
     for fila in reporte.filas:
         datos = fila.model_dump()
         if fila.estado in ESTADOS_PAR:
             assert fila.paso_sop is not None and fila.paso_video is not None
-            paso_sop = sop.pasos[fila.paso_sop - 1]
             video = por_numero[fila.paso_video]
             esperado, estado = TIEMPOS[fila.paso_sop]
             observado = round((video.t_fin - video.t_inicio) / 60, 2)
             if esperado is not None:
                 assert _estado_tiempo(esperado, observado, settings.tolerancia_tiempo) == estado
-            coincide = "coincide" if paso_sop.responsable != RESPONSABLE_DISTINTO[1] else "distinto"
-            datos["responsable"] = {
-                "esperado": paso_sop.responsable,
-                "observado": OBSERVADO,
-                "estado": coincide,
-                "similitud": SIMILITUD_ROL[coincide],
-            }
             datos["tiempo"] = {
                 "esperado_min": esperado,
                 "observado_min": observado,
                 "origen": "medido",
                 "estado": estado,
             }
-            distintos += coincide == "distinto"
             fuera_de_tiempo += estado in ("excede", "menor")
         filas.append(datos)
-    roles = []
-    for rol, estado, t, cita in ROLES:
-        if t is not None:
-            _cita_en(analisis, t, cita)
-        roles.append({"rol": rol, "estado": estado, "t": t, "cita": cita})
+    for rol in reporte.roles:  # las citas de la ficha son literales (regla 4)
+        if rol.t is not None:
+            _cita_en(analisis, rol.t, rol.cita)
     esperado_total = sop.resumen.duracion_total_min
     assert esperado_total is not None
     observado_total = round(analisis.duracion_s / 60, 2)
@@ -285,11 +273,9 @@ def completar_s5(
             },
             "conteo": {
                 **datos["conteo"],
-                "personas_con_diferencias": distintos + sum(r[1] == "ausente" for r in ROLES),
                 "pasos_fuera_de_tiempo": fuera_de_tiempo,
             },
             "filas": filas,
-            "roles": roles,
             "tiempo_total": {
                 "esperado_min": esperado_total,
                 "observado_min": observado_total,
@@ -330,12 +316,16 @@ def pasos_del_video(analisis: Analisis) -> list[PasoVideo]:
     return pasos
 
 
-def construir(caido: bool) -> ReporteValidacion:
-    """El reporte del ejemplo; con `caido`, el juez no responde y el reporte es provisional."""
-    settings = Settings(_env_file=None)
-    analisis = Analisis.model_validate_json(
+def analisis_del_ejemplo() -> Analisis:
+    return Analisis.model_validate_json(
         (FIXTURES / "analisis_ejemplo.json").read_text(encoding="utf-8")
     )
+
+
+def construir_validacion(caido: bool) -> ResultadoValidacion:
+    """Lo que se guardaría en `reportes.resultado`; con `caido`, el juez no responde."""
+    settings = Settings(_env_file=None)
+    analisis = analisis_del_ejemplo()
     sop = sop_del_ejemplo()
     pasos = pasos_del_video(analisis)
     embedder = emp.Embedder(
@@ -355,8 +345,21 @@ def construir(caido: bool) -> ReporteValidacion:
         update={"clasificacion": resultado.clasificacion.model_copy(update={"resumen": resumen})}
     )
     segmentacion = Segmentacion(pasos, "llm", None, settings.llm_model, 1, 1)
+    contexto = Contexto.model_validate_json(
+        (FIXTURES / "contexto_ejemplo.json").read_text(encoding="utf-8")
+    )
+    comparador = ComparadorRoles(embedder, settings)
+    roles = emparejar_roles(
+        roles_del_sop(sop),
+        contexto.personas,
+        responsables=[p.responsable for p in sop.pasos],
+        comparador=comparador,
+    )
+    responsables = asignar_responsables(
+        resultado, sop, contexto, analisis.transcripcion, pasos, comparador=comparador
+    )
     pct = porcentaje(resultado)
-    validacion = ResultadoValidacion(
+    return ResultadoValidacion(
         resultado=resultado,
         cumplimiento=pct,
         semaforo=semaforo(pct, settings),
@@ -364,16 +367,7 @@ def construir(caido: bool) -> ReporteValidacion:
             segmentacion="llm",
             modelo_llm=settings.llm_model,
             embedder=settings.embedder_model,
-            umbrales=Umbrales(
-                bajo=settings.umbral_bajo,
-                alto=settings.umbral_alto,
-                fusion=settings.umbral_fusion,
-                semaforo_verde=settings.semaforo_verde,
-                semaforo_amarillo=settings.semaforo_amarillo,
-                afinidad_min=settings.afinidad_min,
-                tolerancia_tiempo=settings.tolerancia_tiempo,
-                umbral_rol=settings.umbral_rol,
-            ),
+            umbrales=umbrales_de(settings),
             segundos=SEGUNDOS,
             avisos=avisos_de(segmentacion, resultado),
             # Equipo de ejemplo: Whisper y Gemma en la GPU, MiniLM en CPU (ADR-018).
@@ -381,17 +375,31 @@ def construir(caido: bool) -> ReporteValidacion:
                 gpu="GPU de ejemplo", transcripcion="gpu", llm="gpu", embedder="cpu"
             ),
         ),
+        roles=roles,
+        responsables=responsables,
     )
+
+
+def construir(caido: bool) -> ReporteValidacion:
+    """El reporte del ejemplo; con `caido`, el juez no responde y el reporte es provisional."""
+    validacion = construir_validacion(caido)
+    sop = sop_del_ejemplo()
     reporte = armar_reporte(
         validacion,
         sop,
         video_id=1,
         sop_id=1,
         codigo="SOP-0001",
-        cumplimiento=round(pct, 2),
+        cumplimiento=round(validacion.cumplimiento, 2),
         creado=CREADO,
     )
-    return completar_s5(reporte, sop, analisis, resultado.pasos_video, settings)
+    return completar_s5(
+        reporte,
+        sop,
+        analisis_del_ejemplo(),
+        validacion.resultado.pasos_video,
+        Settings(_env_file=None),
+    )
 
 
 def serializar(reporte: ReporteValidacion) -> str:

@@ -235,12 +235,19 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
         "sobra": 0,
         "sin_revisar": 0,
         "marco_operador": 0,
-        # S5: sin lógica todavía, en producción quedan en 0 y vacíos.
-        "personas_con_diferencias": 0,
+        # ADR-020: la ficha del doble no trae personas, así que el rol "Técnico" (responsable de
+        # los pasos) queda ausente y cuenta.
+        "personas_con_diferencias": 1,
+        # RF-16, sin lógica todavía: 0.
         "pasos_fuera_de_tiempo": 0,
     }
-    assert (reporte.roles, reporte.tiempo_total, reporte.horario) == ([], None, None)
-    assert all(f.responsable is None and f.tiempo is None for f in reporte.filas)
+    assert [(r.rol, r.estado, r.con_pasos) for r in reporte.roles] == [("Técnico", "ausente", True)]
+    # Sin personas en la ficha, el rol que escribe la segmentación ("Técnico") basta.
+    assert [(f.responsable.estado, f.responsable.observado) for f in reporte.filas] == [
+        ("coincide", "Técnico")
+    ] * 3
+    assert (reporte.tiempo_total, reporte.horario) == (None, None)
+    assert all(f.tiempo is None for f in reporte.filas)
     assert reporte.metadatos.umbrales.afinidad_min == 60  # se registra la configuración
 
 

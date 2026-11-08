@@ -1033,7 +1033,10 @@ def test_el_ejemplo_del_reporte_tiene_los_casos_de_s5():
     assert responsables.count("distinto") == 1
     assert {"excede", "menor", "en_tiempo", "sin_referencia"} == set(tiempos)
     assert [x.estado for x in r.roles] == ["presente", "mencionado", "ausente"]
-    assert r.conteo.personas_con_diferencias == 2  # el distinto más el rol ausente
+    # El distinto; el rol ausente (almacenista) no es responsable de ningún paso y no cuenta
+    # (ADR-020).
+    assert r.roles[-1].con_pasos is False
+    assert r.conteo.personas_con_diferencias == 1
     assert r.conteo.pasos_fuera_de_tiempo == 2  # el que excede y el menor
     assert r.horario is not None and r.horario.estado == "coincide"
     assert r.tiempo_total is not None and r.tiempo_total.estado == "en_tiempo"
@@ -1042,7 +1045,7 @@ def test_el_ejemplo_del_reporte_tiene_los_casos_de_s5():
 
 @pytest.mark.parametrize(
     ("campo", "valor"),
-    [("personas_con_diferencias", 1), ("pasos_fuera_de_tiempo", 3)],
+    [("personas_con_diferencias", 2), ("pasos_fuera_de_tiempo", 3)],
 )
 def test_el_conteo_de_personas_y_tiempos_debe_cuadrar(campo, valor):
     reporte = _fixture("reporte_ejemplo.json")
@@ -1050,12 +1053,16 @@ def test_el_conteo_de_personas_y_tiempos_debe_cuadrar(campo, valor):
     _falla(ReporteValidacion, reporte, "no coincide con las filas y los roles")
 
 
-def test_quitar_un_rol_ausente_descuadra_el_conteo():
+def test_un_rol_ausente_con_pasos_descuadra_el_conteo():
     reporte = _fixture("reporte_ejemplo.json")
-    reporte["roles"] = [r for r in reporte["roles"] if r["estado"] != "ausente"]
+    # Sin pasos, quitarlo no cambia el conteo (ADR-020).
+    sin_ausente = [r for r in reporte["roles"] if r["estado"] != "ausente"]
+    ReporteValidacion.model_validate({**reporte, "roles": sin_ausente})
+    [ausente] = [r for r in reporte["roles"] if r["estado"] == "ausente"]
+    ausente["con_pasos"] = True
     _falla(ReporteValidacion, reporte, "no coincide")
-    reporte["conteo"]["personas_con_diferencias"] = 1
-    assert ReporteValidacion.model_validate(reporte).conteo.personas_con_diferencias == 1
+    reporte["conteo"]["personas_con_diferencias"] = 2
+    assert ReporteValidacion.model_validate(reporte).conteo.personas_con_diferencias == 2
 
 
 def test_bajo_umbral_cuadra_con_la_afinidad_minima():

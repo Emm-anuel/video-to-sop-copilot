@@ -816,50 +816,6 @@ class MetadatosValidacion(_Modelo):
     dispositivos: Dispositivos | None = None
 
 
-class Afinidad(_Modelo):
-    """¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
-    columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
-
-    `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
-    componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
-    afinidades anteriores a ADR-020.
-    """
-
-    valor: int = Field(ge=0, le=100)
-    explicacion: str
-    bajo_umbral: bool
-    componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
-
-
-class ResultadoValidacion(_Modelo):
-    """Lo que se guarda en `reportes.resultado` (JSONB).
-
-    `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
-    decimales) y `semaforo` se calculó con él, nunca con el redondeado. `afinidad` (RF-17,
-    ADR-020) es None sin ficha de contexto y en los reportes guardados antes de ADR-020.
-    """
-
-    version_contrato: Literal[1] = 1
-    resultado: ResultadoEmparejamiento
-    cumplimiento: float = Field(ge=0, le=100)
-    semaforo: Semaforo
-    metadatos: MetadatosValidacion
-    afinidad: Afinidad | None = None
-
-
-class PasoSOPReporte(_Modelo):
-    numero: int = Field(ge=1)
-    nombre: str = Field(min_length=1)
-    descripcion: str = ""
-
-
-class SOPReporte(_Modelo):
-    id: int
-    codigo: str
-    titulo: str
-    pasos: list[PasoSOPReporte]
-
-
 class ResponsableFila(_Modelo):
     """Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).
 
@@ -885,6 +841,107 @@ class ResponsableFila(_Modelo):
         if self.estado == "no_identificado" and self.similitud is not None:
             raise ValueError("responsable no_identificado: sin similitud")
         return self
+
+
+class RolReporte(_Modelo):
+    """Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).
+
+    Presente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona
+    (regla 4), `persona` ("Nombre (rol)" o el rol), la `similitud` de los roles y la `confianza`
+    del rol de la persona ("baja" si no aparece en su cita: lo infirió el LLM); ausente no lleva
+    nada de eso.
+
+    `con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con
+    pasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un
+    supervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,
+    ADR-020). Por defecto true: los reportes anteriores conservan su conteo.
+    """
+
+    rol: str = Field(min_length=1)
+    estado: EstadoRol
+    t: Tiempo | None = None
+    cita: str = ""
+    persona: str | None = None
+    similitud: float | None = Field(default=None, ge=-1, le=1)
+    confianza: Confianza | None = None
+    con_pasos: bool = True
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.estado == "ausente":
+            if (
+                self.t is not None
+                or self.cita
+                or self.persona is not None
+                or self.similitud is not None
+                or self.confianza is not None
+            ):
+                raise ValueError("rol ausente: sin t, cita, persona, similitud ni confianza")
+        elif self.t is None:
+            raise ValueError(f"rol {self.estado}: lleva el segundo donde aparece (t)")
+        return self
+
+
+class Afinidad(_Modelo):
+    """¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
+    columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+
+    `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
+    componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
+    afinidades anteriores a ADR-020.
+    """
+
+    valor: int = Field(ge=0, le=100)
+    explicacion: str
+    bajo_umbral: bool
+    componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
+
+
+class ResultadoValidacion(_Modelo):
+    """Lo que se guarda en `reportes.resultado` (JSONB).
+
+    `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
+    decimales) y `semaforo` se calculó con él, nunca con el redondeado. `afinidad` (RF-17,
+    ADR-020) es None sin ficha de contexto y en los reportes guardados antes de ADR-020.
+
+    `roles` y `responsables` (RF-15, ADR-020): un `RolReporte` por rol del SOP y un responsable
+    por resultado de la clasificación, en su mismo orden (None fuera de los pares). Los dos van
+    vacíos en los reportes guardados antes de ADR-020, que se siguen leyendo.
+    """
+
+    version_contrato: Literal[1] = 1
+    resultado: ResultadoEmparejamiento
+    cumplimiento: float = Field(ge=0, le=100)
+    semaforo: Semaforo
+    metadatos: MetadatosValidacion
+    afinidad: Afinidad | None = None
+    roles: list[RolReporte] = []
+    responsables: list[ResponsableFila | None] = []
+
+    @model_validator(mode="after")
+    def _responsables_alineados(self) -> Self:
+        if not self.responsables:
+            return self
+        pasos = self.resultado.clasificacion.pasos
+        if len(self.responsables) != len(pasos):
+            raise ValueError(f"{len(self.responsables)} responsables para {len(pasos)} resultados")
+        for paso, responsable in zip(pasos, self.responsables, strict=True):
+            if responsable is not None and paso.estado not in ESTADOS_PAR:
+                raise ValueError(f"{paso.estado}: el responsable solo va en un par")
+        return self
+
+
+class PasoSOPReporte(_Modelo):
+    numero: int = Field(ge=1)
+    nombre: str = Field(min_length=1)
+    descripcion: str = ""
+
+
+class SOPReporte(_Modelo):
+    id: int
+    codigo: str
+    titulo: str
+    pasos: list[PasoSOPReporte]
 
 
 class TiempoFila(_Modelo):
@@ -991,45 +1048,6 @@ class DetencionAfinidad(_Modelo):
         minimo = self.umbrales.afinidad_min
         if minimo is not None and self.afinidad.valor >= minimo:
             raise ValueError(f"afinidad {self.afinidad.valor} no está bajo AFINIDAD_MIN {minimo}")
-        return self
-
-
-class RolReporte(_Modelo):
-    """Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).
-
-    Presente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona
-    (regla 4), `persona` ("Nombre (rol)" o el rol), la `similitud` de los roles y la `confianza`
-    del rol de la persona ("baja" si no aparece en su cita: lo infirió el LLM); ausente no lleva
-    nada de eso.
-
-    `con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con
-    pasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un
-    supervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,
-    ADR-020). Por defecto true: los reportes anteriores conservan su conteo.
-    """
-
-    rol: str = Field(min_length=1)
-    estado: EstadoRol
-    t: Tiempo | None = None
-    cita: str = ""
-    persona: str | None = None
-    similitud: float | None = Field(default=None, ge=-1, le=1)
-    confianza: Confianza | None = None
-    con_pasos: bool = True
-
-    @model_validator(mode="after")
-    def _coherente(self) -> Self:
-        if self.estado == "ausente":
-            if (
-                self.t is not None
-                or self.cita
-                or self.persona is not None
-                or self.similitud is not None
-                or self.confianza is not None
-            ):
-                raise ValueError("rol ausente: sin t, cita, persona, similitud ni confianza")
-        elif self.t is None:
-            raise ValueError(f"rol {self.estado}: lleva el segundo donde aparece (t)")
         return self
 
 

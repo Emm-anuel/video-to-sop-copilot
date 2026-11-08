@@ -60,7 +60,7 @@
     "sobra": 1,
     "sin_revisar": 1,
     "marco_operador": 2,
-    "personas_con_diferencias": 2,
+    "personas_con_diferencias": 1,
     "pasos_fuera_de_tiempo": 2
   },
   "filas": [
@@ -78,10 +78,10 @@
       "justificacion": null,
       "responsable": {
         "esperado": "Técnico de mantenimiento",
-        "observado": "Laura (técnica de mantenimiento)",
+        "observado": "Laura (Técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88,
-        "nota": ""
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
       },
       "tiempo": {
         "esperado_min": 0.25,
@@ -105,10 +105,10 @@
       "justificacion": null,
       "responsable": {
         "esperado": "Técnico de mantenimiento",
-        "observado": "Laura (técnica de mantenimiento)",
+        "observado": "Laura (Técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88,
-        "nota": ""
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
       },
       "tiempo": {
         "esperado_min": 0.2,
@@ -132,10 +132,10 @@
       "justificacion": null,
       "responsable": {
         "esperado": "Técnico de mantenimiento",
-        "observado": "Laura (técnica de mantenimiento)",
+        "observado": "Laura (Técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88,
-        "nota": ""
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
       },
       "tiempo": {
         "esperado_min": null,
@@ -159,10 +159,10 @@
       "justificacion": null,
       "responsable": {
         "esperado": "Técnico de mantenimiento",
-        "observado": "Laura (técnica de mantenimiento)",
+        "observado": "Laura (Técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88,
-        "nota": ""
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
       },
       "tiempo": {
         "esperado_min": 0.4,
@@ -186,10 +186,10 @@
       "justificacion": null,
       "responsable": {
         "esperado": "Técnico de mantenimiento",
-        "observado": "Laura (técnica de mantenimiento)",
+        "observado": "Laura (Técnica de mantenimiento)",
         "estado": "coincide",
-        "similitud": 0.88,
-        "nota": ""
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
       },
       "tiempo": {
         "esperado_min": 0.5,
@@ -213,10 +213,10 @@
       "justificacion": null,
       "responsable": {
         "esperado": "Supervisor de turno",
-        "observado": "Laura (técnica de mantenimiento)",
+        "observado": "Laura (Técnica de mantenimiento)",
         "estado": "distinto",
-        "similitud": 0.36,
-        "nota": ""
+        "similitud": 0.0,
+        "nota": "responsable del paso (rol)"
       },
       "tiempo": {
         "esperado_min": 0.4,
@@ -293,9 +293,9 @@
       "estado": "presente",
       "t": 0.4,
       "cita": "soy Laura, técnica de mantenimiento",
-      "persona": null,
-      "similitud": null,
-      "confianza": null,
+      "persona": "Laura (Técnica de mantenimiento)",
+      "similitud": 1.0,
+      "confianza": "alta",
       "con_pasos": true
     },
     {
@@ -303,9 +303,9 @@
       "estado": "mencionado",
       "t": 47.68,
       "cita": "mejor avisen al supervisor de turno",
-      "persona": null,
-      "similitud": null,
-      "confianza": null,
+      "persona": "Supervisor de turno",
+      "similitud": 1.0,
+      "confianza": "alta",
       "con_pasos": true
     },
     {
@@ -316,7 +316,7 @@
       "persona": null,
       "similitud": null,
       "confianza": null,
-      "con_pasos": true
+      "con_pasos": false
     }
   ],
   "tiempo_total": {
@@ -345,10 +345,10 @@
       "afinidad_min": 60.0,
       "tolerancia_tiempo": 0.2,
       "umbral_rol": 0.85,
-      "afinidad_cos_cero": null,
-      "afinidad_cos_cien": null,
-      "afinidad_umbral_equipo": null,
-      "umbral_rol_complemento": null
+      "afinidad_cos_cero": 0.3,
+      "afinidad_cos_cien": 0.8,
+      "afinidad_umbral_equipo": 0.75,
+      "umbral_rol_complemento": 0.7
     },
     "segundos": {
       "duracion": 0.2,

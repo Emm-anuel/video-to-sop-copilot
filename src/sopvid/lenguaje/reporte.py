@@ -8,7 +8,9 @@ porcentaje a verde, amarillo o rojo con los cortes de la configuración (RNF-14)
 
 `armar_reporte` arma la respuesta de `GET /videos/{id}/reporte` (`ReporteValidacion`) a partir
 de lo guardado (`ResultadoValidacion`) y del SOP: una fila por resultado, con el nombre del paso
-del SOP y del video, el segundo y la cita (siempre de la transcripción, regla 4).
+del SOP y del video, el segundo y la cita (siempre de la transcripción, regla 4). La afinidad,
+los roles y el responsable de cada par (RF-15, RF-17, ADR-020) se copian de lo guardado; un
+reporte guardado antes de ADR-020 sale con la afinidad en None, sin roles ni responsables.
 """
 
 from datetime import datetime
@@ -82,11 +84,13 @@ def armar_reporte(
     """La respuesta de la API con lo guardado. `cumplimiento` es el de la columna (dos decimales).
 
     Las filas siguen el orden de la clasificación: primero los pasos del SOP y después los Sobra,
-    en el orden del video. El conteo sale del resumen de la clasificación.
+    en el orden del video. El conteo sale del resumen de la clasificación, más las personas con
+    diferencias (§5.6, ADR-020).
     """
     resultado = validacion.resultado
+    responsables = validacion.responsables or [None] * len(resultado.clasificacion.pasos)
     filas = []
-    for paso in resultado.clasificacion.pasos:
+    for paso, responsable in zip(resultado.clasificacion.pasos, responsables, strict=True):
         video = None if paso.indice_video is None else resultado.pasos_video[paso.indice_video]
         del_sop = None if paso.indice_sop is None else sop.pasos[paso.indice_sop]
         juicio = paso.juicio
@@ -103,6 +107,7 @@ def armar_reporte(
                 fuera_de_orden=paso.fuera_de_orden,
                 marco_operador=paso.marco_operador,
                 justificacion=juicio.justificacion if juicio and juicio.justificacion else None,
+                responsable=responsable,
             )
         )
     resumen = resultado.clasificacion.resumen
@@ -114,6 +119,11 @@ def armar_reporte(
         sobra=resumen.conteo["Sobra"],
         sin_revisar=resumen.conteo["zona_gris"],
         marco_operador=resumen.marco_operador,
+        # §5.6: responsables distintos más roles ausentes que son responsables de algún paso.
+        personas_con_diferencias=(
+            sum(f.responsable is not None and f.responsable.estado == "distinto" for f in filas)
+            + sum(r.estado == "ausente" and r.con_pasos for r in validacion.roles)
+        ),
     )
     return ReporteValidacion(
         video_id=video_id,
@@ -132,6 +142,7 @@ def armar_reporte(
         afinidad=validacion.afinidad,
         conteo=conteo,
         filas=filas,
+        roles=validacion.roles,
         metadatos=validacion.metadatos,
         creado=creado,
     )
