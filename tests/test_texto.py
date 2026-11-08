@@ -3,7 +3,7 @@
 import pytest
 
 from sopvid.percepcion import segmentacion
-from sopvid.texto import NO_IDENTIFICADO, normalizar
+from sopvid.texto import NO_IDENTIFICADO, limpiar, normalizar
 
 
 @pytest.mark.parametrize(
@@ -65,3 +65,23 @@ def test_texto_vacio_e_idempotencia():
 def test_no_identificado_es_el_mismo_que_usa_la_segmentacion():
     assert NO_IDENTIFICADO == "No identificado"
     assert segmentacion.NO_IDENTIFICADO is NO_IDENTIFICADO
+
+
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [
+        ("  Línea   de enjuague ", "Línea de enjuague"),
+        ("null", ""),
+        ("N/A", ""),
+        ("Ninguno", ""),
+        (None, ""),
+        ("", ""),
+    ],
+)
+def test_limpiar_colapsa_espacios_y_vacia_los_marcadores_de_vacio(texto, esperado):
+    assert limpiar(texto) == esperado
+
+
+def test_limpiar_con_vacios_propios():
+    assert limpiar("No se menciona", frozenset({"no se menciona"})) == ""
+    assert limpiar("No se menciona") == "No se menciona"

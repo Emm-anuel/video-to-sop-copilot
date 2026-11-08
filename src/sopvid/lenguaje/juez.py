@@ -25,7 +25,7 @@ import logging
 import string
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from typing import Any, Protocol
@@ -55,6 +55,8 @@ MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es válid
 PALABRAS_CITA = (4, 15)  # igual que la cita de los pasos del video (RF-13)
 MAX_JUSTIFICACION = 300  # caracteres; una más larga se recorta en una frontera de palabra
 
+# Las secciones que tiene todo prompt (las demás van a `Prompt.extras`).
+_SECCIONES_BASE = frozenset({"sistema", "usuario", "correccion"})
 # Secciones del archivo del prompt y los marcadores que debe usar cada una.
 _MARCADORES: dict[str, frozenset[str]] = {
     "sistema": frozenset(),
@@ -90,12 +92,18 @@ class Juez(Protocol):
 
 @dataclass(frozen=True)
 class Prompt:
-    """Prompt del juez leído de su archivo: el mensaje de sistema y dos plantillas."""
+    """Prompt leído de su archivo: el mensaje de sistema y dos plantillas.
+
+    `extras` son las secciones que no son `sistema`, `usuario` ni `correccion` (p. ej. las que
+    la ficha de contexto agrega solo cuando hay fotogramas); los prompts del juez y del SOP no
+    tienen.
+    """
 
     version: str
     sistema: str
     usuario: string.Template
     correccion: string.Template
+    extras: dict[str, string.Template] = field(default_factory=dict)
 
 
 @cache
@@ -117,7 +125,8 @@ def leer_prompt(
 
     Lo que va antes de la primera sección es documentación y se ignora. Falla si falta o sobra
     una sección, o si una plantilla no usa exactamente sus marcadores (`$nombre`). Sin
-    `marcadores`, los del juez; otro prompt con las mismas tres secciones pasa los suyos.
+    `marcadores`, los del juez; otro prompt pasa los suyos, que deben incluir las tres secciones
+    y pueden sumar otras (van a `Prompt.extras`).
     """
     marcadores = _MARCADORES if marcadores is None else marcadores
     secciones: dict[str, list[str]] = {}
@@ -148,6 +157,11 @@ def leer_prompt(
         sistema=cuerpo["sistema"],
         usuario=string.Template(cuerpo["usuario"]),
         correccion=string.Template(cuerpo["correccion"]),
+        extras={
+            nombre: string.Template(texto)
+            for nombre, texto in cuerpo.items()
+            if nombre not in _SECCIONES_BASE
+        },
     )
 
 

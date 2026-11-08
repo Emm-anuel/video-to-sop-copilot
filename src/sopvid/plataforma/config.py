@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     # siga generando, al llegar a `llm_timeout_sop_s` en total. En CPU tarda 150-200 s (ADR-018).
     llm_inactividad_s: float = 60.0
     llm_timeout_sop_s: float = 900.0
+    # Ficha de contexto del video (RF-12): los mismos cortes que la conversión del SOP (primer
+    # token en `llm_timeout_s`, `llm_inactividad_s` sin tokens) y este tope total, que cubre los
+    # reintentos por JSON inválido.
+    llm_timeout_contexto_s: float = Field(default=600.0, gt=0)
     # Dónde corre Gemma (ADR-018): "auto" deja que Ollama use la GPU si la ve; "cpu" pide
     # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
     llm_dispositivo: Literal["auto", "cpu"] = "auto"

@@ -74,6 +74,7 @@ from sopvid.texto import (
     comparable,
     contar_palabras,
     contiene_cita,
+    limpiar,
     recortar_palabras,
 )
 
@@ -722,13 +723,8 @@ def _resumen_errores(exc: ValidationError) -> str:
 
 
 # Lo que el modelo escribe a veces en lugar de dejar el campo vacío (con el JSON compacto de v3
-# salía ["null"] en listas vacías): se trata como vacío.
-_VACIOS = frozenset({"null", "none", "ninguno", "ninguna", "n a", "na"})
-
-
-def _limpio(texto: str | None) -> str:
-    limpio = " ".join((texto or "").split())
-    return "" if comparable(limpio) in _VACIOS else limpio
+# salía ["null"] en listas vacías) se trata como vacío (`sopvid.texto.VACIOS`).
+_limpio = limpiar
 
 
 def _lista(elementos: Iterable[str]) -> list[str]:

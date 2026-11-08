@@ -2,7 +2,8 @@
 
 - `TranscriptorFalso`: entrega `SEGMENTOS` (tres frases inventadas de 0 a 2.8 s).
 - `OllamaFalso`: Ollama simulado con `httpx.MockTransport` para `ClienteLLM`: `/api/tags`, las
-  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido), la
+  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido), la ficha de
+  contexto (`respuestas_contexto`, en flujo), la
   conversión de un SOP sin plantilla (`respuestas_sop`, en flujo NDJSON como `chat_en_flujo`),
   `/api/generate` con `keep_alive: 0` y `/api/ps` (el modelo en GPU, salvo `vram=0`).
 - `flujo_ndjson`: cuerpo en flujo de Ollama, con tokens lentos o un Ollama que se calla.
@@ -35,6 +36,7 @@ from sopvid.lenguaje.juez import respaldo
 from sopvid.lenguaje.lectura_sop import ESQUEMA_SOP_LIBRE
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.validacion import DependenciasValidacion
+from sopvid.percepcion.contexto import ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS
 from sopvid.percepcion.segmentacion import ESQUEMA_FRONTERAS, ESQUEMA_REDACCION
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion
 from sopvid.plataforma.api.main import create_app
@@ -145,14 +147,32 @@ REDACCION = [
     {"numero": n, "descripcion": "", "responsable": "Técnico", "cita": s.texto}
     for n, s in enumerate(SEGMENTOS, start=1)
 ]
+# La ficha de contexto que respondería Gemma 4 para SEGMENTOS: la actividad con una cita que
+# existe, el tema sin cita (inferido) y lo que no se dice en null.
+CONTEXTO = {
+    "actividad": {"cita": "Primero reviso el manómetro", "valor": "Revisión de la línea de agua"},
+    "tema": {"cita": "", "valor": "Mantenimiento"},
+    "lugar": {"cita": "", "valor": None},
+    "horario_mencionado": {"cita": "", "valor": None},
+    "proposito": {"cita": "", "valor": None},
+    "resumen": "Se revisa el manómetro, se cierra la válvula y se anota la lectura.",
+    "personas": [],
+    "equipos": ["Manómetro", "Válvula"],
+}
 
 
 class OllamaFalso:
     """Ollama simulado. `disponible=False`: no responde a nada; `caido_en_chat=True`: responde
     `/api/tags` pero se cae en `/api/chat` y `/api/generate` (Ollama cae a medias).
 
-    Registra en `eventos` "tags", "chat:fronteras", "chat:redaccion", "chat:sop" y "descargar";
-    `al_pedir` corre en cada petición (para ver el estado del video mientras segmenta).
+    Registra en `eventos` "tags", "chat:contexto", "chat:fronteras", "chat:redaccion",
+    "chat:sop" y "descargar"; `al_pedir` corre en cada petición (para ver el estado del video
+    mientras segmenta).
+
+    `respuestas_contexto` es lo que responde cada petición de la ficha de contexto, en orden (la
+    última se repite; sin ninguna, `CONTEXTO`), con las mismas reglas que `respuestas_sop`.
+    `mensajes_contexto` y `esquemas_contexto` guardan lo pedido; con `contexto_caido`, Ollama se
+    cae solo en esa petición, y `pausa_contexto_s` la vuelve lenta.
 
     `respuestas_sop` es lo que responde cada conversión de un SOP sin plantilla, en orden (la
     última se repite): un objeto se manda como JSON y un `str`, tal cual (p. ej. JSON roto).
@@ -169,6 +189,11 @@ class OllamaFalso:
         self.mensajes_sop: list[list[dict[str, str]]] = []
         self.opciones_sop: list[dict[str, Any]] = []
         self.pausa_s = 0.0  # entre fragmentos del flujo (Gemma lento)
+        self.respuestas_contexto: list[Any] = []
+        self.mensajes_contexto: list[list[dict[str, str]]] = []
+        self.esquemas_contexto: list[dict[str, Any]] = []
+        self.contexto_caido = False
+        self.pausa_contexto_s = 0.0
         # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
         self.vram = 100
 
@@ -197,7 +222,17 @@ class OllamaFalso:
                 raise httpx.ConnectError("Ollama se cayó", request=request)
             return httpx.Response(200, json={"model": MODELO, "done": True})
         assert ruta == "/api/chat", ruta
-        if cuerpo.get("format") == ESQUEMA_SOP_LIBRE:
+        pausa_s = self.pausa_s
+        if cuerpo.get("format") in (ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS):
+            self.eventos.append("chat:contexto")
+            self.mensajes_contexto.append(cuerpo["messages"])
+            self.esquemas_contexto.append(cuerpo["format"])
+            if self.contexto_caido:
+                raise httpx.ConnectError("Ollama se cayó", request=request)
+            i = min(len(self.mensajes_contexto), len(self.respuestas_contexto)) - 1
+            contenido = self.respuestas_contexto[i] if self.respuestas_contexto else CONTEXTO
+            pausa_s = self.pausa_contexto_s
+        elif cuerpo.get("format") == ESQUEMA_SOP_LIBRE:
             self.eventos.append("chat:sop")
             self.mensajes_sop.append(cuerpo["messages"])
             self.opciones_sop.append(cuerpo["options"])
@@ -213,8 +248,8 @@ class OllamaFalso:
         if self.caido_en_chat:
             raise httpx.ConnectError("Ollama se cayó", request=request)
         texto = contenido if isinstance(contenido, str) else json.dumps(contenido)
-        if cuerpo.get("stream"):  # chat_en_flujo (conversión del SOP)
-            return httpx.Response(200, content=flujo_ndjson(texto, pausa_s=self.pausa_s))
+        if cuerpo.get("stream"):  # chat_en_flujo (ficha de contexto y conversión del SOP)
+            return httpx.Response(200, content=flujo_ndjson(texto, pausa_s=pausa_s))
         return httpx.Response(
             200, json={"model": MODELO, "message": {"role": "assistant", "content": texto}}
         )

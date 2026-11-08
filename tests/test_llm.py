@@ -433,6 +433,28 @@ def test_flujo_arma_la_respuesta_y_registra_tokens_por_segundo(caplog):
     assert "generados a 20.0 tokens/s" in caplog.text
 
 
+def test_flujo_mide_la_espera_al_primer_token():
+    """El primer fragmento llega tras 0.2 s; los dos siguientes, 0.2 s después cada uno."""
+    manejador, _ = _flujo(json.dumps({"respuesta": "primer token"}), tamano=10, pausa_s=0.2)
+
+    with cliente_con(manejador) as cliente:
+        inicio = time.monotonic()
+        r = cliente.chat_en_flujo(
+            [{"role": "user", "content": "x"}], esquema=ESQUEMA, inactividad_s=1, tope_s=5
+        )
+        total = time.monotonic() - inicio
+
+    # Con holgura: en Windows el reloj tiene ~15 ms de resolución.
+    assert r.primer_token_s is not None
+    assert r.primer_token_s >= 0.15
+    assert total - r.primer_token_s >= 0.3  # faltaban dos fragmentos de 0.2 s
+
+
+def test_chat_sin_flujo_no_mide_el_primer_token():
+    with cliente_con(lambda r: respuesta_chat("hola")) as cliente:
+        assert cliente.chat([{"role": "user", "content": "x"}]).primer_token_s is None
+
+
 def test_flujo_con_tokens_lentos_no_corta_si_siguen_llegando():
     """Cada fragmento tarda 0.15 s: más que la mitad del plazo, pero nunca más que el plazo."""
     manejador, _ = _flujo(json.dumps({"respuesta": "lento"}), tamano=5, pausa_s=0.15)

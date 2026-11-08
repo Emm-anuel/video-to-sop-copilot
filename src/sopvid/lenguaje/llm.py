@@ -25,7 +25,7 @@ import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Self
 
 import httpx
@@ -71,13 +71,18 @@ class LLMTiempoExcedido(LLMError):  # noqa: N818
 
 @dataclass(frozen=True)
 class RespuestaLLM:
-    """Respuesta de `/api/chat`. `datos` es el JSON ya interpretado si se pidió un esquema."""
+    """Respuesta de `/api/chat`. `datos` es el JSON ya interpretado si se pidió un esquema.
+
+    `primer_token_s` solo lo da `chat_en_flujo`: segundos desde la petición hasta el primer
+    fragmento (carga del modelo y lectura del prompt, vistas desde el cliente).
+    """
 
     texto: str
     datos: Any
     modelo: str
     razon_fin: str | None
     metricas: dict[str, int]
+    primer_token_s: float | None = None
 
 
 class ClienteLLM:
@@ -301,6 +306,7 @@ class ClienteLLM:
         hilo.start()
         partes: list[str] = []
         final: dict[str, Any] | None = None
+        primer_token_en: float | None = None
         try:
             while final is None:
                 restante = tope_s - (time.monotonic() - inicio)
@@ -328,12 +334,15 @@ class ClienteLLM:
                 contenido = (valor.get("message") or {}).get("content", "")
                 if not isinstance(contenido, str):
                     raise LLMRespuestaInvalida("message.content no es texto")
+                if primer_token_en is None:
+                    primer_token_en = time.monotonic() - inicio
                 partes.append(contenido)
                 if valor.get("done"):
                     final = valor
         finally:
             cancelar.set()
-        return self._respuesta("".join(partes), final, con_esquema=esquema is not None)
+        respuesta = self._respuesta("".join(partes), final, con_esquema=esquema is not None)
+        return replace(respuesta, primer_token_s=primer_token_en)
 
     def _leer_flujo(
         self,

@@ -1,5 +1,5 @@
-"""Utilidades de texto compartidas por la segmentación del video, la lectura del SOP y el juez
-de la zona gris (verificación de citas, regla 4 de CLAUDE.md)."""
+"""Utilidades de texto compartidas por la segmentación del video, la lectura del SOP, el juez
+de la zona gris y la ficha de contexto (verificación de citas, regla 4 de CLAUDE.md)."""
 
 import re
 import unicodedata
@@ -19,6 +19,17 @@ def normalizar(texto: str) -> str:
 def comparable(texto: str) -> str:
     """`normalizar` con los espacios colapsados: la forma en que se comparan las citas."""
     return " ".join(normalizar(texto).split())
+
+
+# Lo que el LLM escribe a veces en lugar de dejar el campo vacío (con el JSON compacto salía
+# ["null"] en listas vacías), comparado con `comparable`: se trata como vacío.
+VACIOS = frozenset({"null", "none", "ninguno", "ninguna", "n a", "na"})
+
+
+def limpiar(texto: str | None, vacios: frozenset[str] = VACIOS) -> str:
+    """`texto` con los espacios colapsados, o "" si está vacío o es uno de `vacios`."""
+    limpio = " ".join((texto or "").split())
+    return "" if comparable(limpio) in vacios else limpio
 
 
 def contiene_cita(texto: str, cita: str) -> bool:
