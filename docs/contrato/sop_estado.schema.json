@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "AvisoConversion": {
+      "additionalProperties": false,
+      "description": "Advertencia de la conversión que no la detiene. `tipo` es estable para agruparlas (RF-04);\n`linea` solo la da la plantilla. El mensaje cita números de paso o de línea, nunca el SOP.",
+      "properties": {
+        "tipo": {
+          "title": "Tipo",
+          "type": "string"
+        },
+        "linea": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linea"
+        },
+        "mensaje": {
+          "title": "Mensaje",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "mensaje"
+      ],
+      "title": "AvisoConversion",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Respuesta de `POST /sops` (202) y de `GET /sops/{id}/estado`.\n\nLa conversión corre en el trabajador: \"en_cola\" → \"convirtiendo\" → \"listo\" o \"error\".\n`titulo`, `metodo` y `advertencias` llegan con \"listo\" (`metodo` es None en un SOP generado o\nanterior a la migración 0003); `mensaje`, con \"error\" (dice qué hacer: volver a subirlo, usar\nla plantilla…). Mientras no esté listo, `GET /sops/{id}` da 409.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "integer"
+    },
+    "codigo": {
+      "title": "Codigo",
+      "type": "string"
+    },
+    "estado": {
+      "enum": [
+        "en_cola",
+        "convirtiendo",
+        "listo",
+        "error"
+      ],
+      "title": "Estado",
+      "type": "string"
+    },
+    "titulo": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Titulo"
+    },
+    "metodo": {
+      "anyOf": [
+        {
+          "enum": [
+            "plantilla",
+            "llm"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Metodo"
+    },
+    "mensaje": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mensaje"
+    },
+    "advertencias": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AvisoConversion"
+      },
+      "title": "Advertencias",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "codigo",
+    "estado"
+  ],
+  "title": "EstadoSop",
+  "type": "object"
+}

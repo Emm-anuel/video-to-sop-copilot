@@ -1,17 +1,19 @@
 # API de SOP y videos (desarrollo y demo)
 
-Carga del SOP de referencia (RF-03), subida de un video completo (RF-06 del MVP; la subida por
-partes es de S5), análisis y validación en una cola de un trabajador (un modelo en memoria a la
-vez, ADR-014) y consulta del avance, el TXT en vivo (RF-10), el `Analisis` y el reporte (RF-14,
+Carga del SOP de referencia (RF-01 a RF-03), subida de un video completo (RF-06 del MVP; la
+subida por partes es de S5), conversión del SOP, análisis y validación en una cola de un
+trabajador con prioridad (un modelo en memoria a la vez, ADR-014; un SOP va antes que el
+siguiente video) y consulta del avance, el TXT en vivo (RF-10), el `Analisis` y el reporte (RF-14,
 RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.procesamiento` y
 `sopvid.lenguaje.validacion`.
 
 | Método y ruta | Qué hace |
 |---|---|
-| `POST /sops` | Multipart: `archivo` (.md o .txt, UTF-8, hasta 1 MB) con la plantilla de `docs/contrato/plantilla_sop.md` (ADR-015). Responde **201** con `{"id", "codigo", "titulo", "advertencias"}`. 415 si la extensión no está permitida, 413 si pasa de 1 MB, 422 si no es UTF-8, si la conversión falla (`ErrorSOP`, con su mensaje) o si el título pasa de 300 caracteres |
-| `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "sop"}` con el `SOP` del contrato; 404 si no existe |
-| `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`), `sop_id` (obligatorio con `validar`, prohibido con `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola"}` y `Location: /videos/<id>`. 415 si la extensión no está permitida, 422 si el formulario no es válido, 404 si el SOP no existe, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
-| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`; en modo validar también `segmentacion`, `emparejamiento`, `reporte`; al final `listo`), `progreso` (0–100), duración, idioma y `error` |
+| `POST /sops` | Multipart: `archivo` (.md, .txt, .pdf o .docx; texto hasta 1 MB, PDF y Word hasta 20 MB). Revisa que se pueda leer y responde **202** con el `EstadoSop` (`docs/contrato/sop_estado.schema.json`, `estado: "en_cola"`) y `Location: /sops/<id>/estado`; la conversión (plantilla o Gemma 4, ADR-015) corre en el trabajador. 415 si la extensión no está permitida, 413 si pasa del límite, 422 si no se puede leer (PDF escaneado, archivo dañado, texto que no es UTF-8) |
+| `GET /sops/{id}/estado` | `EstadoSop`: `estado` (`en_cola`, `convirtiendo`, `listo`, `error`), `titulo`, `metodo` (`plantilla` o `llm`) y `advertencias` al terminar, `mensaje` si falló (título de más de 300 caracteres, Ollama caído, conversión que pasó de `LLM_TIMEOUT_SOP_S`…). Consultarlo cada 2 s |
+| `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "metodo", "advertencias", "sop"}` con el `SOP` del contrato; **409** con `{"mensaje", "estado", "error"}` mientras no esté listo |
+| `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`), en modo validar `sop_id` **o** `sop` (archivo del SOP, RF-02; prohibidos con `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola", "sop_id"}` y `Location: /videos/<id>`. Con `sop`, el SOP se crea en cola como en `POST /sops` y su estado se consulta en `GET /sops/{sop_id}/estado`; el video lo espera y, si la conversión falla, queda en error con el mensaje del SOP. 415 si la extensión no está permitida, 422 si el formulario no es válido, si el SOP adjunto no se puede leer o si `sop_id` es de un SOP en error, 404 si el SOP no existe, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
+| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`; en modo validar también `segmentacion`, `emparejamiento`, `reporte`; al final `listo`), `progreso` (0–100), duración, idioma, `error` y `sop_id` |
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
 | `GET /videos/{id}/reporte` | El `ReporteValidacion` (esquema en `docs/contrato/reporte.schema.json`; ejemplos en `tests/fixtures/reporte_ejemplo*.json`). **409** si no está listo, 404 si el video no tiene reporte (p. ej. modo generar) |
@@ -76,21 +78,26 @@ del video en `videos.pasos_video`. El avance: el análisis va de 0 a 45, `segmen
   "segmentos": [...]}`. `GET …/analisis` rearma el `Analisis` y lo valida. Los pasos del video
   quedan en `pasos_video` (JSONB) y el reporte en `reportes` (uno por video, con `cumplimiento`
   en su columna y el JSON completo en `resultado`).
-- El SOP convertido se guarda en `sops.contenido` (JSONB) y el archivo original en
-  `MEDIA_DIR/sops/<id>/original.<ext>` (`POST /sops`).
+- El archivo original del SOP se guarda en `MEDIA_DIR/sops/<id>/original.<ext>` al recibirlo;
+  la conversión deja el SOP del contrato en `sops.contenido` (JSONB), el título, `metodo` y
+  `advertencias`, y `sops.estado` pasa de `en_cola` a `convirtiendo` y a `listo` o `error` (con el
+  mensaje en `sops.error`).
 - Si algo falla, `proceso="error"` y `error` explica la causa sin texto del video (p. ej.
   `video.mp4: el video no tiene pista de audio`, `falló la etapa transcripcion (RuntimeError)` o
   `falló la etapa emparejamiento (ValueError)`). Si falla la validación, el análisis ya quedó
   guardado: `videos.transcripcion` y `videos.pasos_video` siguen ahí.
 
 La cola vive en memoria: al arrancar, la API pasa a `error` ("interrumpido por reinicio") los videos
-que quedaron en `en_cola` o `procesando`. Se vuelven a subir.
+que quedaron en `en_cola` o `procesando`, y los SOP en `en_cola` o `convirtiendo`. Se vuelven a
+subir.
 
 ## Probar con curl
 
 ```powershell
 curl.exe -F archivo=@tests/fixtures/sop_filtro_agua.md http://127.0.0.1:8000/sops
-# {"id":3,"codigo":"SOP-0003","titulo":"Cambio del cartucho del filtro de agua","advertencias":[]}
+# {"id":3,"codigo":"SOP-0003","estado":"en_cola","titulo":null,"metodo":null,"mensaje":null,"advertencias":[]}
+curl.exe http://127.0.0.1:8000/sops/3/estado
+# {"id":3,"codigo":"SOP-0003","estado":"listo","titulo":"Cambio del cartucho del filtro de agua","metodo":"plantilla","mensaje":null,"advertencias":[]}
 curl.exe -F archivo=@video_a.mp4 -F "titulo=Cambio de filtro" -F modo=validar -F sop_id=3 -F idioma=es http://127.0.0.1:8000/videos
 # {"id":12,"proceso":"en_cola"}
 curl.exe http://127.0.0.1:8000/videos/12                    # avance
@@ -133,7 +140,7 @@ de compose.
    ```
 
 4. Levantar la API con **un solo proceso** (la cola, la GPU y el candado de modelo pesado que
-   comparten el trabajador y `POST /sops` son de ese proceso; no uses `--workers` ni `--reload`):
+   del trabajador son de ese proceso; no uses `--workers` ni `--reload`):
 
    ```powershell
    uvicorn sopvid.plataforma.api.main:app --host 127.0.0.1 --port 8000

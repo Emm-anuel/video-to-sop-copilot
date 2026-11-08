@@ -12,7 +12,12 @@ from sopvid.plataforma.api import health, sops, videos
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_sessionmaker
 from sopvid.plataforma.hardware import get_hardware, get_plan_dispositivos, registrar
-from sopvid.plataforma.procesamiento import FabricaSesiones, Procesador, marcar_interrumpidos
+from sopvid.plataforma.procesamiento import (
+    FabricaSesiones,
+    Procesador,
+    marcar_interrumpidos,
+    marcar_sops_interrumpidos,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +42,8 @@ def create_app(
 ) -> FastAPI:
     """Crea la app. `sesiones` reemplaza al sessionmaker (pruebas).
 
-    Al arrancar, los videos que quedaron en cola o procesando pasan a error: la cola vive en
-    memoria y no sobrevive a un reinicio. Si la base no responde, la API arranca igual y
+    Al arrancar, los videos y los SOP que quedaron en cola o en proceso pasan a error: la cola
+    vive en memoria y no sobrevive a un reinicio. Si la base no responde, la API arranca igual y
     `/health` lo informa. También se registra dónde va a correr cada etapa (GPU o CPU,
     ADR-018), con un aviso si la configuración no cuadra con el equipo.
     """
@@ -51,6 +56,7 @@ def create_app(
             try:
                 with fabrica() as session:
                     marcar_interrumpidos(session)
+                    marcar_sops_interrumpidos(session)
             except SQLAlchemyError as exc:
                 logger.warning("No se revisaron videos interrumpidos: %s", type(exc).__name__)
         app.state.procesador = Procesador.con_hilo(fabrica, get_settings().media_path)

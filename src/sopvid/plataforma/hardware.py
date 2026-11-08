@@ -16,11 +16,10 @@ algo no cuadra (p. ej. hay GPU pero ctranslate2 no la ve). La API registra el pl
 y lo informa en `/health`. Se detecta una vez por proceso: la GPU no cambia mientras corre.
 
 **Un modelo pesado a la vez (ADR-014).** faster-whisper y Gemma 4 no caben juntos en la GPU de
-referencia. `CANDADO_MODELO_PESADO` lo comparten el trabajador de la cola (todo el trabajo de un
-video: Whisper y Gemma) y la conversión de un SOP con Gemma en `POST /sops`. Es un candado de
-hilos: el trabajador es un hilo del mismo proceso de la API (`Procesador.con_hilo`, uvicorn sin
-`--workers`, docs/dev/api.md). Con varios procesos habría que cambiarlo por uno entre procesos.
-Es reentrante: la conversión del SOP adjunto a un video corre dentro del trabajo, que ya lo tiene.
+referencia. Hoy todo lo que los carga (videos y conversión de SOP) corre en el único hilo de la
+cola de trabajos (`procesamiento.ColaTrabajos`), y cada trabajo toma además
+`CANDADO_MODELO_PESADO`: protege si otro camino del mismo proceso llegara a cargar un modelo. Es
+un candado de hilos (uvicorn sin `--workers`, docs/dev/api.md) y reentrante.
 """
 
 import logging
@@ -260,8 +259,3 @@ class CandadoModeloPesado:
 
 
 CANDADO_MODELO_PESADO = CandadoModeloPesado()
-
-
-def get_candado() -> CandadoModeloPesado:
-    """Dependencia de FastAPI: el candado del proceso (las pruebas lo reemplazan)."""
-    return CANDADO_MODELO_PESADO

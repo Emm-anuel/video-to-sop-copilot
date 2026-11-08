@@ -9,8 +9,8 @@
 - `JuezFalso`: decide cada par de la zona gris con un veredicto fijo, o deja el respaldo.
 - `VectorizadorGuionado`: el vector de cada texto según su prefijo, para fijar el coseno de cada
   par sin MiniLM.
-- `Entorno`: la app con la sesión de la prueba, ajustes en `tmp_path`, trabajos que corren a mano,
-  un candado de modelo pesado propio y estos dobles inyectados.
+- `Entorno`: la app con la sesión de la prueba, ajustes en `tmp_path`, una `ColaTrabajos` que se
+  corre a mano (`correr_pendientes`), un candado de modelo pesado propio y estos dobles inyectados.
 
 Todo es inventado por el equipo (CLAUDE.md §2.1). `eventos` es una lista compartida que registra,
 en orden, cuándo Whisper soltó la memoria y cada petición a Ollama (ADR-014).
@@ -42,9 +42,9 @@ from sopvid.plataforma.api.sops import get_fabrica_llm
 from sopvid.plataforma.api.videos import get_procesador, get_transcriptor, get_validacion
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
-from sopvid.plataforma.hardware import CandadoModeloPesado, get_candado
+from sopvid.plataforma.hardware import CandadoModeloPesado
 from sopvid.plataforma.modelos import Sop, Video
-from sopvid.plataforma.procesamiento import Procesador
+from sopvid.plataforma.procesamiento import ColaTrabajos, Procesador
 
 # ── Transcripción ────────────────────────────────────────────────────────────────────────────
 
@@ -168,6 +168,7 @@ class OllamaFalso:
         self.respuestas_sop: list[Any] = []
         self.mensajes_sop: list[list[dict[str, str]]] = []
         self.opciones_sop: list[dict[str, Any]] = []
+        self.pausa_s = 0.0  # entre fragmentos del flujo (Gemma lento)
         # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
         self.vram = 100
 
@@ -213,7 +214,7 @@ class OllamaFalso:
             raise httpx.ConnectError("Ollama se cayó", request=request)
         texto = contenido if isinstance(contenido, str) else json.dumps(contenido)
         if cuerpo.get("stream"):  # chat_en_flujo (conversión del SOP)
-            return httpx.Response(200, content=flujo_ndjson(texto))
+            return httpx.Response(200, content=flujo_ndjson(texto, pausa_s=self.pausa_s))
         return httpx.Response(
             200, json={"model": MODELO, "message": {"role": "assistant", "content": texto}}
         )
@@ -334,7 +335,7 @@ class Entorno:
     def __init__(self, db_session: Session, tmp_path: Path):
         self.session = db_session
         self.settings = Settings(media_dir=tmp_path / "media", subida_max_mb=1)
-        self.pendientes: list[Callable[[], None]] = []
+        self.cola = ColaTrabajos()
         self.eventos: list[str] = []
         self.transcriptor = TranscriptorFalso(eventos=self.eventos)
         self.ollama = OllamaFalso(self.eventos)
@@ -346,7 +347,7 @@ class Entorno:
         self.procesador = procesador = Procesador(
             lambda: nullcontext(db_session),
             self.settings.media_path,
-            self.pendientes.append,
+            self.cola,
             gpu=lambda: "GPU de prueba",
             candado=self.candado,
         )
@@ -370,11 +371,14 @@ class Entorno:
         self.app.dependency_overrides[get_transcriptor] = lambda: self.transcriptor
         self.app.dependency_overrides[get_validacion] = lambda: dependencias
         self.app.dependency_overrides[get_fabrica_llm] = lambda: self.ollama.cliente
-        self.app.dependency_overrides[get_candado] = lambda: self.candado
+
+    @property
+    def pendientes(self) -> list[Callable[[], None]]:
+        """Los trabajos en cola, en el orden en que van a correr (los SOP primero)."""
+        return self.cola.pendientes()
 
     def correr_pendientes(self) -> None:
-        while self.pendientes:
-            self.pendientes.pop(0)()
+        self.cola.correr_pendientes()
 
     def video(self, video_id: int) -> Video:
         video = self.session.get(Video, video_id)

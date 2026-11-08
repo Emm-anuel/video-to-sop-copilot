@@ -37,6 +37,7 @@ from sopvid.contrato import (
     Umbrales,
     esquema_analisis,
     esquema_contexto,
+    esquema_estado_sop,
     esquema_reporte,
     esquema_sop,
 )
@@ -1088,6 +1089,7 @@ def test_umbrales_anteriores_a_s5_validan():
         ("sop.schema.json", esquema_sop),
         ("contexto.schema.json", esquema_contexto),
         ("reporte.schema.json", esquema_reporte),
+        ("sop_estado.schema.json", esquema_estado_sop),
     ],
 )
 def test_el_esquema_exportado_coincide_con_el_modelo(archivo, esquema):

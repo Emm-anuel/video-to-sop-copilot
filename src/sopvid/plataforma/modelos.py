@@ -36,6 +36,7 @@ from sopvid.plataforma.db import Base
 
 ORIGENES_SOP = ("cargado", "generado")
 METODOS_SOP = ("plantilla", "llm")  # cómo se convirtió un SOP cargado (ADR-015)
+ESTADOS_SOP = ("en_cola", "convirtiendo", "listo", "error")  # conversión en el trabajador
 MODOS_VIDEO = ("validar", "generar")
 PROCESOS_VIDEO = ("en_cola", "procesando", "listo", "error")
 
@@ -56,6 +57,11 @@ class Sop(Base):
     __table_args__ = (
         CheckConstraint(_en("origen", ORIGENES_SOP), name="origen"),
         CheckConstraint(_en("metodo", METODOS_SOP), name="metodo"),
+        CheckConstraint(_en("estado", ESTADOS_SOP), name="estado"),
+        CheckConstraint(
+            "estado <> 'listo' OR (titulo IS NOT NULL AND contenido IS NOT NULL)",
+            name="listo_completo",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -66,10 +72,14 @@ class Sop(Base):
         Computed("'SOP-' || lpad(id::text, greatest(4, length(id::text)), '0')", persisted=True),
         unique=True,
     )
-    titulo: Mapped[str] = mapped_column(String(300))
+    # Título y SOP del contrato: None hasta que la conversión termina (migración 0004).
+    titulo: Mapped[str | None] = mapped_column(String(300))
     origen: Mapped[str] = mapped_column(String)
     archivo_original: Mapped[str | None] = mapped_column(String)
-    contenido: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    contenido: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Conversión en el trabajador: en_cola → convirtiendo → listo | error (mensaje en `error`).
+    estado: Mapped[str] = mapped_column(String, default="listo", server_default="listo")
+    error: Mapped[str | None] = mapped_column(Text)
     # Cómo se convirtió (migración 0003): "plantilla" o "llm"; None en un SOP generado o en los
     # cargados antes. `advertencias`: las de la conversión (tipo, línea, mensaje), para RF-04.
     metodo: Mapped[str | None] = mapped_column(String)

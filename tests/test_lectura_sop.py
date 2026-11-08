@@ -46,9 +46,9 @@ from sopvid.lenguaje.lectura_sop import (
 )
 from sopvid.lenguaje.llm import LLMNoDisponible
 from sopvid.lenguaje.sop_markdown import convertir_sop
-from sopvid.plataforma.api.sops import MENSAJE_LLM_NO_DISPONIBLE, MENSAJE_OCUPADO
 from sopvid.plataforma.hardware import CandadoModeloPesado, ModeloPesadoOcupado
 from sopvid.plataforma.modelos import Sop, Video
+from sopvid.plataforma.procesamiento import MENSAJE_SOP_SIN_LLM, PRIORIDAD_SOP, ColaTrabajos
 from sopvid.texto import NO_IDENTIFICADO
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -500,7 +500,7 @@ def test_convertir_documento_sin_ollama() -> None:
     assert ollama.mensajes_sop == []
 
 
-# ── API: POST /sops ──────────────────────────────────────────────────────────────────────────
+# ── API: POST /sops asíncrono ────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -518,6 +518,15 @@ def cargar(client: TestClient, contenido: bytes, nombre: str):
     return client.post("/sops", files={"archivo": (nombre, contenido, "application/octet-stream")})
 
 
+def convertido(client: TestClient, entorno: Entorno, contenido: bytes, nombre: str) -> dict:
+    """Sube el SOP (202), corre la cola y devuelve `GET /sops/{id}/estado`."""
+    r = cargar(client, contenido, nombre)
+    assert r.status_code == 202, r.text
+    assert r.json()["estado"] == "en_cola"
+    entorno.correr_pendientes()
+    return client.get(r.headers["location"]).json()
+
+
 def _filas(session: Session, modelo: type = Sop) -> int:
     return session.scalar(select(func.count()).select_from(modelo))
 
@@ -530,12 +539,14 @@ def _sin_archivos(entorno: Entorno, carpeta: str = "sops") -> bool:
 def test_api_pdf_con_plantilla(client: TestClient, entorno: Entorno) -> None:
     pdf = pdf_desde_markdown(MD)
 
-    r = cargar(client, pdf, "Procedimiento.PDF")
+    estado = convertido(client, entorno, pdf, "Procedimiento.PDF")
 
-    assert r.status_code == 201
-    cuerpo = r.json()
-    assert (cuerpo["metodo"], cuerpo["advertencias"]) == ("plantilla", [])
-    fila = entorno.session.get(Sop, cuerpo["id"])
+    assert (estado["estado"], estado["metodo"], estado["advertencias"]) == (
+        "listo",
+        "plantilla",
+        [],
+    )
+    fila = entorno.session.get(Sop, estado["id"])
     assert fila.contenido == SOP_EJEMPLO  # igual que el .md
     assert fila.archivo_original == f"sops/{fila.id}/original.pdf"
     assert (entorno.settings.media_path / fila.archivo_original).read_bytes() == pdf
@@ -545,13 +556,11 @@ def test_api_pdf_con_plantilla(client: TestClient, entorno: Entorno) -> None:
 def test_api_word_con_tabla_de_pasos(client: TestClient, entorno: Entorno) -> None:
     entorno.ollama.respuestas_sop = [respuesta_llm()]
 
-    r = cargar(client, docx_con_tabla(SOP_MD), "procedimiento.docx")
+    estado = convertido(client, entorno, docx_con_tabla(SOP_MD), "procedimiento.docx")
 
-    assert r.status_code == 201
-    cuerpo = r.json()
-    assert (cuerpo["metodo"], cuerpo["advertencias"]) == ("llm", [])
+    assert (estado["estado"], estado["metodo"], estado["advertencias"]) == ("listo", "llm", [])
     assert entorno.eventos == ["tags", "chat:sop", "descargar"]
-    fila = entorno.session.get(Sop, cuerpo["id"])
+    fila = entorno.session.get(Sop, estado["id"])
     assert SOP.model_validate(fila.contenido).pasos == SOP_MD.pasos
     assert fila.archivo_original.endswith("/original.docx")
     assert (fila.metodo, fila.advertencias) == ("llm", [])
@@ -562,21 +571,21 @@ def test_api_guarda_las_advertencias_del_llm(client: TestClient, entorno: Entorn
     datos["pasos"][1]["cita_origen"] = "girar la manija roja dos vueltas"
     entorno.ollama.respuestas_sop = [datos]
 
-    cuerpo = cargar(client, docx_con_tabla(SOP_MD), "procedimiento.docx").json()
+    estado = convertido(client, entorno, docx_con_tabla(SOP_MD), "procedimiento.docx")
 
     esperada = {
         "tipo": "paso_sin_evidencia",
         "linea": None,
         "mensaje": "la cita del paso 2 no aparece tal cual en el documento; revísalo",
     }
-    assert cuerpo["advertencias"] == [esperada]
-    fila = entorno.session.get(Sop, cuerpo["id"])
+    assert estado["advertencias"] == [esperada]
+    fila = entorno.session.get(Sop, estado["id"])
     assert (fila.metodo, fila.advertencias) == ("llm", [esperada])
-    detalle = client.get(f"/sops/{cuerpo['id']}").json()
+    detalle = client.get(f"/sops/{estado['id']}").json()
     assert (detalle["metodo"], detalle["advertencias"]) == ("llm", [esperada])
 
 
-def test_api_pdf_sin_texto_422(client: TestClient, entorno: Entorno) -> None:
+def test_api_pdf_sin_texto_422_sin_encolar(client: TestClient, entorno: Entorno) -> None:
     antes = _filas(entorno.session)
 
     r = cargar(client, pdf_escaneado(), "escaneado.pdf")
@@ -585,6 +594,7 @@ def test_api_pdf_sin_texto_422(client: TestClient, entorno: Entorno) -> None:
     assert r.json()["detail"] == MENSAJE_ESCANEADO
     assert _filas(entorno.session) == antes
     assert _sin_archivos(entorno)
+    assert entorno.pendientes == []
 
 
 @pytest.mark.parametrize("nombre", ["roto.pdf", "roto.docx"])
@@ -596,35 +606,46 @@ def test_api_archivo_corrupto_422(client: TestClient, entorno: Entorno, nombre: 
     assert r.status_code == 422
     assert "dañado" in r.json()["detail"]
     assert _filas(entorno.session) == antes
-    assert entorno.eventos == []
+    assert entorno.pendientes == []
 
 
 @pytest.mark.parametrize("caida", ["apagado", "en_chat"])
-def test_api_ollama_caido_503(client: TestClient, entorno: Entorno, caida: str) -> None:
+def test_api_ollama_caido_deja_el_sop_en_error(
+    client: TestClient, entorno: Entorno, caida: str
+) -> None:
     if caida == "apagado":
         entorno.ollama.disponible = False
     else:
         entorno.ollama.caido_en_chat = True
-    antes = _filas(entorno.session)
 
-    r = cargar(client, docx_en_prosa(SOP_MD), "prosa.docx")
+    estado = convertido(client, entorno, docx_en_prosa(SOP_MD), "prosa.docx")
 
-    assert r.status_code == 503
-    assert r.json()["detail"] == MENSAJE_LLM_NO_DISPONIBLE
-    assert _filas(entorno.session) == antes  # no se guarda un SOP a medias
-    assert _sin_archivos(entorno)
+    assert (estado["estado"], estado["mensaje"]) == ("error", MENSAJE_SOP_SIN_LLM)
+    fila = entorno.session.get(Sop, estado["id"])
+    assert (fila.titulo, fila.contenido) == (None, None)  # no queda un SOP a medias
+    assert client.get(f"/sops/{estado['id']}").status_code == 409
 
 
-def test_api_respuesta_invalida_del_llm_422(client: TestClient, entorno: Entorno) -> None:
+def test_api_respuesta_invalida_del_llm(client: TestClient, entorno: Entorno) -> None:
     entorno.ollama.respuestas_sop = ["{roto"]
-    antes = _filas(entorno.session)
 
-    r = cargar(client, docx_en_prosa(SOP_MD), "prosa.docx")
+    estado = convertido(client, entorno, docx_en_prosa(SOP_MD), "prosa.docx")
 
-    assert r.status_code == 422
-    assert "intentos" in r.json()["detail"]
-    assert _filas(entorno.session) == antes
+    assert estado["estado"] == "error"
+    assert "intentos" in estado["mensaje"]
     assert entorno.eventos[-1] == "descargar"  # suelta el modelo también si falla
+
+
+def test_api_conversion_que_pasa_el_tope(client: TestClient, entorno: Entorno) -> None:
+    entorno.settings.llm_timeout_sop_s = 0.3
+    entorno.ollama.respuestas_sop = [respuesta_llm()]
+    entorno.ollama.pausa_s = 0.05  # sigue generando, pero lento
+
+    estado = convertido(client, entorno, docx_en_prosa(SOP_MD), "prosa.docx")
+
+    assert estado["estado"] == "error"
+    assert estado["mensaje"].startswith("La conversión pasó de 0.3 s")
+    assert entorno.eventos.count("chat:sop") == 1  # sin reintento
 
 
 def test_api_documento_demasiado_grande(client: TestClient, entorno: Entorno, monkeypatch) -> None:
@@ -651,16 +672,11 @@ def subir(
     return client.post("/videos", files=archivos, data=formulario)
 
 
-def _adjunto(entorno: Entorno, video_id: int) -> list[Path]:
-    return sorted((entorno.settings.media_path / "videos" / str(video_id)).glob("sop_adjunto.*"))
-
-
 @pytest.mark.parametrize("formato", ["pdf", "docx"])
-def test_api_video_con_sop_adjunto_lo_convierte_el_trabajador(
+def test_api_video_con_sop_adjunto_espera_a_su_sop(
     client: TestClient, entorno: Entorno, generar_video, formato: str
 ) -> None:
-    """La petición solo deja el adjunto; el trabajador lo convierte por el mismo camino que
-    POST /sops y valida el video con ese SOP."""
+    """El adjunto sigue el camino de POST /sops: SOP en cola antes que el video, que lo espera."""
     if formato == "pdf":
         sop, metodo = ("procedimiento.pdf", pdf_desde_markdown(MD)), "plantilla"
     else:
@@ -670,9 +686,10 @@ def test_api_video_con_sop_adjunto_lo_convierte_el_trabajador(
     r = subir(client, sop, video=generar_video().read_bytes())
 
     assert r.status_code == 202
-    video_id = r.json()["id"]
-    assert entorno.video(video_id).sop_id is None
-    assert [a.name for a in _adjunto(entorno, video_id)] == [f"sop_adjunto.{formato}"]
+    video_id, sop_id = r.json()["id"], r.json()["sop_id"]
+    assert entorno.video(video_id).sop_id == sop_id
+    assert client.get(f"/sops/{sop_id}/estado").json()["estado"] == "en_cola"
+    assert len(entorno.pendientes) == 2
     assert "chat:sop" not in entorno.eventos  # nada de Gemma en la petición
 
     entorno.correr_pendientes()
@@ -680,57 +697,53 @@ def test_api_video_con_sop_adjunto_lo_convierte_el_trabajador(
     video = entorno.video(video_id)
     assert (video.proceso, video.error) == ("listo", None)
     assert video.reporte is not None
-    assert _adjunto(entorno, video_id) == []
-    fila = entorno.session.get(Sop, video.sop_id)
+    estado = client.get(f"/sops/{sop_id}/estado").json()
+    assert (estado["estado"], estado["metodo"]) == ("listo", metodo)
+    fila = entorno.session.get(Sop, sop_id)
     assert fila.archivo_original == f"sops/{fila.id}/original.{formato}"
-    assert fila.metodo == metodo  # el trabajador también guarda cómo lo convirtió
-    directo = cargar(client, sop[1], sop[0]).json()  # el mismo archivo por POST /sops
-    assert directo["metodo"] == metodo
+    directo = convertido(client, entorno, sop[1], sop[0])  # el mismo archivo por POST /sops
     assert fila.contenido == entorno.session.get(Sop, directo["id"]).contenido
-    assert client.get(f"/videos/{video_id}").json()["sop_id"] == fila.id
-    if metodo == "llm":  # whisper primero; la conversión, ya dentro de la validación
-        assert entorno.eventos.index("whisper_liberado") < entorno.eventos.index("chat:sop")
+    if metodo == "llm":  # el SOP se convierte antes de que Whisper empiece
+        assert entorno.eventos.index("chat:sop") < entorno.eventos.index("whisper_liberado")
 
 
-def test_api_video_con_sop_adjunto_y_ollama_caido_se_reprocesa(
+def test_api_video_con_sop_que_falla_queda_en_error_sin_transcribir(
     client: TestClient, entorno: Entorno, generar_video
 ) -> None:
     entorno.ollama.disponible = False
-    entorno.ollama.respuestas_sop = [respuesta_llm()]
-    antes = _filas(entorno.session)
-
-    r = subir(client, ("prosa.docx", docx_en_prosa(SOP_MD)), video=generar_video().read_bytes())
-    video_id = r.json()["id"]
-    entorno.correr_pendientes()
-
-    video = entorno.video(video_id)
-    assert r.status_code == 202
-    assert video.proceso == "error" and "POST /videos/" in video.error  # reprocesable
-    assert video.transcripcion is not None  # Whisper no se repite
-    assert video.sop_id is None and _filas(entorno.session) == antes  # sin SOP a medias
-    assert len(_adjunto(entorno, video_id)) == 1  # el adjunto se queda para reintentar
-
-    entorno.ollama.disponible = True
-    assert client.post(f"/videos/{video_id}/validar").status_code == 202
-    entorno.correr_pendientes()
-
-    video = entorno.video(video_id)
-    assert video.proceso == "listo" and video.sop_id is not None
-    assert _adjunto(entorno, video_id) == []
-
-
-def test_api_video_con_sop_adjunto_que_no_convierte(
-    client: TestClient, entorno: Entorno, generar_video
-) -> None:
-    entorno.ollama.respuestas_sop = ["{roto"]
 
     r = subir(client, ("prosa.docx", docx_en_prosa(SOP_MD)), video=generar_video().read_bytes())
     entorno.correr_pendientes()
 
     video = entorno.video(r.json()["id"])
+    sop = entorno.session.get(Sop, r.json()["sop_id"])
+    assert sop.estado == "error"
     assert video.proceso == "error"
-    assert video.error.startswith("SOP adjunto: El LLM no logró convertir")
-    assert video.sop_id is None
+    assert video.error == f"El SOP de referencia {sop.codigo} no se pudo convertir: {sop.error}"
+    assert video.transcripcion is None and entorno.transcriptor.idiomas == []  # sin Whisper
+
+
+def test_api_video_con_sop_id_en_error_da_422(client: TestClient, entorno: Entorno) -> None:
+    entorno.ollama.disponible = False
+    sop = convertido(client, entorno, docx_en_prosa(SOP_MD), "prosa.docx")
+
+    r = subir(client, None, sop_id=str(sop["id"]))
+
+    assert r.status_code == 422
+    assert r.json()["detail"].startswith(f"El SOP de referencia {sop['codigo']} no se pudo")
+
+
+def test_api_video_con_sop_id_que_todavia_convierte_espera(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    """POST /sops y enseguida POST /videos con ese sop_id (el flujo de la pantalla /nuevo)."""
+    sop_id = cargar(client, MD, "procedimiento.md").json()["id"]
+
+    r = subir(client, None, video=generar_video().read_bytes(), sop_id=str(sop_id))
+    entorno.correr_pendientes()
+
+    assert r.status_code == 202
+    assert entorno.video(r.json()["id"]).proceso == "listo"
 
 
 @pytest.mark.parametrize(
@@ -743,14 +756,14 @@ def test_api_video_con_sop_adjunto_que_no_convierte(
 def test_api_video_sop_adjunto_ilegible_422_en_la_peticion(
     client: TestClient, entorno: Entorno, sop: tuple[str, bytes], detalle: str
 ) -> None:
-    antes = _filas(entorno.session, Video)
+    antes = (_filas(entorno.session), _filas(entorno.session, Video))
 
     r = subir(client, sop)
 
     assert r.status_code == 422
     assert r.json()["detail"] == detalle
-    assert _filas(entorno.session, Video) == antes
-    assert _sin_archivos(entorno, "videos")
+    assert (_filas(entorno.session), _filas(entorno.session, Video)) == antes
+    assert _sin_archivos(entorno, "videos") and _sin_archivos(entorno)
     assert entorno.pendientes == []
 
 
@@ -758,13 +771,14 @@ def test_api_video_sop_adjunto_se_revierte_si_falla_el_video(
     client: TestClient, entorno: Entorno
 ) -> None:
     """El video pasa del límite al copiarlo: tampoco queda el SOP adjunto."""
-    antes = _filas(entorno.session, Video)
+    antes = (_filas(entorno.session), _filas(entorno.session, Video))
 
     r = subir(client, ("procedimiento.pdf", pdf_desde_markdown(MD)), b"\x00" * int(1.5 * 2**20))
 
     assert r.status_code == 413
-    assert _filas(entorno.session, Video) == antes
+    assert (_filas(entorno.session), _filas(entorno.session, Video)) == antes
     assert _sin_archivos(entorno) and _sin_archivos(entorno, "videos")
+    assert entorno.pendientes == []
 
 
 @pytest.mark.parametrize(
@@ -791,11 +805,64 @@ def test_api_video_sin_ningun_sop(client: TestClient, entorno: Entorno) -> None:
     assert r.json()["detail"] == "sop_id o sop es obligatorio con modo=validar"
 
 
-# ── Candado de modelo pesado (ADR-014) ───────────────────────────────────────────────────────
+# ── Cola con prioridad y candado de modelo pesado (ADR-014) ──────────────────────────────────
+
+
+def test_cola_un_sop_va_antes_que_el_siguiente_video() -> None:
+    cola, orden = ColaTrabajos(), []
+    cola.poner(lambda: orden.append("video 1"))
+    cola.poner(lambda: orden.append("video 2"))
+    cola.poner(lambda: orden.append("sop A"), PRIORIDAD_SOP)
+    cola.poner(lambda: orden.append("sop B"), PRIORIDAD_SOP)
+
+    cola.correr_pendientes()
+
+    assert orden == ["sop A", "sop B", "video 1", "video 2"]
+
+
+def test_cola_no_interrumpe_el_trabajo_en_curso() -> None:
+    """Un SOP que llega mientras corre un video espera a que termine y va antes del siguiente."""
+    cola, orden = ColaTrabajos(), []
+    en_curso, seguir = threading.Event(), threading.Event()
+
+    def video_largo() -> None:
+        orden.append("video 1: empieza")
+        en_curso.set()
+        assert seguir.wait(5)
+        orden.append("video 1: termina")
+
+    cola.poner(video_largo)
+    cola.poner(lambda: orden.append("video 2"))
+    cola.iniciar()
+    assert en_curso.wait(5)
+    hecho = threading.Event()
+    cola.poner(lambda: orden.append("sop"), PRIORIDAD_SOP)
+    cola.poner(hecho.set)
+    seguir.set()
+    assert hecho.wait(5)
+    cola.cerrar()
+
+    assert orden == ["video 1: empieza", "video 1: termina", "sop", "video 2"]
+
+
+def test_api_sop_en_cola_va_antes_que_el_video_en_espera(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    video_id = subir(client, None, video=generar_video().read_bytes(), modo="generar").json()["id"]
+    sop_id = cargar(client, MD, "procedimiento.md").json()["id"]
+    vistos = []
+    entorno.transcriptor.antes = lambda i: vistos.append(
+        client.get(f"/sops/{sop_id}/estado").json()["estado"]
+    )
+
+    entorno.correr_pendientes()
+
+    assert vistos[0] == "listo"  # cuando el video empezó a transcribir, el SOP ya estaba
+    assert entorno.video(video_id).proceso == "listo"
 
 
 class _Ocupante:
-    """Un hilo que toma el candado (como el trabajador con Whisper) hasta que se le suelta."""
+    """Un hilo que toma el candado (como otro camino que cargara un modelo) hasta soltarlo."""
 
     def __init__(self, candado: CandadoModeloPesado):
         self.tomado, self.soltar = threading.Event(), threading.Event()
@@ -826,54 +893,27 @@ def test_candado_reentrante_y_con_plazo() -> None:
         pass
 
 
-def test_api_sop_espera_al_trabajador_y_da_503(client: TestClient, entorno: Entorno) -> None:
-    entorno.settings.llm_espera_gpu_s = 0.1
-    entorno.ollama.respuestas_sop = [respuesta_llm()]
-    antes = _filas(entorno.session)
-
-    with _Ocupante(entorno.candado):
-        r = cargar(client, docx_en_prosa(SOP_MD), "prosa.docx")
-
-    assert r.status_code == 503
-    assert r.json()["detail"] == MENSAJE_OCUPADO
-    assert entorno.eventos == []  # ni siquiera preguntó a Ollama
-    assert _filas(entorno.session) == antes
-    # Con plantilla no hace falta el candado: entra aunque el trabajador lo tenga.
-    with _Ocupante(entorno.candado):
-        assert cargar(client, MD.encode(), "plantilla.md").status_code == 201
-
-
-def test_api_sop_convierte_cuando_el_trabajador_suelta(
-    client: TestClient, entorno: Entorno
+@pytest.mark.parametrize("trabajo", ["video", "sop"])
+def test_trabajador_espera_el_candado(
+    client: TestClient, entorno: Entorno, generar_video, trabajo: str
 ) -> None:
-    entorno.settings.llm_espera_gpu_s = 5
-    entorno.ollama.respuestas_sop = [respuesta_llm()]
-
-    with _Ocupante(entorno.candado) as ocupante:
-        threading.Timer(0.2, ocupante.soltar.set).start()
-        r = cargar(client, docx_en_prosa(SOP_MD), "prosa.docx")
-
-    assert r.status_code == 201
-    assert entorno.eventos == ["tags", "chat:sop", "descargar"]
-
-
-def test_trabajador_espera_a_la_conversion(
-    client: TestClient, entorno: Entorno, generar_video
-) -> None:
-    """Mientras una conversión de SOP tiene el candado, el trabajador no carga Whisper."""
-    r = subir(client, None, video=generar_video().read_bytes(), modo="generar")
-    assert r.status_code == 202
+    """Mientras otro tiene el candado de modelo pesado, el trabajo no carga ningún modelo."""
+    if trabajo == "video":
+        subir(client, None, video=generar_video().read_bytes(), modo="generar")
+    else:
+        entorno.ollama.respuestas_sop = [respuesta_llm()]
+        cargar(client, docx_en_prosa(SOP_MD), "prosa.docx")
     trabajador = threading.Thread(target=entorno.correr_pendientes, daemon=True)
 
     with _Ocupante(entorno.candado):
         trabajador.start()
         trabajador.join(0.3)
         assert trabajador.is_alive()
-        assert entorno.transcriptor.idiomas == []  # Whisper no empezó
+        assert entorno.eventos == []  # ni Whisper ni Gemma
     trabajador.join(10)
 
-    assert entorno.transcriptor.idiomas == [None]
-    assert entorno.video(r.json()["id"]).proceso == "listo"
+    assert not trabajador.is_alive()
+    assert entorno.eventos[-1] in ("whisper_liberado", "descargar")
 
 
 # ── Ventana de contexto ──────────────────────────────────────────────────────────────────────
@@ -923,13 +963,11 @@ def test_documento_demasiado_largo_sin_llamar_al_llm() -> None:
     assert ollama.eventos == []
 
 
-def test_api_documento_demasiado_largo_422(client: TestClient, entorno: Entorno) -> None:
+def test_api_documento_demasiado_largo(client: TestClient, entorno: Entorno) -> None:
     entorno.settings.llm_num_ctx_sop = 8192  # el texto de 9000 caracteres ya no cabe
-    antes = _filas(entorno.session)
 
-    r = cargar(client, _largo(9000).encode(), "largo.txt")
+    estado = convertido(client, entorno, _largo(9000).encode(), "largo.txt")
 
-    assert r.status_code == 422
-    assert r.json()["detail"].startswith("El documento es demasiado largo; divídelo o usa")
-    assert _filas(entorno.session) == antes
+    assert estado["estado"] == "error"
+    assert estado["mensaje"].startswith("El documento es demasiado largo; divídelo o usa")
     assert entorno.eventos == []

@@ -57,6 +57,14 @@ respuesta de `POST /sops` dice `metodo: "plantilla" | "llm"`. Si Ollama no respo
 guarda nada (criterio de ADR-019). Markdown y TXT pasan por el mismo camino: si no siguen la
 plantilla, ya no dan error, los convierte Gemma 4.
 
+**Asíncrono (7 nov, después de medir en CPU).** Con Gemma solo en CPU una conversión tarda
+2-3.5 min, demasiado para una petición. `POST /sops` responde 202 y la conversión corre en el
+trabajador de la cola, que tiene prioridad (un SOP va antes que el siguiente video, sin
+interrumpir el que corre); el estado se consulta en `GET /sops/{id}/estado` (`sops.estado`,
+migración 0004). La plantilla también pasa por ahí. Si Ollama no responde, el SOP queda en
+`error` con un mensaje que dice qué hacer, en lugar del 503. Un video espera a su SOP y, si la
+conversión falla, queda en error con ese mensaje.
+
 ## Consecuencias
 
 - **Positivas:** la conversión es determinista, se prueba sin Ollama ni base de datos y cuesta
@@ -124,13 +132,12 @@ plantilla, ya no dan error, los convierte Gemma 4.
       petición pide `LLM_NUM_CTX_SOP` (16384, +200 MiB de VRAM) y, si tampoco, 422 "el documento
       es demasiado largo". Los reintentos ya no reenvían la respuesta anterior. Cifras en
       docs/dev/llm.md.
-    - Resuelto (P1, punto 4): `POST /sops` convierte dentro de la petición (≈25 s en GPU) y antes
-      no se coordinaba con el trabajador, así que Gemma podía cargarse mientras Whisper
-      transcribía otro video (ADR-014). Ahora la conversión con Gemma y cada trabajo de la cola
-      comparten `CANDADO_MODELO_PESADO` (`plataforma/hardware.py`, un `RLock`: el trabajador es
-      un hilo del mismo proceso). La conversión espera hasta `LLM_ESPERA_GPU_S` (60 s) y, si no
-      se libera, 503 "el servidor está procesando un video". Un SOP adjunto a `POST /videos` ya
-      no se convierte en la petición: lo convierte el trabajador al empezar la validación.
+    - Resuelto (P1, punto 4): `POST /sops` convertía dentro de la petición sin coordinarse con
+      el trabajador, así que Gemma podía cargarse mientras Whisper transcribía otro video
+      (ADR-014). Primero se agregó `CANDADO_MODELO_PESADO` (`plataforma/hardware.py`) con una
+      espera `LLM_ESPERA_GPU_S` y 503; después, al pasar la conversión al trabajador (POST
+      /sops asíncrono), todo lo que carga un modelo corre en el mismo hilo: la espera y el 503
+      se quitaron y el candado se queda como protección.
 
 ## Referencias
 

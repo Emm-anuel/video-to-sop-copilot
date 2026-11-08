@@ -1,8 +1,10 @@
-"""Cola de análisis de videos y paso del `Analisis` a la fila de `videos`.
+"""Cola de trabajos (videos y conversión de SOP) y paso del `Analisis` a la fila de `videos`.
 
-Un solo trabajador (`ThreadPoolExecutor(max_workers=1)`): un modelo en GPU a la vez (ADR-014).
-Cada trabajo corre `analizar_video` con su propia sesión y va actualizando `proceso`, `etapa` y
-`progreso`; al terminar guarda el `Analisis` en las columnas (`guardar_analisis`).
+Un solo trabajador (`ColaTrabajos`, un hilo): un modelo pesado a la vez (ADR-014). La cola tiene
+prioridad: un SOP en cola va antes que el siguiente video, sin interrumpir el que se está
+procesando; dentro de cada prioridad, en orden de llegada. Cada trabajo de video corre
+`analizar_video` con su propia sesión y va actualizando `proceso`, `etapa` y `progreso`; al
+terminar guarda el `Analisis` en las columnas (`guardar_analisis`).
 
 Cómo se guarda el `Analisis` (sin migración): `duracion`, `idioma` (código) y `fotogramas` en
 sus columnas, y en `transcripcion` (JSONB) un dict con la versión del contrato, el idioma
@@ -24,21 +26,26 @@ Un error deja `proceso="error"` y un mensaje sin texto del video: el de `ErrorMe
 nombra el archivo y la causa) o la etapa y el tipo de excepción. Nunca `str(exc)` de otros
 errores: un `ValidationError` de pydantic incluye el texto transcrito.
 
-Un modelo pesado a la vez (ADR-014): cada trabajo corre con `CANDADO_MODELO_PESADO`, el mismo
-que toma `POST /sops` para convertir un SOP con Gemma. Un SOP adjunto a `POST /videos` (RF-02)
-llega como `videos/<id>/sop_adjunto.<ext>` y se convierte aquí, al empezar la validación y
-dentro del trabajo, no en la petición: después se guarda como cualquier SOP (`guardar_sop`),
-el video queda con su `sop_id` y el adjunto se borra. Si Ollama no responde, el error es el
-mismo reprocesable de la validación y `revalidar` vuelve a convertirlo.
+Conversión del SOP (POST /sops y el SOP adjunto a POST /videos, RF-01 a RF-03): la petición
+crea la fila en "en_cola" con el original (`crear_sop_en_cola`) y el trabajo `procesar_sop` la
+pasa a "convirtiendo" y la deja en "listo" (título, SOP del contrato, método y advertencias) o
+en "error" con un mensaje que dice qué hacer. Un video de modo validar espera a su SOP: como el
+SOP va antes en la cola, al empezar el video ya está listo o en error; en error, el video falla
+con el mensaje del SOP antes de transcribir.
+
+Cada trabajo corre además con `CANDADO_MODELO_PESADO` (reentrante): hoy todo pasa por el mismo
+hilo, pero protege si otro camino llegara a cargar Whisper o Gemma.
 """
 
+import itertools
 import logging
+import queue
 import shutil
+import threading
 import time
 from collections.abc import Callable, Mapping
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import AbstractContextManager, nullcontext
-from dataclasses import asdict, dataclass
+from contextlib import AbstractContextManager
+from dataclasses import asdict
 from decimal import Decimal
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
@@ -49,7 +56,6 @@ from sqlalchemy.orm import Session
 
 from sopvid.contrato import SOP, Analisis, Dispositivos
 from sopvid.lenguaje.lectura_sop import (
-    EXTENSIONES,
     AjustesConversion,
     ErrorConversionLLM,
     ErrorLectura,
@@ -57,12 +63,10 @@ from sopvid.lenguaje.lectura_sop import (
     extraer_texto,
 )
 from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible, LLMTiempoExcedido
-from sopvid.lenguaje.sop_markdown import ResultadoConversion
 from sopvid.lenguaje.validacion import INICIO_ETAPA, FabricaValidacion, Validacion, validar
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
-from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.hardware import CANDADO_MODELO_PESADO, CandadoModeloPesado, get_hardware
 from sopvid.plataforma.modelos import PROCESOS_VIDEO, Reporte, Sop, Video
 
@@ -79,8 +83,21 @@ ERROR_LLM = (
     "POST /videos/{id}/validar cuando Ollama responda"
 )
 ERROR_SIN_SOP = "el video es de modo validar y no tiene SOP de referencia"
-SOP_ADJUNTO = "sop_adjunto"  # nombre del SOP adjunto en la carpeta del video, sin extensión
 TITULO_SOP_MAX = 300  # largo de `sops.titulo`
+# Estados de `sops.estado` (CHECK de modelos.py).
+SOP_EN_COLA, SOP_CONVIRTIENDO, SOP_LISTO, SOP_ERROR = "en_cola", "convirtiendo", "listo", "error"
+MENSAJE_SOP_SIN_LLM = (
+    "El SOP no sigue la plantilla y el LLM (Ollama) no responde. Vuelve a subirlo cuando Ollama "
+    "esté arriba, o súbelo con la plantilla (docs/contrato/plantilla_sop.md)."
+)
+MENSAJE_SOP_REINICIO = (
+    "La conversión se interrumpió por un reinicio del servidor; vuelve a subirlo."
+)
+# Prioridad en la cola: menor va antes.
+PRIORIDAD_SOP, PRIORIDAD_VIDEO = 0, 1
+# Crea el cliente del LLM para una conversión (la API inyecta Gemma 4 por Ollama).
+FabricaLLM = Callable[[], AbstractContextManager[ClienteLLM]]
+Trabajo = Callable[[], None]
 # En modo validar el análisis llega hasta aquí; la validación sigue hasta 100.
 FIN_ANALISIS_VALIDAR = INICIO_ETAPA["segmentacion"]
 
@@ -134,39 +151,22 @@ def guardar_reporte(session: Session, video: Video, validacion: Validacion) -> N
     video.pasos_video = [p.model_dump(mode="json") for p in validacion.pasos_video]
 
 
-@dataclass(frozen=True)
-class SopLeido:
-    """El archivo original de un SOP y su conversión, listos para `guardar_sop`."""
-
-    datos: bytes
-    extension: str
-    conversion: ResultadoConversion
-
-
-def guardar_sop(session: Session, media: Path, leido: SopLeido) -> Sop:
-    """Agrega la fila del SOP (sin commit) y escribe el original en
+def crear_sop_en_cola(session: Session, media: Path, datos: bytes, extension: str) -> Sop:
+    """Agrega la fila del SOP en "en_cola" (sin commit) y escribe el original en
     `media/sops/<id>/original.<ext>`; en la fila va la ruta relativa, nunca el nombre original.
-    También guarda cómo se convirtió: `metodo` y las advertencias (tipo, línea y mensaje).
 
-    Si la escritura falla, revierte la sesión y borra la carpeta. Quien llama hace el commit y,
-    si algo falla después, borra `carpeta_sop(media, fila.id)`.
+    Si la escritura falla, revierte la sesión y borra la carpeta. Quien llama hace el commit,
+    encola la conversión (`Procesador.encolar_sop`) y, si algo falla antes del commit, borra
+    `carpeta_sop(media, fila.id)`.
     """
-    sop = leido.conversion.sop
-    fila = Sop(
-        titulo=sop.titulo,
-        origen="cargado",
-        archivo_original="",
-        contenido=sop.model_dump(mode="json"),
-        metodo=leido.conversion.metodo,
-        advertencias=[asdict(a) for a in leido.conversion.advertencias],
-    )
+    fila = Sop(origen="cargado", archivo_original="", estado=SOP_EN_COLA)
     session.add(fila)
     session.flush()  # asigna el id
-    relativa = PurePosixPath("sops", str(fila.id), f"original{leido.extension}")
+    relativa = PurePosixPath("sops", str(fila.id), f"original{extension}")
     destino = media / relativa
     try:
         destino.parent.mkdir(parents=True, exist_ok=True)
-        destino.write_bytes(leido.datos)
+        destino.write_bytes(datos)
     except BaseException:
         session.rollback()
         shutil.rmtree(destino.parent, ignore_errors=True)
@@ -179,18 +179,22 @@ def carpeta_sop(media: Path, sop_id: int) -> Path:
     return media / "sops" / str(sop_id)
 
 
-def ruta_sop_adjunto(video_id: int, extension: str) -> PurePosixPath:
-    """Ruta relativa a `media` donde `POST /videos` deja el SOP adjunto por convertir."""
-    return PurePosixPath("videos", str(video_id), f"{SOP_ADJUNTO}{extension}")
+def error_de_sop(sop: Sop) -> str:
+    """Mensaje para un video cuyo SOP de referencia no se pudo convertir."""
+    return f"El SOP de referencia {sop.codigo} no se pudo convertir: {sop.error}"
 
 
-def sop_adjunto(media: Path, video: Video) -> Path | None:
-    """El SOP adjunto que espera conversión en la carpeta del video, si hay uno."""
-    for extension in EXTENSIONES:
-        ruta = media / ruta_sop_adjunto(video.id, extension)
-        if ruta.is_file():
-            return ruta
-    return None
+def marcar_sops_interrumpidos(session: Session) -> int:
+    """Pasa a error los SOP que quedaron en cola o convirtiendo (la cola vive en memoria)."""
+    resultado = session.execute(
+        update(Sop)
+        .where(Sop.estado.in_((SOP_EN_COLA, SOP_CONVIRTIENDO)))
+        .values(estado=SOP_ERROR, error=MENSAJE_SOP_REINICIO)
+    )
+    session.commit()
+    if resultado.rowcount:
+        logger.warning("SOP interrumpidos por el reinicio, ahora en error: %d", resultado.rowcount)
+    return resultado.rowcount
 
 
 def marcar_interrumpidos(session: Session) -> int:
@@ -208,32 +212,84 @@ def marcar_interrumpidos(session: Session) -> int:
     return resultado.rowcount
 
 
+class ColaTrabajos:
+    """Cola de un solo trabajador con prioridad (`PRIORIDAD_SOP` antes que `PRIORIDAD_VIDEO`).
+
+    Dentro de una prioridad, en orden de llegada. Un trabajo que ya empezó no se interrumpe. En
+    producción la vacía un hilo (`iniciar`); en las pruebas, `correr_pendientes` en el hilo de la
+    prueba. Los trabajos no deben lanzar (los del `Procesador` registran sus errores).
+    """
+
+    def __init__(self) -> None:
+        self._cola: queue.PriorityQueue[tuple[int, int, Trabajo | None]] = queue.PriorityQueue()
+        self._orden = itertools.count()
+
+    def poner(self, trabajo: Trabajo, prioridad: int = PRIORIDAD_VIDEO) -> None:
+        self._cola.put((prioridad, next(self._orden), trabajo))
+
+    def pendientes(self) -> list[Trabajo]:
+        """Los trabajos en espera, en el orden en que van a correr."""
+        with self._cola.mutex:
+            return [t for _, _, t in sorted(self._cola.queue) if t is not None]
+
+    def correr_pendientes(self) -> None:
+        """Corre en este hilo lo que haya, en orden de prioridad (pruebas)."""
+        while True:
+            try:
+                _, _, trabajo = self._cola.get_nowait()
+            except queue.Empty:
+                return
+            if trabajo is not None:
+                trabajo()
+
+    def iniciar(self) -> None:
+        threading.Thread(target=self._bucle, name="analisis", daemon=True).start()
+
+    def cerrar(self) -> None:
+        """Descarta lo pendiente (se marca al volver a arrancar) y detiene el hilo sin esperar."""
+        while True:
+            try:
+                self._cola.get_nowait()
+            except queue.Empty:
+                break
+        self._cola.put((-1, next(self._orden), None))
+
+    def _bucle(self) -> None:
+        while True:
+            _, _, trabajo = self._cola.get()
+            if trabajo is None:
+                return
+            try:
+                trabajo()
+            except Exception as exc:  # el hilo sigue con el siguiente
+                logger.error("Trabajo de la cola falló (%s)", type(exc).__name__)
+
+
 class Procesador:
-    """Encola análisis de videos. `ejecutar` recibe cada trabajo como función sin argumentos."""
+    """Encola trabajos de video y de conversión de SOP en una `ColaTrabajos`."""
 
     def __init__(
         self,
         sesiones: FabricaSesiones,
         media: Path,
-        ejecutar: Callable[[Callable[[], None]], Any],
-        executor: ThreadPoolExecutor | None = None,
+        cola: ColaTrabajos,
         gpu: Callable[[], str | None] | None = None,
         candado: CandadoModeloPesado = CANDADO_MODELO_PESADO,
     ):
         """`gpu` da el nombre de la GPU para los metadatos (por defecto, la que detecta la API);
-        `candado`, el de modelo pesado que comparte con `POST /sops` (ADR-014)."""
+        `candado`, el de modelo pesado (ADR-014)."""
         self._candado = candado
         self._sesiones = sesiones
         self._gpu = gpu or _gpu_detectada
         self._media = media
-        self._ejecutar = ejecutar
-        self._executor = executor
+        self._cola = cola
 
     @classmethod
     def con_hilo(cls, sesiones: FabricaSesiones, media: Path) -> "Procesador":
-        """Procesador de producción: un hilo trabajador (un modelo en GPU a la vez)."""
-        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analisis")
-        return cls(sesiones, media, executor.submit, executor)
+        """Procesador de producción: un hilo trabajador (un modelo pesado a la vez)."""
+        cola = ColaTrabajos()
+        cola.iniciar()
+        return cls(sesiones, media, cola)
 
     def encolar(
         self,
@@ -243,16 +299,31 @@ class Procesador:
         validacion: FabricaValidacion | None = None,
     ) -> None:
         """Encola el análisis; con `validacion` (modo validar), también la validación."""
-        self._ejecutar(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
+        self._cola.poner(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
 
     def revalidar(self, video_id: int, validacion: FabricaValidacion) -> None:
         """Encola solo la validación, sobre el análisis ya guardado (ADR-019)."""
-        self._ejecutar(lambda: self.procesar_validacion(video_id, validacion))
+        self._cola.poner(lambda: self.procesar_validacion(video_id, validacion))
+
+    def encolar_sop(self, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion) -> None:
+        """Encola la conversión del SOP, antes que el siguiente video."""
+        self._cola.poner(lambda: self.procesar_sop(sop_id, fabrica_llm, ajustes), PRIORIDAD_SOP)
 
     def cerrar(self) -> None:
         """Apaga el hilo sin esperar: los trabajos pendientes se marcan al volver a arrancar."""
-        if self._executor is not None:
-            self._executor.shutdown(wait=False, cancel_futures=True)
+        self._cola.cerrar()
+
+    def procesar_sop(
+        self, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion
+    ) -> None:
+        """Convierte el SOP y guarda el resultado; nunca deja escapar una excepción."""
+        try:
+            with self._candado.tomar(), self._sesiones() as session:
+                self._convertir_sop(session, sop_id, fabrica_llm, ajustes)
+        except Exception as exc:
+            logger.error(
+                "SOP %d: no se pudo registrar la conversión (%s)", sop_id, type(exc).__name__
+            )
 
     def procesar(
         self,
@@ -262,9 +333,7 @@ class Procesador:
         validacion: FabricaValidacion | None = None,
     ) -> None:
         """Analiza (y valida) el video y guarda el resultado; nunca deja escapar una excepción.
-
-        Todo el trabajo corre con el candado de modelo pesado: espera a que lo suelte una
-        conversión de SOP en curso."""
+        Corre con el candado de modelo pesado."""
         try:
             with self._candado.tomar(), self._sesiones() as session:
                 self._procesar(session, video_id, idioma, transcriptor, validacion)
@@ -299,9 +368,11 @@ class Procesador:
         video.proceso, video.etapa, video.progreso, video.error = PROCESANDO, None, 0, None
         session.commit()
         valida = video.modo == "validar"
-        sin_sop = video.sop_id is None and sop_adjunto(self._media, video) is None
-        if valida and (sin_sop or validacion is None):
+        if valida and (video.sop is None or validacion is None):
             self._fallar(session, video_id, ERROR_SIN_SOP)
+            return
+        if valida and video.sop.estado == SOP_ERROR:  # sin gastar Whisper
+            self._fallar(session, video_id, error_de_sop(video.sop))
             return
         archivo = self._media / video.archivo
         fin = FIN_ANALISIS_VALIDAR if valida else 100
@@ -353,7 +424,7 @@ class Procesador:
         video.proceso, video.error = PROCESANDO, None
         video.etapa, video.progreso = "segmentacion", FIN_ANALISIS_VALIDAR
         session.commit()
-        if video.sop_id is None and sop_adjunto(self._media, video) is None:
+        if video.sop is None:
             self._fallar(session, video_id, ERROR_SIN_SOP)
             return
         try:
@@ -373,8 +444,23 @@ class Procesador:
         segundos_analisis: Mapping[str, float],
         dispositivos: Dispositivos,
     ) -> None:
-        """Valida, guarda el reporte y deja el video listo; si algo falla, en error."""
+        """Valida, guarda el reporte y deja el video listo; si algo falla, en error.
+
+        El SOP de referencia tiene que estar listo: el suyo va antes en la cola, así que aquí ya
+        terminó; si quedó en error, el video falla con ese mensaje.
+        """
         video_id = video.id
+        sop_fila = video.sop
+        assert sop_fila is not None
+        session.refresh(sop_fila)  # la conversión la guardó otro trabajo
+        if sop_fila.estado != SOP_LISTO:
+            mensaje = (
+                error_de_sop(sop_fila)
+                if sop_fila.estado == SOP_ERROR
+                else f"El SOP de referencia {sop_fila.codigo} todavía no está listo"
+            )
+            self._fallar(session, video_id, mensaje)
+            return
 
         def al_avanzar(etapa: str, porcentaje: int) -> None:
             video.etapa, video.progreso = etapa, porcentaje
@@ -383,10 +469,7 @@ class Procesador:
         deps = None
         try:
             deps = fabrica()
-            if video.sop_id is None:
-                self._convertir_adjunto(session, video, deps.llm)
-            assert video.sop is not None
-            sop = SOP.model_validate(video.sop.contenido)
+            sop = SOP.model_validate(sop_fila.contenido)
             validacion = validar(
                 analisis,
                 sop,
@@ -397,9 +480,6 @@ class Procesador:
             )
         except LLMNoDisponible:
             self._fallar(session, video_id, ERROR_LLM.format(id=video_id))
-            return
-        except _ErrorAdjunto as exc:
-            self._fallar(session, video_id, str(exc))
             return
         except Exception as exc:
             session.rollback()
@@ -420,53 +500,49 @@ class Procesador:
             validacion.resultado.semaforo,
         )
 
-    def _convertir_adjunto(self, session: Session, video: Video, llm: ClienteLLM) -> None:
-        """Convierte el SOP adjunto (plantilla o Gemma 4, igual que `POST /sops`), lo guarda,
-        se lo asigna al video y borra el adjunto. El trabajo ya tiene el candado.
-
-        Ollama caído → `LLMNoDisponible` (error reprocesable, el adjunto se queda). Un documento
-        que no se puede leer o convertir → `_ErrorAdjunto` con un mensaje sin texto del SOP.
-        """
-        ruta = sop_adjunto(self._media, video)
-        if ruta is None:
-            raise _ErrorAdjunto(ERROR_SIN_SOP)
-        video.etapa = "conversion_sop"
+    def _convertir_sop(
+        self, session: Session, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion
+    ) -> None:
+        """en_cola → convirtiendo → listo | error. El mensaje de error nunca cita el SOP."""
+        fila = session.get(Sop, sop_id)
+        if fila is None:
+            logger.warning("SOP %d: ya no existe; se omite", sop_id)
+            return
+        fila.estado, fila.error = SOP_CONVIRTIENDO, None
         session.commit()
-        datos = ruta.read_bytes()
-        settings = get_settings()
+        ruta = PurePosixPath(fila.archivo_original or "")
         try:
-            texto = extraer_texto(datos, ruta.suffix)
-            conversion = convertir_documento(
-                texto, lambda: nullcontext(llm), ajustes=AjustesConversion.desde_settings(settings)
-            )
-        except LLMNoDisponible:
-            raise
-        except LLMTiempoExcedido as exc:
-            raise _ErrorAdjunto(f"SOP adjunto: {exc}") from None
+            texto = extraer_texto((self._media / ruta).read_bytes(), ruta.suffix)
+            conversion = convertir_documento(texto, fabrica_llm, ajustes=ajustes)
+            if len(conversion.sop.titulo) > TITULO_SOP_MAX:
+                raise ErrorLectura(f"el título del SOP pasa de {TITULO_SOP_MAX} caracteres")
+        except (ErrorLectura, ErrorConversionLLM, LLMTiempoExcedido) as exc:
+            mensaje = str(exc)
         except LLMError as exc:
-            mensaje = f"Ollama falló al convertir el SOP ({type(exc).__name__})"
-            raise LLMNoDisponible(mensaje) from exc
-        except (ErrorLectura, ErrorConversionLLM) as exc:
-            raise _ErrorAdjunto(f"SOP adjunto: {exc}") from None
-        if len(conversion.sop.titulo) > TITULO_SOP_MAX:
-            raise _ErrorAdjunto(f"SOP adjunto: el título pasa de {TITULO_SOP_MAX} caracteres")
-        fila = guardar_sop(session, self._media, SopLeido(datos, ruta.suffix, conversion))
-        video.sop_id = fila.id
-        try:
+            logger.warning("SOP %d: LLM no disponible (%s)", sop_id, type(exc).__name__)
+            mensaje = MENSAJE_SOP_SIN_LLM
+        except Exception as exc:
+            mensaje = f"falló la conversión ({type(exc).__name__})"
+        else:
+            sop = conversion.sop
+            fila.titulo, fila.contenido = sop.titulo, sop.model_dump(mode="json")
+            fila.metodo = conversion.metodo
+            fila.advertencias = [asdict(a) for a in conversion.advertencias]
+            fila.estado, fila.error = SOP_LISTO, None
             session.commit()
-        except BaseException:
-            session.rollback()
-            shutil.rmtree(carpeta_sop(self._media, fila.id), ignore_errors=True)
-            raise
-        session.refresh(video)
-        ruta.unlink(missing_ok=True)
-        logger.info(
-            "Video %d: SOP adjunto convertido como SOP %d (%s, %d advertencias)",
-            video.id,
-            fila.id,
-            conversion.metodo,
-            len(conversion.advertencias),
-        )
+            logger.info(
+                "SOP %d listo (%s): %d pasos, %d advertencias",
+                sop_id,
+                conversion.metodo,
+                len(sop.pasos),
+                len(conversion.advertencias),
+            )
+            return
+        session.rollback()
+        fila = session.get(Sop, sop_id)
+        fila.estado, fila.error = SOP_ERROR, mensaje
+        session.commit()
+        logger.error("SOP %d: %s", sop_id, mensaje)
 
     @staticmethod
     def _fallar(session: Session, video_id: int, mensaje: str) -> None:
@@ -475,10 +551,6 @@ class Procesador:
         video.proceso, video.error = ERROR, mensaje
         session.commit()
         logger.error("Video %d: %s", video_id, mensaje)
-
-
-class _ErrorAdjunto(Exception):  # noqa: N818
-    """El SOP adjunto no se pudo leer o convertir; el mensaje no cita el documento."""
 
 
 class _TranscriptorRegistrado:

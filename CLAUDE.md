@@ -126,11 +126,12 @@ docs/
 >   ADR-015). PDF y Word (7 nov, rama `feat/sop-pdf-word`): `lenguaje/lectura_sop.py` saca el
 >   texto y prueba la plantilla; si no la sigue (también un .md o .txt), Gemma 4
 >   (`prompts/sop_texto_libre_v2.md`, una cita verificada por paso, `num_ctx` según el largo).
->   La conversión con Gemma y el trabajador comparten el candado de modelo pesado
->   (`plataforma/hardware.py`); un SOP adjunto a `POST /videos` (RF-02) lo convierte el
->   trabajador. `sops.metodo` y `sops.advertencias` guardan cómo se convirtió (migración `0003`).
+>   `POST /sops` es asíncrono: 202 y `GET /sops/{id}/estado`; la conversión corre en el
+>   trabajador, con prioridad sobre el siguiente video, en flujo con corte por inactividad
+>   (`ClienteLLM.chat_en_flujo`). Un SOP adjunto a `POST /videos` (RF-02) sigue el mismo camino.
+>   `sops.metodo`, `sops.advertencias`, `sops.estado` y `sops.error`: migraciones `0003` y `0004`.
 > - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
->   `palabras`, `busquedas`) en `plataforma/modelos.py` y las migraciones `0002` y `0003`;
+>   `palabras`, `busquedas`) en `plataforma/modelos.py` y las migraciones `0002` a `0004`;
 >   `sops.codigo` es una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
 > - **Ingesta de audio y transcripción (25 oct, en `main`):**
 >   `percepcion/medios.py` (duración con ffprobe, audio mp3 mono 16 kHz con ffmpeg) y

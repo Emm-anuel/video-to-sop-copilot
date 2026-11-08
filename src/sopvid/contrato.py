@@ -642,6 +642,47 @@ class SOP(_Modelo):
         return self
 
 
+# ── Estado de la conversión de un SOP cargado (POST /sops, ADR-015) ──────────────────────────
+
+EstadoConversionSop = Literal["en_cola", "convirtiendo", "listo", "error"]
+MetodoConversionSop = Literal["plantilla", "llm"]
+
+
+class AvisoConversion(_Modelo):
+    """Advertencia de la conversión que no la detiene. `tipo` es estable para agruparlas (RF-04);
+    `linea` solo la da la plantilla. El mensaje cita números de paso o de línea, nunca el SOP."""
+
+    tipo: str
+    linea: int | None = None
+    mensaje: str
+
+
+class EstadoSop(_Modelo):
+    """Respuesta de `POST /sops` (202) y de `GET /sops/{id}/estado`.
+
+    La conversión corre en el trabajador: "en_cola" → "convirtiendo" → "listo" o "error".
+    `titulo`, `metodo` y `advertencias` llegan con "listo" (`metodo` es None en un SOP generado o
+    anterior a la migración 0003); `mensaje`, con "error" (dice qué hacer: volver a subirlo, usar
+    la plantilla…). Mientras no esté listo, `GET /sops/{id}` da 409.
+    """
+
+    id: int
+    codigo: str
+    estado: EstadoConversionSop
+    titulo: str | None = None
+    metodo: MetodoConversionSop | None = None
+    mensaje: str | None = None
+    advertencias: list[AvisoConversion] = []
+
+    @model_validator(mode="after")
+    def _segun_estado(self) -> Self:
+        if self.estado == "listo" and self.titulo is None:
+            raise ValueError("un SOP listo lleva título")
+        if self.estado == "error" and not self.mensaje:
+            raise ValueError("un SOP en error lleva mensaje")
+        return self
+
+
 # ── Ficha de contexto del video (RF-12; SOP V1.0 §6) ────────────────────────────────────────
 
 
@@ -1029,6 +1070,11 @@ def esquema_analisis() -> dict[str, Any]:
 def esquema_sop() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `SOP`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **SOP.model_json_schema()}
+
+
+def esquema_estado_sop() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `EstadoSop`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **EstadoSop.model_json_schema()}
 
 
 def esquema_contexto() -> dict[str, Any]:

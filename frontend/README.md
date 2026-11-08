@@ -17,7 +17,7 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` y luego `POST /videos` con `modo=validar` y `sop_id`; al recibir el 202 navega al reporte | Emmanuel | Hecho (7 nov): `src/app/nuevo/` |
+| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` y luego `POST /videos` con `modo=validar` y `sop_id`; al recibir el 202 navega al reporte | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. Falta adaptarla a `POST /sops` asíncrono (sección siguiente) |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -37,6 +37,45 @@ componente, sin rehacerlo. Hoy cubre solo el camino del MVP: un SOP nuevo en Mar
 | Mostrar el SOP convertido para corregirlo antes de validar | RF-04 | S5 |
 | Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | S5 |
 | Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | S5 |
+
+## Subir un SOP: flujo asíncrono (desde el 7 nov, rama `feat/sop-pdf-word`)
+
+`POST /sops` ya no convierte en la petición: el SOP se convierte en el trabajador de la API, con
+la plantilla (al instante) o con Gemma 4 (≈ 25 s con GPU, 2-3.5 min solo con CPU). Acepta `.md`,
+`.txt`, `.pdf` y `.docx`. La forma de la respuesta está en
+[`docs/contrato/sop_estado.schema.json`](../docs/contrato/sop_estado.schema.json) (`EstadoSop`);
+genera los tipos desde ahí, igual que el reporte.
+
+1. **Subir:** `POST /sops` (multipart, campo `archivo`).
+   - **202** con `EstadoSop` (`estado: "en_cola"`) y la cabecera `Location: /sops/{id}/estado`.
+   - **415** (extensión), **413** (tamaño) o **422** (no se puede leer: PDF escaneado, archivo
+     dañado, texto que no es UTF-8): muestra `detail` tal cual y no consultes nada.
+2. **Consultar el estado cada 2 s:** `GET /sops/{id}/estado` hasta que `estado` sea `listo` o
+   `error`. Mientras sea `en_cola` o `convirtiendo`, un aviso de "convirtiendo el SOP…" basta;
+   `en_cola` puede durar si hay un video procesándose (el SOP va antes que el siguiente video, pero
+   no interrumpe el que está en curso).
+3. **Mostrar el resultado:**
+   - `listo`: el `titulo` y las `advertencias` (no detienen el flujo). Agrúpalas por `tipo`
+     (`paso_sin_evidencia`, `infinitivo`, `numeracion`, `tiempos`, `valor_invalido`…); `linea`
+     solo viene si el SOP siguió la plantilla. Si `metodo` es `"llm"`, conviene decir que lo
+     convirtió el modelo y que vale la pena revisarlo (RF-04).
+   - `error`: muestra `mensaje` tal cual (ya dice qué hacer: volver a subirlo, usar la plantilla,
+     dividirlo). El SOP no se puede usar; hay que subir otro.
+4. **Ver el SOP:** `GET /sops/{id}` da el SOP del contrato; **409** mientras no esté listo.
+
+Con el video:
+
+- **SOP primero, video después** (lo que hace `/nuevo` hoy): se puede mandar `POST /videos` con el
+  `sop_id` **sin esperar** a que el SOP esté listo; el video espera a su SOP en la cola. Si el SOP
+  ya está en `error`, `POST /videos` da 422. Para mostrar las advertencias, consulta el estado del
+  SOP como en el paso 2, en paralelo con el avance del video.
+- **SOP adjunto al video (RF-02):** `POST /videos` con el campo `sop` (archivo) en lugar de
+  `sop_id`. Responde 202 con `sop_id`; consulta `GET /sops/{sop_id}/estado` como arriba. Si la
+  conversión falla, el video queda en `proceso: "error"` con el mensaje del SOP en `error`.
+
+Qué cambia para `/nuevo`: `POST /sops` responde 202 (no 201) y en ese momento `titulo` viene en
+`null` y `advertencias` vacía; el resto del flujo sigue funcionando porque el video espera al SOP.
+Para mostrar las advertencias y el error del SOP hay que agregar el paso 2.
 
 ## Pantalla del reporte (RF-20): lo que hay que saber
 
