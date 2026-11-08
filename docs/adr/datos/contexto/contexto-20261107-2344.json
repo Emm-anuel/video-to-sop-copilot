@@ -1,0 +1,1029 @@
+{
+  "fecha": "2026-11-07 23:48",
+  "git": {
+    "commit": "2caf7f6459a00e362ba3759699db88c51ae0becb",
+    "rama": "feat/contexto",
+    "cambios_sin_commit": 1
+  },
+  "prompt": "contexto_v1",
+  "llm": "gemma4:e4b-it-q4_K_M",
+  "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+  "configs": {
+    "gpu": {
+      "llm_dispositivo": "auto",
+      "whisper_dispositivo": "cuda",
+      "whisper_modelo": "large-v3-turbo",
+      "whisper_compute_type": "float16"
+    },
+    "cpu": {
+      "llm_dispositivo": "cpu",
+      "whisper_dispositivo": "cpu",
+      "whisper_modelo": "small",
+      "whisper_compute_type": "int8"
+    }
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "config": "gpu",
+      "repeticion": 1,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "gpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 1114,
+      "tokens_salida": 290,
+      "primer_token_s": 6.67,
+      "tokens_por_s": 86.61,
+      "segundos_contexto": 10.03,
+      "segundos_etapas": {
+        "contexto": 10.03
+      },
+      "citas_no_verificadas": 2,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, reemplazar el cartucho y purgar el sistema hasta alcanzar la presión adecuada.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 10.0
+    },
+    {
+      "video": "video_a",
+      "config": "gpu",
+      "repeticion": 2,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "gpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 1114,
+      "tokens_salida": 292,
+      "primer_token_s": 6.86,
+      "tokens_por_s": 87.99,
+      "segundos_contexto": 10.18,
+      "segundos_etapas": {
+        "contexto": 10.18
+      },
+      "citas_no_verificadas": 2,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, reemplazar el cartucho y purgar el sistema hasta alcanzar la presión adecuada.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 10.2
+    },
+    {
+      "video": "video_b",
+      "config": "gpu",
+      "repeticion": 1,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "gpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 984,
+      "tokens_salida": 310,
+      "primer_token_s": 5.89,
+      "tokens_por_s": 102.31,
+      "segundos_contexto": 8.93,
+      "segundos_etapas": {
+        "contexto": 8.93
+      },
+      "citas_no_verificadas": 0,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar el cartucho viejo, limpiar la carcasa y colocar el cartucho nuevo asegurándolo correctamente.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 8.9
+    },
+    {
+      "video": "video_b",
+      "config": "gpu",
+      "repeticion": 2,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "gpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 984,
+      "tokens_salida": 284,
+      "primer_token_s": 6.2,
+      "tokens_por_s": 74.74,
+      "segundos_contexto": 10.01,
+      "segundos_etapas": {
+        "contexto": 10.01
+      },
+      "citas_no_verificadas": 0,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar el cartucho viejo, limpiar la carcasa y colocar el cartucho nuevo asegurándolo correctamente.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 10.0
+    },
+    {
+      "video": "video_a",
+      "config": "cpu",
+      "repeticion": 1,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "cpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 1114,
+      "tokens_salida": 291,
+      "primer_token_s": 30.92,
+      "tokens_por_s": 15.23,
+      "segundos_contexto": 50.05,
+      "segundos_etapas": {
+        "contexto": 50.05
+      },
+      "citas_no_verificadas": 2,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, reemplazar el cartucho y purgar el sistema hasta alcanzar la presión adecuada.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 50.0
+    },
+    {
+      "video": "video_a",
+      "config": "cpu",
+      "repeticion": 2,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "cpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 1114,
+      "tokens_salida": 291,
+      "primer_token_s": 28.09,
+      "tokens_por_s": 15.11,
+      "segundos_contexto": 47.35,
+      "segundos_etapas": {
+        "contexto": 47.35
+      },
+      "citas_no_verificadas": 2,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, reemplazar el cartucho y purgar el sistema hasta alcanzar la presión adecuada.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "soy técnico de mantenimiento"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 47.4
+    },
+    {
+      "video": "video_b",
+      "config": "cpu",
+      "repeticion": 1,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "cpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 984,
+      "tokens_salida": 307,
+      "primer_token_s": 25.92,
+      "tokens_por_s": 13.25,
+      "segundos_contexto": 49.09,
+      "segundos_etapas": {
+        "contexto": 49.09
+      },
+      "citas_no_verificadas": 0,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar el cartucho viejo, limpiar la carcasa y colocar el cartucho nuevo asegurándolo correctamente.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 49.1
+    },
+    {
+      "video": "video_b",
+      "config": "cpu",
+      "repeticion": 2,
+      "entrada": "analisis",
+      "whisper": null,
+      "llm_dispositivo": "cpu",
+      "fotogramas": 0,
+      "generado": true,
+      "motivo": null,
+      "intentos": 1,
+      "tokens_entrada": 984,
+      "tokens_salida": 307,
+      "primer_token_s": 27.83,
+      "tokens_por_s": 14.9,
+      "segundos_contexto": 48.44,
+      "segundos_etapas": {
+        "contexto": 48.44
+      },
+      "citas_no_verificadas": 0,
+      "personas_descartadas": 0,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye liberar la presión, retirar el cartucho viejo, limpiar la carcasa y colocar el cartucho nuevo asegurándolo correctamente.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          }
+        ]
+      },
+      "total_s": 48.4
+    }
+  ],
+  "comparaciones": [
+    {
+      "video": "video_a",
+      "entrada": "analisis",
+      "mismas_personas": true,
+      "personas": [
+        [
+          [
+            "no identificado",
+            "tecnico de mantenimiento",
+            "participa"
+          ]
+        ],
+        [
+          [
+            "no identificado",
+            "tecnico de mantenimiento",
+            "participa"
+          ]
+        ]
+      ],
+      "datos": {
+        "actividad": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "audio",
+            "audio"
+          ],
+          "mismo_valor": true
+        },
+        "tema": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        },
+        "lugar": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        },
+        "horario_mencionado": {
+          "con_valor": [
+            false,
+            false
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        },
+        "proposito": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "audio",
+            "audio"
+          ],
+          "mismo_valor": true
+        },
+        "resumen": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        }
+      },
+      "equipos_comunes": 6,
+      "equipos_solo": [
+        [
+          "cartucho de filtro de agua"
+        ],
+        [
+          "cartucho"
+        ]
+      ]
+    },
+    {
+      "video": "video_b",
+      "entrada": "analisis",
+      "mismas_personas": true,
+      "personas": [
+        [
+          [
+            "no identificado",
+            "tecnico de mantenimiento",
+            "participa"
+          ]
+        ],
+        [
+          [
+            "no identificado",
+            "tecnico de mantenimiento",
+            "participa"
+          ]
+        ]
+      ],
+      "datos": {
+        "actividad": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "audio",
+            "audio"
+          ],
+          "mismo_valor": true
+        },
+        "tema": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "audio",
+            "audio"
+          ],
+          "mismo_valor": true
+        },
+        "lugar": {
+          "con_valor": [
+            false,
+            false
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        },
+        "horario_mencionado": {
+          "con_valor": [
+            false,
+            false
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        },
+        "proposito": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "audio",
+            "audio"
+          ],
+          "mismo_valor": true
+        },
+        "resumen": {
+          "con_valor": [
+            true,
+            true
+          ],
+          "fuente": [
+            "inferido",
+            "inferido"
+          ],
+          "mismo_valor": true
+        }
+      },
+      "equipos_comunes": 7,
+      "equipos_solo": [
+        [],
+        []
+      ]
+    }
+  ]
+}

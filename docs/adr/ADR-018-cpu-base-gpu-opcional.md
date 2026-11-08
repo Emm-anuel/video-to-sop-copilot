@@ -163,6 +163,65 @@ celda; datos en `docs/adr/datos/sop/antes-v2-20261107-1949.json` (prompt v2) y
   código ya garantiza lo que no puede variar: cada paso trae una cita verificada contra el
   documento, y lo que no la tiene sale con confianza baja y la advertencia `paso_sin_evidencia`.
 
+## Seguimiento: ficha de contexto con Gemma 4 en CPU y en GPU (7 nov 2026)
+
+Ficha de contexto (RF-12, `percepcion/contexto.py`, prompt `contexto_v1`) sobre A y B, con el
+mismo equipo de referencia, `gemma4:e4b-it-q4_K_M` y Ollama 0.40.2. La etapa no cambia de lógica
+con el dispositivo: mismo prompt, esquema, cortes, temperatura 0 y semilla. **Fotogramas en la
+entrada: 0** (RF-11 aún no existe). Gemma se descarga antes de cada corrida, como en la API, así
+que la espera al primer token incluye la carga en frío. Datos y fichas completas en
+`docs/adr/datos/contexto/contexto-20261107-2344.*` (parte a) y `contexto-20261107-2349.*`
+(parte b), con `scripts/medir_contexto.py`.
+
+**a) Solo Gemma, con la misma transcripción guardada** (`media/video_*_v3/analisis.json`,
+Whisper `large-v3-turbo`), dos corridas por celda:
+
+| Video · Gemma | Tokens entrada → salida | Primer token | Tokens/s | Ficha |
+|---|---|---|---|---|
+| A · GPU | 1 114 → 290-292 | 6.7-6.9 s | 87-88 | 10.0-10.2 s |
+| A · CPU | 1 114 → 291 | 28.1-30.9 s | 15.1-15.2 | 47.4-50.1 s |
+| B · GPU | 984 → 284-310 | 5.9-6.2 s | 75-102 | 8.9-10.0 s |
+| B · CPU | 984 → 307 | 25.9-27.8 s | 13.3-14.9 | 48.4-49.1 s |
+
+- **Mismas personas en las 8 corridas:** un narrador, "No identificado", rol "técnico de
+  mantenimiento", "participa" (A y B no dicen el nombre). Sin riesgo para P3 por el dispositivo.
+- Datos con valor o vacíos: iguales entre CPU y GPU en A. En B, `proposito` sale lleno en 3 de 4
+  corridas y vacío en la segunda de GPU: es la variación de Gemma en un mismo dispositivo, no de
+  la CPU. Equipos: en A, CPU escribe "cartucho" donde GPU escribe "cartucho de filtro de agua";
+  en B, iguales.
+- La ficha mide ~290-310 tokens de salida (el tope que se fijó para recortar el esquema era
+  ~600). En CPU la espera al primer token queda en 26-31 s, lejos de los 120 s que pondrían en
+  riesgo el corte de 180 s cuando lleguen los fotogramas.
+
+**b) Ruta completa** (Whisper + `validar` contra el SOP del fixture), una corrida por celda:
+GPU = Whisper `large-v3-turbo` en cuda + Gemma en GPU; CPU = Whisper `small` int8 en CPU (su
+valor por defecto) + Gemma en CPU.
+
+| Video · ruta | Transcripción | Ficha | Pasos | Emparejamiento | Total | Ficha / total |
+|---|---|---|---|---|---|---|
+| A · GPU | 12.1 s | 10.4 s | 11.5 s | 31.1 s | 66.5 s | 16 % |
+| B · GPU | 5.9 s | 8.4 s | 8.2 s | 1.5 s | 24.4 s | 35 % |
+| A · CPU | 22.7 s | 49.1 s | 67.7 s | 16.3 s | 156.3 s | 31 % |
+| B · CPU | 22.5 s | 50.6 s | 76.4 s | 34.5 s | 185.4 s | 27 % |
+
+- **La ficha suma ~8-10 s por video en GPU y ~50 s en CPU.** El emparejamiento varía con los
+  pares que llegan al juez y, en A con GPU (la primera corrida del proceso), incluye la carga de
+  MiniLM; no se midió aparte.
+- **El cambio de modelo de Whisper sí altera la ficha.** Mismas personas en las dos rutas, pero
+  en A Whisper `small` transcribió "línea de enjuague" como "clínica del jugo": la ficha en CPU
+  dice `lugar = "Clínica del jugo"` con fuente "audio" y confianza "alta", porque la cita sí
+  aparece en esa transcripción. En equipos pasan los errores de Whisper ("guantes del tilo",
+  "anillo de higule"). **La cita verificada prueba que el dato está en la transcripción, no que
+  la transcripción esté bien:** con Whisper `small` en CPU, un dato de alta confianza puede ser
+  un error de reconocimiento. Esto pesa para P3 (afinidad con el lugar del SOP) y para el SOP
+  generado (P5). RNF-07 pide el mismo modelo; hoy la ruta de CPU por defecto usa otro Whisper
+  (`small`) por tiempo. Opciones a decidir: `large-v3-turbo` también en CPU (más lento) o una
+  advertencia en la ficha cuando Whisper no es el de referencia.
+- Hallazgo del prompt v1, igual en los dos dispositivos: Gemma copia a veces citas literales de 3
+  palabras ("línea de enjuague", "técnico de mantenimiento"), por debajo del mínimo de 4. El
+  código las deja como "inferido" con confianza baja (el valor se conserva). En B, Gemma no llenó
+  `lugar` aunque se dice. Para un `contexto_v2`: pedir la frase completa alrededor del dato.
+
 ## Referencias
 
 - ADR-006 (Gemma 4 y Ollama), ADR-012 (MiniLM en CPU), ADR-014 (hardware de referencia),

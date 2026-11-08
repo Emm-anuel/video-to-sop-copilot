@@ -179,6 +179,12 @@ docs/
 > - **Frontend (7 nov):** Emmanuel crea la base de Angular y la pantalla `/nuevo` (subir SOP y video);
 >   Sara hace la pantalla del reporte (`/videos/:id/reporte`, RF-20) sobre esa base, reemplazando un
 >   componente provisional. Detalle, contrato y reglas de presentación: `frontend/README.md`.
+> - **Ficha de contexto (7 nov, rama `feat/contexto`, RF-12):** `percepcion/contexto.py` con
+>   Gemma 4 (`prompts/contexto_v1.md`) después de la transcripción y antes de los pasos, en la
+>   misma carga del modelo; cita verificada por dato y por persona, y fuente, confianza y segundo
+>   puestos por el código. Se guarda en `videos.contexto` solo si se generó (si no, NULL y aviso
+>   `contexto_sin_generar`); `GET /videos/{id}/contexto`. Los fotogramas ([f=N]) entran solo si
+>   existen. Medición CPU/GPU: `scripts/medir_contexto.py`, seguimiento en ADR-018.
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
 >   MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
@@ -204,6 +210,7 @@ docs/
 | Ejecutar un entregable | — | `jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"` |
 | Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
 | Medir CPU contra GPU con A y B (ADR-018) | — | `python scripts/medir_dispositivos.py --help` |
+| Medir la ficha de contexto en CPU y GPU (ADR-018) | — | `python scripts/medir_contexto.py --config gpu --config cpu video_a=…analisis.json` |
 | Calibrar los umbrales / diagnosticar el emparejamiento | — | `python scripts/calibrar_umbrales.py --sop … --anotacion … video_a=… video_b=…` · `python scripts/diagnosticar_emparejamiento.py …` |
 
 Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok",
