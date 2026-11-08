@@ -48,6 +48,16 @@ export class ApiService {
     return this.http.get<EstadoVideo>(`${API}/videos/${id}`);
   }
 
+  /**
+   * `POST /videos/{id}/validar?continuar=true` (ADR-020): sigue una validación detenida por
+   * afinidad baja, sin repetir la transcripción ni la ficha. 202 y el video vuelve a `en_cola`.
+   */
+  continuarValidacion(id: number): Observable<VideoCreado> {
+    return this.http.post<VideoCreado>(`${API}/videos/${id}/validar`, null, {
+      params: { continuar: 'true' },
+    });
+  }
+
   /** `GET /videos/{id}/reporte`: 409 mientras no está listo. */
   reporte(id: number): Observable<ReporteValidacion> {
     return this.http.get<ReporteValidacion>(`${API}/videos/${id}/reporte`);

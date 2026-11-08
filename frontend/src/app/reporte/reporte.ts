@@ -2,7 +2,18 @@ import { DecimalPipe } from '@angular/common';
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { EMPTY, catchError, filter, map, switchMap, takeWhile, tap, timer } from 'rxjs';
+import {
+  EMPTY,
+  Subject,
+  catchError,
+  filter,
+  map,
+  merge,
+  switchMap,
+  takeWhile,
+  tap,
+  timer,
+} from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
 import {
@@ -15,10 +26,13 @@ import {
   Semaforo,
   Tipo,
 } from '../api/reporte-validacion';
-import { EstadoVideo } from '../api/tipos';
+import { EstadoVideo, Proceso } from '../api/tipos';
 
 /** Cada cuánto se consulta `GET /videos/{id}` mientras el video está en cola o en proceso. */
 export const INTERVALO_MS = 3000;
+
+/** Procesos con los que se deja de consultar el estado. */
+const FINALES: readonly Proceso[] = ['listo', 'error', 'afinidad_baja'];
 
 /** Estado de la fila tal como se muestra; "zona_gris" es un par que el juez no revisó. */
 const ETIQUETA_ESTADO: Record<Estado, string> = {
@@ -182,8 +196,10 @@ export function mmss(segundos: number): string {
 /**
  * Reporte de validación (RF-20): semáforo, resumen y tabla paso a paso con cita y segundo, con el
  * video al lado. Mientras el video no está listo muestra el avance; la consulta se detiene con
- * "listo", con "error" y al salir de la pantalla. Todo se muestra tal como viene de la API: el
- * semáforo no se recalcula y los segundos salen de la transcripción (regla 4 de CLAUDE.md).
+ * "listo", con "error", con "afinidad_baja" (el video parece no ser del SOP: se advierte y se
+ * ofrece continuar, ADR-020) y al salir de la pantalla. Todo se muestra tal como viene de la
+ * API: el semáforo no se recalcula y los segundos salen de la transcripción (regla 4 de
+ * CLAUDE.md).
  */
 @Component({
   selector: 'app-reporte',
@@ -203,6 +219,10 @@ export class Reporte {
   /** Índice en `filas` de la última fila a la que se saltó. */
   protected readonly filaActiva = signal<number | null>(null);
   protected readonly videoNoDisponible = signal(false);
+  /** Mientras se envía "Continuar de todos modos" (evita el doble envío). */
+  protected readonly continuando = signal(false);
+  /** Reinicia la consulta del estado del video con ese id (después de continuar). */
+  private readonly consultar = new Subject<number>();
 
   /**
    * Tiempo de procesamiento medido en esta pantalla: empieza al ver el video en cola o en proceso
@@ -248,9 +268,11 @@ export class Reporte {
         }
       });
 
-    this.ruta.paramMap
+    merge(
+      this.ruta.paramMap.pipe(map((parametros) => Number(parametros.get('id')))),
+      this.consultar,
+    )
       .pipe(
-        map((parametros) => Number(parametros.get('id'))),
         tap((id) => {
           this.videoId.set(id);
           this.estado.set(null);
@@ -268,7 +290,7 @@ export class Reporte {
               this.estado.set(estado);
               this.medirProceso(estado);
             }),
-            takeWhile((estado) => estado.proceso !== 'listo' && estado.proceso !== 'error', true),
+            takeWhile((estado) => !FINALES.includes(estado.proceso), true),
             filter((estado) => estado.proceso === 'listo'),
             switchMap(() => this.api.reporte(id)),
             catchError((e: unknown) => {
@@ -281,6 +303,29 @@ export class Reporte {
         takeUntilDestroyed(),
       )
       .subscribe((reporte) => this.reporte.set(reporte));
+  }
+
+  /**
+   * "Continuar de todos modos" (ADR-020): pide seguir la validación detenida por afinidad baja y
+   * vuelve a consultar el estado hasta el reporte.
+   */
+  protected continuar(): void {
+    const id = this.videoId();
+    if (id == null || this.continuando()) {
+      return;
+    }
+    this.continuando.set(true);
+    this.errorConsulta.set(null);
+    this.api.continuarValidacion(id).subscribe({
+      next: () => {
+        this.continuando.set(false);
+        this.consultar.next(id);
+      },
+      error: (e: unknown) => {
+        this.continuando.set(false);
+        this.errorConsulta.set(mensajeDeError(e));
+      },
+    });
   }
 
   private medirProceso(estado: EstadoVideo): void {

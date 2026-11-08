@@ -134,10 +134,20 @@ Antes de comparar pasos, el backend compara la ficha de contexto del video con e
 §5.2). Si la afinidad queda bajo 60 (`AFINIDAD_MIN`), **la validación se detiene** y quien cargó
 el video decide si continúa.
 
+**Ya implementado, en mínimo (8 nov, Emmanuel):** `reporte.ts` deja de consultar con
+`afinidad_baja` (constante `FINALES`), la plantilla muestra el aviso (`.afinidad-baja`, con las
+clases de `.avisos`) con el valor y la explicación, y el botón "Continuar de todos modos" llama a
+`ApiService.continuarValidacion(id)` y reinicia la consulta (`consultar.next(id)`); mientras se
+envía queda deshabilitado y, si falla, sale el error en español. `tipos.ts` agrega
+`afinidad_baja` a `Proceso` y `afinidad` a `EstadoVideo`. Pruebas en `reporte.spec.ts`
+("afinidad baja"). Para Sara, si quiere pulirlo: el estilo propio del aviso, un enlace "Elegir
+otro SOP" a `/nuevo`, mostrar la afinidad con `bajo_umbral` junto al porcentaje del reporte, y
+regenerar `reporte-validacion.ts` con `npm run tipos` (está atrasado frente al esquema: le faltan
+`Afinidad.componentes`, los campos nuevos de `RolReporte` y `ResponsableFila.nota`).
+
 1. Mientras consultas `GET /videos/{id}` cada 3 s, el video puede terminar en
    `proceso: "afinidad_baja"` (con `etapa: "afinidad"`) en lugar de `listo` o `error`. **Es un
-   estado final: deja de consultar.** Hoy `reporte.ts` solo se detiene con `listo` y `error`;
-   con `afinidad_baja` seguiría consultando para siempre.
+   estado final: deja de consultar.**
 2. En ese estado, `GET /videos/{id}` trae `afinidad`:
 
    ```json

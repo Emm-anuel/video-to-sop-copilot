@@ -471,6 +471,68 @@ describe('Reporte', () => {
     http.expectNone(REPORTE);
   });
 
+  describe('afinidad baja (ADR-020)', () => {
+    const AFINIDAD = {
+      valor: 19,
+      explicacion: 'actividad distinta del título; ningún equipo en común',
+      bajo_umbral: true,
+    };
+    const CONTINUAR = (r: { url: string; method: string }) =>
+      r.method === 'POST' && r.url === '/api/videos/7/validar';
+
+    function llegaAfinidadBaja(): void {
+      vi.advanceTimersByTime(0);
+      http
+        .expectOne(ESTADO)
+        .flush(estado('afinidad_baja', { etapa: 'afinidad', progreso: 50, afinidad: AFINIDAD }));
+    }
+
+    function boton(): HTMLButtonElement | undefined {
+      return Array.from(pantalla().querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Continuar de todos modos'),
+      );
+    }
+
+    it('advierte con la afinidad y su explicación, y deja de consultar', () => {
+      llegaAfinidadBaja();
+      expect(texto()).toContain('El video parece no corresponder a este SOP.');
+      expect(texto()).toContain('Afinidad: 19 de 100');
+      expect(texto()).toContain(AFINIDAD.explicacion);
+      expect(boton()).toBeDefined();
+      vi.advanceTimersByTime(INTERVALO_MS * 3);
+      http.expectNone(ESTADO);
+      http.expectNone(REPORTE);
+    });
+
+    it('"Continuar de todos modos" pide continuar y vuelve a consultar hasta el reporte', () => {
+      llegaAfinidadBaja();
+      boton()!.click();
+      const peticion = http.expectOne(CONTINUAR);
+      expect(peticion.request.params.get('continuar')).toBe('true');
+      expect(boton()!.disabled).toBe(true);
+      peticion.flush({ id: 7, proceso: 'en_cola' });
+
+      vi.advanceTimersByTime(0);
+      http.expectOne(ESTADO).flush(estado('procesando', { etapa: 'segmentacion' }));
+      expect(texto()).not.toContain('El video parece no corresponder');
+      vi.advanceTimersByTime(INTERVALO_MS);
+      http.expectOne(ESTADO).flush(estado('listo'));
+      http.expectOne(REPORTE).flush(NORMAL);
+      expect(filas()).toHaveLength(NORMAL.filas.length);
+    });
+
+    it('si continuar falla, muestra el error y deja el botón activo', () => {
+      llegaAfinidadBaja();
+      boton()!.click();
+      http
+        .expectOne(CONTINUAR)
+        .flush({ detail: 'el video está en proceso' }, { status: 409, statusText: 'Conflict' });
+      expect(pantalla().querySelector('.error')).not.toBeNull();
+      expect(boton()!.disabled).toBe(false);
+      http.expectNone(ESTADO);
+    });
+  });
+
   it('deja de consultar al salir de la pantalla', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).flush(estado('en_cola'));

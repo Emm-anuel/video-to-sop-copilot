@@ -4,6 +4,8 @@
  * el esquema (reporte-validacion.ts, `npm run tipos`).
  */
 
+import { Afinidad } from './reporte-validacion';
+
 /** Advertencia de la conversión del SOP (`POST /sops`): no detiene el flujo. */
 export interface AdvertenciaSOP {
   tipo: string;
@@ -19,7 +21,8 @@ export interface SopCreado {
   advertencias: AdvertenciaSOP[];
 }
 
-export type Proceso = 'en_cola' | 'procesando' | 'listo' | 'error';
+/** `afinidad_baja` (ADR-020): la validación se detuvo; quien carga decide si continúa. */
+export type Proceso = 'en_cola' | 'procesando' | 'listo' | 'error' | 'afinidad_baja';
 
 /** `POST /videos` y `POST /videos/{id}/validar` → 202. */
 export interface VideoCreado {
@@ -42,4 +45,6 @@ export interface EstadoVideo {
   idioma: string | null;
   error: string | null;
   creado: string;
+  /** Afinidad de contexto (ADR-020): con `afinidad_baja`, la de la detención; si no, la del reporte. */
+  afinidad?: Afinidad | null;
 }
