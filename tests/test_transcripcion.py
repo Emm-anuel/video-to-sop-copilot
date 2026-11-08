@@ -287,6 +287,12 @@ def test_logs_sin_texto(tmp_path: Path, audio: Path, caplog: pytest.LogCaptureFi
         (1, "cpu", "auto", ("cpu", "int8")),
         (0, "cuda", "auto", ("cuda", "float16")),
         (1, "auto", "int8_float16", ("cuda", "int8_float16")),
+        # Tipos que solo existen en GPU: en CPU ctranslate2 lanza ValueError; se usa int8.
+        (1, "cpu", "float16", ("cpu", "int8")),
+        (0, "auto", "float16", ("cpu", "int8")),
+        (1, "cpu", "int8_float16", ("cpu", "int8")),
+        (1, "cpu", "bfloat16", ("cpu", "int8")),
+        (1, "cpu", "float32", ("cpu", "float32")),  # los que sí corren en CPU se respetan
     ],
 )
 def test_elegir_dispositivo(monkeypatch, gpus, dispositivo, compute, esperado) -> None:

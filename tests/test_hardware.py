@@ -22,7 +22,12 @@ SIN_GPU = Hardware(gpus=(), nucleos=8, motivo_sin_gpu="nvidia-smi no está en el
 
 def ajustes(**cambios) -> Settings:
     """Settings con los dispositivos explícitos: el .env de cada equipo puede traer otros."""
-    return Settings(**({"whisper_dispositivo": "auto", "llm_dispositivo": "auto"} | cambios))
+    explicitos = {
+        "whisper_dispositivo": "auto",
+        "whisper_compute_type": "auto",
+        "llm_dispositivo": "auto",
+    }
+    return Settings(**(explicitos | cambios))
 
 
 @pytest.fixture(autouse=True)
@@ -151,6 +156,15 @@ def test_avisa_si_whisper_pide_cuda_y_no_hay_gpu():
     plan = planear(ajustes(whisper_dispositivo="cuda"), SIN_GPU, eleccion("cuda", "float16"))
 
     assert any("WHISPER_DISPOSITIVO=cuda" in a for a in plan.avisos)
+
+
+def test_avisa_si_el_compute_type_de_gpu_se_cambia_en_cpu():
+    # .env con el perfil GPU (float16) y WHISPER_DISPOSITIVO=cpu en la terminal.
+    ajuste = ajustes(whisper_dispositivo="cpu", whisper_compute_type="float16")
+    plan = planear(ajuste, CON_GPU, eleccion("cpu", "int8"))
+
+    assert (plan.transcripcion, plan.compute_type) == ("cpu", "int8")
+    assert any("WHISPER_COMPUTE_TYPE=float16" in a and "int8" in a for a in plan.avisos)
 
 
 def test_llm_en_cpu_con_gpu_avisa_y_no_cuenta_como_aceleracion_de_gemma():

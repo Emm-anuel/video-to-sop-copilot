@@ -172,6 +172,13 @@ def planear(
         transcripcion, compute_type = "cpu", "int8"
         avisos.append(f"no se pudo resolver el dispositivo de Whisper ({type(exc).__name__})")
 
+    pedido = settings.whisper_compute_type
+    if pedido not in ("auto", compute_type):
+        avisos.append(
+            f"WHISPER_COMPUTE_TYPE={pedido} no corre en {transcripcion}: Whisper usa "
+            f"{compute_type} (¿.env del perfil GPU con WHISPER_DISPOSITIVO=cpu?)"
+        )
+
     gpu = hardware.gpu
     if settings.whisper_dispositivo == "cuda" and gpu is None:
         avisos.append("WHISPER_DISPOSITIVO=cuda pero no se detectó GPU: la transcripción fallará")

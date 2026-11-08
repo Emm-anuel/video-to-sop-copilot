@@ -34,6 +34,9 @@ BEAM = 5
 DECIMALES = 3
 # Lo que se usa al caer a CPU, sea cual sea WHISPER_COMPUTE_TYPE (float16 no corre en CPU).
 COMPUTE_TYPE_CPU = "int8"
+# Tipos de ctranslate2 sin soporte en CPU (get_supported_compute_types("cpu") da int8,
+# int8_float32, int16 y float32): con device="cpu" lanzan ValueError al cargar el modelo.
+TIPOS_SOLO_GPU = frozenset({"float16", "bfloat16", "int8_float16", "int8_bfloat16"})
 # Re-corte de la transcripción (`resegmentar`): silencio que por sí solo cierra un segmento,
 # signos que cierran una frase y mínimo de palabras de un segmento (los fragmentos se unen).
 PAUSA_CORTE_S = 1.5
@@ -331,11 +334,18 @@ def marca_tiempo(segundos: float) -> str:
 
 
 def elegir_dispositivo(dispositivo: str, compute_type: str) -> tuple[str, str]:
-    """Resuelve "auto": cuda si ctranslate2 ve una GPU; float16 en cuda e int8 en cpu."""
+    """Resuelve "auto": cuda si ctranslate2 ve una GPU; float16 en cuda e int8 en cpu.
+
+    En CPU, un tipo que solo existe en GPU (`TIPOS_SOLO_GPU`) se cambia por int8: ctranslate2
+    lanzaría ValueError. Pasa con el `.env` del perfil GPU (WHISPER_COMPUTE_TYPE=float16) y
+    WHISPER_DISPOSITIVO=cpu en la terminal, o con "auto" en un equipo sin GPU.
+    """
     if dispositivo == "auto":
         dispositivo = "cuda" if _gpus_cuda() > 0 else "cpu"
     if compute_type == "auto":
         compute_type = "float16" if dispositivo == "cuda" else COMPUTE_TYPE_CPU
+    elif dispositivo == "cpu" and compute_type in TIPOS_SOLO_GPU:
+        compute_type = COMPUTE_TYPE_CPU
     return dispositivo, compute_type
 
 
