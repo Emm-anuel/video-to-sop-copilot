@@ -58,7 +58,26 @@ generar un SOP los pasos del video se usan tal cual.
 
   Alternativa sin medir: que el juez de ADR-012 decida si un fragmento es parte del paso
   vecino (más llamadas a Gemma 4; requiere ADR). **Se retoma con los videos C–E.**
+- **Evaluada y no adoptada (8 nov 2026): no fusionar dos fragmentos consecutivos con responsables
+  identificados distintos.** Motivo de la propuesta: en el video C (dos personas), la fusión unió
+  el fragmento de Emanuel cerrando la llave con uno más largo en que entra Sara, y el responsable
+  del paso salía *distinto* (ADR-020). Se midió con un script desechable sobre A, B, C y D, dos
+  segmentaciones de Gemma por video y, en cada una, el emparejamiento con la fusión actual y con
+  la regla (misma segmentación, mismo juez). "Identificados distintos": los dos responsables
+  conocidos (ni vacíos ni "No identificado") y sin coincidir con la regla de roles de ADR-020.
+
+  | Video | Fusiones con responsables distintos | Con la regla |
+  |---|---|---|
+  | A | ninguna (un narrador; la única fusión, 13+14, con el mismo responsable) | sin cambios (91.67 / 100 %) |
+  | B | ninguna | sin cambios (66.67 %) |
+  | C | 1 de 2 corridas (Emanuel + el fragmento "Ahora entra mi compañera Sara…") | el fragmento queda suelto y sale **Sobra** (+1, que el guion de C no tiene); 75 % y el *distinto* del paso 4 sin cambios. En la otra corrida no hubo fusión y ese Sobra sale con o sin la regla |
+  | D | sin fusiones | sin cambios |
+
+  No se adopta: el *distinto* falso ya lo resuelve ADR-020 tomando el responsable del original
+  citado (el más parecido al paso del SOP, el mismo que aporta la cita), y la regla cambiaría ese
+  error, ya corregido, por un *Sobra* falso. **Se revisa si aparece otro video con dos personas**,
+  en especial si una fusión entre personas distintas oculta una omisión real.
 
 ## Referencias
 
-- ADR-010 (resultados de la Fase 4), ADR-012, documento SOP V1.0 sección 14.
+- ADR-010 (resultados de la Fase 4), ADR-012, ADR-020, documento SOP V1.0 sección 14.
