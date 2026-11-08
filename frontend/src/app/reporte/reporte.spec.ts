@@ -69,9 +69,19 @@ describe('Cómo se obtuvo (funciones puras)', () => {
   });
 
   it('etapasConTiempo sigue el orden de las etapas, no el del objeto, y omite las ausentes', () => {
-    const etapas = etapasConTiempo({ emparejamiento: 1.9, segmentacion: 15.6, audio: 0.9 });
-    expect(etapas.map((e) => e.nombre)).toEqual(['Audio', 'Pasos del video', 'Emparejamiento']);
-    expect(totalSegundos(etapas)).toBeCloseTo(18.4);
+    const etapas = etapasConTiempo({
+      emparejamiento: 1.9,
+      segmentacion: 15.6,
+      contexto: 8.2,
+      audio: 0.9,
+    });
+    expect(etapas.map((e) => e.nombre)).toEqual([
+      'Audio',
+      'Ficha de contexto',
+      'Pasos del video',
+      'Emparejamiento',
+    ]);
+    expect(totalSegundos(etapas)).toBeCloseTo(26.6);
     expect(totalSegundos([])).toBe(0);
   });
 

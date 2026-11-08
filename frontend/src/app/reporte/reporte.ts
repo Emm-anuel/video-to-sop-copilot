@@ -53,12 +53,14 @@ const ETIQUETA_DISPOSITIVO: Record<Llm, string> = {
 };
 
 /** Etapas de `metadatos.segundos`. */
-type Etapa = 'duracion' | 'audio' | 'transcripcion' | 'segmentacion' | 'emparejamiento';
+type Etapa =
+  'duracion' | 'audio' | 'transcripcion' | 'contexto' | 'segmentacion' | 'emparejamiento';
 
 const ETIQUETA_ETAPA: Record<Etapa, string> = {
   duracion: 'Duración',
   audio: 'Audio',
   transcripcion: 'Transcripción',
+  contexto: 'Ficha de contexto',
   segmentacion: 'Pasos del video',
   emparejamiento: 'Emparejamiento',
 };
@@ -68,6 +70,7 @@ const ORDEN_ETAPAS: readonly Etapa[] = [
   'duracion',
   'audio',
   'transcripcion',
+  'contexto',
   'segmentacion',
   'emparejamiento',
 ];
@@ -147,7 +150,7 @@ export function dispositivosDeModelos(
 
 /**
  * Las etapas presentes en `segundos`, en el orden en que corren. Al repetir solo la validación
- * faltan duracion, audio y transcripcion.
+ * faltan duracion, audio y transcripcion (y contexto, si se reusó la ficha guardada).
  */
 export function etapasConTiempo(segundos: Segundos): TiempoEtapa[] {
   return ORDEN_ETAPAS.filter((clave) => typeof segundos[clave] === 'number').map((clave) => ({

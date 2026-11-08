@@ -19,10 +19,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dobles import SEGMENTOS, Entorno, guardar_sop
-from sopvid.contrato import Analisis, Idioma, ReporteValidacion
+from sopvid.contrato import Analisis, Contexto, Idioma, ReporteValidacion
 from sopvid.plataforma.api.main import create_app
 from sopvid.plataforma.modelos import Video
-from sopvid.plataforma.procesamiento import ERROR_REINICIO
+from sopvid.plataforma.procesamiento import ERROR_REINICIO, FIN_ANALISIS_GENERAR
 
 RAIZ = Path(__file__).resolve().parents[1]
 ESQUEMA = RAIZ / "docs" / "contrato" / "analisis.schema.json"
@@ -158,15 +158,32 @@ def test_sop_id_invalido(client: TestClient, entorno: Entorno, datos: dict, codi
     assert entorno.pendientes == []
 
 
-def test_modo_generar_no_crea_dependencias_de_validacion(
+def test_modo_generar_solo_genera_la_ficha_de_contexto(
     client: TestClient, entorno: Entorno, generar_video
 ) -> None:
     video_id = subir(client, generar_video().read_bytes()).json()["id"]
     entorno.correr_pendientes()
 
-    assert entorno.video(video_id).proceso == "listo"
-    assert entorno.clientes == []
-    assert entorno.eventos == ["whisper_liberado"]  # nada llegó a Ollama
+    video = entorno.video(video_id)
+    assert (video.proceso, video.etapa, video.progreso) == ("listo", "listo", 100)
+    # Gemma se carga después de Whisper, solo para la ficha, y se descarga al terminar.
+    assert entorno.eventos == ["whisper_liberado", "tags", "chat:contexto", "descargar"]
+    assert [c._http.is_closed for c in entorno.clientes] == [True]
+    assert Contexto.model_validate(video.contexto).actividad.fuente == "audio"
+    assert video.reporte is None
+
+
+def test_modo_generar_sin_ollama_queda_listo_sin_ficha(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    entorno.ollama.disponible = False
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    entorno.correr_pendientes()
+
+    video = entorno.video(video_id)
+    assert (video.proceso, video.error, video.contexto) == ("listo", None, None)
+    assert entorno.eventos == ["whisper_liberado"]
+    assert [c._http.is_closed for c in entorno.clientes] == [True]
 
 
 # ── Reporte ──────────────────────────────────────────────────────────────────
@@ -277,7 +294,8 @@ def test_avance_hasta_listo_y_txt_en_vivo(
     assert [len(d[3]) for d in durante] == [0, 1, 2]
     assert durante[1][3] == ["[00:00] Primero reviso el manómetro."]
     progresos = [d[2] for d in durante]
-    assert progresos == sorted(progresos) and 15 <= progresos[0] < progresos[-1] < 100
+    assert progresos == sorted(progresos)
+    assert 15 * FIN_ANALISIS_GENERAR // 100 <= progresos[0] < progresos[-1] < FIN_ANALISIS_GENERAR
 
     final = client.get(url).json()
     assert (final["proceso"], final["etapa"], final["progreso"]) == ("listo", "listo", 100)

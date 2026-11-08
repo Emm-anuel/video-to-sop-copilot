@@ -28,8 +28,8 @@ export interface VideoCreado {
 }
 
 /**
- * `GET /videos/{id}`. `etapa`: duracion, audio, transcripcion; en modo validar también
- * segmentacion, emparejamiento, reporte; al final listo.
+ * `GET /videos/{id}`. `etapa`: duracion, audio, transcripcion, contexto (ficha de contexto, en
+ * los dos modos); en modo validar también segmentacion, emparejamiento, reporte; al final listo.
  */
 export interface EstadoVideo {
   id: number;

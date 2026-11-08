@@ -106,7 +106,8 @@ def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Tr
 def get_validacion(settings: Annotated[Settings, Depends(get_settings)]) -> FabricaValidacion:
     """Fábrica de las dependencias de la validación (Gemma 4 por Ollama, juez y MiniLM).
 
-    Se llama dentro del trabajo, solo en modo validar; el procesador cierra el cliente.
+    Se llama dentro del trabajo: en modo validar para la validación, y en modo generar solo para
+    la ficha de contexto (MiniLM no se carga). El procesador cierra el cliente.
     """
     return lambda: DependenciasValidacion.desde_settings(settings)
 
@@ -208,7 +209,7 @@ def subir_video(
     if adjunto is not None:  # antes que el video, que lo espera
         assert sop_id is not None
         procesador.encolar_sop(sop_id, fabrica_llm, AjustesConversion.desde_settings(settings))
-    procesador.encolar(video.id, idioma, transcriptor, validacion if modo == "validar" else None)
+    procesador.encolar(video.id, idioma, transcriptor, validacion)
     response.headers["Location"] = f"/videos/{video.id}"
     return VideoCreado(id=video.id, proceso=video.proceso, sop_id=sop_id)
 

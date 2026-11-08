@@ -11,12 +11,18 @@ sus columnas, y en `transcripcion` (JSONB) un dict con la versión del contrato,
 completo (código, confianza y si se fijó a mano) y los segmentos. `leer_analisis` lo rearma.
 
 En modo validar (con `sop_id`), tras guardar el `Analisis` y hacer commit sigue la validación
-(`sopvid.lenguaje.validacion.validar`: pasos del video → emparejamiento con el juez → porcentaje)
-y se guardan el `Reporte` y `videos.pasos_video`. El avance del análisis se escala a 0–45 y la
-validación sigue de 45 a 100 sin retroceder; `proceso="listo"` llega junto con el reporte. Si
-Ollama no responde al empezar la validación, el video queda en error con el análisis guardado, y
-`revalidar` repite solo la validación, sin Whisper (ADR-019). Un reporte nuevo reemplaza al
-anterior.
+(`sopvid.lenguaje.validacion.validar`: ficha de contexto → pasos del video → emparejamiento con
+el juez → porcentaje) y se guardan el `Reporte`, `videos.pasos_video` y `videos.contexto`. El
+avance del análisis se escala a 0–40 y la validación sigue de 40 a 100 sin retroceder;
+`proceso="listo"` llega junto con el reporte. Si Ollama no responde al empezar la validación, el
+video queda en error con el análisis guardado, y `revalidar` repite solo la validación, sin
+Whisper (ADR-019), con la ficha guardada si la hay. Un reporte nuevo reemplaza al anterior.
+
+Ficha de contexto (RF-12): `videos.contexto` solo se llena si se generó; si quedó vacía (Ollama
+cayó a media validación, corte por tiempo, JSON inválido o transcripción vacía) se deja en NULL y
+el reporte lleva el aviso "contexto_sin_generar", así que `revalidar` la vuelve a intentar. En
+modo generar (sin SOP) la ficha corre sola tras el análisis (0–85, luego "contexto"), en su
+propia ventana de Gemma; si Ollama no responde, el video queda listo sin ficha.
 
 Dónde corrió cada modelo (ADR-018) va en los metadatos del reporte: la GPU que ve la API, el
 dispositivo con que transcribió Whisper (se toma de su `Transcripcion`) y, desde la validación,
@@ -54,7 +60,7 @@ from typing import Any
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis, Dispositivos
+from sopvid.contrato import SOP, Analisis, Contexto, Dispositivos
 from sopvid.lenguaje.lectura_sop import (
     AjustesConversion,
     ErrorConversionLLM,
@@ -64,9 +70,11 @@ from sopvid.lenguaje.lectura_sop import (
 )
 from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible, LLMTiempoExcedido
 from sopvid.lenguaje.validacion import INICIO_ETAPA, FabricaValidacion, Validacion, validar
+from sopvid.percepcion.contexto import generar_contexto
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
+from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.hardware import CANDADO_MODELO_PESADO, CandadoModeloPesado, get_hardware
 from sopvid.plataforma.modelos import PROCESOS_VIDEO, Reporte, Sop, Video
 
@@ -98,8 +106,11 @@ PRIORIDAD_SOP, PRIORIDAD_VIDEO = 0, 1
 # Crea el cliente del LLM para una conversión (la API inyecta Gemma 4 por Ollama).
 FabricaLLM = Callable[[], AbstractContextManager[ClienteLLM]]
 Trabajo = Callable[[], None]
-# En modo validar el análisis llega hasta aquí; la validación sigue hasta 100.
-FIN_ANALISIS_VALIDAR = INICIO_ETAPA["segmentacion"]
+# En modo validar el análisis llega hasta aquí; la validación (desde la ficha de contexto)
+# sigue hasta 100.
+FIN_ANALISIS_VALIDAR = INICIO_ETAPA["contexto"]
+# En modo generar el análisis llega hasta aquí y la ficha de contexto empieza.
+FIN_ANALISIS_GENERAR = 85
 
 
 def guardar_analisis(video: Video, analisis: Analisis) -> None:
@@ -130,10 +141,12 @@ def leer_analisis(video: Video) -> Analisis:
 
 
 def guardar_reporte(session: Session, video: Video, validacion: Validacion) -> None:
-    """Guarda el reporte, que reemplaza al anterior, y los pasos del video (no hace commit).
+    """Guarda el reporte, que reemplaza al anterior, los pasos del video y la ficha de contexto
+    (no hace commit).
 
     `cumplimiento` se guarda a dos decimales; el valor sin redondear y el semáforo calculado con
-    él van en `resultado`.
+    él van en `resultado`. La ficha solo se escribe si se generó en esta validación: vacía, queda
+    NULL (la siguiente validación la vuelve a intentar); reusada, no se toca.
     """
     assert video.sop_id is not None
     session.execute(delete(Reporte).where(Reporte.video_id == video.id))
@@ -149,6 +162,8 @@ def guardar_reporte(session: Session, video: Video, validacion: Validacion) -> N
         )
     )
     video.pasos_video = [p.model_dump(mode="json") for p in validacion.pasos_video]
+    if (generada := validacion.resultado_contexto) is not None:
+        video.contexto = generada.contexto.model_dump(mode="json") if generada.generado else None
 
 
 def crear_sop_en_cola(session: Session, media: Path, datos: bytes, extension: str) -> Sop:
@@ -298,7 +313,8 @@ class Procesador:
         transcriptor: Transcriptor,
         validacion: FabricaValidacion | None = None,
     ) -> None:
-        """Encola el análisis; con `validacion` (modo validar), también la validación."""
+        """Encola el análisis. `validacion` da las dependencias del LLM: en modo validar, para la
+        validación (con la ficha de contexto); en modo generar, solo para la ficha."""
         self._cola.poner(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
 
     def revalidar(self, video_id: int, validacion: FabricaValidacion) -> None:
@@ -375,15 +391,13 @@ class Procesador:
             self._fallar(session, video_id, error_de_sop(video.sop))
             return
         archivo = self._media / video.archivo
-        fin = FIN_ANALISIS_VALIDAR if valida else 100
+        fin = FIN_ANALISIS_VALIDAR if valida else FIN_ANALISIS_GENERAR
         cronometro = _Cronometro()
         registrado = _TranscriptorRegistrado(transcriptor)
 
         def al_avanzar(etapa: str, porcentaje: int) -> None:
             cronometro.marcar(etapa)
             if etapa == "listo":  # se guarda junto con el resultado
-                if not valida:
-                    video.etapa, video.progreso = etapa, porcentaje
                 return
             video.etapa, video.progreso = etapa, porcentaje * fin // 100
             session.commit()
@@ -402,6 +416,11 @@ class Procesador:
             return
         guardar_analisis(video, analisis)
         if not valida:
+            if validacion is not None:
+                session.commit()  # el análisis queda guardado aunque falle la ficha
+                self._contexto_sin_sop(session, video_id, analisis, validacion)
+                video = session.get(Video, video_id)
+            video.etapa, video.progreso = "listo", 100
             video.proceso, video.error = LISTO, None
             session.commit()
             logger.info(
@@ -421,8 +440,11 @@ class Procesador:
         if video is None:
             logger.warning("Video %d: ya no existe; se omite", video_id)
             return
+        contexto = _contexto_guardado(video)
         video.proceso, video.error = PROCESANDO, None
-        video.etapa, video.progreso = "segmentacion", FIN_ANALISIS_VALIDAR
+        # Con la ficha guardada se reusa y empieza por los pasos; sin ella, se genera primero.
+        video.etapa = "contexto" if contexto is None else "segmentacion"
+        video.progreso = FIN_ANALISIS_VALIDAR
         session.commit()
         if video.sop is None:
             self._fallar(session, video_id, ERROR_SIN_SOP)
@@ -433,7 +455,40 @@ class Procesador:
             self._fallar(session, video_id, f"no se pudo leer el análisis ({type(exc).__name__})")
             return
         # Sin Whisper: solo se sabe la GPU; Gemma se completa en la validación.
-        self._validar(session, video, analisis, validacion, {}, Dispositivos(gpu=self._gpu()))
+        self._validar(
+            session, video, analisis, validacion, {}, Dispositivos(gpu=self._gpu()), contexto
+        )
+
+    def _contexto_sin_sop(
+        self, session: Session, video_id: int, analisis: Analisis, fabrica: FabricaValidacion
+    ) -> None:
+        """Modo generar: la ficha de contexto en su propia ventana de Gemma (se descarga al
+        terminar). Si Ollama no responde o la ficha queda vacía, el video sigue sin ficha (NULL):
+        no hay reporte donde poner el aviso. Nunca lanza."""
+        video = session.get(Video, video_id)
+        video.etapa, video.progreso = "contexto", FIN_ANALISIS_GENERAR
+        session.commit()
+        deps = None
+        try:
+            deps = fabrica()
+            if not deps.llm.disponible(get_settings().llm_health_timeout_s):
+                logger.warning(
+                    "Video %d: Ollama no responde; queda sin ficha de contexto", video_id
+                )
+                return
+            try:
+                generada = generar_contexto(analisis, deps.llm)
+            finally:
+                deps.llm.descargar()
+            if generada.generado:
+                video.contexto = generada.contexto.model_dump(mode="json")
+                session.commit()
+        except Exception as exc:
+            session.rollback()
+            logger.error("Video %d: falló la ficha de contexto (%s)", video_id, type(exc).__name__)
+        finally:
+            if deps is not None:
+                deps.cerrar()
 
     def _validar(
         self,
@@ -443,8 +498,10 @@ class Procesador:
         fabrica: FabricaValidacion,
         segundos_analisis: Mapping[str, float],
         dispositivos: Dispositivos,
+        contexto: Contexto | None = None,
     ) -> None:
-        """Valida, guarda el reporte y deja el video listo; si algo falla, en error.
+        """Valida, guarda el reporte y deja el video listo; si algo falla, en error. Con
+        `contexto` (la ficha guardada) no se vuelve a generar.
 
         El SOP de referencia tiene que estar listo: el suyo va antes en la cola, así que aquí ya
         terminó; si quedó en error, el video falla con ese mensaje.
@@ -477,6 +534,7 @@ class Procesador:
                 al_avanzar=al_avanzar,
                 segundos_analisis=segundos_analisis,
                 dispositivos=dispositivos,
+                contexto=contexto,
             )
         except LLMNoDisponible:
             self._fallar(session, video_id, ERROR_LLM.format(id=video_id))
@@ -565,6 +623,19 @@ class _TranscriptorRegistrado:
     ) -> Transcripcion:
         self.ultima = self._base.transcribir(audio, idioma, al_segmento=al_segmento)
         return self.ultima
+
+
+def _contexto_guardado(video: Video) -> Contexto | None:
+    """La ficha de `videos.contexto`, o None si no hay (o no valida: se vuelve a generar)."""
+    if video.contexto is None:
+        return None
+    try:
+        return Contexto.model_validate(video.contexto)
+    except Exception as exc:
+        logger.warning(
+            "Video %d: ficha de contexto guardada inválida (%s)", video.id, type(exc).__name__
+        )
+        return None
 
 
 def _gpu_detectada() -> str | None:

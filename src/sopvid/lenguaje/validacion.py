@@ -1,8 +1,14 @@
-"""Validación de un video contra un SOP: pasos del video → emparejamiento → porcentaje.
+"""Validación de un video contra un SOP: ficha de contexto → pasos del video → emparejamiento
+→ porcentaje.
 
 Corre después del análisis (transcripción) y no toca la base: `validar` recibe el `Analisis` y el
-SOP y devuelve los pasos del video y el `ResultadoValidacion` que se guarda en `reportes`
-(RF-13, RF-14, RF-19).
+SOP y devuelve la ficha de contexto (RF-12), los pasos del video y el `ResultadoValidacion` que se
+guarda en `reportes` (RF-13, RF-14, RF-19).
+
+La ficha de contexto va primero, en la misma ventana de Gemma que los pasos y el juez (una sola
+carga del modelo, ADR-014). Nunca ve el SOP (regla 5). Si ya hay una guardada (repetir solo la
+validación, ADR-019), se reusa sin llamar al modelo. Si queda vacía (`generar_contexto` no lanza),
+la validación sigue y el reporte lleva el aviso "contexto_sin_generar".
 
 Whisper ya soltó la memoria al terminar de transcribir (ADR-014). Antes de segmentar se revisa
 que Ollama responda y tenga el modelo; si no, `LLMNoDisponible` y el procesador deja el video en
@@ -20,13 +26,14 @@ import logging
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Self
 
 from sopvid.contrato import (
     SOP,
     Analisis,
     Aviso,
+    Contexto,
     Dispositivo,
     Dispositivos,
     MetadatosValidacion,
@@ -39,14 +46,15 @@ from sopvid.lenguaje.emparejamiento import Embedder, emparejar, get_embedder
 from sopvid.lenguaje.juez import Juez, JuezGemma
 from sopvid.lenguaje.llm import ClienteLLM, LLMNoDisponible
 from sopvid.lenguaje.reporte import porcentaje, semaforo
+from sopvid.percepcion.contexto import ResultadoContexto, aviso_contexto, generar_contexto
 from sopvid.percepcion.segmentacion import Segmentacion, segmentar
 from sopvid.plataforma.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-# Avance global con que empieza cada etapa de la validación. El análisis ocupa de 0 a 45 (lo
+# Avance global con que empieza cada etapa de la validación. El análisis ocupa de 0 a 40 (lo
 # escala el procesador) y "listo" (100) llega con el reporte guardado.
-INICIO_ETAPA = {"segmentacion": 45, "emparejamiento": 80, "reporte": 95}
+INICIO_ETAPA = {"contexto": 40, "segmentacion": 50, "emparejamiento": 80, "reporte": 95}
 
 AlAvanzar = Callable[[str, int], None]
 
@@ -76,10 +84,17 @@ FabricaValidacion = Callable[[], DependenciasValidacion]
 
 @dataclass(frozen=True)
 class Validacion:
-    """`pasos_video` son los de `segmentar`, antes de fusionar (van a `videos.pasos_video`)."""
+    """`pasos_video` son los de `segmentar`, antes de fusionar (van a `videos.pasos_video`).
+
+    `contexto` es la ficha con que se validó: la generada aquí o la que se pasó. Con
+    `resultado_contexto` en None se reusó la guardada; si no, dice si se generó (y entonces va a
+    `videos.contexto`) o por qué quedó vacía.
+    """
 
     pasos_video: list[PasoVideo]
     resultado: ResultadoValidacion
+    contexto: Contexto = field(default_factory=Contexto)
+    resultado_contexto: ResultadoContexto | None = None
 
 
 def validar(
@@ -90,14 +105,16 @@ def validar(
     al_avanzar: AlAvanzar | None = None,
     segundos_analisis: Mapping[str, float] | None = None,
     dispositivos: Dispositivos | None = None,
+    contexto: Contexto | None = None,
     reloj: Callable[[], float] = time.perf_counter,
 ) -> Validacion:
-    """Segmenta, empareja (con el juez) y calcula el porcentaje y el semáforo.
+    """Genera la ficha de contexto, segmenta, empareja (con el juez) y calcula el porcentaje y
+    el semáforo.
 
-    `segundos_analisis` (duracion, audio, transcripcion) se copia a los metadatos junto con los
-    de esta etapa. `dispositivos` trae la GPU y dónde corrió Whisper; aquí se completa con dónde
-    corrió Gemma. Errores: `LLMNoDisponible` si Ollama no responde antes de empezar; los demás
-    salen tal cual.
+    Con `contexto` (la ficha guardada) no se vuelve a generar. `segundos_analisis` (duracion,
+    audio, transcripcion) se copia a los metadatos junto con los de esta etapa. `dispositivos`
+    trae la GPU y dónde corrió Whisper; aquí se completa con dónde corrió Gemma. Errores:
+    `LLMNoDisponible` si Ollama no responde antes de empezar; los demás salen tal cual.
     """
     settings = get_settings()
     if not deps.llm.disponible(settings.llm_health_timeout_s):
@@ -108,7 +125,17 @@ def validar(
     embedder = deps.embedder or get_embedder()
     segundos = dict(segundos_analisis or {})
     llm_en: Dispositivo = "desconocido"
+    resultado_contexto: ResultadoContexto | None = None
     try:
+        # Cuando existan los fotogramas (RF-11), su descripción con Gemma va antes de la ficha,
+        # en esta misma ventana: la ficha los usa como evidencia.
+        if contexto is None:
+            avanzar("contexto", INICIO_ETAPA["contexto"])
+            inicio = reloj()
+            resultado_contexto = generar_contexto(analisis, deps.llm)
+            segundos["contexto"] = reloj() - inicio
+            contexto = resultado_contexto.contexto
+
         avanzar("segmentacion", INICIO_ETAPA["segmentacion"])
         inicio = reloj()
         segmentacion = segmentar(analisis, deps.llm)
@@ -133,7 +160,7 @@ def validar(
 
     avanzar("reporte", INICIO_ETAPA["reporte"])
     pct = porcentaje(resultado)
-    avisos = avisos_de(segmentacion, resultado)
+    avisos = avisos_de(segmentacion, resultado, resultado_contexto)
     metadatos = MetadatosValidacion(
         segmentacion=segmentacion.metodo,
         motivo_respaldo=segmentacion.motivo_respaldo,
@@ -170,12 +197,21 @@ def validar(
             semaforo=semaforo(pct, settings),
             metadatos=metadatos,
         ),
+        contexto=contexto,
+        resultado_contexto=resultado_contexto,
     )
 
 
-def avisos_de(segmentacion: Segmentacion, resultado: ResultadoEmparejamiento) -> list[Aviso]:
-    """Las fallas del LLM que vuelven provisional al reporte (ADR-019)."""
+def avisos_de(
+    segmentacion: Segmentacion,
+    resultado: ResultadoEmparejamiento,
+    resultado_contexto: ResultadoContexto | None = None,
+) -> list[Aviso]:
+    """Las fallas del LLM que vuelven provisional al reporte (ADR-019), en el orden de las
+    etapas. Sin `resultado_contexto` (ficha reusada), no hay aviso de la ficha."""
     avisos = []
+    if resultado_contexto is not None and (aviso := aviso_contexto(resultado_contexto)):
+        avisos.append(aviso)
     if segmentacion.metodo == "heuristica":
         avisos.append(
             Aviso(
