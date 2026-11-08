@@ -130,7 +130,45 @@ Si la validación se detiene por afinidad baja (ADR-020), no se calculan tiempos
 
 ## Medición
 
-_Se llena con `scripts/medir_tiempos.py` (commit de la medición)._
+8 nov, `scripts/medir_tiempos.py` con A, B y C contra `tests/fixtures/sop_filtro_agua.md` (6 pasos
+de 0.5 min, total 3 min; tolerancia ±20 %: en tiempo de 0.40 a 0.60 min), 3 repeticiones por
+video, Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo`. Datos crudos en
+[`datos/tiempos/tiempos-20261108-1630.md`](datos/tiempos/tiempos-20261108-1630.md) y `.json`.
+
+| Video · rep. | Cumpl. | en tiempo / menor / excede | Excede en | Total obs. / esp. (min) | Horario |
+|---|---|---|---|---|---|
+| A · 1 | 83.33 | 0 / 5 / 0 | — | 0.88 / 3.00, menor | no_mencionado |
+| A · 2 | 91.67 | 0 / 6 / 0 | — | 0.78 / 3.00, menor | no_mencionado |
+| A · 3 | 83.33 | 0 / 5 / 0 | — | 0.88 / 3.00, menor | no_mencionado |
+| B · 1–3 | 66.67 | 1 / 3 / 0 | — | 1.11 / 3.00, menor | no_mencionado |
+| **C · 1** | 75.0 | 2 / 3 / **1** | **paso 1** | 2.81 / 3.00, en tiempo | no_mencionado |
+| **C · 2** | 75.0 | 1 / 4 / **1** | **paso 1** | 2.49 / 3.00, en tiempo | no_mencionado |
+| **C · 3** | 75.0 | 1 / 4 / **1** | **paso 1** | 2.49 / 3.00, en tiempo | no_mencionado |
+
+- **C pasa la aceptación de la sección 14 en las 3 corridas:** exactamente un *excede*, el paso 1
+  (61 s medidos, 1.02 min contra 0.5), y ninguno en los demás. Todos los tiempos salieron medidos:
+  ningún video narra duraciones.
+- **A y B, ningún *excede*.** Casi todo sale *menor*: los pasos medidos duran 3–17 s contra 30 s
+  esperados. B paso 5 (fusión de dos originales, 0.46 min) sale en tiempo.
+- **Fronteras de Gemma contra la anotación a mano** (inicio del paso al inicio de lo siguiente):
+  - El inicio coincide a ±0.5 s en la mayoría de los pasos.
+  - En A y B la duración medida sale 5–21 s más corta que la anotada, por dos causas: la pausa después del
+    último segmento, que no se mide, y pedazos del paso que quedan como *Sobra* sin fusionar (A,
+    paso 3: 49.2–53.9 s; A, paso 4: 66.9–71.5 s).
+  - En C, Gemma pasó la última frase del paso 1 al paso 3 (−9.8 s), sin cambiar el *excede*.
+  - En C · 1 la fusión unió el paso 2 con el inicio del 4 ("entra mi compañera…"): 0.50 min, a
+    0.10 del límite. Es el riesgo de un paso que absorbe al siguiente.
+  - La anotación de C es asistida y no está verificada a mano (`media/anotacion_ab.json`).
+- **Horario:** `no_mencionado` en todas las corridas. Los videos dicen "el manómetro marca menos de
+  dos bar", pero la ficha lo guarda como propósito, no en `horario_mencionado`. La comparación del
+  horario solo queda probada con datos inventados (`tests/test_tiempos.py`).
+- **Ajeno a los tiempos:** en A · 1 y A · 3 el juez rompió el par del paso 6, que está en la zona
+  gris (*Falta*, 83.33 %, amarillo), con la misma segmentación que dio *Parcial* en A · 2. Es la
+  falta de determinismo de Gemma (ADR-018). El emparejamiento y el juez no cambiaron. Con el mismo
+  commit, `scripts/medir_mvp.py` (A y B, 3 repeticiones) pasó 3/3 en cada video (A 91.67–100 %,
+  verde y sin *Falta*; B con *Falta* exactamente en 2 y 6 y la *Sobra* agregada):
+  [`datos/mvp/mvp-20261108-1631.md`](datos/mvp/mvp-20261108-1631.md). Contando las dos mediciones,
+  A cayó a amarillo en 2 de 6 corridas: queda como riesgo del MVP, fuera de este ADR.
 
 ## Referencias
 
