@@ -338,3 +338,41 @@ Resultado:
   excepción para `qwen3.5`).
 
 El ADR sigue **Propuesto**: la extracción en dos llamadas queda como el método por defecto de RF-13.
+
+## Seguimiento: una cita corta ya no deja el paso sin redactar (8 nov 2026)
+
+**Problema.** La corrección 2 del 18 oct dejó "menos de 4 palabras sigue siendo inválida", y la
+validación de la redacción es por paso: una cita de 3 palabras invalidaba el paso entero, con su
+descripción y su responsable. Tras los 3 intentos el paso quedaba sin redactar (nombre = título,
+cita vacía, confianza baja), el reporte salía provisional con `pasos_sin_redactar` y el paso
+perdía la cita en el texto que compara MiniLM (ADR-012). Medido en A: 1 de 3 corridas el 27 oct
+(83.3 %, ADR-018) y 1 de 3 el 8 nov (`docs/adr/datos/mvp/mvp-20261108-1502.*`). Gemma copia a
+veces el sustantivo solo ("libero la presión"), aunque el prompt pide de 4 a 15 palabras.
+
+**Regla (decidida el 8 nov):** una cita corta no invalida la redacción del paso.
+
+1. `RedaccionPaso` acepta citas de 0 a 3 palabras; la descripción y el responsable se usan
+   siempre. Las de más de 15 se siguen recortando a 15.
+2. `ampliar_cita` (en `_armar`, para los dos caminos de la segmentación): si la cita corta aparece
+   literal en los segmentos del paso, se le agregan las palabras que siguen en la transcripción y,
+   si el paso se acaba, las anteriores, hasta llegar a 4, sin salir del paso. Se usa la primera
+   aparición. El resultado es un tramo contiguo de la transcripción: sigue siendo literal (regla 4)
+   y se verifica igual.
+3. Si no aparece en el paso o está vacía, se deja tal cual y `verificar_cita` decide (media si
+   aparece en otra parte del video, baja si no aparece). No cuenta como sin redactar: la poca
+   evidencia ya la dice la confianza.
+4. `pasos_sin_redactar` solo cuenta los pasos que el LLM no devolvió o con forma inválida (JSON,
+   número de paso, un campo de más como un tiempo). El prompt sigue pidiendo de 4 a 15 palabras.
+
+Se amplía en vez de aceptar la cita corta tal cual porque la cita entra al texto que se vectoriza
+para emparejar: 4 palabras literales le dan a MiniLM más de lo que dijo el operador, y es el mismo
+piso que usa la ficha de contexto para la confianza alta.
+
+**Medición** (`scripts/medir_mvp.py`, A y B, 5 repeticiones, commit `603d2e8`, GPU de referencia;
+`docs/adr/datos/mvp/mvp-20261108-1552.*`): **A pasa 5 de 5, ninguna con `pasos_sin_redactar` ni
+otro aviso** (100 % en 4, 91.67 % en una por un *Parcial* que decidió el juez en la zona gris, no
+por la redacción); **B pasa 5 de 5** (66.67 %, *Falta* 2 y 6, el agregado como *Sobra*). El
+informe no registra cuántas citas se ampliaron en cada corrida; el caso queda cubierto en
+`tests/test_segmentacion.py` (`ampliar_cita` y `test_un_paso_con_cita_corta_se_redacta_con_la_cita_ampliada`).
+Cinco corridas son pocas para afirmar que la falla desapareció (antes era 1 de 3): se vigila en las
+siguientes mediciones.
