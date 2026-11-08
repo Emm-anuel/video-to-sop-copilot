@@ -427,6 +427,18 @@ def test_aviso_transcripcion_solo_si_el_modelo_no_es_el_de_referencia() -> None:
 # ── Configuración ────────────────────────────────────────────────────────────
 
 
+def test_mismo_modelo_en_cpu_y_gpu_por_defecto(monkeypatch) -> None:
+    """ADR-018 (8 nov): large-v3-turbo en los dos dispositivos, sin depender del `.env`."""
+    for variable in ("WHISPER_MODELO", "WHISPER_MODELO_CPU"):
+        monkeypatch.delenv(variable, raising=False)
+    ajuste = Settings(_env_file=None)
+    assert ajuste.modelo_whisper("cpu") == ajuste.modelo_whisper("cuda") == "large-v3-turbo"
+    assert tr.es_modelo_referencia(ajuste.modelo_whisper("cpu"))
+    # Vacío, el de WHISPER_MODELO; otro modelo en CPU es posible (con aviso en el reporte).
+    assert Settings(_env_file=None, whisper_modelo_cpu="").modelo_whisper("cpu") == "large-v3-turbo"
+    assert Settings(_env_file=None, whisper_modelo_cpu="small").modelo_whisper("cpu") == "small"
+
+
 def test_config_de_whisper() -> None:
     ajuste = Settings(whisper_cache_dir=Path("models/whisper"))
     assert ajuste.whisper_cache_path == PROJECT_ROOT / "models" / "whisper"

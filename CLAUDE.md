@@ -64,7 +64,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Base de datos | PostgreSQL 16 (imagen con pgvector, ADR-005). Tablas del documento: `sops`, `videos`, `reportes`, `palabras`, `busquedas`; análisis y reportes como JSONB. pgvector queda para la búsqueda semántica de la versión 2 |
 | Contenedores | Docker Compose, versiones fijadas, configuración por variables de entorno |
 | Medios | ffmpeg: duración, audio mp3 mono 16 kHz, fotogramas (máx. 20), miniaturas |
-| Transcripción | faster-whisper `large-v3-turbo` en GPU (float16) o `small` en CPU (int8); tiempo por palabra, VAD, detección de idioma |
+| Transcripción | faster-whisper `large-v3-turbo`, el mismo modelo en CPU (int8) y en GPU (float16) (ADR-018, `WHISPER_MODELO_CPU`); otro modelo da el aviso `transcripcion_no_referencia`. Tiempo por palabra, VAD, detección de idioma |
 | LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir SOP sin plantilla (S5, [ADR-015](docs/adr/ADR-015-sop-plantilla-markdown.md)), describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
 | Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
@@ -74,8 +74,9 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 
 Hardware de referencia (ADR-014): RTX 2070 SUPER de 8 GB, i7-10700K, 32 GB de RAM. faster-whisper y
 Gemma 4 no caben juntos en la GPU: las etapas corren en secuencia, con un modelo cargado a la vez.
-**CPU de base, GPU opcional (ADR-018, propuesto):** nada exige tarjeta de video; si hay GPU, solo
-acelera. La GPU cambia dónde corre cada modelo, nunca cuál (RNF-07). Cada reporte guarda dónde
+**CPU de base, GPU opcional (ADR-018; el modelo de Whisper se decidió el 8 nov):** nada exige
+tarjeta de video; si hay GPU, solo acelera. La GPU cambia dónde corre cada modelo, nunca cuál
+(RNF-07): Whisper es `large-v3-turbo` en los dos, Gemma 4 el mismo. Cada reporte guarda dónde
 corrió cada modelo en `metadatos.dispositivos` (`plataforma/hardware.py`, `LLM_DISPOSITIVO`).
 Colab ya no forma parte del flujo; solo es respaldo si la GPU local falla.
 
@@ -137,7 +138,7 @@ docs/
 >   `percepcion/medios.py` (duración con ffprobe, audio mp3 mono 16 kHz con ffmpeg) y
 >   `percepcion/transcripcion.py` (RF-09 idioma con confianza o fijado a mano; RF-10 tiempo por
 >   segmento y por palabra, TXT `[mm:ss]` en vivo). faster-whisper con GPU corre en el host, desde el
->   venv con el extra `gpu`; en Docker, solo CPU (`small`; seguimiento en ADR-014,
+>   venv con el extra `gpu`; en Docker, solo CPU (`large-v3-turbo` int8 desde el 8 nov; seguimiento en ADR-014,
 >   `docs/dev/transcripcion.md`).
 > - **Emparejamiento en `main`:** `clasificar`, `orden` y `emparejar` (`lenguaje/emparejamiento.py`):
 >   cascada completa (ADR-012, ADR-013). Juez Gemma 4 de la zona gris (27 oct) en `lenguaje/juez.py`,

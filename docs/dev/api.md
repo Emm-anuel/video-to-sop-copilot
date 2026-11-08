@@ -72,7 +72,8 @@ listo sin ficha.
   `metadatos.avisos` (`contexto_sin_generar`, `segmentacion_heuristica`, `juez_sin_revisar`,
   `pasos_sin_redactar`). La ficha sin generar queda en NULL y `POST /videos/{id}/validar` la
   vuelve a intentar; si ya estaba guardada, la reusa sin llamar al modelo.
-- **Whisper que no es el de referencia** (`large-v3-turbo`, ADR-018; p. ej. `small` en CPU): el
+- **Whisper que no es el de referencia** (`large-v3-turbo`, ADR-018; p. ej. quien configure
+  `WHISPER_MODELO_CPU=small`): el
   reporte y la ficha llevan el aviso `transcripcion_no_referencia` y el reporte queda provisional.
 - Al terminar la etapa del LLM se pide a Ollama que suelte el modelo (`keep_alive: 0`), en GPU o
   en CPU, para que el siguiente Whisper tenga la memoria libre.
@@ -121,8 +122,9 @@ curl.exe -o reporte.json http://127.0.0.1:8000/videos/12/reporte
 ## En Docker (solo CPU)
 
 `docker compose up -d --build` levanta `db` y `api`. En el contenedor Whisper corre en CPU con el
-perfil por defecto (`small`, int8): la imagen no tiene acceso a la GPU (seguimiento en ADR-014,
-`docs/dev/transcripcion.md`). Sirve para probar el flujo; no para medir RNF-01.
+mismo modelo que en GPU (`large-v3-turbo`, int8; ADR-018): la imagen no tiene acceso a la GPU
+(seguimiento en ADR-014, `docs/dev/transcripcion.md`). La primera transcripción descarga ~1.6 GB al
+volumen `modelos`. Sirve para probar el flujo; no para medir RNF-01.
 
 ## API en el host con la GPU (así corre la demo)
 

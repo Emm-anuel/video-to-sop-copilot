@@ -1,7 +1,9 @@
 # ADR-018 · Usar la CPU como base y la GPU solo para acelerar, sin cambiar de modelo
 
-- **Estado:** Propuesto. Reemplazará a ADR-014 cuando se tengan los números de la medición en CPU
-- **Fecha:** 2026-10-27
+- **Estado:** Propuesto. La parte de Whisper está decidida (8 nov 2026: `large-v3-turbo` en CPU y
+  en GPU). Pasa a Aprobado, y ADR-014 a Reemplazado, cuando se fije el plazo de Gemma en CPU para
+  la segmentación y se acuerde RNF-01 sin GPU.
+- **Fecha:** 2026-10-27 (decisión de Whisper: 2026-11-08)
 - **Autores:** Emmanuel Merida
 - **Decisores:** equipo y asesor (Dr. Raúl); RNF-01 sin GPU, con el patrocinador
 
@@ -36,8 +38,20 @@ de RNF-01 de menos de 5.
 Opción C. La GPU cambia **dónde** corre cada modelo, nunca **cuál**.
 
 - **Whisper:** `WHISPER_DISPOSITIVO=auto` (ya existía): cuda si ctranslate2 ve la GPU; si falla
-  antes del primer segmento, repite en CPU. Un solo `WHISPER_MODELO` para todos los equipos, que se
-  elige con la medición (`small` contra `large-v3-turbo` int8 en CPU).
+  antes del primer segmento, repite en CPU. **Decidido el 8 nov 2026: `large-v3-turbo` en los dos
+  dispositivos** (int8 en CPU, float16 en cuda), por defecto en `WHISPER_MODELO` y
+  `WHISPER_MODELO_CPU` (Settings, `.env.example` y `docker-compose.yml`). Quien configure otro
+  modelo en CPU (p. ej. `small`, la mitad de tiempo) puede: el reporte y la ficha llevan el aviso
+  `transcripcion_no_referencia` y el reporte queda provisional. Medición que lo respalda (A y B,
+  i7-10700K, contra la transcripción de GPU; detalle en el seguimiento del 8 nov):
+
+  | Whisper en CPU | Whisper (s) | RAM pico | WER | Errores que llegan a ficha / pasos | Ruta completa en CPU |
+  |---|---|---|---|---|---|
+  | `small`, int8 (antes) | 19.5-24.2 | 0.77 GB | 4.8-6.2 % | A 2 / 4 · B 2 / 8 | A 159.6 s · B 164.4 s |
+  | `large-v3-turbo`, int8 (decidido) | 38.8-60.5 | 1.95 GB | 0.4-1.3 % | A 0 / 0 · B 1 / 2 | A 244.1 s (1.53×) · B 163.9 s (1.00×) |
+
+  Criterio acordado: si `large-v3-turbo` en CPU no más que duplica el tiempo total por video, se usa
+  el mismo modelo en los dos dispositivos. El peor caso medido fue 1.53× (con int8_float32, 1.16×).
 - **Gemma 4:** nueva `LLM_DISPOSITIVO=auto|cpu`. Con `auto`, Ollama usa la GPU si la ve; con `cpu`,
   el cliente manda `num_gpu=0` y corre solo en CPU.
 - **MiniLM:** siempre en CPU (ADR-012), sin cambios.
@@ -106,9 +120,10 @@ Lo que dicen los números:
 
    Con temperatura 0 y semilla fija, Gemma en Ollama 0.40.2 no da la misma segmentación en todas
    las corridas, ni en CPU ni en GPU. Es un riesgo para RNF-07 independiente de esta decisión.
-4. **Whisper único: todavía no.** En CPU, `small` tarda la mitad que `large-v3-turbo`. En B,
-   `large-v3-turbo` dio 1 Sobra en CPU y GPU; `small`, 2 y 4. Con dos videos y la variación de
-   Gemma no alcanza para elegir: se decide con C–E y varias corridas por configuración.
+4. **Whisper único: todavía no** (27 oct). En CPU, `small` tarda la mitad que `large-v3-turbo`. En
+   B, `large-v3-turbo` dio 1 Sobra en CPU y GPU; `small`, 2 y 4. Con dos videos y la variación de
+   Gemma no alcanza para elegir. *Decidido el 8 nov con la medición de WER y de errores que llegan a
+   la ficha y a los pasos: `large-v3-turbo` en los dos (ver Decisión y el seguimiento del 8 nov).*
 
 Siguientes pasos:
 
@@ -265,13 +280,13 @@ Whisper en sí suma +36 s (A) y +19 s (B) sobre `small`; el resto de la diferenc
 la corrida de int8_float32, con el mismo modelo y una transcripción idéntica), no de Whisper:
 es la variación de Gemma en CPU entre corridas. En los dos videos, el cumplimiento fue igual en las cuatro rutas (A 100 %, B 66.67 %).
 
-**Propuesta: `WHISPER_MODELO_CPU=large-v3-turbo` (int8), el mismo modelo en los dos
+**Decisión (8 nov 2026): `WHISPER_MODELO_CPU=large-v3-turbo` (int8), el mismo modelo en los dos
 dispositivos.** Con el criterio acordado (si `large-v3-turbo` en CPU no más que duplica el tiempo
-total por video, se usa el mismo modelo), el peor caso medido es 1.53× y el típico 1.0–1.2×. El
-valor por defecto no se cambió todavía: la variable existe (sin definir usa `WHISPER_MODELO`) y,
-mientras se transcriba con otro modelo, el reporte y la ficha llevan el aviso
-`transcripcion_no_referencia`. Falta medirlo en un equipo sin GPU de verdad y con los videos C–E
-antes de cambiar el valor por defecto de la imagen de Docker (`WHISPER_MODELO_API`).
+total por video, se usa el mismo modelo), el peor caso medido es 1.53× y el típico 1.0–1.2×. Queda
+por defecto en Settings, `.env.example` y `docker-compose.yml` (la API en Docker, que corre en CPU,
+usa `WHISPER_MODELO_CPU`; `WHISPER_MODELO_API` ya no existe). El aviso
+`transcripcion_no_referencia` se queda para quien configure otro modelo. Pendiente: confirmar los
+tiempos en un equipo sin GPU de verdad y con los videos C–E.
 
 ## Referencias
 

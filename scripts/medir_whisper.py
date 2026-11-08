@@ -11,7 +11,7 @@ Configuraciones (`--config`, se puede repetir; por defecto todas):
 - `referencia`: `large-v3-turbo` en cuda, float16; Gemma en GPU (la ruta de GPU).
 - `turbo-int8`: `large-v3-turbo` en CPU, int8; Gemma en CPU.
 - `turbo-int8_float32`: `large-v3-turbo` en CPU, int8_float32; Gemma en CPU.
-- `small-int8`: `small` en CPU, int8 (el valor por defecto en CPU hoy); Gemma en CPU.
+- `small-int8`: `small` en CPU, int8 (el valor por defecto en CPU hasta el 8 nov); Gemma en CPU.
 
 Cada transcripción corre en un subproceso para que la RAM pico sea solo la de esa configuración.
 El WER se calcula por palabras, normalizadas como las citas (`sopvid.texto.comparable`: sin

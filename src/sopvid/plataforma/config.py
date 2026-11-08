@@ -57,14 +57,15 @@ class Settings(BaseSettings):
     # Tamaño máximo de un video en POST /videos (subida completa, RF-06 del MVP).
     subida_max_mb: int = Field(default=1024, gt=0)
 
-    # Transcripción con faster-whisper (RF-09, RF-10). Perfil CPU por defecto; perfil gpu:
-    # WHISPER_MODELO=large-v3-turbo, WHISPER_DISPOSITIVO=cuda, WHISPER_COMPUTE_TYPE=float16.
-    # El modelo es un nombre de faster-whisper ("small", "large-v3-turbo") o una carpeta local.
-    whisper_modelo: str = "small"
+    # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
+    # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es
+    # un nombre de faster-whisper ("large-v3-turbo", "small") o una carpeta local.
+    whisper_modelo: str = "large-v3-turbo"
     # Modelo cuando Whisper corre en CPU (WHISPER_DISPOSITIVO=cpu, "auto" sin GPU o el respaldo si
-    # cuda falla). Sin definir, el mismo WHISPER_MODELO. El de referencia es large-v3-turbo
-    # (ADR-018): con otro, el reporte y la ficha llevan el aviso "transcripcion_no_referencia".
-    whisper_modelo_cpu: str | None = None
+    # cuda falla); vacío, el mismo WHISPER_MODELO. El de referencia es large-v3-turbo: con otro
+    # (p. ej. small, más rápido en CPU), el reporte y la ficha llevan el aviso
+    # "transcripcion_no_referencia" y el reporte queda provisional.
+    whisper_modelo_cpu: str | None = "large-v3-turbo"
     # "auto": cuda si ctranslate2 ve una GPU NVIDIA; si falla antes del primer segmento, CPU.
     whisper_dispositivo: Literal["auto", "cpu", "cuda"] = "auto"
     # "auto": float16 en cuda, int8 en cpu. Cualquier otro valor se pasa tal cual a ctranslate2.

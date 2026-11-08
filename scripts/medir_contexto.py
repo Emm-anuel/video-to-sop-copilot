@@ -73,12 +73,14 @@ CONFIGS: dict[str, dict[str, Any]] = {
         "llm_dispositivo": "auto",
         "whisper_dispositivo": "cuda",
         "whisper_modelo": "large-v3-turbo",
+        "whisper_modelo_cpu": "large-v3-turbo",
         "whisper_compute_type": "float16",
     },
     "cpu": {
         "llm_dispositivo": "cpu",
         "whisper_dispositivo": "cpu",
         "whisper_modelo": "small",
+        "whisper_modelo_cpu": "small",  # el valor por defecto en CPU hasta el 8 nov (ADR-018)
         "whisper_compute_type": "int8",
     },
 }
@@ -177,7 +179,7 @@ def ruta_completa(
     meta = validacion.resultado.metadatos
     corrida = Corrida(clave, config, n, "video")
     corrida.whisper = {
-        "modelo": settings.whisper_modelo,
+        "modelo": analisis.modelo_transcripcion,
         "dispositivo": meta.dispositivos.transcripcion if meta.dispositivos else None,
         "respaldo_cpu": bool(meta.dispositivos and meta.dispositivos.transcripcion_respaldo_cpu),
         "compute_type": settings.whisper_compute_type,
