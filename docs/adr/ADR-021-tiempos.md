@@ -173,6 +173,28 @@ video, Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo`. Datos crudo
   [`datos/mvp/mvp-20261108-1631.md`](datos/mvp/mvp-20261108-1631.md). Contando las dos mediciones,
   A cayó a amarillo en 2 de 6 corridas: queda como riesgo del MVP, fuera de este ADR.
 
+### Otra medida: hasta el inicio del siguiente paso (8 nov, sin adoptar)
+
+Con los mismos tramos de Gemma, la medida «del inicio del paso al inicio del siguiente paso del
+video, pausa incluida (el último, hasta su t_fin)» se compara con la actual contra la anotación a
+mano: [`datos/tiempos/comparacion-medida-20261108.md`](datos/tiempos/comparacion-medida-20261108.md).
+
+| Video | Error medio abs., actual | Error medio abs., hasta el siguiente | *Excede* (actual → siguiente) |
+|---|---|---|---|
+| A | 9.5 s | 4.0 s | ninguno → ninguno |
+| B | 5.2 s | 0.6 s | ninguno → ninguno |
+| C | 8.3 s | 7.8 s | paso 1 → paso 1, en las 3 corridas |
+
+- Donde Gemma puso bien las dos fronteras (A, pasos 1, 2 y 5; B, pasos 1, 3 y 4), la medida nueva
+  coincide con la anotación a ±0.1 s: recupera la pausa que la actual pierde (5–8 s por paso).
+- Lo que queda de error viene de las fronteras de Gemma, no de la regla. Un pedazo del paso que
+  quedó como *Sobra* corta el tramo (A, paso 4 en la corrida 2: 3.6 s contra 24.4 s), y en C las
+  fronteras están corridas (pasos 3 y 4).
+- Cambia un estado: B, paso 4, pasa de *menor* a *en tiempo*. Ningún *excede* cambia.
+- En C · 1, el paso 2 que absorbió el inicio del 4 sube de 0.50 a 0.54 min (límite 0.60).
+
+Queda como propuesta: no se adopta sin aprobación.
+
 ## Referencias
 
 - Documento SOP V1.0, §5.5, §5.6 y §14; RF-16, RNF-14.
