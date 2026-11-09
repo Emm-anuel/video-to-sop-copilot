@@ -186,7 +186,7 @@ def test_tiempo_medido_sin_narracion() -> None:
     )
 
 
-def test_la_narrada_gana_si_es_mayor_y_el_origen_lo_indica() -> None:
+def test_la_narrada_mayor_gana_y_el_origen_lo_indica() -> None:
     # 20 s en el video, pero la espera de 3 minutos ocurre con un corte.
     transcripcion = [_seg(0, 10.0, 30.0, "Aplico el sellador y espero tres minutos.")]
     tiempo = tiempo_de_paso(_paso(1, 10.0, 30.0), 2.0, transcripcion, TOL)
@@ -196,12 +196,19 @@ def test_la_narrada_gana_si_es_mayor_y_el_origen_lo_indica() -> None:
     assert tiempo.estado == "excede"
 
 
-def test_la_narrada_menor_que_la_medida_pierde() -> None:
-    # Dice lo que debería tardar, pero en el video tardó 70 s.
+def test_la_narrada_gana_siempre_aunque_sea_menor_que_la_medida() -> None:
+    # §5.5: si el operador narra la duración, esa gana, aunque el video dure 70 s.
     transcripcion = [_seg(0, 0.0, 70.0, "Esto tarda 30 segundos, me pongo los guantes.")]
     tiempo = tiempo_de_paso(_paso(1, 0.0, 70.0), 0.5, transcripcion, TOL)
-    assert tiempo.origen == "medido"
-    assert tiempo.cita == ""
+    assert (tiempo.origen, tiempo.observado_min) == ("narrado", 0.5)
+    assert tiempo.cita == "tarda 30 segundos"
+    assert tiempo.estado == "en_tiempo"
+
+
+def test_sin_narracion_gana_la_medida() -> None:
+    transcripcion = [_seg(0, 0.0, 70.0, "Me pongo los guantes y los lentes.")]
+    tiempo = tiempo_de_paso(_paso(1, 0.0, 70.0), 0.5, transcripcion, TOL)
+    assert (tiempo.origen, tiempo.cita) == ("medido", "")
     assert tiempo.observado_min == pytest.approx(1.17)
     assert tiempo.estado == "excede"
 

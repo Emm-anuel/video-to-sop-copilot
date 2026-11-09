@@ -1,6 +1,7 @@
 # ADR-021 · Tiempos: duración narrada o medida, solo *excede* cuenta
 
-- **Estado:** Aprobado por el equipo (8 nov)
+- **Estado:** Aprobado por el equipo (8 nov). Corregido el mismo día, antes de P5: la duración
+  narrada gana siempre, como pide §5.5 (antes, solo si era mayor que la medida).
 - **Fecha:** 2026-11-08
 - **Autores:** Emmanuel Merida
 - **Decisores:** equipo
@@ -33,8 +34,8 @@ Restricciones:
 | Opción | A favor | En contra |
 |---|---|---|
 | A. Solo el tiempo medido (t_fin − t_inicio del paso) | Simple, siempre disponible | Una espera con corte o en silencio ("espero 5 minutos") no se ve en el video |
-| B. La duración narrada siempre gana sobre la medida | Respeta lo que dice el operador | "Esto tarda 30 segundos" (lo que *debería* tardar) esconde un paso que tardó 70 s: el *Excede* se pierde |
-| **C. La narrada gana solo si es ≥ la medida** | Cubre las esperas; el video es una cota inferior de lo que tardó | Una narración que exagera alarga el paso (se ve en la cita) |
+| **B. La duración narrada siempre gana sobre la medida** | Es lo que pide §5.5; respeta lo que dice el operador y cubre las esperas con corte | "Esto tarda 30 segundos" (lo que *debería* tardar) esconde un paso que tardó 70 s: el *Excede* se pierde |
+| C. La narrada gana solo si es ≥ la medida | El video es una cota inferior de lo que tardó | Se aparta de §5.5 (se usó de la primera versión a la corrección del 8 nov) |
 
 Para detectar la duración narrada: (1) cualquier cantidad con unidad de tiempo, (2) con disparador
 en una lista blanca, (3) con lista negra de acciones breves ("presionar", "mantener"). La 1 toma "tres
@@ -48,9 +49,10 @@ segundos" de un botón; la 3 depende de adivinar todas las acciones. Se elige la
   usa su tramo completo (del primer inicio al último fin de sus originales, como lo deja `fusionar`);
   personas, en cambio, usa el original citado (ADR-020). `t_fin` es el fin del último segmento del
   paso: la pausa hasta el siguiente paso no se mide.
-- **Narrada:** si en el tramo hay una duración narrada (regla de abajo) y es **≥ la medida**, esa es
-  la observada, con `origen="narrado"` y su cita. Si es menor, gana la medida (`origen="medido"`, sin
-  cita): el video muestra que el paso tardó al menos eso.
+- **Narrada:** si en el tramo hay una duración narrada (regla de abajo), **esa gana siempre**
+  (§5.5): es la observada, con `origen="narrado"` y su cita, aunque el video dure más o menos. Si
+  no hay, la medida (`origen="medido"`, sin cita). La fila muestra la cita: quien revisa ve que el
+  tiempo salió de lo que dijo el operador.
 - La intro y el cierre del operador (ADR-016) son pasos del video aparte, marcados en un *Sobra*:
   nunca caen dentro del tramo de un par. Una intro solo entraría en el paso 1 si MiniLM la fusiona con
   él (coseno ≥ `UMBRAL_FUSION`), es decir, si habla del paso.
@@ -119,9 +121,10 @@ Si la validación se detiene por afinidad baja (ADR-020), no se calculan tiempos
   - Las fronteras de los pasos son de Gemma (ADR-010): un paso partido en dos y no fusionado deja un
     pedazo como *Sobra* y subestima la medida; uno que absorbe al siguiente la sobreestima.
   - La medida no incluye la pausa después del último segmento del paso.
-  - El disparador no sabe de qué habla ("el agua tarda 3 segundos en salir" se toma, aunque al ser
-    menor que la medida no cambia nada). "Caliento durante 5 minutos" no se detecta (sin verbo de
-    duración) y cae a la medida. Números en letra solo hasta 99; "un ratito" o "unos cuantos minutos"
+  - Como la narrada gana siempre, el disparador que no sabe de qué habla se paga: "el agua tarda 3
+    segundos en salir" o "esto tarda 30 segundos" (lo que *debería* tardar) reemplazan a la medida y
+    pueden esconder un *excede*. Se mitiga mostrando la cita en la fila. "Caliento durante 5
+    minutos" no se detecta (sin verbo de duración) y cae a la medida. Números en letra solo hasta 99; "un ratito" o "unos cuantos minutos"
     se ignoran a propósito.
   - Con SOP de pasos cortos (0.5 min) y ±20 %, una narración ágil sale *menor* en casi todos los
     pasos; no cuenta como incumplimiento, pero se ve en el reporte.
@@ -146,7 +149,7 @@ video, Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo`. Datos crudo
 | **C · 3** | 75.0 | 1 / 4 / **1** | **paso 1** | 2.49 / 3.00, en tiempo | no_mencionado |
 
 - **C pasa la aceptación de la sección 14 en las 3 corridas:** exactamente un *excede*, el paso 1
-  (61 s medidos, 1.02 min contra 0.5), y ninguno en los demás. Todos los tiempos salieron medidos:
+  (61 s medidos, 1.02 min contra 0.5), y ninguno en los demás. Todos los tiempos salieron medidos (por eso la corrección de la regla de la narrada no cambia esta tabla):
   ningún video narra duraciones.
 - **A y B, ningún *excede*.** Casi todo sale *menor*: los pasos medidos duran 3–17 s contra 30 s
   esperados. B paso 5 (fusión de dos originales, 0.46 min) sale en tiempo.

@@ -9,9 +9,9 @@ de los pasos del video, cuyos segundos ya son de la transcripción.
   lista blanca (tardar, durar, esperar, dejar…; take, last, wait, let…). "durante", "por" y "for"
   no bastan solos: "mantengo presionado el botón durante tres segundos" no es lo que tarda el paso.
   Ante la duda no se usa y se cae al tiempo medido (ADR-021).
-- `tiempo_de_paso`: la duración observada de un paso del video, ya fusionado (ADR-013): la medida
-  (t_fin − t_inicio, el tramo completo de la fusión) o la narrada si es mayor o igual (cubre las
-  esperas en silencio o con corte; si es menor, el video muestra que tardó al menos lo medido).
+- `tiempo_de_paso`: la duración observada de un paso del video, ya fusionado (ADR-013): la
+  narrada, si el operador la dice (gana siempre, §5.5); si no, la medida (t_fin − t_inicio, el
+  tramo completo de la fusión).
 - `comparar`: en_tiempo, excede, menor o sin_referencia, con la tolerancia de la configuración.
 - `tiempos_por_paso`, `tiempo_total` y `comparar_horario`: lo que va al reporte.
 
@@ -460,14 +460,13 @@ def tiempo_de_paso(
 ) -> TiempoFila:
     """La duración observada del paso del video (ya fusionado) frente al esperado del SOP.
 
-    La medida es el tramo completo del paso; la narrada gana solo si es ≥ la medida (ADR-021).
-    El observado se redondea a dos decimales antes de comparar: el estado cuadra con lo que se
-    muestra.
+    Si el operador narra la duración, esa gana siempre (§5.5); si no, la medida: el tramo
+    completo del paso (ADR-021). El observado se redondea a dos decimales antes de comparar: el
+    estado cuadra con lo que se muestra.
     """
-    medido = max(0.0, paso.t_fin - paso.t_inicio) / 60
     narrada = duracion_narrada(transcripcion, paso.t_inicio, paso.t_fin)
     esperado = esperado_min if esperado_min is not None and esperado_min > 0 else None
-    if narrada is not None and narrada.minutos >= medido:
+    if narrada is not None:
         observado = round(narrada.minutos, 2)
         return TiempoFila(
             esperado_min=esperado,
@@ -476,7 +475,7 @@ def tiempo_de_paso(
             estado=comparar(esperado, observado, tolerancia),
             cita=narrada.cita,
         )
-    observado = round(medido, 2)
+    observado = round(max(0.0, paso.t_fin - paso.t_inicio) / 60, 2)
     return TiempoFila(
         esperado_min=esperado,
         observado_min=observado,
