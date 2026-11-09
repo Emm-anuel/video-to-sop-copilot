@@ -139,45 +139,47 @@ Si la validación se detiene por afinidad baja (ADR-020), no se calculan tiempos
 
 ## Medición
 
-8 nov, `scripts/medir_tiempos.py` con A, B y C contra `tests/fixtures/sop_filtro_agua.md` (6 pasos
-de 0.5 min, total 3 min; tolerancia ±20 %: en tiempo de 0.40 a 0.60 min), 3 repeticiones por
-video, Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo`. Datos crudos en
-[`datos/tiempos/tiempos-20261108-1630.md`](datos/tiempos/tiempos-20261108-1630.md) y `.json`.
+9 nov, con la medida hasta el inicio del siguiente paso y el rescate de ADR-022.
+`scripts/medir_tiempos.py` con A, B y C contra `tests/fixtures/sop_filtro_agua.md` (6 pasos de
+0.5 min, total 3 min; tolerancia ±20 %: en tiempo de 0.40 a 0.60 min), 3 repeticiones por video,
+Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo` (los `analisis.json` de cada video).
+Datos crudos en [`datos/tiempos/tiempos-20261109-0111.md`](datos/tiempos/tiempos-20261109-0111.md)
+y `.json`. La medición del 8 nov, con la medida anterior (t_fin − t_inicio), queda en
+[`datos/tiempos/tiempos-20261108-1630.md`](datos/tiempos/tiempos-20261108-1630.md).
 
 | Video · rep. | Cumpl. | en tiempo / menor / excede | Excede en | Total obs. / esp. (min) | Horario |
 |---|---|---|---|---|---|
-| A · 1 | 83.33 | 0 / 5 / 0 | — | 0.88 / 3.00, menor | no_mencionado |
-| A · 2 | 91.67 | 0 / 6 / 0 | — | 0.78 / 3.00, menor | no_mencionado |
-| A · 3 | 83.33 | 0 / 5 / 0 | — | 0.88 / 3.00, menor | no_mencionado |
-| B · 1–3 | 66.67 | 1 / 3 / 0 | — | 1.11 / 3.00, menor | no_mencionado |
-| **C · 1** | 75.0 | 2 / 3 / **1** | **paso 1** | 2.81 / 3.00, en tiempo | no_mencionado |
-| **C · 2** | 75.0 | 1 / 4 / **1** | **paso 1** | 2.49 / 3.00, en tiempo | no_mencionado |
-| **C · 3** | 75.0 | 1 / 4 / **1** | **paso 1** | 2.49 / 3.00, en tiempo | no_mencionado |
+| A · 1 | 91.67 | 0 / 6 / 0 | — | 1.50 / 3.00, menor | no_mencionado |
+| A · 2 | 100.0 | 0 / 6 / 0 | — | 1.62 / 3.00, menor | no_mencionado |
+| A · 3 | 91.67 | 0 / 6 / 0 | — | 1.50 / 3.00, menor | no_mencionado |
+| B · 1–3 | 66.67 | 2 / 2 / 0 | — | 1.43 / 3.00, menor | no_mencionado |
+| **C · 1** | 75.0 | 2 / 3 / **1** | **paso 1** | 2.75 / 3.00, en tiempo | no_mencionado |
+| **C · 2** | 83.33 | 3 / 2 / **1** | **paso 1** | 3.05 / 3.00, en tiempo | no_mencionado |
+| **C · 3** | 83.33 | 3 / 2 / **1** | **paso 1** | 3.05 / 3.00, en tiempo | no_mencionado |
 
 - **C pasa la aceptación de la sección 14 en las 3 corridas:** exactamente un *excede*, el paso 1
-  (61 s medidos, 1.02 min contra 0.5), y ninguno en los demás. Todos los tiempos salieron medidos (por eso la corrección de la regla de la narrada no cambia esta tabla):
-  ningún video narra duraciones.
-- **A y B, ningún *excede*.** Casi todo sale *menor*: los pasos medidos duran 3–17 s contra 30 s
-  esperados. B paso 5 (fusión de dos originales, 0.46 min) sale en tiempo.
-- **Fronteras de Gemma contra la anotación a mano** (inicio del paso al inicio de lo siguiente):
-  - El inicio coincide a ±0.5 s en la mayoría de los pasos.
-  - En A y B la duración medida sale 5–21 s más corta que la anotada, por dos causas: la pausa después del
-    último segmento, que no se mide, y pedazos del paso que quedan como *Sobra* sin fusionar (A,
-    paso 3: 49.2–53.9 s; A, paso 4: 66.9–71.5 s).
-  - En C, Gemma pasó la última frase del paso 1 al paso 3 (−9.8 s), sin cambiar el *excede*.
-  - En C · 1 la fusión unió el paso 2 con el inicio del 4 ("entra mi compañera…"): 0.50 min, a
-    0.10 del límite. Es el riesgo de un paso que absorbe al siguiente.
+  (1.02 min contra 0.5), y ninguno en los demás. Todos los tiempos salieron medidos: ningún video
+  narra duraciones. C · 2 y C · 3 dan 83.33 % y no 75 % porque el juez dio *Cumple* y no *Parcial*
+  en un par; los dos *Fuera de orden* (2 y 5) siguen.
+- **A y B, ningún *excede*.** A sale *menor* en todos los pasos (0.10–0.32 min); B, *en tiempo* en
+  los pasos 4 (0.40) y 5 (0.48) y *menor* en el 1 y el 3. Con la pausa incluida, los totales suben
+  de 0.78–1.11 a 1.43–1.62 min.
+- **Contra la anotación a mano** (inicio del paso al inicio de lo siguiente), error medio de la
+  duración por paso: A 3.9 s, B 1.1 s, C 9.1 s (antes 9.5, 5.2 y 8.3 s).
+  - Donde Gemma pone bien las fronteras, la medida coincide a ±0.3 s (A, pasos 1, 2 y 5; B, pasos
+    1, 3 y 4; C, paso 6).
+  - Lo que queda viene de fragmentos que Gemma deja como *Sobra* y cortan la medida: A, pasos 3 y
+    4 (−5 s); A, paso 6 (−8 a −15 s, cuando la segmentación lo parte y el par se queda con un
+    fragmento sin dejarlo en *Falta*, así que no hay rescate).
+  - En C, las fronteras corridas de Gemma: el paso 1 pierde su última frase (−10 s, sigue en
+    *excede*); el 4 empieza 17 s tarde. En C · 1, el paso 2 absorbe el inicio del 4 (0.54 min, a
+    0.06 del límite).
   - La anotación de C es asistida y no está verificada a mano (`media/anotacion_ab.json`).
 - **Horario:** `no_mencionado` en todas las corridas. Los videos dicen "el manómetro marca menos de
   dos bar", pero la ficha lo guarda como propósito, no en `horario_mencionado`. La comparación del
   horario solo queda probada con datos inventados (`tests/test_tiempos.py`).
-- **Ajeno a los tiempos:** en A · 1 y A · 3 el juez rompió el par del paso 6, que está en la zona
-  gris (*Falta*, 83.33 %, amarillo), con la misma segmentación que dio *Parcial* en A · 2. Es la
-  falta de determinismo de Gemma (ADR-018). El emparejamiento y el juez no cambiaron. Con el mismo
-  commit, `scripts/medir_mvp.py` (A y B, 3 repeticiones) pasó 3/3 en cada video (A 91.67–100 %,
-  verde y sin *Falta*; B con *Falta* exactamente en 2 y 6 y la *Sobra* agregada):
-  [`datos/mvp/mvp-20261108-1631.md`](datos/mvp/mvp-20261108-1631.md). Contando las dos mediciones,
-  A cayó a amarillo en 2 de 6 corridas: queda como riesgo del MVP, fuera de este ADR.
+- **El amarillo de A del 8 nov** (el juez rompía el par del paso 6) lo resuelve ADR-022. En estas
+  3 corridas, y en las 6 de `medir_mvp` del mismo día, A sale verde.
 
 ### Otra medida: hasta el inicio del siguiente paso (comparada el 8 nov, adoptada el 9 nov)
 

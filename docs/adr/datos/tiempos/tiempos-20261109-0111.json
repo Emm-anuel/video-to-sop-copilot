@@ -1,0 +1,2238 @@
+{
+  "fecha": "2026-11-09T01:11:39",
+  "git": {
+    "commit": "a9ff75668dfbe827c7bb836c11e374eaceedd1ef",
+    "rama": "feat/s5",
+    "cambios_sin_commit": 0
+  },
+  "sop": "tests/fixtures/sop_filtro_agua.md",
+  "anotacion": "media/anotacion_ab.json",
+  "modelos": {
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "whisper": "large-v3-turbo"
+  },
+  "umbrales": {
+    "tolerancia_tiempo": 0.2,
+    "umbral_horario": 0.75
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "repeticion": 1,
+      "duracion_s": 135.0,
+      "cumplimiento": 91.67,
+      "conteo": {
+        "Cumple": 5,
+        "Parcial": 1,
+        "Falta": 0,
+        "Sobra": 5,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 0,
+        "menor": 6,
+        "excede": 0
+      },
+      "fuera_de_tiempo": 0,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 1.5,
+        "estado": "menor"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            15.5,
+            25.1
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.26,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 31.1,
+          "anotado": [
+            15.5,
+            31.28
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.18
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 2,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            31.28,
+            42.36
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.3,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 49.28,
+          "anotado": [
+            31.28,
+            49.24
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 0.04
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            54.18,
+            61.2
+          ],
+          "originales": [
+            6
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.21,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 66.78,
+          "anotado": [
+            49.24,
+            66.86
+          ],
+          "dif_inicio_s": 4.94,
+          "dif_duracion_s": -5.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 9,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            72.1,
+            84.36
+          ],
+          "originales": [
+            9
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.32,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 91.3,
+          "anotado": [
+            66.86,
+            91.3
+          ],
+          "dif_inicio_s": 5.24,
+          "dif_duracion_s": -5.24
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 10,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            91.3,
+            104.24
+          ],
+          "originales": [
+            10
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.31,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 109.9,
+          "anotado": [
+            91.3,
+            110.0
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.1
+        },
+        {
+          "estado": "Parcial",
+          "paso_sop": 6,
+          "paso_video": 12,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            112.46,
+            117.68
+          ],
+          "originales": [
+            12
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.1,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 118.46,
+          "anotado": [
+            110.0,
+            131.29
+          ],
+          "dif_inicio_s": 2.46,
+          "dif_duracion_s": -15.29
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            1.36,
+            11.14
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 4,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            49.24,
+            51.14
+          ],
+          "originales": [
+            4
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            51.48,
+            53.9
+          ],
+          "originales": [
+            5
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 7,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            66.86,
+            68.18
+          ],
+          "originales": [
+            7
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 8,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            68.54,
+            71.5
+          ],
+          "originales": [
+            8
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 11,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            110.0,
+            112.14
+          ],
+          "originales": [
+            11
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 13,
+          "fuera_de_orden": false,
+          "marco_operador": "cierre",
+          "tramo": [
+            118.24,
+            127.42
+          ],
+          "originales": [
+            13
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 14,
+          "fuera_de_orden": false,
+          "marco_operador": "cierre",
+          "tramo": [
+            131.29,
+            133.51
+          ],
+          "originales": [
+            14
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 35.14
+    },
+    {
+      "video": "video_a",
+      "repeticion": 2,
+      "duracion_s": 135.0,
+      "cumplimiento": 100.0,
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 5,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 0,
+        "menor": 6,
+        "excede": 0
+      },
+      "fuera_de_tiempo": 0,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 1.62,
+        "estado": "menor"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            15.5,
+            25.1
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.26,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 31.1,
+          "anotado": [
+            15.5,
+            31.28
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.18
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 2,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            31.28,
+            42.36
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.3,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 49.28,
+          "anotado": [
+            31.28,
+            49.24
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 0.04
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            54.18,
+            61.2
+          ],
+          "originales": [
+            6
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.21,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 66.78,
+          "anotado": [
+            49.24,
+            66.86
+          ],
+          "dif_inicio_s": 4.94,
+          "dif_duracion_s": -5.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 9,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            72.1,
+            84.36
+          ],
+          "originales": [
+            9
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.32,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 91.3,
+          "anotado": [
+            66.86,
+            91.3
+          ],
+          "dif_inicio_s": 5.24,
+          "dif_duracion_s": -5.24
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 10,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            91.3,
+            104.24
+          ],
+          "originales": [
+            10
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.31,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 109.9,
+          "anotado": [
+            91.3,
+            110.0
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.1
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 6,
+          "paso_video": 12,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            112.46,
+            125.24
+          ],
+          "originales": [
+            12,
+            13
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.22,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 125.66,
+          "anotado": [
+            110.0,
+            131.29
+          ],
+          "dif_inicio_s": 2.46,
+          "dif_duracion_s": -8.09
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            1.36,
+            11.14
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 4,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            49.24,
+            51.14
+          ],
+          "originales": [
+            4
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            51.48,
+            53.9
+          ],
+          "originales": [
+            5
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 7,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            66.86,
+            68.18
+          ],
+          "originales": [
+            7
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 8,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            68.54,
+            71.5
+          ],
+          "originales": [
+            8
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 11,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            110.0,
+            112.14
+          ],
+          "originales": [
+            11
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 13,
+          "fuera_de_orden": false,
+          "marco_operador": "cierre",
+          "tramo": [
+            125.48,
+            133.51
+          ],
+          "originales": [
+            14
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 22.47
+    },
+    {
+      "video": "video_a",
+      "repeticion": 3,
+      "duracion_s": 135.0,
+      "cumplimiento": 91.67,
+      "conteo": {
+        "Cumple": 5,
+        "Parcial": 1,
+        "Falta": 0,
+        "Sobra": 5,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 0,
+        "menor": 6,
+        "excede": 0
+      },
+      "fuera_de_tiempo": 0,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 1.5,
+        "estado": "menor"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            15.5,
+            25.1
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.26,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 31.1,
+          "anotado": [
+            15.5,
+            31.28
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.18
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 2,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            31.28,
+            42.36
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.3,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 49.28,
+          "anotado": [
+            31.28,
+            49.24
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 0.04
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            54.18,
+            61.2
+          ],
+          "originales": [
+            6
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.21,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 66.78,
+          "anotado": [
+            49.24,
+            66.86
+          ],
+          "dif_inicio_s": 4.94,
+          "dif_duracion_s": -5.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 9,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            72.1,
+            84.36
+          ],
+          "originales": [
+            9
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.32,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 91.3,
+          "anotado": [
+            66.86,
+            91.3
+          ],
+          "dif_inicio_s": 5.24,
+          "dif_duracion_s": -5.24
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 10,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            91.3,
+            104.24
+          ],
+          "originales": [
+            10
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.31,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 109.9,
+          "anotado": [
+            91.3,
+            110.0
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.1
+        },
+        {
+          "estado": "Parcial",
+          "paso_sop": 6,
+          "paso_video": 12,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            112.46,
+            117.68
+          ],
+          "originales": [
+            12
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.1,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 118.46,
+          "anotado": [
+            110.0,
+            131.29
+          ],
+          "dif_inicio_s": 2.46,
+          "dif_duracion_s": -15.29
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            1.36,
+            11.14
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 4,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            49.24,
+            51.14
+          ],
+          "originales": [
+            4
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            51.48,
+            53.9
+          ],
+          "originales": [
+            5
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 7,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            66.86,
+            68.18
+          ],
+          "originales": [
+            7
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 8,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            68.54,
+            71.5
+          ],
+          "originales": [
+            8
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 11,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            110.0,
+            112.14
+          ],
+          "originales": [
+            11
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 13,
+          "fuera_de_orden": false,
+          "marco_operador": "cierre",
+          "tramo": [
+            118.24,
+            127.42
+          ],
+          "originales": [
+            13
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 14,
+          "fuera_de_orden": false,
+          "marco_operador": "cierre",
+          "tramo": [
+            131.29,
+            133.51
+          ],
+          "originales": [
+            14
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 22.64
+    },
+    {
+      "video": "video_b",
+      "repeticion": 1,
+      "duracion_s": 114.643,
+      "cumplimiento": 66.67,
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 2,
+        "menor": 2,
+        "excede": 0
+      },
+      "fuera_de_tiempo": 0,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 1.43,
+        "estado": "menor"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            17.0,
+            26.54
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.25,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 32.0,
+          "anotado": [
+            17.0,
+            31.72
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 0.28
+        },
+        {
+          "estado": "Falta",
+          "paso_sop": 2,
+          "paso_video": null,
+          "fuera_de_orden": false,
+          "marco_operador": null
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            31.72,
+            44.08
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.3,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 49.72,
+          "anotado": [
+            31.72,
+            49.94
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.22
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 4,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            49.94,
+            66.6
+          ],
+          "originales": [
+            4
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.4,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 73.94,
+          "anotado": [
+            49.94,
+            74.12
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.18
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            85.92,
+            113.44
+          ],
+          "originales": [
+            6,
+            7
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.48,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 114.72,
+          "anotado": [
+            85.92,
+            111.04
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 3.68
+        },
+        {
+          "estado": "Falta",
+          "paso_sop": 6,
+          "paso_video": null,
+          "fuera_de_orden": false,
+          "marco_operador": null
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            3.5,
+            13.68
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            74.12,
+            85.58
+          ],
+          "originales": [
+            5
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 18.28
+    },
+    {
+      "video": "video_b",
+      "repeticion": 2,
+      "duracion_s": 114.643,
+      "cumplimiento": 66.67,
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 2,
+        "menor": 2,
+        "excede": 0
+      },
+      "fuera_de_tiempo": 0,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 1.43,
+        "estado": "menor"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            17.0,
+            26.54
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.25,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 32.0,
+          "anotado": [
+            17.0,
+            31.72
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 0.28
+        },
+        {
+          "estado": "Falta",
+          "paso_sop": 2,
+          "paso_video": null,
+          "fuera_de_orden": false,
+          "marco_operador": null
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            31.72,
+            44.08
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.3,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 49.72,
+          "anotado": [
+            31.72,
+            49.94
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.22
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 4,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            49.94,
+            66.6
+          ],
+          "originales": [
+            4
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.4,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 73.94,
+          "anotado": [
+            49.94,
+            74.12
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.18
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            85.92,
+            113.44
+          ],
+          "originales": [
+            6,
+            7
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.48,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 114.72,
+          "anotado": [
+            85.92,
+            111.04
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 3.68
+        },
+        {
+          "estado": "Falta",
+          "paso_sop": 6,
+          "paso_video": null,
+          "fuera_de_orden": false,
+          "marco_operador": null
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            3.5,
+            13.68
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            74.12,
+            85.58
+          ],
+          "originales": [
+            5
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 18.68
+    },
+    {
+      "video": "video_b",
+      "repeticion": 3,
+      "duracion_s": 114.643,
+      "cumplimiento": 66.67,
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 2,
+        "menor": 2,
+        "excede": 0
+      },
+      "fuera_de_tiempo": 0,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 1.43,
+        "estado": "menor"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            17.0,
+            26.54
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.25,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 32.0,
+          "anotado": [
+            17.0,
+            31.72
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 0.28
+        },
+        {
+          "estado": "Falta",
+          "paso_sop": 2,
+          "paso_video": null,
+          "fuera_de_orden": false,
+          "marco_operador": null
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            31.72,
+            44.08
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.3,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 49.72,
+          "anotado": [
+            31.72,
+            49.94
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.22
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 4,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            49.94,
+            66.6
+          ],
+          "originales": [
+            4
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.4,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 73.94,
+          "anotado": [
+            49.94,
+            74.12
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": -0.18
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            85.92,
+            113.44
+          ],
+          "originales": [
+            6,
+            7
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.48,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 114.72,
+          "anotado": [
+            85.92,
+            111.04
+          ],
+          "dif_inicio_s": 0.0,
+          "dif_duracion_s": 3.68
+        },
+        {
+          "estado": "Falta",
+          "paso_sop": 6,
+          "paso_video": null,
+          "fuera_de_orden": false,
+          "marco_operador": null
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            3.5,
+            13.68
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            74.12,
+            85.58
+          ],
+          "originales": [
+            5
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 18.61
+    },
+    {
+      "video": "video_c",
+      "repeticion": 1,
+      "duracion_s": 201.128,
+      "cumplimiento": 75.0,
+      "conteo": {
+        "Cumple": 5,
+        "Parcial": 1,
+        "Falta": 0,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 2,
+        "menor": 3,
+        "excede": 1
+      },
+      "fuera_de_tiempo": 1,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 2.75,
+        "estado": "en_tiempo"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            18.05,
+            79.07
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 1.02,
+            "origen": "medido",
+            "estado": "excede",
+            "cita": ""
+          },
+          "fin_medido": 79.25,
+          "anotado": [
+            18.02,
+            89.22
+          ],
+          "dif_inicio_s": 0.03,
+          "dif_duracion_s": -10.0,
+          "por_que": [
+            "el paso duró más que lo esperado"
+          ]
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 2,
+          "paso_video": 4,
+          "fuera_de_orden": true,
+          "marco_operador": null,
+          "tramo": [
+            109.71,
+            120.27
+          ],
+          "originales": [
+            4
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.24,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 124.11,
+          "anotado": [
+            109.24,
+            124.66
+          ],
+          "dif_inicio_s": 0.47,
+          "dif_duracion_s": -1.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            79.45,
+            105.1
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.5,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 109.45,
+          "anotado": [
+            89.22,
+            109.24
+          ],
+          "dif_inicio_s": -9.77,
+          "dif_duracion_s": 9.98
+        },
+        {
+          "estado": "Parcial",
+          "paso_sop": 4,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            141.88,
+            150.98
+          ],
+          "originales": [
+            6
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.2,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 153.88,
+          "anotado": [
+            124.66,
+            153.68
+          ],
+          "dif_inicio_s": 17.22,
+          "dif_duracion_s": -17.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 8,
+          "fuera_de_orden": true,
+          "marco_operador": null,
+          "tramo": [
+            176.64,
+            199.02
+          ],
+          "originales": [
+            8,
+            9
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.41,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 201.24,
+          "anotado": [
+            176.68,
+            195.76
+          ],
+          "dif_inicio_s": -0.04,
+          "dif_duracion_s": 5.52
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 6,
+          "paso_video": 7,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            153.8,
+            174.4
+          ],
+          "originales": [
+            7
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.38,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 176.6,
+          "anotado": [
+            153.68,
+            176.68
+          ],
+          "dif_inicio_s": 0.12,
+          "dif_duracion_s": -0.2
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            6.19,
+            14.83
+          ],
+          "originales": [
+            1
+          ]
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            124.3,
+            139.86
+          ],
+          "originales": [
+            5
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 21.92
+    },
+    {
+      "video": "video_c",
+      "repeticion": 2,
+      "duracion_s": 201.128,
+      "cumplimiento": 83.33,
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 0,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 3,
+        "menor": 2,
+        "excede": 1
+      },
+      "fuera_de_tiempo": 1,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 3.05,
+        "estado": "en_tiempo"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            18.05,
+            79.07
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 1.02,
+            "origen": "medido",
+            "estado": "excede",
+            "cita": ""
+          },
+          "fin_medido": 79.25,
+          "anotado": [
+            18.02,
+            89.22
+          ],
+          "dif_inicio_s": 0.03,
+          "dif_duracion_s": -10.0,
+          "por_que": [
+            "el paso duró más que lo esperado"
+          ]
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 2,
+          "paso_video": 4,
+          "fuera_de_orden": true,
+          "marco_operador": null,
+          "tramo": [
+            109.71,
+            139.86
+          ],
+          "originales": [
+            4,
+            5
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.54,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 142.11,
+          "anotado": [
+            109.24,
+            124.66
+          ],
+          "dif_inicio_s": 0.47,
+          "dif_duracion_s": 16.98
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            79.45,
+            105.1
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.5,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 109.45,
+          "anotado": [
+            89.22,
+            109.24
+          ],
+          "dif_inicio_s": -9.77,
+          "dif_duracion_s": 9.98
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            141.88,
+            150.98
+          ],
+          "originales": [
+            6
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.2,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 153.88,
+          "anotado": [
+            124.66,
+            153.68
+          ],
+          "dif_inicio_s": 17.22,
+          "dif_duracion_s": -17.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 7,
+          "fuera_de_orden": true,
+          "marco_operador": null,
+          "tramo": [
+            176.64,
+            199.02
+          ],
+          "originales": [
+            8,
+            9
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.41,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 201.24,
+          "anotado": [
+            176.68,
+            195.76
+          ],
+          "dif_inicio_s": -0.04,
+          "dif_duracion_s": 5.52
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 6,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            153.8,
+            174.4
+          ],
+          "originales": [
+            7
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.38,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 176.6,
+          "anotado": [
+            153.68,
+            176.68
+          ],
+          "dif_inicio_s": 0.12,
+          "dif_duracion_s": -0.2
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            6.19,
+            14.83
+          ],
+          "originales": [
+            1
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 20.86
+    },
+    {
+      "video": "video_c",
+      "repeticion": 3,
+      "duracion_s": 201.128,
+      "cumplimiento": 83.33,
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 0,
+        "zona_gris": 0
+      },
+      "estados_tiempo": {
+        "en_tiempo": 3,
+        "menor": 2,
+        "excede": 1
+      },
+      "fuera_de_tiempo": 1,
+      "total": {
+        "esperado_min": 3.0,
+        "observado_min": 3.05,
+        "estado": "en_tiempo"
+      },
+      "horario": {
+        "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+        "observado": null,
+        "estado": "no_mencionado",
+        "t": null,
+        "cita": ""
+      },
+      "filas": [
+        {
+          "estado": "Cumple",
+          "paso_sop": 1,
+          "paso_video": 2,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            18.05,
+            79.07
+          ],
+          "originales": [
+            2
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 1.02,
+            "origen": "medido",
+            "estado": "excede",
+            "cita": ""
+          },
+          "fin_medido": 79.25,
+          "anotado": [
+            18.02,
+            89.22
+          ],
+          "dif_inicio_s": 0.03,
+          "dif_duracion_s": -10.0,
+          "por_que": [
+            "el paso duró más que lo esperado"
+          ]
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 2,
+          "paso_video": 4,
+          "fuera_de_orden": true,
+          "marco_operador": null,
+          "tramo": [
+            109.71,
+            139.86
+          ],
+          "originales": [
+            4,
+            5
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.54,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 142.11,
+          "anotado": [
+            109.24,
+            124.66
+          ],
+          "dif_inicio_s": 0.47,
+          "dif_duracion_s": 16.98
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 3,
+          "paso_video": 3,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            79.45,
+            105.1
+          ],
+          "originales": [
+            3
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.5,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 109.45,
+          "anotado": [
+            89.22,
+            109.24
+          ],
+          "dif_inicio_s": -9.77,
+          "dif_duracion_s": 9.98
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 4,
+          "paso_video": 5,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            141.88,
+            150.98
+          ],
+          "originales": [
+            6
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.2,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 153.88,
+          "anotado": [
+            124.66,
+            153.68
+          ],
+          "dif_inicio_s": 17.22,
+          "dif_duracion_s": -17.02
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 5,
+          "paso_video": 7,
+          "fuera_de_orden": true,
+          "marco_operador": null,
+          "tramo": [
+            176.64,
+            199.02
+          ],
+          "originales": [
+            8,
+            9
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.41,
+            "origen": "medido",
+            "estado": "en_tiempo",
+            "cita": ""
+          },
+          "fin_medido": 201.24,
+          "anotado": [
+            176.68,
+            195.76
+          ],
+          "dif_inicio_s": -0.04,
+          "dif_duracion_s": 5.52
+        },
+        {
+          "estado": "Cumple",
+          "paso_sop": 6,
+          "paso_video": 6,
+          "fuera_de_orden": false,
+          "marco_operador": null,
+          "tramo": [
+            153.8,
+            174.4
+          ],
+          "originales": [
+            7
+          ],
+          "tiempo": {
+            "esperado_min": 0.5,
+            "observado_min": 0.38,
+            "origen": "medido",
+            "estado": "menor",
+            "cita": ""
+          },
+          "fin_medido": 176.6,
+          "anotado": [
+            153.68,
+            176.68
+          ],
+          "dif_inicio_s": 0.12,
+          "dif_duracion_s": -0.2
+        },
+        {
+          "estado": "Sobra",
+          "paso_sop": null,
+          "paso_video": 1,
+          "fuera_de_orden": false,
+          "marco_operador": "intro",
+          "tramo": [
+            6.19,
+            14.83
+          ],
+          "originales": [
+            1
+          ]
+        }
+      ],
+      "avisos": [],
+      "segmentacion": "llm",
+      "valida": true,
+      "pasa": true,
+      "motivos": [],
+      "segundos_total": 20.36
+    }
+  ]
+}

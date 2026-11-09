@@ -124,8 +124,27 @@ sí es reproducible: MiniLM corre en CPU, y el juez da lo mismo con la misma ent
 
 ## Medición con A–D (9 nov)
 
-_Se llena con las corridas de `medir_mvp`, `medir_afinidad` y `medir_tiempos` (commit de la
-medición)._
+Código de `feat/s5` (commit del rescate), Gemma 4 en la GPU, los `analisis.json` de cada video
+(Whisper `large-v3-turbo`).
+
+| Video | Script | Corridas | Resultado | Criterio |
+|---|---|---|---|---|
+| A | `medir_mvp` ([datos](datos/mvp/mvp-20261109-0101.md)) | 6 | 6/6 verde (91.67–100 %), sin *Falta* | pasa |
+| A | `medir_tiempos` | 3 | 91.67 / 100 / 91.67 %, verde | — |
+| B | `medir_mvp` ([datos](datos/mvp/mvp-20261109-0104.md)) | 3 | 3/3: *Falta* exactamente en 2 y 6, la *Sobra* agregada; 66.67 % | pasa (sin cambios) |
+| C | `medir_afinidad` ([datos](datos/afinidad/afinidad-20261109-0108.md)) | 3 | afinidad 97; *Fuera de orden* 2 y 5; *distinto* el 4; 75 % | pasa (sin cambios) |
+| C | `medir_tiempos` ([datos](datos/tiempos/tiempos-20261109-0111.md)) | 3 | *excede* solo el paso 1; 75–83.33 % | pasa (sin cambios) |
+| D | `medir_afinidad` | 3 | afinidad 19–20, detenida; al continuar, 6 *Falta* | pasa (sin cambios) |
+
+- **Meta cumplida: A 6/6 en verde** con `medir_mvp` (y 3/3 más con `medir_tiempos`), sin empeorar
+  B, C ni D.
+- **Pero el rescate no se activó en ninguna de las 24 corridas completas** (no hay una sola línea
+  "Rescate de Falta" en el log): en ninguna Gemma dejó el paso 6 en *Falta*. El verde de hoy no
+  prueba el rescate por sí solo, igual que en el prototipo. Lo prueba la regresión con las 4
+  segmentaciones reales que sí dejaban el paso 6 en *Falta* (`tests/test_rescate_fixtures.py`):
+  pasan de 83.33 % a 91.67 %, y el adversario sigue en *Falta*.
+- El rescate no tocó B ni D: los *Falta* reales de B no tienen una ventana que llegue a
+  `UMBRAL_ALTO`, y D no tiene anclas.
 
 ### Prototipo (antes de las condiciones)
 
