@@ -12,12 +12,13 @@ del SOP y del video, el segundo y la cita (siempre de la transcripción, regla 4
 los roles y el responsable de cada par (RF-15, RF-17, ADR-020) se copian de lo guardado, igual
 que el tiempo de cada par, el total y el horario (RF-16, ADR-021). Un reporte guardado antes de
 ADR-020 sale con la afinidad en None, sin roles ni responsables; uno anterior a ADR-021, sin
-tiempos.
+tiempos. `FilaReporte.rescatado` sale del registro de la fusión (ADR-022).
 """
 
 from datetime import datetime
 
 from sopvid.contrato import (
+    ESTADOS_PAR,
     SOP,
     ConteoReporte,
     FilaReporte,
@@ -115,6 +116,11 @@ def armar_reporte(
                 justificacion=juicio.justificacion if juicio and juicio.justificacion else None,
                 responsable=responsable,
                 tiempo=tiempo,
+                rescatado=(
+                    paso.estado in ESTADOS_PAR
+                    and paso.indice_video is not None
+                    and resultado.fusiones[paso.indice_video].rescate
+                ),
             )
         )
     resumen = resultado.clasificacion.resumen

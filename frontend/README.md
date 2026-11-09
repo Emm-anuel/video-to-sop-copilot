@@ -133,6 +133,10 @@ Todo lo necesario ya existe en el backend; no hace falta esperar a nadie.
       paso en el video; `narrado`, la que dijo el operador, con su frase en `cita`). Solo
       `excede` es un incumplimiento; `menor` es más rápido de lo esperado: muéstralo, pero sin
       alarma.
+    - `rescatado` (desde el 9 nov, ADR-022, solo en pares): el paso del video se armó con varios
+      fragmentos que habían quedado como *Sobra*, para un paso del SOP que iba a salir en
+      *Falta*, y el juez lo confirmó. Márcalo (p. ej. "armado con fragmentos") para que quien
+      revisa sepa que la cita es de uno de ellos y el segundo es el del primero.
     - `roles` (desde el 8 nov: `presente` / `mencionado` / `ausente`, con su segundo para saltar
       al video, `persona` y `confianza`; con `confianza: "baja"` el rol lo infirió el modelo, no
       se dijo). Un rol ausente con `con_pasos: false` (de apoyo, p. ej. un supervisor que solo

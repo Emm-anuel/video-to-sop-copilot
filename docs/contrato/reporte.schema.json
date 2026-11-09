@@ -189,7 +189,7 @@
     },
     "FilaReporte": {
       "additionalProperties": false,
-      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.\n\n`responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un\nFalta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los\nreportes guardados antes de ADR-020 y ADR-021.",
+      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.\n\n`responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un\nFalta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los\nreportes guardados antes de ADR-020 y ADR-021.\n\n`rescatado` (ADR-022) es true si el paso del video del par se armó con varios fragmentos al\nrescatar un Falta, y el juez lo confirmó: la pantalla lo marca para que se vea.",
       "properties": {
         "estado": {
           "enum": [
@@ -342,6 +342,11 @@
             }
           ],
           "default": null
+        },
+        "rescatado": {
+          "default": false,
+          "title": "Rescatado",
+          "type": "boolean"
         }
       },
       "required": [

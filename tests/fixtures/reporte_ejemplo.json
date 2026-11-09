@@ -89,7 +89,8 @@
         "origen": "medido",
         "estado": "en_tiempo",
         "cita": ""
-      }
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -116,7 +117,8 @@
         "origen": "medido",
         "estado": "en_tiempo",
         "cita": ""
-      }
+      },
+      "rescatado": false
     },
     {
       "estado": "Parcial",
@@ -143,7 +145,8 @@
         "origen": "medido",
         "estado": "sin_referencia",
         "cita": ""
-      }
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -170,7 +173,8 @@
         "origen": "medido",
         "estado": "excede",
         "cita": ""
-      }
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -197,7 +201,8 @@
         "origen": "medido",
         "estado": "menor",
         "cita": ""
-      }
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -224,7 +229,8 @@
         "origen": "medido",
         "estado": "en_tiempo",
         "cita": ""
-      }
+      },
+      "rescatado": false
     },
     {
       "estado": "Falta",
@@ -239,7 +245,8 @@
       "marco_operador": null,
       "justificacion": null,
       "responsable": null,
-      "tiempo": null
+      "tiempo": null,
+      "rescatado": false
     },
     {
       "estado": "Sobra",
@@ -254,7 +261,8 @@
       "marco_operador": "intro",
       "justificacion": null,
       "responsable": null,
-      "tiempo": null
+      "tiempo": null,
+      "rescatado": false
     },
     {
       "estado": "Sobra",
@@ -269,7 +277,8 @@
       "marco_operador": null,
       "justificacion": null,
       "responsable": null,
-      "tiempo": null
+      "tiempo": null,
+      "rescatado": false
     },
     {
       "estado": "Sobra",
@@ -284,7 +293,8 @@
       "marco_operador": "cierre",
       "justificacion": null,
       "responsable": null,
-      "tiempo": null
+      "tiempo": null,
+      "rescatado": false
     }
   ],
   "roles": [

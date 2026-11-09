@@ -189,3 +189,17 @@ python scripts/ejemplo_reporte.py
 ```
 
 `tests/test_reporte.py` falla si el script deja de dar exactamente estos archivos.
+
+## `rescate.json`
+
+Fixtures de regresión del rescate de un *Falta* (ADR-022), que usa `tests/test_rescate_fixtures.py`.
+A diferencia del resto de esta carpeta, el texto **no es inventado aquí**: sale de los videos A y
+B que **grabó el equipo** narrando el SOP inventado `sop_filtro_agua.md` (nada del cliente, sin
+nombres de personas). Trae, del video A, las 4 segmentaciones de Gemma 4 que dejaban el paso 6 en
+*Falta* y su transcripción (24 segmentos); del B, un caso adversario (su segmentación con tres
+fragmentos de A insertados después del paso 5, y la transcripción correspondiente). Para correr
+sin LLM ni MiniLM, también trae los vectores de MiniLM (float16, por huella del texto, sin el
+texto) y los juicios de Gemma por entrada exacta.
+
+Se regenera con `scripts/grabar_rescate.py` (necesita Ollama y los `analisis.json` de A y B, que
+viven fuera de git); no se edita a mano.

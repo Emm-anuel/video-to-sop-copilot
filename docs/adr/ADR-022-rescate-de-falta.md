@@ -1,7 +1,7 @@
 # ADR-022 · Rescatar un *Falta* en los fragmentos contiguos del video
 
-- **Estado:** Propuesto (9 nov). Prototipo medido en una copia aparte; no está en `feat/s5` (el
-  diff, fuera de git, en `data/interim/rescate-prototipo.patch`).
+- **Estado:** Aprobado por el equipo (9 nov), con tres condiciones (sección "Decisión").
+  Implementado en `lenguaje/emparejamiento.py` (`rescatar`).
 - **Fecha:** 2026-11-09
 - **Autores:** Emmanuel Merida
 - **Decisores:** equipo
@@ -52,66 +52,102 @@ generación), ≈ 14 s en CPU. MiniLM corre siempre en CPU.
 | Temperatura 0 | Ya está (`llm.py`: `temperature` 0 y `SEMILLA`); no evita la variación de la segmentación | — | Ya aplicada |
 | Calibrar `UMBRAL_ALTO` / `UMBRAL_BAJO` (`calibrar_umbrales.py`) | No hay umbral que dé el par correcto. Con `UMBRAL_ALTO` ≤ 0.66, el par equivocado (0.666–0.681) pasaría a *Cumple* sin juez: verde, pero con la cita de otro paso. Con `UMBRAL_BAJO` ≥ 0.69, se rompe sin juez: el mismo *Falta*. El candidato correcto (el tramo completo) no existe antes del húngaro | Ninguno en tiempo; riesgo en D y B | No resuelve |
 | Votar o repetir la segmentación | Atacaría la causa, pero cuesta una segmentación más por voto y no garantiza fronteras buenas (también puede ser mala de forma estable) | +15–20 s GPU y +100 s o más CPU por segmentación | No |
-| **Rescatar el *Falta* en los fragmentos contiguos** | Arma el candidato que falta (el tramo completo) solo cuando un paso del SOP queda en *Falta*, y deja que los umbrales y el juez decidan con el tramo completo | MiniLM sobre las ventanas (< 0.5 s CPU); a lo más una llamada al juez por *Falta* rescatado en zona gris (≈ 1.2 s GPU, ≈ 14 s CPU) | **Propuesta** |
+| **Rescatar el *Falta* en los fragmentos contiguos** | Arma el candidato que falta (el tramo completo) solo cuando un paso del SOP queda en *Falta*, y el juez decide con la narración de todo el tramo | MiniLM sobre las ventanas (< 0.5 s CPU); una llamada al juez por cada ventana que llega a `UMBRAL_ALTO` (≈ 1.2 s GPU, ≈ 14 s CPU) | **Elegida** |
 
-## Decisión propuesta
+## Decisión
 
-Después del juez y antes de `orden` (`emparejar`), para cada paso del SOP en *Falta*:
+Aprobada el 9 nov con tres condiciones: (a) todo par rescatado pasa por el juez, aunque el
+coseno llegue a `UMBRAL_ALTO`; (b) las segmentaciones que dieron amarillo quedan como fixtures de
+regresión sin LLM, más una prueba adversaria; (c) el reporte marca el paso rescatado.
+
+`rescatar` (`lenguaje/emparejamiento.py`) corre en `emparejar` después del juez y antes de
+`orden`, solo si hay juez. Para cada paso del SOP en *Falta*:
 
 1. **Anclas:** el par del paso anterior del SOP y el del siguiente (Cumple, Parcial o sin
    revisar). Se exige al menos uno: sin pares (otro procedimiento, video D) no se rescata nada.
 2. **Región:** los pasos del video entre esas dos anclas (desde el principio o hasta el final si
-   falta una). De ahí solo los *Sobra*, que no están en ningún par.
-3. **Ventanas:** cada grupo de *Sobra* contiguos se prueba completo y por partes (todas las
-   subventanas contiguas), unido como en la fusión (`_unir`). Se elige la de mayor coseno MiniLM
-   con el paso del SOP.
-4. **Decisión con los umbrales de siempre:** si llega a `UMBRAL_BAJO`, la ventana se une en un solo
-   paso del video (con su registro `Fusion`) y se repite una vez húngaro → umbrales → juez. Así,
-   con ≥ `UMBRAL_ALTO` es *Cumple*, y en la zona gris el juez decide leyendo la narración de todo
-   el tramo.
-5. Un fragmento rescatado no se vuelve a usar para otro *Falta*. No hay umbrales nuevos.
+   falta una). De ahí solo los *Sobra* no usados en otro rescate.
+3. **Ventanas:** cada subventana de *Sobra* contiguos, unida como en la fusión (`_unir`, con el
+   original más parecido al paso del SOP como representante). Gana la de mayor coseno MiniLM.
+4. **Evidencia fuerte y juez:** solo una ventana con coseno ≥ `UMBRAL_ALTO` va al juez (condición
+   a), con la narración de toda la ventana. *Cumple* o *Parcial* la rescatan; *no_corresponde* la
+   descarta y el paso sigue en *Falta*. Si Ollama no responde, el par queda sin revisar
+   (zona_gris) y el reporte, provisional (ADR-019). Una ventana en la zona gris **no** se rescata:
+   en la prueba adversaria es justo lo que separa "purgo el aire" (parecido, pero incompleto) del
+   paso entero. Esto endurece la propuesta del prototipo, que rescataba desde `UMBRAL_BAJO`: el
+   juez real califica *Parcial* un fragmento como "purgo el aire con el botón rojo", porque purgar
+   es parte del paso 6.
+5. **Sin volver a emparejar:** la ventana se une en un solo paso del video y solo cambian esa fila
+   y esos *Sobra*. Los demás pares y sus juicios se conservan; el juez solo se llama para la
+   ventana.
+6. **Marcas (condición c):** `Fusion.rescate`, `FilaReporte.rescatado` y
+   `ResumenClasificacion.rescatados`. Cada llamada del rescate suma 1 a `pares`, a `pares_llm` y
+   al veredicto en `resumen.juez`, aunque el juez la rechace.
 
-En la implementación final, los juicios ya hechos se reusan (misma entrada, mismo veredicto: el
-juez es determinista) y solo se llama al juez para el par rescatado.
+No hay umbrales nuevos. Pruebas: `tests/test_rescate.py` (lógica, con un vectorizador por
+palabras clave y un juez guionado) y `tests/test_rescate_fixtures.py` (condición b): las 4
+segmentaciones reales de A que dieron amarillo y el caso adversario, con los vectores de MiniLM y
+los juicios de Gemma grabados en `tests/fixtures/rescate.json` (`scripts/grabar_rescate.py`).
 
-## Medición del prototipo (9 nov)
+- **Las 4 de A** pasan de 83.33 % a **91.67 % (verde)**. El paso 6 queda *Parcial*, con el
+  tramo 110.0–125.2 s (cinco fragmentos, coseno 0.87–0.92), que empieza en el inicio anotado
+  a mano. El juez: "abrió la llave, purgó
+  el aire y revisó la unión con toalla; omite la validación del manómetro en 4 bar". La ventana
+  de mayor coseno deja fuera el fragmento "el manómetro marca 4 bar", que sí se dijo. Elegir la
+  ventana más larga sobre `UMBRAL_ALTO` lo incluiría, pero podría tragarse fragmentos de otro
+  paso; se queda el criterio conservador.
+- **Adversario:** B (omite los pasos 2 y 6) con "purgo el aire", "ya sale solo agua" y "suelto el
+  botón" de A insertados después del paso 5. La mejor ventana para el paso 6 queda bajo
+  `UMBRAL_ALTO`: no va al juez y el paso 6 sigue en *Falta* (66.67 %, *Falta* en 2 y 6).
 
-Copia aparte (`git worktree` sin rama, en `data/interim/`), con los `analisis.json` de A–D y Gemma
-en la GPU.
+## Riesgo para RNF-07 (mismo porcentaje en dos corridas)
 
-- **Las 4 segmentaciones grabadas que dieron amarillo**, vueltas a emparejar con el rescate y el
-  juez real: las 4 pasan de 83.33 % a **100 %**. El paso 6 queda *Cumple* con el tramo
-  110.0–125.2 s, que empieza en el inicio anotado a mano (110.0 s). Las 6 de control no cambian.
-- **Corridas completas con `validar`:**
+El plan (§7) cubre RNF-07 con "temperatura 0, semilla 42, versiones fijadas". No alcanza: la
+segmentación de Gemma no es determinista ni con eso (9 salidas distintas en 9 llamadas), y el
+porcentaje de A varió entre 83.33, 91.67 y 100 % en el mismo equipo. El rescate quita el caso que
+lo bajaba a amarillo, pero dos corridas pueden seguir dando 91.67 y 100 %. El resto de la cadena
+sí es reproducible: MiniLM corre en CPU, y el juez da lo mismo con la misma entrada (10/10). Las
+6 segmentaciones de control, vueltas a emparejar, dieron exactamente el resultado original.
 
-  | Video | Corridas | Resultado | Criterio |
-  |---|---|---|---|
-  | A (`medir_mvp`) | 6 | 6/6 verde, 91.67–100 %, sin *Falta* | pasa |
-  | B (`medir_mvp`) | 3 | 3/3: *Falta* en 2 y 6, la *Sobra* agregada; 66.67 % | pasa (sin cambios) |
-  | C (`medir_afinidad`, `medir_tiempos`) | 3 + 3 | 75 %; *Fuera de orden* 2 y 5; *distinto* el 4; *excede* el 1 | pasa (sin cambios) |
-  | D (`medir_afinidad`) | 3 | afinidad 19–20, detenida; al continuar, 6 *Falta* | pasa (sin cambios) |
-  | A (`diagnosticar_juez`) | 10 | 10/10 al 100 %, el paso 6 *Cumple* sin juez (coseno 0.80–0.88) | pasa |
+**Propuesta para medirlo y acotarlo (sin implementar; requiere decisión):**
 
-  **En ninguna de las 16 corridas completas de A se activó el rescate**: ninguna segmentación
-  partió el paso 6 lo bastante para dejarlo en *Falta*, y ni siquiera hubo pares en la zona gris.
-  Sin el rescate, 10 corridas iguales del mismo día dieron 6 pares en la zona gris y 4 amarillos.
-  Es la variación de la segmentación, esta vez a favor: **el 16/16 en verde no prueba el rescate
-  por sí solo**. Lo prueba el experimento controlado de arriba (las mismas 4 segmentaciones que
-  fallaron pasan a 100 %). En B evaluó los dos *Falta* reales y no rescató ninguno: el 2 no tiene
-  fragmentos entre sus anclas y para el 6 solo queda el cierre, con coseno < 0.55.
+1. Guardar la segmentación con el análisis: los pasos del video antes de fusionar, que hoy ya
+   van a `videos.pasos_video`, más el modelo y la versión del prompt.
+2. "Regenerar el reporte" (p. ej. `POST /videos/{id}/validar?segmentar=false`) reusa esa
+   segmentación en lugar de volver a llamar a Gemma; repetir la segmentación queda como acción
+   explícita.
+3. Medir RNF-07 en dos niveles. **Reproducibilidad del reporte:** N regeneraciones desde la
+   segmentación guardada dan el mismo reporte, byte a byte (salvo `creado` y los segundos). Se
+   espera que se cumpla. **Estabilidad del análisis:** N segmentaciones nuevas del mismo video
+   dan el mismo porcentaje y el mismo semáforo. Se informa como rango (hoy A: 91.67–100 %, con el
+   rescate) y no como igualdad.
+
+## Medición con A–D (9 nov)
+
+_Se llena con las corridas de `medir_mvp`, `medir_afinidad` y `medir_tiempos` (commit de la
+medición)._
+
+### Prototipo (antes de las condiciones)
+
+Copia aparte (`git worktree` sin rama, en `data/interim/`), con el rescate desde `UMBRAL_BAJO` y
+repitiendo húngaro → juez: las 4 segmentaciones que dieron amarillo pasaban a 100 % (el paso 6
+*Cumple* sin juez). Con `validar`: A 6/6 y 10/10 en verde, B 3/3, C 3/3 y D 3/3 sin cambios. En
+esas 16 corridas de A el rescate no se activó (Gemma no partió el paso 6); el 16/16 no probaba el
+rescate por sí solo.
 
 ## Consecuencias
 
 - **Positivas:** ataca la causa visible (el candidato correcto no existe) sin depender de que la
-  segmentación sea estable, sin umbrales nuevos y sin llamadas extra salvo en el caso que se
-  rescata. Junta en un solo paso la evidencia que hoy queda dispersa en *Sobra*, así que también
-  mejora la cita y el segundo de la fila y la medida del tiempo (ADR-021).
-- **Negativas / riesgos:** un *Falta* real seguido de fragmentos que se parecen al paso del SOP
-  podría rescatarse por error si la ventana llega a `UMBRAL_ALTO` (sin juez); en la zona gris lo
-  decide el juez con la narración completa. Requiere pruebas con un video que omita un paso con
-  fragmentos parecidos alrededor. Cambia la tabla del reporte: menos *Sobra* falsos.
-- **Seguimiento:** si se aprueba, implementarlo en `emparejamiento.py` con pruebas sin LLM (A
-  partido, B con sus *Falta*, D sin anclas), reusar los juicios y medir A–D otra vez.
+  segmentación sea estable, sin umbrales nuevos y con una sola llamada extra al juez, solo cuando
+  hay qué rescatar (≈ 1.2 s en GPU, ≈ 14 s en CPU). Junta en un solo paso la evidencia que quedaba
+  dispersa en *Sobra*: mejora la cita, el segundo y la medida del tiempo de la fila (ADR-021), y
+  quita *Sobra* falsos de la tabla.
+- **Negativas / riesgos:** un *Falta* real con fragmentos muy parecidos al paso completo
+  (coseno ≥ `UMBRAL_ALTO`) depende del juez para no rescatarse. La ventana de mayor coseno puede
+  dejar fuera un fragmento final del paso (el manómetro en A), y el juez da *Parcial*. RNF-07 sigue
+  en riesgo por la segmentación (sección anterior).
+- **Seguimiento:** la medición de RNF-07 propuesta; un video que omita un paso con fragmentos casi
+  completos alrededor, para probar al juez en ese borde.
 
 ## Referencias
 

@@ -45,6 +45,7 @@ export type ObservadoMin = number;
 export type Origen = "narrado" | "medido";
 export type Estado2 = "en_tiempo" | "excede" | "menor" | "sin_referencia";
 export type Cita1 = string;
+export type Rescatado = boolean;
 export type Filas = FilaReporte[];
 export type Rol = string;
 export type Estado3 = "presente" | "mencionado" | "ausente";
@@ -179,6 +180,9 @@ export interface ConteoReporte {
  * `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
  * Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los
  * reportes guardados antes de ADR-020 y ADR-021.
+ *
+ * `rescatado` (ADR-022) es true si el paso del video del par se armó con varios fragmentos al
+ * rescatar un Falta, y el juez lo confirmó: la pantalla lo marca para que se vea.
  */
 export interface FilaReporte {
   estado: Estado;
@@ -194,6 +198,7 @@ export interface FilaReporte {
   justificacion?: Justificacion;
   responsable?: ResponsableFila | null;
   tiempo?: TiempoFila | null;
+  rescatado?: Rescatado;
 }
 /**
  * Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).

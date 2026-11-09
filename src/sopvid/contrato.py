@@ -155,6 +155,10 @@ class Fusion(_Modelo):
     `paso_sop`. `responsables_distintos` lista los responsables de los originales, en orden de
     aparición, cuando no coinciden (el paso fusionado se queda con el del más parecido); si
     coinciden, va vacía.
+
+    `rescate` es true si el paso se armó al rescatar un Falta (ADR-022): une fragmentos que habían
+    quedado como Sobra entre los pares vecinos, y el juez confirmó el par con el paso
+    `paso_sop`. Falso en los registros anteriores a ADR-022.
     """
 
     numero: int = Field(ge=1, description="Número del paso fusionado.")
@@ -163,6 +167,7 @@ class Fusion(_Modelo):
     citas: list[str]
     similitudes: list[Annotated[float, Field(ge=-1, le=1)]]
     responsables_distintos: list[str] = []
+    rescate: bool = False
 
     @model_validator(mode="after")
     def _listas_alineadas(self) -> Self:
@@ -392,6 +397,10 @@ class ResumenClasificacion(_Modelo):
     (punto 4 de ADR-012, diferida con RF-18) no cuenta aquí. `fuera_de_orden` cuenta aparte los
     pasos con esa marca (0 hasta que corre `orden`); no cambia el conteo por estado.
 
+    El rescate de un Falta (ADR-022) arma pares fuera del húngaro y todos pasan por el juez:
+    cada uno suma 1 a `pares`, a `pares_llm` y al veredicto del juez, aunque el juez lo rechace.
+    `rescatados` cuenta los que el juez confirmó (o dejó sin revisar) y quedaron como par.
+
     `juez` queda en `None` hasta que corre el juez de la zona gris; después cuenta qué decidió
     en cada par que le llegó (todos los `RESULTADOS_JUEZ`, aunque sea 0): su suma es
     `pares_llm` y "respaldo" es el conteo de zona_gris que quedó. Sin juez, `pares_llm` es el
@@ -412,9 +421,14 @@ class ResumenClasificacion(_Modelo):
     juez: dict[ResultadoJuez, Annotated[int, Field(ge=0)]] | None = None
     segundos_juez: float | None = Field(default=None, ge=0)
     marco_operador: int = Field(default=0, ge=0)
+    rescatados: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
+        if self.rescatados > self.pares:
+            raise ValueError(f"{self.rescatados} rescatados con solo {self.pares} pares")
+        if self.rescatados and self.juez is None:
+            raise ValueError("un par rescatado pasa siempre por el juez (ADR-022)")
         if (self.juez is None) != (self.segundos_juez is None):
             raise ValueError("juez y segundos_juez van juntos: los dos o ninguno")
         if set(self.conteo) != set(ESTADOS):
@@ -500,6 +514,16 @@ class ResultadoEmparejamiento(_Modelo):
                 f"{len(self.fusiones)} registros de fusión para {len(numeros)} pasos del video, "
                 "o con números distintos"
             )
+        rescatados = [i for i, f in enumerate(self.fusiones) if f.rescate]
+        if len(rescatados) != self.clasificacion.resumen.rescatados:
+            raise ValueError(
+                f"{len(rescatados)} pasos del video rescatados y el resumen cuenta "
+                f"{self.clasificacion.resumen.rescatados}"
+            )
+        en_pares = {p.indice_video for p in self.clasificacion.pasos if p.estado in ESTADOS_PAR}
+        for i in rescatados:
+            if i not in en_pares:
+                raise ValueError(f"el paso del video rescatado {i} no está en un par (ADR-022)")
         for paso in self.clasificacion.pasos:
             if paso.indice_video is None:
                 continue
@@ -1048,6 +1072,9 @@ class FilaReporte(_Modelo):
     `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
     Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los
     reportes guardados antes de ADR-020 y ADR-021.
+
+    `rescatado` (ADR-022) es true si el paso del video del par se armó con varios fragmentos al
+    rescatar un Falta, y el juez lo confirmó: la pantalla lo marca para que se vea.
     """
 
     estado: EstadoPaso
@@ -1063,13 +1090,14 @@ class FilaReporte(_Modelo):
     justificacion: str | None = None
     responsable: ResponsableFila | None = None
     tiempo: TiempoFila | None = None
+    rescatado: bool = False
 
     @model_validator(mode="after")
     def _personas_y_tiempo_solo_en_pares(self) -> Self:
         if self.estado not in ESTADOS_PAR and (
-            self.responsable is not None or self.tiempo is not None
+            self.responsable is not None or self.tiempo is not None or self.rescatado
         ):
-            raise ValueError(f"{self.estado}: responsable y tiempo solo van en un par")
+            raise ValueError(f"{self.estado}: responsable, tiempo y rescate solo van en un par")
         return self
 
 
