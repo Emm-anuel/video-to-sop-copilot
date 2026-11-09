@@ -2,8 +2,10 @@ r"""Mide RNF-07 ("mismo porcentaje en dos corridas") en dos niveles, con videos 
 
 1. **Reproducibilidad del reporte:** de cada validación nueva, `--regeneraciones` validaciones más
    que reusan su segmentación y su ficha de contexto, como `POST /videos/{id}/validar` (RNF-07,
-   ADR-022). Deben dar el mismo `ResultadoValidacion` que la primera, sin contar los segundos ni
-   la marca `segmentacion_reusada`.
+   ADR-022). Las regeneraciones deben dar entre sí el mismo `ResultadoValidacion`, sin contar los
+   segundos ni la marca `segmentacion_reusada`. Aparte se informa si son iguales a la validación
+   original: ahí el juez corre después de la ficha y la segmentación en la misma carga de Gemma,
+   y su redacción puede cambiar aunque la entrada sea la misma (ADR-022).
 2. **Estabilidad del análisis:** `--repeticiones` validaciones con segmentación nueva de Gemma.
    El porcentaje se informa como rango (la segmentación de Gemma no es determinista, ADR-022).
 
@@ -15,7 +17,7 @@ validación, como la API. Uso, con Ollama arriba:
 
 Salida en `data/interim/rnf07/` y, con `--docs`, en `docs/adr/datos/rnf07/`: solo porcentajes,
 semáforos, conteos, huellas y segundos, sin texto del video ni del SOP.
-Código de salida: 0 si todas las regeneraciones dieron el mismo resultado; 1 si alguna no.
+Código de salida: 0 si las regeneraciones de cada validación son idénticas entre sí; 1 si no.
 """
 
 from __future__ import annotations
@@ -124,7 +126,8 @@ def medir(args: argparse.Namespace) -> dict[str, Any]:
                 "pasos_video": len(nueva.pasos_video),
                 "huella": base,
                 "regeneradas": regeneradas,
-                "identicas": all(r["huella"] == base for r in regeneradas),
+                "identicas": len({r["huella"] for r in regeneradas}) <= 1,
+                "igual_a_la_original": all(r["huella"] == base for r in regeneradas),
             }
             corridas.append(corrida)
             logger.info(
@@ -154,18 +157,18 @@ def informe(datos: dict[str, Any]) -> str:
         + f". SOP: `{datos['sop']}`. Modelos: {datos['modelos']}.",
         "",
         "| Video | Segmentaciones nuevas | Porcentaje (rango) | Semáforos | Pasos del video"
-        " | Regeneraciones idénticas |",
-        "|---|---|---|---|---|---|",
+        " | Regeneraciones idénticas entre sí | Iguales a la original |",
+        "|---|---|---|---|---|---|---|",
     ]
     for v in datos["videos"]:
         c = v["corridas"]
-        regeneradas = [r for x in c for r in x["regeneradas"]]
-        iguales = sum(r["huella"] == x["huella"] for x in c for r in x["regeneradas"])
+        identicas = sum(x["identicas"] for x in c)
+        originales = sum(x["igual_a_la_original"] for x in c)
         lineas.append(
             f"| {v['video']} | {len(c)} | {rango([x['cumplimiento'] for x in c])} "
             f"| {dict(Counter(x['semaforo'] for x in c))} "
             f"| {dict(sorted(Counter(x['pasos_video'] for x in c).items()))} "
-            f"| {iguales}/{len(regeneradas)} |"
+            f"| {identicas}/{len(c)} | {originales}/{len(c)} |"
         )
     lineas += ["", "## Corridas", ""]
     lineas += ["| Video · rep. | % | Semáforo | Pasos | Rescatados | Huella | Regeneradas |"]
@@ -173,7 +176,7 @@ def informe(datos: dict[str, Any]) -> str:
     for v in datos["videos"]:
         for x in v["corridas"]:
             regeneradas = ", ".join(
-                ("=" if r["huella"] == x["huella"] else f"≠ {r['huella']}")
+                ("= original" if r["huella"] == x["huella"] else r["huella"])
                 + ("" if r["reusada"] else " (sin reusar)")
                 for r in x["regeneradas"]
             )

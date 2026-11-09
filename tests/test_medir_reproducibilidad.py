@@ -53,8 +53,15 @@ def test_informe_y_veredicto() -> None:
         "huella": "abc",
         "regeneradas": [{"huella": "abc", "reusada": True}, {"huella": "abc", "reusada": True}],
         "identicas": True,
+        "igual_a_la_original": True,
     }
-    otra = {**corrida, "repeticion": 2, "cumplimiento": 91.67, "pasos_video": 17}
+    otra = {
+        **corrida,
+        "repeticion": 2,
+        "cumplimiento": 91.67,
+        "pasos_video": 17,
+        "igual_a_la_original": False,
+    }
     datos = {
         "fecha": "2026-11-09T12:00:00",
         "git": {"commit": "abc", "cambios_sin_commit": 0},
@@ -63,7 +70,7 @@ def test_informe_y_veredicto() -> None:
         "videos": [{"video": "video_a", "corridas": [corrida, otra]}],
     }
     texto = mr.informe(datos)
-    assert "| video_a | 2 | 91.67–100.00 % | {'verde': 2} | {14: 1, 17: 1} | 4/4 |" in texto
+    assert "| video_a | 2 | 91.67–100.00 % | {'verde': 2} | {14: 1, 17: 1} | 2/2 | 1/2 |" in texto
     assert mr.todas_identicas(datos)
     otra["identicas"] = False
     assert not mr.todas_identicas(datos)
