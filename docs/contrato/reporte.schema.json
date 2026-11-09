@@ -704,7 +704,7 @@
     },
     "TiempoFila": {
       "additionalProperties": false,
-      "description": "Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).\n\n`observado_min` es la que narra el operador (\"narrado\", con la frase en `cita`, regla 4) o\nt_fin − t_inicio del paso del video ya fusionado (\"medido\", sin cita); si el operador narra\nla duración, esa gana siempre (§5.5, ADR-021). Sin tiempo esperado en el SOP, el estado es\n\"sin_referencia\". Solo \"excede\" cuenta como fuera de tiempo; \"menor\" se muestra, pero no es\nun incumplimiento.",
+      "description": "Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).\n\n`observado_min` es la que narra el operador (\"narrado\", con la frase en `cita`, regla 4) o\nla medida del paso del video ya fusionado (\"medido\", sin cita): de su inicio al inicio del\nsiguiente paso del video, con la pausa (el último, hasta el final del video); si el operador\nnarra la duración, esa gana siempre (§5.5, ADR-021). Sin tiempo esperado en el SOP, el estado es\n\"sin_referencia\". Solo \"excede\" cuenta como fuera de tiempo; \"menor\" se muestra, pero no es\nun incumplimiento.",
       "properties": {
         "esperado_min": {
           "anyOf": [

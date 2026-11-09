@@ -194,8 +194,9 @@ docs/
 >   `scripts/medir_afinidad.py` (A–D pasan).
 > - **Tiempos (8 nov, rama `feat/s5`, ADR-021):** `lenguaje/tiempos.py`, solo código. Si el operador
 >   narra la duración (verbo de duración de una lista cerrada, ES/EN), esa gana siempre (§5.5); si
->   no, la medida del paso fusionado (t_fin − t_inicio). ±`TOLERANCIA_TIEMPO`; solo *excede* cuenta
->   en `pasos_fuera_de_tiempo`. Total y horario (`UMBRAL_HORARIO`, sin calibrar). Medición:
+>   no, la medida del paso fusionado hasta el inicio del siguiente paso del video (pausa incluida).
+>   ±`TOLERANCIA_TIEMPO`; solo *excede* cuenta en `pasos_fuera_de_tiempo`. Total y horario
+>   (`UMBRAL_HORARIO`, sin calibrar). Medición:
 >   `scripts/medir_tiempos.py` (C: 1 *excede* en el paso 1). `/nuevo` acepta PDF y Word con la
 >   conversión asíncrona (`frontend/README.md`).
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del

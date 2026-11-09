@@ -10,8 +10,9 @@ de los pasos del video, cuyos segundos ya son de la transcripción.
   no bastan solos: "mantengo presionado el botón durante tres segundos" no es lo que tarda el paso.
   Ante la duda no se usa y se cae al tiempo medido (ADR-021).
 - `tiempo_de_paso`: la duración observada de un paso del video, ya fusionado (ADR-013): la
-  narrada, si el operador la dice (gana siempre, §5.5); si no, la medida (t_fin − t_inicio, el
-  tramo completo de la fusión).
+  narrada, si el operador la dice (gana siempre, §5.5); si no, la medida: del inicio del paso al
+  inicio del siguiente paso del video, sea cual sea (otro par, un Sobra o el cierre), con la
+  pausa incluida; el último paso del video, hasta el final del video (`fin_del_paso`).
 - `comparar`: en_tiempo, excede, menor o sin_referencia, con la tolerancia de la configuración.
 - `tiempos_por_paso`, `tiempo_total` y `comparar_horario`: lo que va al reporte.
 
@@ -452,19 +453,30 @@ def comparar(esperado_min: float | None, observado_min: float, tolerancia: float
     return "en_tiempo"
 
 
+def fin_del_paso(pasos_video: Sequence[PasoVideo], indice: int, duracion_s: float) -> float:
+    """Dónde termina la medida del paso `indice` (ADR-021): en el inicio del siguiente paso del
+    video, sea un par, un Sobra o el cierre del operador (la pausa queda dentro); el último paso
+    del video, al final del video. Nunca antes de su propio `t_fin`."""
+    paso = pasos_video[indice]
+    fin = pasos_video[indice + 1].t_inicio if indice + 1 < len(pasos_video) else duracion_s
+    return max(fin, paso.t_fin)
+
+
 def tiempo_de_paso(
     paso: PasoVideo,
     esperado_min: float | None,
     transcripcion: Sequence[Segmento],
     tolerancia: float,
+    fin: float | None = None,
 ) -> TiempoFila:
     """La duración observada del paso del video (ya fusionado) frente al esperado del SOP.
 
-    Si el operador narra la duración, esa gana siempre (§5.5); si no, la medida: el tramo
-    completo del paso (ADR-021). El observado se redondea a dos decimales antes de comparar: el
-    estado cuadra con lo que se muestra.
+    Si el operador narra la duración en el tramo, esa gana siempre (§5.5); si no, la medida, de
+    `paso.t_inicio` a `fin` (`fin_del_paso`; sin `fin`, el `t_fin` del paso). El observado se
+    redondea a dos decimales antes de comparar: el estado cuadra con lo que se muestra.
     """
-    narrada = duracion_narrada(transcripcion, paso.t_inicio, paso.t_fin)
+    fin = paso.t_fin if fin is None else max(fin, paso.t_fin)
+    narrada = duracion_narrada(transcripcion, paso.t_inicio, fin)
     esperado = esperado_min if esperado_min is not None and esperado_min > 0 else None
     if narrada is not None:
         observado = round(narrada.minutos, 2)
@@ -475,7 +487,7 @@ def tiempo_de_paso(
             estado=comparar(esperado, observado, tolerancia),
             cita=narrada.cita,
         )
-    observado = round(max(0.0, paso.t_fin - paso.t_inicio) / 60, 2)
+    observado = round(max(0.0, fin - paso.t_inicio) / 60, 2)
     return TiempoFila(
         esperado_min=esperado,
         observado_min=observado,
@@ -489,9 +501,11 @@ def tiempos_por_paso(
     sop: SOP,
     transcripcion: Sequence[Segmento],
     tolerancia: float,
+    duracion_s: float,
 ) -> list[TiempoFila | None]:
     """El tiempo de cada resultado de la clasificación, en su orden: solo los pares (Cumple,
-    Parcial, zona_gris, con o sin fuera de orden); Falta y Sobra, None."""
+    Parcial, zona_gris, con o sin fuera de orden); Falta y Sobra, None. `duracion_s` es la del
+    video: ahí termina la medida del último paso (`fin_del_paso`)."""
     tiempos: list[TiempoFila | None] = []
     for paso in resultado.clasificacion.pasos:
         if paso.estado not in ESTADOS_PAR or paso.indice_sop is None or paso.indice_video is None:
@@ -503,6 +517,7 @@ def tiempos_por_paso(
                 sop.pasos[paso.indice_sop].tiempo_esperado_min,
                 transcripcion,
                 tolerancia,
+                fin_del_paso(resultado.pasos_video, paso.indice_video, duracion_s),
             )
         )
     estados = Counter(f"{t.estado}/{t.origen}" for t in tiempos if t is not None)

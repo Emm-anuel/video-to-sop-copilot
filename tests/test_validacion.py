@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from dobles import CONTEXTO, SEGMENTOS, SOP_PRUEBA, Entorno, guardar_sop
 from sopvid.contrato import Contexto, Dispositivos, PasoVideo, ResultadoValidacion
+from sopvid.lenguaje.tiempos import fin_del_paso
 from sopvid.lenguaje.validacion import INICIO_ETAPA
 from sopvid.plataforma.modelos import Reporte, Video
 from sopvid.plataforma.procesamiento import ERROR_SIN_SOP, FIN_ANALISIS_VALIDAR
@@ -103,8 +104,12 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         assert (tiempo is not None) == (paso.estado in ("Cumple", "Parcial", "zona_gris"))
         if tiempo is not None:
             assert (tiempo.origen, tiempo.estado) == ("medido", "sin_referencia")
+            # Del inicio del paso al inicio del siguiente paso del video (ADR-021).
+            fin = fin_del_paso(
+                guardado.resultado.pasos_video, paso.indice_video, float(video.duracion)
+            )
             del_video = guardado.resultado.pasos_video[paso.indice_video]
-            assert tiempo.observado_min == round((del_video.t_fin - del_video.t_inicio) / 60, 2)
+            assert tiempo.observado_min == round((fin - del_video.t_inicio) / 60, 2)
     assert guardado.tiempo_total is not None and guardado.tiempo_total.estado == "sin_referencia"
     assert guardado.horario is not None and guardado.horario.estado == "sin_referencia"
     assert meta.dispositivos == Dispositivos(

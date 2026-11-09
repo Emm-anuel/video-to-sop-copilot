@@ -1,7 +1,8 @@
 # ADR-021 · Tiempos: duración narrada o medida, solo *excede* cuenta
 
 - **Estado:** Aprobado por el equipo (8 nov). Corregido el mismo día, antes de P5: la duración
-  narrada gana siempre, como pide §5.5 (antes, solo si era mayor que la medida).
+  narrada gana siempre, como pide §5.5 (antes, solo si era mayor que la medida). El 9 nov se
+  adopta la medida hasta el inicio del siguiente paso del video (antes, t_fin − t_inicio).
 - **Fecha:** 2026-11-08
 - **Autores:** Emmanuel Merida
 - **Decisores:** equipo
@@ -33,7 +34,7 @@ Restricciones:
 
 | Opción | A favor | En contra |
 |---|---|---|
-| A. Solo el tiempo medido (t_fin − t_inicio del paso) | Simple, siempre disponible | Una espera con corte o en silencio ("espero 5 minutos") no se ve en el video |
+| A. Solo el tiempo medido (hasta el siguiente paso del video) | Simple, siempre disponible | Una espera con corte o en silencio ("espero 5 minutos") no se ve en el video |
 | **B. La duración narrada siempre gana sobre la medida** | Es lo que pide §5.5; respeta lo que dice el operador y cubre las esperas con corte | "Esto tarda 30 segundos" (lo que *debería* tardar) esconde un paso que tardó 70 s: el *Excede* se pierde |
 | C. La narrada gana solo si es ≥ la medida | El video es una cota inferior de lo que tardó | Se aparta de §5.5 (se usó de la primera versión a la corrección del 8 nov) |
 
@@ -45,10 +46,13 @@ segundos" de un botón; la 3 depende de adivinar todas las acciones. Se elige la
 
 ### 1. Duración observada de un paso
 
-- **Medida:** `(t_fin − t_inicio) / 60` del paso del video ya fusionado (ADR-013). Un paso fusionado
-  usa su tramo completo (del primer inicio al último fin de sus originales, como lo deja `fusionar`);
-  personas, en cambio, usa el original citado (ADR-020). `t_fin` es el fin del último segmento del
-  paso: la pausa hasta el siguiente paso no se mide.
+- **Medida (desde el 9 nov):** del inicio del paso del video ya fusionado (ADR-013) al inicio
+  del **siguiente paso del video**, sea otro par, un *Sobra* o el cierre del operador: la pausa
+  después de hablar queda dentro (`fin_del_paso`). El último paso del video termina al final del
+  video; por eso el último par termina en el cierre si hay uno. Un paso fusionado empieza en el
+  primer inicio de sus originales; personas, en cambio, usa el original citado (ADR-020). Hasta
+  el 8 nov la medida era `t_fin − t_inicio` (fin del último segmento del paso), que perdía la
+  pausa: 5–8 s por paso en A y B (sección "Otra medida", abajo).
 - **Narrada:** si en el tramo hay una duración narrada (regla de abajo), **esa gana siempre**
   (§5.5): es la observada, con `origen="narrado"` y su cita, aunque el video dure más o menos. Si
   no hay, la medida (`origen="medido"`, sin cita). La fila muestra la cita: quien revisa ve que el
@@ -120,7 +124,9 @@ Si la validación se detiene por afinidad baja (ADR-020), no se calculan tiempos
 - **Negativas / riesgos:**
   - Las fronteras de los pasos son de Gemma (ADR-010): un paso partido en dos y no fusionado deja un
     pedazo como *Sobra* y subestima la medida; uno que absorbe al siguiente la sobreestima.
-  - La medida no incluye la pausa después del último segmento del paso.
+  - La medida incluye la pausa hasta el siguiente paso del video: una pausa larga (alguien
+    espera en silencio) cuenta para el paso anterior, que es lo esperado; un *Sobra* entre dos
+    pares corta la medida del primero.
   - Como la narrada gana siempre, el disparador que no sabe de qué habla se paga: "el agua tarda 3
     segundos en salir" o "esto tarda 30 segundos" (lo que *debería* tardar) reemplazan a la medida y
     pueden esconder un *excede*. Se mitiga mostrando la cita en la fila. "Caliento durante 5
@@ -173,7 +179,7 @@ video, Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo`. Datos crudo
   [`datos/mvp/mvp-20261108-1631.md`](datos/mvp/mvp-20261108-1631.md). Contando las dos mediciones,
   A cayó a amarillo en 2 de 6 corridas: queda como riesgo del MVP, fuera de este ADR.
 
-### Otra medida: hasta el inicio del siguiente paso (8 nov, sin adoptar)
+### Otra medida: hasta el inicio del siguiente paso (comparada el 8 nov, adoptada el 9 nov)
 
 Con los mismos tramos de Gemma, la medida «del inicio del paso al inicio del siguiente paso del
 video, pausa incluida (el último, hasta su t_fin)» se compara con la actual contra la anotación a
@@ -193,7 +199,8 @@ mano: [`datos/tiempos/comparacion-medida-20261108.md`](datos/tiempos/comparacion
 - Cambia un estado: B, paso 4, pasa de *menor* a *en tiempo*. Ningún *excede* cambia.
 - En C · 1, el paso 2 que absorbió el inicio del 4 sube de 0.50 a 0.54 min (límite 0.60).
 
-Queda como propuesta: no se adopta sin aprobación.
+Adoptada el 9 nov (decisión del equipo). La tabla de la medición se rehízo con ella y con el
+rescate de ADR-022.
 
 ## Referencias
 

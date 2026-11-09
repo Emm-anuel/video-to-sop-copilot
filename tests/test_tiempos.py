@@ -27,6 +27,7 @@ from sopvid.lenguaje.tiempos import (
     duracion_en_texto,
     duracion_narrada,
     esperado_total,
+    fin_del_paso,
     numeros_a_cifras,
     tiempo_de_paso,
     tiempo_total,
@@ -230,13 +231,14 @@ def _sop(esperados: list[float | None], total: float | None = None, horario: str
     )
 
 
-def test_paso_fusionado_usa_el_tramo_completo_sin_intro_ni_cierre() -> None:
-    # Originales: intro (0–10), paso partido en dos (10–40 y 40–70), paso 2 (70–90), cierre.
+def test_paso_fusionado_mide_hasta_el_siguiente_paso_sin_intro_ni_cierre() -> None:
+    # Intro (0–8), paso partido en dos y fusionado (10–60), pausa, paso 2 (70–88), pausa,
+    # cierre (92–95); el video dura 100 s.
     pasos = [
-        _paso(1, 0.0, 10.0, "Hola, soy el técnico."),
-        _paso(2, 10.0, 70.0, "Pongo la pieza en la rejilla."),  # fusión de los originales 2 y 3
-        _paso(3, 70.0, 90.0, "Guardo la pieza seca."),
-        _paso(4, 90.0, 95.0, "Listo, terminé."),
+        _paso(1, 0.0, 8.0, "Hola, soy el técnico."),
+        _paso(2, 10.0, 60.0, "Pongo la pieza en la rejilla."),  # fusión de los originales 2 y 3
+        _paso(3, 70.0, 88.0, "Guardo la pieza seca."),
+        _paso(4, 92.0, 95.0, "Listo, terminé."),
     ]
     filas = [
         fila("Cumple", sop=0, video=1, pasos_video=pasos),
@@ -261,11 +263,30 @@ def test_paso_fusionado_usa_el_tramo_completo_sin_intro_ni_cierre() -> None:
     con_fusion = ResultadoEmparejamiento(
         clasificacion=base.clasificacion, fusiones=fusiones, pasos_video=pasos
     )
-    tiempos = tiempos_por_paso(con_fusion, sop, [], TOL)
-    assert tiempos[0].observado_min == 1.0  # 10–70 s, sin los 10 s de la intro
+    tiempos = tiempos_por_paso(con_fusion, sop, [], TOL, duracion_s=100.0)
+    # Del inicio del paso fusionado al inicio del paso 2: la pausa de 60 a 70 s entra; la intro
+    # no.
+    assert tiempos[0].observado_min == 1.0
     assert tiempos[0].estado == "excede"
-    assert tiempos[1].observado_min == pytest.approx(0.33)  # 70–90 s, sin el cierre
+    # El último par termina donde empieza el cierre (92 s), no al final del video.
+    assert tiempos[1].observado_min == pytest.approx(0.37)
     assert tiempos[2] is None and tiempos[3] is None  # intro y cierre: Sobra, sin tiempo
+
+
+def test_fin_del_paso() -> None:
+    pasos = [_paso(1, 0.0, 8.0), _paso(2, 10.0, 25.0), _paso(3, 31.0, 40.0)]
+    assert fin_del_paso(pasos, 0, 60.0) == 10.0  # inicio del siguiente, con la pausa
+    assert fin_del_paso(pasos, 1, 60.0) == 31.0
+    # El último paso del video (sin cierre después) llega al final del video.
+    assert fin_del_paso(pasos, 2, 60.0) == 60.0
+    # Nunca antes de su propio t_fin (un video más corto que la transcripción).
+    assert fin_del_paso(pasos, 2, 35.0) == 40.0
+
+
+def test_la_medida_incluye_la_pausa_hasta_el_siguiente_paso() -> None:
+    transcripcion = [_seg(0, 0.0, 20.0, "Me pongo los guantes y los lentes.")]
+    tiempo = tiempo_de_paso(_paso(1, 0.0, 20.0), 0.5, transcripcion, TOL, fin=30.0)
+    assert (tiempo.origen, tiempo.observado_min, tiempo.estado) == ("medido", 0.5, "en_tiempo")
 
 
 def test_paso_fusionado_busca_la_narrada_en_todo_el_tramo() -> None:
@@ -314,7 +335,7 @@ def test_total_con_un_falta_y_un_sobra() -> None:
     sop = _sop([0.1, 0.1, 0.1], total=0.3)
     pasos, filas = _resultado_con_falta_y_sobra()
     res = resultado(sop, pasos, filas)
-    tiempos = tiempos_por_paso(res, sop, [], TOL)
+    tiempos = tiempos_por_paso(res, sop, [], TOL, duracion_s=15.0)
     assert [t is not None for t in tiempos] == [True, False, True, False]
     total = tiempo_total(tiempos, sop, TOL)
     # Solo los pares suman (el Sobra de 5 s y el Falta no), y se suman las filas tal como se
@@ -334,7 +355,7 @@ def test_total_sin_referencia() -> None:
     sop = sop_de_prueba()
     pasos = pasos_del_video()
     filas = [fila("Cumple", sop=i, video=i, pasos_video=pasos) for i in range(3)]
-    tiempos = tiempos_por_paso(resultado(sop, pasos, filas), sop, [], TOL)
+    tiempos = tiempos_por_paso(resultado(sop, pasos, filas), sop, [], TOL, duracion_s=15.0)
     assert all(t is not None and t.estado == "sin_referencia" for t in tiempos)
     total = tiempo_total(tiempos, sop, TOL)
     assert (total.esperado_min, total.estado) == (None, "sin_referencia")

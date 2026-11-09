@@ -85,7 +85,7 @@
       },
       "tiempo": {
         "esperado_min": 0.25,
-        "observado_min": 0.23,
+        "observado_min": 0.24,
         "origen": "medido",
         "estado": "en_tiempo",
         "cita": ""
@@ -112,7 +112,7 @@
       },
       "tiempo": {
         "esperado_min": 0.2,
-        "observado_min": 0.19,
+        "observado_min": 0.22,
         "origen": "medido",
         "estado": "en_tiempo",
         "cita": ""
@@ -139,7 +139,7 @@
       },
       "tiempo": {
         "esperado_min": null,
-        "observado_min": 0.21,
+        "observado_min": 0.22,
         "origen": "medido",
         "estado": "sin_referencia",
         "cita": ""
@@ -166,7 +166,7 @@
       },
       "tiempo": {
         "esperado_min": 0.4,
-        "observado_min": 0.58,
+        "observado_min": 0.6,
         "origen": "medido",
         "estado": "excede",
         "cita": ""
@@ -193,7 +193,7 @@
       },
       "tiempo": {
         "esperado_min": 0.5,
-        "observado_min": 0.35,
+        "observado_min": 0.37,
         "origen": "medido",
         "estado": "menor",
         "cita": ""
@@ -220,7 +220,7 @@
       },
       "tiempo": {
         "esperado_min": 0.4,
-        "observado_min": 0.39,
+        "observado_min": 0.41,
         "origen": "medido",
         "estado": "en_tiempo",
         "cita": ""
@@ -321,7 +321,7 @@
   ],
   "tiempo_total": {
     "esperado_min": 3.0,
-    "observado_min": 1.95,
+    "observado_min": 2.06,
     "estado": "menor"
   },
   "horario": {

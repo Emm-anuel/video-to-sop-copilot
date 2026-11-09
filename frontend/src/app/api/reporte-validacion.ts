@@ -215,8 +215,9 @@ export interface ResponsableFila {
  * Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).
  *
  * `observado_min` es la que narra el operador ("narrado", con la frase en `cita`, regla 4) o
- * t_fin − t_inicio del paso del video ya fusionado ("medido", sin cita); si el operador narra
- * la duración, esa gana siempre (§5.5, ADR-021). Sin tiempo esperado en el SOP, el estado es
+ * la medida del paso del video ya fusionado ("medido", sin cita): de su inicio al inicio del
+ * siguiente paso del video, con la pausa (el último, hasta el final del video); si el operador
+ * narra la duración, esa gana siempre (§5.5, ADR-021). Sin tiempo esperado en el SOP, el estado es
  * "sin_referencia". Solo "excede" cuenta como fuera de tiempo; "menor" se muestra, pero no es
  * un incumplimiento.
  */

@@ -245,7 +245,9 @@ def validar(
     segundos["personas"] = reloj() - inicio
     # Tiempos (RF-16, ADR-021): código sobre la transcripción; MiniLM solo para el horario.
     inicio = reloj()
-    tiempos = tiempos_por_paso(resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo)
+    tiempos = tiempos_por_paso(
+        resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo, analisis.duracion_s
+    )
     total = tiempo_total(tiempos, sop, settings.tolerancia_tiempo)
     horario = comparar_horario(
         sop,

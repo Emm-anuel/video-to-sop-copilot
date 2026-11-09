@@ -107,12 +107,19 @@ def filas_de(v: Validacion, sop: SOP, anotados: dict[int, tuple[float, float]]) 
             fila["originales"] = res.fusiones[paso.indice_video].originales
         if tiempo is not None:
             fila["tiempo"] = tiempo.model_dump(mode="json")
-        if fila["paso_sop"] in anotados and "tramo" in fila:
+        if tiempo is not None and "tramo" in fila:
+            # Dónde termina lo medido (ADR-021: inicio del siguiente paso del video); con una
+            # duración narrada, el tramo del paso.
+            medido = tiempo.observado_min * 60 if tiempo.origen == "medido" else None
+            fila["fin_medido"] = (
+                round(fila["tramo"][0] + medido, 2) if medido is not None else fila["tramo"][1]
+            )
+        if fila["paso_sop"] in anotados and "fin_medido" in fila:
             inicio, fin = anotados[fila["paso_sop"]]
             fila["anotado"] = [inicio, fin]
             fila["dif_inicio_s"] = round(fila["tramo"][0] - inicio, 2)
             fila["dif_duracion_s"] = round(
-                (fila["tramo"][1] - fila["tramo"][0]) - (fin - inicio), 2
+                (fila["fin_medido"] - fila["tramo"][0]) - (fin - inicio), 2
             )
         filas.append(fila)
     return filas
@@ -127,7 +134,8 @@ def por_que_excede(fila: dict[str, Any]) -> list[str]:
     if fila.get("tiempo", {}).get("origen") == "narrado":
         notas.append("duración narrada")
     if "anotado" in fila:
-        (t0, t1), (a0, a1) = fila["tramo"], fila["anotado"]
+        (t0, _), (a0, a1) = fila["tramo"], fila["anotado"]
+        t1 = fila.get("fin_medido", fila["tramo"][1])
         if t0 < a0 - HOLGURA_S:
             notas.append(f"empieza {a0 - t0:.1f} s antes del inicio anotado")
         if t1 > a1 + HOLGURA_S:

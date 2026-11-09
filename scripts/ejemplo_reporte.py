@@ -125,12 +125,12 @@ CREADO = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
 # estado que debe dar `tiempos_por_paso` con la tolerancia por defecto (20 %) frente a la
 # duración medida en el video (se comprueba al construir).
 TIEMPOS: dict[int, tuple[float | None, str]] = {
-    1: (0.25, "en_tiempo"),  # Cerrar la llave: 0.23 medido
-    2: (0.2, "en_tiempo"),  # Guantes y lentes: 0.19
+    1: (0.25, "en_tiempo"),  # Cerrar la llave: 0.24 medido
+    2: (0.2, "en_tiempo"),  # Guantes y lentes: 0.22
     3: (None, "sin_referencia"),  # Liberar la presión: el SOP no dice cuánto
-    4: (0.4, "excede"),  # Retirar el cartucho: 0.58
-    5: (0.5, "menor"),  # Colocar el cartucho: 0.35
-    6: (0.4, "en_tiempo"),  # Abrir la llave y revisar fugas: 0.39
+    4: (0.4, "excede"),  # Retirar el cartucho: 0.60
+    5: (0.5, "menor"),  # Colocar el cartucho: 0.37
+    6: (0.4, "en_tiempo"),  # Abrir la llave y revisar fugas: 0.41
 }
 RESPONSABLE_DISTINTO = (6, "Supervisor de turno")  # paso del SOP y su responsable
 ALMACENISTA = Elemento(nombre="Almacenista", descripcion="Entrega el cartucho nuevo.")
@@ -311,7 +311,9 @@ def construir_validacion(caido: bool) -> ResultadoValidacion:
     responsables = asignar_responsables(
         resultado, sop, contexto, analisis.transcripcion, pasos, comparador=comparador
     )
-    tiempos = tiempos_por_paso(resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo)
+    tiempos = tiempos_por_paso(
+        resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo, analisis.duracion_s
+    )
     _comprobar_tiempos(resultado, tiempos, sop)
     pct = porcentaje(resultado)
     return ResultadoValidacion(
