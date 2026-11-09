@@ -249,11 +249,18 @@ def revalidar_video(
         bool,
         Query(description="true: no detenerse por afinidad baja (quien carga ya la vio)"),
     ] = False,
+    segmentar: Annotated[
+        bool,
+        Query(description="true: volver a segmentar con Gemma en lugar de reusar los pasos"),
+    ] = False,
 ) -> VideoCreado:
     """Repite solo la validación con la transcripción guardada (ADR-019).
 
     Se acepta en "listo", "error" y "afinidad_baja". Con `continuar=true` no se detiene por
-    afinidad baja (ADR-020) y el reporte lleva la afinidad con `bajo_umbral=true`.
+    afinidad baja (ADR-020) y el reporte lleva la afinidad con `bajo_umbral=true`. Reusa los
+    pasos del video guardados (RNF-07: el reporte regenerado sale igual); con `segmentar=true`
+    los vuelve a pedir a Gemma. Si los guardados son de la heurística de respaldo o quedaron
+    incompletos, siempre se vuelve a segmentar.
     """
     video = _buscar(session, video_id)
     if video.modo != "validar":
@@ -264,7 +271,7 @@ def revalidar_video(
         raise HTTPException(409, "el video no tiene análisis guardado: vuelve a subirlo")
     video.proceso, video.error = EN_COLA, None
     session.commit()
-    procesador.revalidar(video.id, validacion, continuar=continuar)
+    procesador.revalidar(video.id, validacion, continuar=continuar, segmentar=segmentar)
     return VideoCreado(id=video.id, proceso=video.proceso)
 
 

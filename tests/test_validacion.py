@@ -14,7 +14,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dobles import CONTEXTO, SEGMENTOS, SOP_PRUEBA, Entorno, guardar_sop
-from sopvid.contrato import Contexto, Dispositivos, PasoVideo, ResultadoValidacion
+from sopvid.contrato import (
+    Contexto,
+    Dispositivos,
+    ResultadoValidacion,
+    SegmentacionGuardada,
+)
 from sopvid.lenguaje.tiempos import fin_del_paso
 from sopvid.lenguaje.validacion import INICIO_ETAPA
 from sopvid.plataforma.modelos import Reporte, Video
@@ -68,8 +73,11 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         None,
     )
     assert video.transcripcion is not None
-    # Los pasos de segmentar, antes de fusionar: uno por segmento, con su tiempo.
-    pasos = [PasoVideo.model_validate(p) for p in video.pasos_video]
+    # La segmentación completa (RNF-07): los pasos de segmentar, antes de fusionar, uno por
+    # segmento con su tiempo, y el método y el modelo, para poder reusarla.
+    guardada = SegmentacionGuardada.model_validate(video.pasos_video)
+    assert (guardada.metodo, guardada.modelo, guardada.reusable) == ("llm", "falso", True)
+    pasos = guardada.pasos
     assert [(p.t_inicio, p.cita) for p in pasos] == [(s.t_inicio, s.texto) for s in SEGMENTOS]
     [reporte] = _reportes(entorno.session, video_id)
     guardado = ResultadoValidacion.model_validate(reporte.resultado)
@@ -335,14 +343,87 @@ def test_repetir_la_validacion_reusa_la_ficha_guardada(
     assert entorno.eventos.count("chat:contexto") == 1  # no volvió a llamar al modelo
     assert entorno.video(video_id).contexto == guardada
     reporte = client.get(f"/videos/{video_id}/reporte").json()
+    # Tampoco segmentó otra vez (RNF-07): reusó los pasos guardados.
     assert set(reporte["metadatos"]["segundos"]) == {
         "afinidad",
-        "segmentacion",
         "emparejamiento",
         "personas",
         "tiempos",
     }
+    assert reporte["metadatos"]["segmentacion_reusada"] is True
     assert reporte["provisional"] is False
+
+
+# ── Segmentación guardada (RNF-07) ───────────────────────────────────────────────────────────
+
+
+def _sin_tiempos_de_ejecucion(reporte: dict) -> dict:
+    """El reporte sin lo que cambia en cada corrida aunque el resultado sea el mismo."""
+    datos = {k: v for k, v in reporte.items() if k != "creado"}
+    datos["metadatos"] = {k: v for k, v in reporte["metadatos"].items() if k != "segundos"}
+    return datos
+
+
+def test_regenerar_el_reporte_dos_veces_da_el_mismo_reporte(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    assert entorno.eventos.count("chat:fronteras") == 1
+    guardada = entorno.video(video_id).pasos_video
+
+    reportes = []
+    for _ in range(2):
+        assert client.post(f"/videos/{video_id}/validar").status_code == 202
+        entorno.correr_pendientes()
+        reportes.append(client.get(f"/videos/{video_id}/reporte").json())
+
+    assert entorno.eventos.count("chat:fronteras") == 1  # Gemma no volvió a segmentar
+    assert entorno.video(video_id).pasos_video == guardada
+    assert _sin_tiempos_de_ejecucion(reportes[0]) == _sin_tiempos_de_ejecucion(reportes[1])
+    assert reportes[0]["metadatos"]["segmentacion_reusada"] is True
+
+
+def test_segmentar_true_vuelve_a_pedir_los_pasos(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    respuesta = client.post(f"/videos/{video_id}/validar", params={"segmentar": "true"})
+    assert respuesta.status_code == 202
+    entorno.correr_pendientes()
+    assert entorno.eventos.count("chat:fronteras") == 2
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["metadatos"]["segmentacion_reusada"] is False
+    assert "segmentacion" in reporte["metadatos"]["segundos"]
+
+
+@pytest.mark.parametrize("guardada", ["heuristica", "lista_anterior", "sin_redactar"])
+def test_una_segmentacion_que_no_se_puede_reusar_se_vuelve_a_pedir(
+    client: TestClient, entorno: Entorno, subir_validar, guardada: str
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    video = entorno.video(video_id)
+    segmentacion = SegmentacionGuardada.model_validate(video.pasos_video)
+    if guardada == "heuristica":
+        cambio = {"metodo": "heuristica", "motivo_respaldo": "llm_no_disponible"}
+        video.pasos_video = segmentacion.model_copy(update=cambio).model_dump(mode="json")
+    elif guardada == "sin_redactar":
+        cambio = {"pasos_sin_redactar": 1, "motivo_sin_redaccion": "llm_no_disponible"}
+        video.pasos_video = segmentacion.model_copy(update=cambio).model_dump(mode="json")
+    else:  # antes de RNF-07 se guardaba solo la lista de pasos, sin el método
+        video.pasos_video = [p.model_dump(mode="json") for p in segmentacion.pasos]
+    entorno.session.commit()
+
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+    assert entorno.eventos.count("chat:fronteras") == 2
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["metadatos"]["segmentacion_reusada"] is False
+    # Queda guardada otra vez con su método, lista para reusarse la próxima vez.
+    nueva = SegmentacionGuardada.model_validate(entorno.video(video_id).pasos_video)
+    assert nueva.reusable
 
 
 def test_juez_sin_revisar_da_reporte_provisional(

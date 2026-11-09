@@ -94,6 +94,7 @@ export type Transcripcion = ("cpu" | "gpu" | "desconocido") | null;
 export type TranscripcionRespaldoCpu = boolean;
 export type Llm = "cpu" | "gpu" | "desconocido";
 export type Embedder1 = "cpu";
+export type SegmentacionReusada = boolean;
 export type Creado = string;
 
 /**
@@ -295,6 +296,7 @@ export interface MetadatosValidacion {
   segundos: Segundos;
   avisos?: Avisos;
   dispositivos?: Dispositivos | null;
+  segmentacion_reusada?: SegmentacionReusada;
 }
 /**
  * Los umbrales de la configuración con que se calculó el reporte (RNF-14).

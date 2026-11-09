@@ -19,6 +19,13 @@ avance del análisis se escala a 0–40 y la validación sigue de 40 a 100 sin r
 video queda en error con el análisis guardado, y `revalidar` repite solo la validación, sin
 Whisper (ADR-019), con la ficha guardada si la hay. Un reporte nuevo reemplaza al anterior.
 
+Segmentación guardada (RNF-07): `videos.pasos_video` guarda la segmentación completa
+(`SegmentacionGuardada`: pasos antes de fusionar, método y modelo). `revalidar` la reusa en lugar
+de volver a llamar a Gemma, porque Gemma no segmenta igual dos veces (ADR-022) y el resto de la
+cadena sí es reproducible: el reporte regenerado sale igual. Se vuelve a segmentar si se pide
+(`segmentar=True`) o si la guardada no se puede reusar (heurística de respaldo, pasos sin
+redactar o fila anterior, sin método).
+
 Afinidad baja (ADR-020): si la validación se detiene porque el video parece no ser del SOP, se
 guardan la ficha y un `Reporte` con la afinidad, `cumplimiento` en NULL y la `DetencionAfinidad`
 en `resultado` (`guardar_detencion`), y el video queda en `proceso="afinidad_baja"`. `revalidar`
@@ -66,7 +73,7 @@ from typing import Any
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis, Contexto, Dispositivos
+from sopvid.contrato import SOP, Analisis, Contexto, Dispositivos, SegmentacionGuardada
 from sopvid.lenguaje.lectura_sop import (
     AjustesConversion,
     ErrorConversionLLM,
@@ -80,11 +87,14 @@ from sopvid.lenguaje.validacion import (
     Detenida,
     FabricaValidacion,
     Validacion,
+    segmentacion_de,
+    segmentacion_guardada,
     validar,
 )
 from sopvid.percepcion.contexto import ResultadoContexto, generar_contexto
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
+from sopvid.percepcion.segmentacion import Segmentacion
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.hardware import CANDADO_MODELO_PESADO, CandadoModeloPesado, get_hardware
@@ -175,8 +185,25 @@ def guardar_reporte(session: Session, video: Video, validacion: Validacion) -> N
             resultado=guardado.model_dump(mode="json"),
         )
     )
-    video.pasos_video = [p.model_dump(mode="json") for p in validacion.pasos_video]
+    if validacion.segmentacion is not None:
+        video.pasos_video = segmentacion_guardada(validacion.segmentacion).model_dump(mode="json")
+    else:  # una Validacion armada a mano, sin la segmentación: solo los pasos, como antes
+        video.pasos_video = [p.model_dump(mode="json") for p in validacion.pasos_video]
     _guardar_contexto(video, validacion.resultado_contexto)
+
+
+def leer_segmentacion(video: Video) -> SegmentacionGuardada | None:
+    """La segmentación guardada del video, o None si no hay, es de antes de RNF-07 (una lista
+    sin método) o no valida."""
+    if not isinstance(video.pasos_video, dict):
+        return None
+    try:
+        return SegmentacionGuardada.model_validate(video.pasos_video)
+    except Exception as exc:
+        logger.warning(
+            "Video %d: segmentación guardada inválida (%s)", video.id, type(exc).__name__
+        )
+        return None
 
 
 def guardar_detencion(session: Session, video: Video, detenida: Detenida) -> None:
@@ -360,12 +387,20 @@ class Procesador:
         self._cola.poner(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
 
     def revalidar(
-        self, video_id: int, validacion: FabricaValidacion, *, continuar: bool = False
+        self,
+        video_id: int,
+        validacion: FabricaValidacion,
+        *,
+        continuar: bool = False,
+        segmentar: bool = False,
     ) -> None:
         """Encola solo la validación, sobre el análisis ya guardado (ADR-019). Con `continuar`, no
-        se detiene por afinidad baja (ADR-020): quien carga ya vio la advertencia."""
+        se detiene por afinidad baja (ADR-020): quien carga ya vio la advertencia. Reusa la
+        segmentación guardada (RNF-07), salvo con `segmentar`."""
         self._cola.poner(
-            lambda: self.procesar_validacion(video_id, validacion, continuar=continuar)
+            lambda: self.procesar_validacion(
+                video_id, validacion, continuar=continuar, segmentar=segmentar
+            )
         )
 
     def encolar_sop(self, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion) -> None:
@@ -406,13 +441,18 @@ class Procesador:
             )
 
     def procesar_validacion(
-        self, video_id: int, validacion: FabricaValidacion, *, continuar: bool = False
+        self,
+        video_id: int,
+        validacion: FabricaValidacion,
+        *,
+        continuar: bool = False,
+        segmentar: bool = False,
     ) -> None:
         """Valida con el análisis guardado, con el candado de modelo pesado; nunca deja escapar
         una excepción."""
         try:
             with self._candado.tomar(), self._sesiones() as session:
-                self._revalidar(session, video_id, validacion, continuar)
+                self._revalidar(session, video_id, validacion, continuar, segmentar)
         except Exception as exc:
             logger.error(
                 "Video %d: no se pudo registrar la validación (%s)", video_id, type(exc).__name__
@@ -485,13 +525,27 @@ class Procesador:
         self._validar(session, video, analisis, validacion, cronometro.segundos(), dispositivos)
 
     def _revalidar(
-        self, session: Session, video_id: int, validacion: FabricaValidacion, continuar: bool
+        self,
+        session: Session,
+        video_id: int,
+        validacion: FabricaValidacion,
+        continuar: bool,
+        segmentar: bool = False,
     ) -> None:
         video = session.get(Video, video_id)
         if video is None:
             logger.warning("Video %d: ya no existe; se omite", video_id)
             return
         contexto = _contexto_guardado(video)
+        guardada = None if segmentar else leer_segmentacion(video)
+        segmentacion = segmentacion_de(guardada) if guardada and guardada.reusable else None
+        logger.info(
+            "Video %d: %s",
+            video_id,
+            "reusa la segmentación guardada"
+            if segmentacion is not None
+            else "vuelve a segmentar" + (" (pedido)" if segmentar else ""),
+        )
         video.proceso, video.error = PROCESANDO, None
         # Con la ficha guardada se reusa y empieza por los pasos; sin ella, se genera primero.
         video.etapa = "contexto" if contexto is None else "segmentacion"
@@ -515,6 +569,7 @@ class Procesador:
             Dispositivos(gpu=self._gpu()),
             contexto,
             continuar=continuar,
+            segmentacion=segmentacion,
         )
 
     def _contexto_sin_sop(
@@ -559,9 +614,11 @@ class Procesador:
         contexto: Contexto | None = None,
         *,
         continuar: bool = False,
+        segmentacion: Segmentacion | None = None,
     ) -> None:
         """Valida, guarda el reporte y deja el video listo; si algo falla, en error. Con
-        `contexto` (la ficha guardada) no se vuelve a generar. Si la validación se detiene por
+        `contexto` (la ficha guardada) no se vuelve a generar, y con `segmentacion` (la guardada,
+        RNF-07) no se vuelve a segmentar. Si la validación se detiene por
         afinidad baja (sin `continuar`), guarda la detención y deja el video en "afinidad_baja".
 
         El SOP de referencia tiene que estar listo: el suyo va antes en la cola, así que aquí ya
@@ -597,6 +654,7 @@ class Procesador:
                 dispositivos=dispositivos,
                 contexto=contexto,
                 continuar=continuar,
+                segmentacion=segmentacion,
             )
         except LLMNoDisponible:
             self._fallar(session, video_id, ERROR_LLM.format(id=video_id))

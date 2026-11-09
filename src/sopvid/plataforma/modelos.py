@@ -123,7 +123,8 @@ class Video(Base):
     transcripcion: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     fotogramas: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     contexto: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    pasos_video: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # `SegmentacionGuardada` (dict, RNF-07); las filas anteriores guardaban solo la lista.
+    pasos_video: Mapped[dict[str, Any] | list[dict[str, Any]] | None] = mapped_column(JSONB)
     publicado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     creado: Mapped[datetime] = _creado()
 

@@ -488,6 +488,11 @@
             }
           ],
           "default": null
+        },
+        "segmentacion_reusada": {
+          "default": false,
+          "title": "Segmentacion Reusada",
+          "type": "boolean"
         }
       },
       "required": [

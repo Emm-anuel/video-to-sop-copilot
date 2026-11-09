@@ -49,6 +49,7 @@ from sopvid.contrato import (
     PasoVideo,
     ResultadoEmparejamiento,
     ResultadoValidacion,
+    SegmentacionGuardada,
     Umbrales,
 )
 from sopvid.lenguaje.afinidad import afinidad
@@ -102,7 +103,8 @@ FabricaValidacion = Callable[[], DependenciasValidacion]
 
 @dataclass(frozen=True)
 class Validacion:
-    """`pasos_video` son los de `segmentar`, antes de fusionar (van a `videos.pasos_video`).
+    """`pasos_video` son los de `segmentar`, antes de fusionar; `segmentacion`, la segmentación
+    completa (la nueva o la reusada), que va a `videos.pasos_video` como `SegmentacionGuardada`.
 
     `contexto` es la ficha con que se validó: la generada aquí o la que se pasó. Con
     `resultado_contexto` en None se reusó la guardada; si no, dice si se generó (y entonces va a
@@ -113,6 +115,31 @@ class Validacion:
     resultado: ResultadoValidacion
     contexto: Contexto = field(default_factory=Contexto)
     resultado_contexto: ResultadoContexto | None = None
+    segmentacion: Segmentacion | None = None
+
+
+def segmentacion_guardada(segmentacion: Segmentacion) -> SegmentacionGuardada:
+    """Lo que se guarda de una segmentación en `videos.pasos_video` (RNF-07)."""
+    return SegmentacionGuardada(
+        metodo=segmentacion.metodo,
+        modelo=segmentacion.modelo,
+        motivo_respaldo=segmentacion.motivo_respaldo,
+        pasos_sin_redactar=segmentacion.pasos_sin_redactar,
+        motivo_sin_redaccion=segmentacion.motivo_sin_redaccion,
+        pasos=segmentacion.pasos,
+    )
+
+
+def segmentacion_de(guardada: SegmentacionGuardada) -> Segmentacion:
+    """La `Segmentacion` que se reusa al repetir la validación, sin llamar a Gemma."""
+    return Segmentacion(
+        pasos=list(guardada.pasos),
+        metodo=guardada.metodo,
+        motivo_respaldo=guardada.motivo_respaldo,
+        modelo=guardada.modelo,
+        motivo_sin_redaccion=guardada.motivo_sin_redaccion,
+        pasos_sin_redactar=guardada.pasos_sin_redactar,
+    )
 
 
 @dataclass(frozen=True)
@@ -138,12 +165,15 @@ def validar(
     dispositivos: Dispositivos | None = None,
     contexto: Contexto | None = None,
     continuar: bool = False,
+    segmentacion: Segmentacion | None = None,
     reloj: Callable[[], float] = time.perf_counter,
 ) -> Validacion | Detenida:
     """Genera la ficha de contexto, calcula la afinidad, segmenta, empareja (con el juez) y
     calcula el porcentaje y el semáforo.
 
-    Con `contexto` (la ficha guardada) no se vuelve a generar. Si la afinidad queda bajo
+    Con `contexto` (la ficha guardada) no se vuelve a generar, y con `segmentacion` (la
+    guardada, RNF-07) no se vuelve a segmentar: el emparejamiento (MiniLM) y el juez dan lo mismo
+    con la misma entrada, así que el reporte sale igual. Si la afinidad queda bajo
     `AFINIDAD_MIN`, devuelve una `Detenida` sin segmentar, salvo con `continuar` (quien carga ya
     vio la advertencia): entonces sigue y el reporte lleva la afinidad con `bajo_umbral`.
 
@@ -189,10 +219,12 @@ def validar(
             # El `finally` descarga Gemma; los dispositivos se completan abajo.
             return Detenida(detencion, contexto, resultado_contexto)
 
-        avanzar("segmentacion", INICIO_ETAPA["segmentacion"])
-        inicio = reloj()
-        segmentacion = segmentar(analisis, deps.llm)
-        segundos["segmentacion"] = reloj() - inicio
+        reusada = segmentacion is not None
+        if segmentacion is None:
+            avanzar("segmentacion", INICIO_ETAPA["segmentacion"])
+            inicio = reloj()
+            segmentacion = segmentar(analisis, deps.llm)
+            segundos["segmentacion"] = reloj() - inicio
 
         avanzar("emparejamiento", INICIO_ETAPA["emparejamiento"])
         inicio = reloj()
@@ -268,6 +300,7 @@ def validar(
         segundos={etapa: round(s, 2) for etapa, s in segundos.items()},
         avisos=avisos,
         dispositivos=(dispositivos or Dispositivos()).model_copy(update={"llm": llm_en}),
+        segmentacion_reusada=reusada,
     )
     conteo = resultado.clasificacion.resumen.conteo
     logger.info(
@@ -294,6 +327,7 @@ def validar(
         ),
         contexto=contexto,
         resultado_contexto=resultado_contexto,
+        segmentacion=segmentacion,
     )
 
 

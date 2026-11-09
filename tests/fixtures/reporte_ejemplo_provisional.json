@@ -380,7 +380,8 @@
       "transcripcion_respaldo_cpu": false,
       "llm": "gpu",
       "embedder": "cpu"
-    }
+    },
+    "segmentacion_reusada": false
   },
   "creado": "2026-10-27T12:00:00Z"
 }

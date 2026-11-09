@@ -146,6 +146,30 @@ class PasoVideo(_Modelo):
         return self
 
 
+class SegmentacionGuardada(_Modelo):
+    """Los pasos del video como los dejó la segmentación, antes de fusionar, en
+    `videos.pasos_video` (JSONB; RNF-07, ADR-022).
+
+    La segmentación de Gemma no es determinista (ADR-022): repetir la validación (ADR-019) la
+    reusa, así que el reporte regenerado sale igual; solo se vuelve a segmentar si se pide o si no
+    se puede reusar: la hizo la heurística de respaldo, quedaron pasos sin redactar, o es una
+    fila anterior a este contrato (una lista sin método).
+    """
+
+    version_contrato: Literal[1] = 1
+    metodo: Literal["llm", "heuristica"]
+    modelo: str | None = None
+    motivo_respaldo: str | None = None
+    pasos_sin_redactar: int = Field(default=0, ge=0)
+    motivo_sin_redaccion: str | None = None
+    pasos: list[PasoVideo]
+
+    @property
+    def reusable(self) -> bool:
+        """True si la hizo el LLM y quedó completa: repetir la validación puede reusarla."""
+        return self.metodo == "llm" and self.pasos_sin_redactar == 0
+
+
 class Fusion(_Modelo):
     """Registro de un paso del video tras la fusión (ADR-013): qué pasos originales lo forman.
 
@@ -840,6 +864,9 @@ class MetadatosValidacion(_Modelo):
     avisos: list[Aviso] = []
     # None en los reportes guardados antes del 27 oct, que no lo registraban.
     dispositivos: Dispositivos | None = None
+    # True si los pasos del video se reusaron de la validación anterior (RNF-07), sin llamar a
+    # Gemma para segmentar; entonces `segundos` no trae "segmentacion".
+    segmentacion_reusada: bool = False
 
 
 class ResponsableFila(_Modelo):
