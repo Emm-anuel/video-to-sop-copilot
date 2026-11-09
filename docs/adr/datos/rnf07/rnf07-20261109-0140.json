@@ -1,0 +1,266 @@
+{
+  "fecha": "2026-11-09T01:40:54",
+  "git": {
+    "commit": "9b81eee823fc1e734776c7f4c74810b5f38c998c",
+    "rama": "feat/s5",
+    "cambios_sin_commit": 0
+  },
+  "sop": "tests/fixtures/sop_filtro_agua.md",
+  "modelos": {
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  },
+  "videos": [
+    {
+      "video": "video_a",
+      "corridas": [
+        {
+          "repeticion": 1,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 5,
+            "zona_gris": 0
+          },
+          "rescatados": 0,
+          "pasos_video": 14,
+          "huella": "b23906f2f3a3",
+          "regeneradas": [
+            {
+              "huella": "e87ac04f35a3",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.41,
+                "emparejamiento": 0.39,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            },
+            {
+              "huella": "e87ac04f35a3",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.34,
+                "emparejamiento": 0.33,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            }
+          ],
+          "identicas": true,
+          "igual_a_la_original": false
+        },
+        {
+          "repeticion": 2,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 6,
+            "zona_gris": 0
+          },
+          "rescatados": 0,
+          "pasos_video": 15,
+          "huella": "36b55adecd54",
+          "regeneradas": [
+            {
+              "huella": "db63d955c7a0",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.33,
+                "emparejamiento": 0.37,
+                "personas": 0.01,
+                "tiempos": 0.0
+              }
+            },
+            {
+              "huella": "db63d955c7a0",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.41,
+                "emparejamiento": 0.32,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            }
+          ],
+          "identicas": true,
+          "igual_a_la_original": false
+        },
+        {
+          "repeticion": 3,
+          "cumplimiento": 91.67,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 5,
+            "Parcial": 1,
+            "Falta": 0,
+            "Sobra": 5,
+            "zona_gris": 0
+          },
+          "rescatados": 0,
+          "pasos_video": 17,
+          "huella": "17c35fc2498f",
+          "regeneradas": [
+            {
+              "huella": "17c35fc2498f",
+              "reusada": true,
+              "cumplimiento": 91.67,
+              "segundos": {
+                "afinidad": 0.32,
+                "emparejamiento": 6.39,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            },
+            {
+              "huella": "17c35fc2498f",
+              "reusada": true,
+              "cumplimiento": 91.67,
+              "segundos": {
+                "afinidad": 0.32,
+                "emparejamiento": 6.17,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            }
+          ],
+          "identicas": true,
+          "igual_a_la_original": true
+        },
+        {
+          "repeticion": 4,
+          "cumplimiento": 91.67,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 5,
+            "Parcial": 1,
+            "Falta": 0,
+            "Sobra": 5,
+            "zona_gris": 0
+          },
+          "rescatados": 0,
+          "pasos_video": 17,
+          "huella": "dcb4b542d205",
+          "regeneradas": [
+            {
+              "huella": "dcb4b542d205",
+              "reusada": true,
+              "cumplimiento": 91.67,
+              "segundos": {
+                "afinidad": 0.33,
+                "emparejamiento": 6.86,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            },
+            {
+              "huella": "dcb4b542d205",
+              "reusada": true,
+              "cumplimiento": 91.67,
+              "segundos": {
+                "afinidad": 0.33,
+                "emparejamiento": 6.47,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            }
+          ],
+          "identicas": true,
+          "igual_a_la_original": true
+        },
+        {
+          "repeticion": 5,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 5,
+            "zona_gris": 0
+          },
+          "rescatados": 0,
+          "pasos_video": 14,
+          "huella": "32191760befd",
+          "regeneradas": [
+            {
+              "huella": "74861af5fb5f",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.34,
+                "emparejamiento": 0.39,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            },
+            {
+              "huella": "74861af5fb5f",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.36,
+                "emparejamiento": 0.32,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            }
+          ],
+          "identicas": true,
+          "igual_a_la_original": false
+        },
+        {
+          "repeticion": 6,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 5,
+            "zona_gris": 0
+          },
+          "rescatados": 0,
+          "pasos_video": 14,
+          "huella": "cdf99c1f9b6c",
+          "regeneradas": [
+            {
+              "huella": "5a214ff43a5f",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.31,
+                "emparejamiento": 0.3,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            },
+            {
+              "huella": "5a214ff43a5f",
+              "reusada": true,
+              "cumplimiento": 100.0,
+              "segundos": {
+                "afinidad": 0.31,
+                "emparejamiento": 0.29,
+                "personas": 0.02,
+                "tiempos": 0.0
+              }
+            }
+          ],
+          "identicas": true,
+          "igual_a_la_original": false
+        }
+      ]
+    }
+  ]
+}

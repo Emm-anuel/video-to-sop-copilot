@@ -105,22 +105,39 @@ los juicios de Gemma grabados en `tests/fixtures/rescate.json` (`scripts/grabar_
 El plan (§7) cubre RNF-07 con "temperatura 0, semilla 42, versiones fijadas". No alcanza: la
 segmentación de Gemma no es determinista ni con eso (9 salidas distintas en 9 llamadas), y el
 porcentaje de A varió entre 83.33, 91.67 y 100 % en el mismo equipo. El rescate quita el caso que
-lo bajaba a amarillo, pero dos corridas pueden seguir dando 91.67 y 100 %. El resto de la cadena
-sí es reproducible: MiniLM corre en CPU, y el juez da lo mismo con la misma entrada (10/10). Las
-6 segmentaciones de control, vueltas a emparejar, dieron exactamente el resultado original.
+lo bajaba a amarillo, pero dos corridas pueden seguir dando 91.67 y 100 %. MiniLM corre en CPU y
+da lo mismo; el juez, con la misma entrada, dio el mismo veredicto en todas las comparaciones (su
+redacción no siempre, ver abajo).
 
-**Propuesta para medirlo y acotarlo (sin implementar; requiere decisión):**
+**Implementado el 9 nov (decisión del equipo):**
 
-1. Guardar la segmentación con el análisis: los pasos del video antes de fusionar, que hoy ya
-   van a `videos.pasos_video`, más el modelo y la versión del prompt.
-2. "Regenerar el reporte" (p. ej. `POST /videos/{id}/validar?segmentar=false`) reusa esa
-   segmentación en lugar de volver a llamar a Gemma; repetir la segmentación queda como acción
-   explícita.
-3. Medir RNF-07 en dos niveles. **Reproducibilidad del reporte:** N regeneraciones desde la
-   segmentación guardada dan el mismo reporte, byte a byte (salvo `creado` y los segundos). Se
-   espera que se cumpla. **Estabilidad del análisis:** N segmentaciones nuevas del mismo video
-   dan el mismo porcentaje y el mismo semáforo. Se informa como rango (hoy A: 91.67–100 %, con el
-   rescate) y no como igualdad.
+1. `videos.pasos_video` guarda la segmentación completa (`SegmentacionGuardada`: pasos antes de
+   fusionar, método y modelo). Las filas anteriores (una lista sin método) no se reusan.
+2. Repetir la validación (`POST /videos/{id}/validar`, ADR-019) la reusa en lugar de volver a
+   llamar a Gemma; `?segmentar=true` la vuelve a pedir. Una de la heurística de respaldo o con
+   pasos sin redactar se vuelve a pedir siempre (para eso existe ADR-019). El reporte lo marca en
+   `metadatos.segmentacion_reusada`.
+3. RNF-07 se mide en dos niveles (`scripts/medir_reproducibilidad.py`; resultados en ADR-018,
+   seguimiento del 9 nov):
+   - **Reproducibilidad del reporte:** de cada validación, dos regeneraciones con su segmentación
+     y su ficha. El porcentaje fue el de la original en las 30 regeneraciones. Las dos
+     regeneraciones salieron idénticas entre sí en A 6/6, B 3/3, C 3/3 y D 2/3.
+   - **Estabilidad del análisis:** con segmentación nueva, A da 91.67–100 % (verde 6/6); B, C y D,
+     un solo valor.
+
+**Hallazgo: la redacción del juez no es determinista aunque la entrada sea la misma.** En D, dos
+regeneraciones (mismos pasos, misma narración, la misma secuencia de llamadas tras cargar el
+modelo) dieron dos justificaciones distintas para el mismo par, con el mismo veredicto. Y entre la
+validación original y su regeneración cambió la justificación del paso 6 de A, con el mismo
+veredicto: en la original, el juez corre después de la ficha y la segmentación en la misma carga de
+Gemma. La prueba del 9 nov (10 llamadas idénticas, 10 respuestas iguales) era una sola llamada
+corta repetida; con varias llamadas seguidas no se sostiene. No se vio cambiar un veredicto, pero
+no está garantizado.
+
+**Siguiente propuesta (sin implementar; requiere decisión):** guardar también los juicios de la
+validación y, al regenerar con la misma segmentación, reusar el juicio de cada par cuya entrada no
+cambió, en lugar de volver a llamar al juez. Así el reporte regenerado saldría idéntico, y RNF-07
+quedaría atado solo a la segmentación (que se guarda) y a MiniLM (determinista en CPU).
 
 ## Medición con A–D (9 nov)
 
@@ -165,8 +182,8 @@ rescate por sí solo.
   (coseno ≥ `UMBRAL_ALTO`) depende del juez para no rescatarse. La ventana de mayor coseno puede
   dejar fuera un fragmento final del paso (el manómetro en A), y el juez da *Parcial*. RNF-07 sigue
   en riesgo por la segmentación (sección anterior).
-- **Seguimiento:** la medición de RNF-07 propuesta; un video que omita un paso con fragmentos casi
-  completos alrededor, para probar al juez en ese borde.
+- **Seguimiento:** reusar los juicios al regenerar (sección RNF-07); un video que omita un paso con
+  fragmentos casi completos alrededor, para probar al juez en ese borde.
 
 ## Referencias
 

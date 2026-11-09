@@ -288,6 +288,46 @@ usa `WHISPER_MODELO_CPU`; `WHISPER_MODELO_API` ya no existe). El aviso
 `transcripcion_no_referencia` se queda para quien configure otro modelo. Pendiente: confirmar los
 tiempos en un equipo sin GPU de verdad y con los videos C–E.
 
+## Seguimiento: RNF-07 con la segmentación guardada (9 nov 2026)
+
+Desde el 9 nov, repetir la validación (`POST /videos/{id}/validar`, ADR-019) **reusa la
+segmentación guardada** (`SegmentacionGuardada` en `videos.pasos_video`) en lugar de volver a
+llamar a Gemma; `?segmentar=true` la vuelve a pedir (ADR-022, sección RNF-07). RNF-07 se informa
+en dos niveles, con `scripts/medir_reproducibilidad.py` (GPU, los `analisis.json` de cada video,
+SOP del filtro): [`datos/rnf07/rnf07-20261109-0140.md`](datos/rnf07/rnf07-20261109-0140.md) (A) y
+[`datos/rnf07/rnf07-20261109-0147.md`](datos/rnf07/rnf07-20261109-0147.md) (B, C, D).
+
+**Estabilidad del análisis (segmentación nueva en cada corrida): se informa como rango.**
+
+| Video | Segmentaciones nuevas | Porcentaje | Semáforo | Pasos del video por corrida |
+|---|---|---|---|---|
+| A | 6 | **91.67–100 %** | verde 6/6 | 14 (3), 15 (1), 17 (2) |
+| B | 3 | 66.67 % | rojo 3/3 | 7 (3) |
+| C | 3 | 75 % | amarillo 3/3 | 9 (3) |
+| D | 3 | 0 % | rojo 3/3 | 10 (3) |
+
+Contando las mediciones del 8 y el 9 nov, A dio entre 83.33 y 100 % antes del rescate (ADR-022) y
+entre 91.67 y 100 % después. El semáforo de A queda en verde en todas las corridas desde el
+rescate, pero el porcentaje no es un número fijo: depende de cómo parta Gemma los pasos (las dos
+corridas de 91.67 % tienen 17 pasos y el paso 6 en *Parcial*).
+
+**Reproducibilidad del reporte (misma segmentación, regenerado dos veces):**
+
+- **Porcentaje:** el de la validación original en las 30 regeneraciones (15 validaciones × 2).
+- **Las dos regeneraciones idénticas entre sí**, sin contar los segundos: A 6/6, B 3/3, C 3/3, D
+  2/3. En D 2 difieren solo en la redacción de la justificación del juez de un par (mismo
+  veredicto, *no_corresponde*); se reprodujo en otra corrida de D (1 de 3).
+- **Iguales a la validación original:** A 2/6, B 2/3, C 3/3, D 1/3. Lo que se inspeccionó (A y D)
+  es la redacción de la justificación del juez: en la original, el juez corre después de la ficha
+  y la segmentación en la misma carga de Gemma; en la regeneración, solo.
+
+Conclusión: con la segmentación guardada, **el porcentaje se reproduce**; el texto del reporte no
+siempre, porque la redacción del juez varía aun con la misma entrada (las respuestas cortas varían
+menos: el 9 nov, 10 llamadas idénticas seguidas dieron el mismo texto). La regla de RNF-07 sigue
+siendo el mismo modelo en CPU y GPU, no la salida idéntica; para el reporte, el compromiso medible
+es "mismo porcentaje al regenerar". Si se quiere el reporte idéntico, la siguiente medida es
+guardar también los juicios y reusarlos al regenerar (propuesta en ADR-022, sin implementar).
+
 ## Referencias
 
 - ADR-006 (Gemma 4 y Ollama), ADR-012 (MiniLM en CPU), ADR-014 (hardware de referencia),

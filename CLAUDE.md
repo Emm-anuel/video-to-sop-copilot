@@ -199,6 +199,12 @@ docs/
 >   (`UMBRAL_HORARIO`, sin calibrar). Medición:
 >   `scripts/medir_tiempos.py` (C: 1 *excede* en el paso 1). `/nuevo` acepta PDF y Word con la
 >   conversión asíncrona (`frontend/README.md`).
+> - **Rescate y RNF-07 (9 nov, rama `feat/s5`, ADR-022):** un *Falta* se busca en los *Sobra*
+>   contiguos entre sus pares vecinos (`emparejamiento.rescatar`; ventana ≥ `UMBRAL_ALTO` y siempre
+>   con el juez; `Fusion.rescate`, `FilaReporte.rescatado`). La segmentación de Gemma no es
+>   determinista: `videos.pasos_video` la guarda (`SegmentacionGuardada`) y repetir la validación la
+>   reusa (`?segmentar=true` la vuelve a pedir). Con la misma segmentación el porcentaje se
+>   reproduce; la redacción del juez puede variar. A: 91.67–100 % con segmentaciones nuevas (ADR-018).
 > - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
 >   MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
