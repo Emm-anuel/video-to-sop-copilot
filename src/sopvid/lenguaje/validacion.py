@@ -172,8 +172,9 @@ def validar(
     calcula el porcentaje y el semáforo.
 
     Con `contexto` (la ficha guardada) no se vuelve a generar, y con `segmentacion` (la
-    guardada, RNF-07) no se vuelve a segmentar: el emparejamiento (MiniLM) y el juez dan lo mismo
-    con la misma entrada, así que el reporte sale igual. Si la afinidad queda bajo
+    guardada, RNF-07) no se vuelve a segmentar: con los mismos pasos, el emparejamiento (MiniLM)
+    es el mismo y el porcentaje no cambió en ninguna regeneración medida; la redacción de las
+    justificaciones del juez sí puede variar (ADR-022). Si la afinidad queda bajo
     `AFINIDAD_MIN`, devuelve una `Detenida` sin segmentar, salvo con `continuar` (quien carga ya
     vio la advertencia): entonces sigue y el reporte lleva la afinidad con `bajo_umbral`.
 

@@ -151,7 +151,8 @@ class SegmentacionGuardada(_Modelo):
     `videos.pasos_video` (JSONB; RNF-07, ADR-022).
 
     La segmentación de Gemma no es determinista (ADR-022): repetir la validación (ADR-019) la
-    reusa, así que el reporte regenerado sale igual; solo se vuelve a segmentar si se pide o si no
+    reusa, así que los pasos, el emparejamiento y el porcentaje salen iguales (la redacción de las
+    justificaciones del juez puede variar, ADR-022); solo se vuelve a segmentar si se pide o si no
     se puede reusar: la hizo la heurística de respaldo, quedaron pasos sin redactar, o es una
     fila anterior a este contrato (una lista sin método).
     """

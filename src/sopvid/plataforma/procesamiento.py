@@ -21,10 +21,10 @@ Whisper (ADR-019), con la ficha guardada si la hay. Un reporte nuevo reemplaza a
 
 Segmentación guardada (RNF-07): `videos.pasos_video` guarda la segmentación completa
 (`SegmentacionGuardada`: pasos antes de fusionar, método y modelo). `revalidar` la reusa en lugar
-de volver a llamar a Gemma, porque Gemma no segmenta igual dos veces (ADR-022) y el resto de la
-cadena sí es reproducible: el reporte regenerado sale igual. Se vuelve a segmentar si se pide
-(`segmentar=True`) o si la guardada no se puede reusar (heurística de respaldo, pasos sin
-redactar o fila anterior, sin método).
+de volver a llamar a Gemma, porque Gemma no segmenta igual dos veces (ADR-022): con los mismos
+pasos, el emparejamiento y el porcentaje salen iguales (la redacción del juez puede variar). Se
+vuelve a segmentar si se pide (`segmentar=True`) o si la guardada no se puede reusar (heurística
+de respaldo, pasos sin redactar o fila anterior, sin método).
 
 Afinidad baja (ADR-020): si la validación se detiene porque el video parece no ser del SOP, se
 guardan la ficha y un `Reporte` con la afinidad, `cumplimiento` en NULL y la `DetencionAfinidad`

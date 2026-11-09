@@ -258,7 +258,8 @@ def revalidar_video(
 
     Se acepta en "listo", "error" y "afinidad_baja". Con `continuar=true` no se detiene por
     afinidad baja (ADR-020) y el reporte lleva la afinidad con `bajo_umbral=true`. Reusa los
-    pasos del video guardados (RNF-07: el reporte regenerado sale igual); con `segmentar=true`
+    pasos del video guardados (RNF-07: mismo porcentaje; la redacción del juez puede variar);
+    con `segmentar=true`
     los vuelve a pedir a Gemma. Si los guardados son de la heurística de respaldo o quedaron
     incompletos, siempre se vuelve a segmentar.
     """
