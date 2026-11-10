@@ -16,6 +16,8 @@ Aplicación web que analiza el video de un operador narrando su trabajo, según 
 
 **Primer hito: MVP de validación (8 nov 2026).** Un video y un SOP en Markdown entran; sale el reporte de pasos (Cumple, Parcial, Falta, Sobra, Fuera de orden) con el porcentaje y el segundo de cada hallazgo. Solo voz. Después se agregan el SOP generado, personas y tiempos, fotogramas, PDF y búsqueda ([plan §5.1](docs/plan/plan.md#51-mvp-de-validación-hito-del-8-nov)).
 
+> **Estado del MVP (7 nov 2026).** El camino completo funciona por la API y en la web: en `/nuevo` se suben el SOP y el video, y la pantalla del reporte (RF-20) muestra el semáforo, la tabla paso a paso y el video al lado, que salta al segundo de cada fila. Medido con `scripts/medir_mvp.py` (3 repeticiones por video, [informe](docs/adr/datos/mvp/mvp-20261107-1113.md)): el video **B** pasa 3/3 (*Falta* en los pasos 2 y 6, la limpieza de la carcasa como *Sobra*, 66.7 %, rojo) y el **A** pasa 2/3 (91.7 % y 100 %, verde; en la otra corrida Gemma dejó un paso sin redactar). Gemma no es determinista aun con temperatura 0, así que para la demo se muestran reportes ya procesados. Detalle en [docs/plan/estado.md](docs/plan/estado.md).
+
 El código se construye desde cero: el código del POC no se entregó y el patrocinador indicó seguir con la arquitectura propia (13 oct 2026). Ver [ADR-001](docs/adr/ADR-001-herencia.md) y el [plan](docs/plan/plan.md).
 
 Proyecto Integrador (TC5035) · Maestría en Inteligencia Artificial Aplicada · Tecnológico de Monterrey.
@@ -49,7 +51,15 @@ Dominios de IA: voz, visión y lenguaje (multimodal), con modelos pequeños loca
 
 ## 4. Estructura del repositorio
 
-Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F0** cerrada (API y base vacía funcionando con `docker compose up`), `features/` implementado para los avances académicos 1 y 2, y, desde `feat/llm-spike` (ya fusionada en `main`, merge `936af6f`), el cliente del LLM con Ollama y el prototipo de segmentación en pasos. El resto de la versión 1.0 está por construir.
+Paquete Python instalable `sopvid` (src layout) y frontend en Angular. Estado al 7 nov 2026, en `main`:
+
+- **Validación de punta a punta (MVP).** `POST /sops` convierte y guarda el SOP; `POST /videos` con su `sop_id` transcribe, segmenta en pasos con Gemma 4, empareja con MiniLM y deja el reporte en `GET /videos/{id}/reporte`. `POST /videos/{id}/validar` repite solo la validación, sin Whisper (ADR-019). `GET /videos/{id}/video` entrega el video con `Range` (206) para que el reproductor salte a cualquier segundo. Rutas en [docs/dev/api.md](docs/dev/api.md).
+- **Frontend Angular 22** (`frontend/`): `/nuevo` (subir SOP y video) y `/videos/:id/reporte` (RF-20: semáforo, resumen, tabla con cita y segundo, video que salta al segundo de cada fila, avance mientras procesa y la sección "Cómo se obtuvo", con dónde corrió cada modelo, la GPU y los tiempos). Detalle en [frontend/README.md](frontend/README.md).
+- **GPU opcional (ADR-018).** Todo corre en CPU; con GPU NVIDIA, Whisper y Gemma la usan. `scripts/levantar.ps1` detecta la GPU y levanta el compose que corresponde.
+- **Medición del MVP** con repeticiones y el commit registrado (`scripts/medir_mvp.py`).
+- `features/` para los avances académicos (CaptainCook4D).
+
+Lo que sigue (S5 y S6): SOP generado, personas y tiempos, fotogramas, SOP en PDF y Word, PDF del reporte y búsqueda.
 
 ```
 ├── README.md
@@ -72,12 +82,15 @@ Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F
 │   ├── lenguaje/               # cliente del LLM, SOP, emparejamiento, reporte y búsqueda exacta
 │   └── features/               # datos de CaptainCook4D, preprocesamiento (avance 1) e ingeniería de características (avance 2)
 ├── migrations/                 # Alembic; 0001 habilita la extensión vector
-├── tests/                      # /health, conexión a la base y sopvid.features
-├── frontend/                   # Angular (entra en la semana 3 del roadmap)
+├── tests/                      # pytest: API, base, percepción, lenguaje, validación y features; fixtures de SOP y reporte
+├── scripts/                    # levantar.ps1, convertir_sop.py, analizar_video.py, medir_mvp.py, calibrar_umbrales.py…
+├── frontend/                   # Angular 22: /nuevo y /videos/:id/reporte (RF-20); ver frontend/README.md
 ├── notebooks/                  # exploración libre
 ├── data/                       # data card y reglas de datos (README.md); datos ignorados por Git
 └── docs/
-    ├── adr/                    # Architecture Decision Records (índice + plantilla)
+    ├── adr/                    # Architecture Decision Records (índice + plantilla); datos/ con las mediciones
+    ├── contrato/               # esquemas JSON (SOP, análisis, reporte) y plantilla del SOP en Markdown
+    ├── dev/                    # guías: api.md, llm.md, transcripcion.md
     ├── entregables/            # Semana N/AvanceN.51.ipynb (importan sopvid)
     └── plan/                   # plan vigente (plan.md) y estado del proyecto (estado.md)
 ```
@@ -98,7 +111,20 @@ curl http://localhost:8000/health        # {"status":"ok","db":"ok","llm":"no_di
 ```
 
 LLM local opcional (Ollama con GPU NVIDIA): `docker compose --profile llm up -d`; con él arriba,
-`/health` informa `"llm":"ok"`. Detalles en [docs/dev/llm.md](docs/dev/llm.md).
+`/health` informa `"llm":"ok"`. Detalles en [docs/dev/llm.md](docs/dev/llm.md). La validación
+necesita el LLM: sin Ollama, el video termina en `error` con "LLM no disponible".
+
+En Windows, `scripts/levantar.ps1` hace lo mismo y decide solo si usa la GPU (ADR-018): si hay GPU
+NVIDIA y Docker tiene el runtime `nvidia`, suma `docker-compose.gpu.yml` y Gemma corre en la GPU; si
+no, todo corre en CPU, con el mismo resultado pero más lento. La API dentro de Docker sigue en CPU.
+
+```powershell
+.\scripts\levantar.ps1              # api + base + Ollama, con GPU si hay
+.\scripts\levantar.ps1 -Build       # reconstruye la imagen de la api
+.\scripts\levantar.ps1 -SinLLM      # solo api + base
+.\scripts\levantar.ps1 -Plan        # dice qué haría, sin levantar nada
+.\scripts\levantar.ps1 -Detener     # detiene todo, conserva datos y modelos
+```
 
 En PowerShell, la comprobación equivalente es `Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en <http://localhost:8000/docs>.
 
@@ -131,6 +157,51 @@ jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana 4/A
 ```
 
 Los tests de `tests/test_features_avance1.py` comparan contra los resultados del avance 1 y se saltan si los datos no están descargados (por ejemplo, en CI).
+
+### Opción C: frontend (Angular)
+
+Requisito: Node 24 LTS (`^24.15.0`) y npm; Angular 22 se usa con `npx`, sin instalar nada global.
+La API no tiene CORS: `ng serve` reenvía `/api` a `http://localhost:8000` con `frontend/proxy.conf.json`.
+
+```powershell
+# API en el host (con GPU si hay), desde la raíz y con el .venv activo; o la de Docker (opción A)
+uvicorn sopvid.plataforma.api.main:app --host 127.0.0.1 --port 8000
+# en otra terminal
+cd frontend
+npm install
+npx ng serve                # http://localhost:4200 → /nuevo
+npx ng test --watch=false   # Vitest con jsdom, sin navegador
+```
+
+Para probar: en `/nuevo`, sube `tests/fixtures/sop_filtro_agua.md` y un video; al aceptarlo, la
+página pasa al reporte, que muestra el avance cada 3 s hasta que está listo. Los tipos del reporte se
+generan desde `docs/contrato/reporte.schema.json` con `npm run tipos`. Detalle en
+[frontend/README.md](frontend/README.md).
+
+### Whisper en CPU o GPU
+
+Por defecto Whisper usa `small` en int8 y corre en cualquier máquina (`WHISPER_DISPOSITIVO=auto`,
+`WHISPER_COMPUTE_TYPE=auto`: float16 en GPU, int8 en CPU). El perfil GPU del `.env.example`
+(`large-v3-turbo`, `float16`) necesita `pip install -e ".[gpu]"`. Si el `WHISPER_COMPUTE_TYPE` pedido
+solo existe en GPU (`float16`, `bfloat16`…) y Whisper termina en CPU, se cambia por int8 en lugar de
+fallar, y `/health` lo avisa. Detalle en [docs/dev/transcripcion.md](docs/dev/transcripcion.md).
+
+### Medir el MVP
+
+`scripts/medir_mvp.py` comprueba el criterio del MVP (plan §5.1) con repeticiones: transcribe cada
+video una vez y repite la validación (`--repeticiones`, 3 por defecto), porque Gemma no es
+determinista. Registra el commit, los modelos, los umbrales y dónde corrió cada uno. Necesita el
+entorno activo y Ollama arriba:
+
+```powershell
+python scripts/medir_mvp.py --sop tests/fixtures/sop_filtro_agua.md `
+    --anotacion media/anotacion_ab.json --repeticiones 3 `
+    video_a=media/videos/VIDEO-A.mp4 video_b=media/videos/VIDEO-B.mp4
+```
+
+El informe queda en `data/interim/mvp/` (ignorada por Git); con `--docs`, también en
+`docs/adr/datos/mvp/`, solo con números de paso, segundos y estados. Sale con 0 si todo pasa, 1 si
+alguna corrida no pasa y 2 si alguna no es válida. Los videos A y B viven fuera de Git (NDA).
 
 ### Escribir un SOP de referencia (Markdown o TXT)
 
