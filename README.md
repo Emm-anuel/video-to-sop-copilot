@@ -51,15 +51,16 @@ Dominios de IA: voz, visión y lenguaje (multimodal), con modelos pequeños loca
 
 ## 4. Estructura del repositorio
 
-Paquete Python instalable `sopvid` (src layout) y frontend en Angular. Estado al 7 nov 2026, en `main`:
+Paquete Python instalable `sopvid` (src layout) y frontend en Angular. Estado al 10 nov 2026 (cierre de S5), en `main`:
 
 - **Validación de punta a punta (MVP).** `POST /sops` convierte y guarda el SOP; `POST /videos` con su `sop_id` transcribe, segmenta en pasos con Gemma 4, empareja con MiniLM y deja el reporte en `GET /videos/{id}/reporte`. `POST /videos/{id}/validar` repite solo la validación, sin Whisper (ADR-019). `GET /videos/{id}/video` entrega el video con `Range` (206) para que el reproductor salte a cualquier segundo. Rutas en [docs/dev/api.md](docs/dev/api.md).
 - **Frontend Angular 22** (`frontend/`): `/nuevo` (subir SOP y video) y `/videos/:id/reporte` (RF-20: semáforo, resumen, tabla con cita y segundo, video que salta al segundo de cada fila, avance mientras procesa y la sección "Cómo se obtuvo", con dónde corrió cada modelo, la GPU y los tiempos). Detalle en [frontend/README.md](frontend/README.md).
 - **GPU opcional (ADR-018).** Todo corre en CPU; con GPU NVIDIA, Whisper y Gemma la usan. `scripts/levantar.ps1` detecta la GPU y levanta el compose que corresponde.
+- **Semana 5.** SOP en PDF y Word; ficha de contexto (RF-12); afinidad y personas (RF-15, RF-17, ADR-020); tiempos (RF-16, ADR-021); rescate de *Falta* (ADR-022); SOP generado desde el video (RF-22 a 25 y 27, ADR-023). Medición de cierre: `scripts/medir_s5.py` ([informe](docs/adr/datos/s5/medicion-s5-20261110-1311.md)).
 - **Medición del MVP** con repeticiones y el commit registrado (`scripts/medir_mvp.py`).
 - `features/` para los avances académicos (CaptainCook4D).
 
-Lo que sigue (S5 y S6): SOP generado, personas y tiempos, fotogramas, SOP en PDF y Word, PDF del reporte y búsqueda.
+Lo que sigue: fotogramas y subida por partes, editor del SOP generado (RF-26), PDF del reporte y del SOP, descargas y búsqueda.
 
 ```
 ├── README.md
@@ -67,7 +68,7 @@ Lo que sigue (S5 y S6): SOP generado, personas y tiempos, fotogramas, SOP en PDF
 ├── .env.example                # variables con valores de EJEMPLO (sin secretos)
 ├── pyproject.toml              # paquete sopvid, dependencias fijadas (extras ml, notebooks, dev), ruff y pytest
 ├── Dockerfile                  # imagen de la API (Python 3.11)
-├── docker-compose.yml          # API + PostgreSQL 16 con pgvector; Ollama con el profile "llm"
+├── docker-compose.yml          # API + PostgreSQL 16 con pgvector + frontend (web); Ollama con el profile "llm"
 ├── Makefile                    # up, down, logs, migrate, test, lint, format
 ├── alembic.ini
 ├── .github/workflows/ci.yml    # ruff + pytest con Postgres en cada push y PR
@@ -119,9 +120,9 @@ NVIDIA y Docker tiene el runtime `nvidia`, suma `docker-compose.gpu.yml` y Gemma
 no, todo corre en CPU, con el mismo resultado pero más lento. La API dentro de Docker sigue en CPU.
 
 ```powershell
-.\scripts\levantar.ps1              # api + base + Ollama, con GPU si hay
+.\scripts\levantar.ps1              # api + base + frontend + Ollama, con GPU si hay
 .\scripts\levantar.ps1 -Build       # reconstruye la imagen de la api
-.\scripts\levantar.ps1 -SinLLM      # solo api + base
+.\scripts\levantar.ps1 -SinLLM      # api + base + frontend, sin Ollama
 .\scripts\levantar.ps1 -Plan        # dice qué haría, sin levantar nada
 .\scripts\levantar.ps1 -Detener     # detiene todo, conserva datos y modelos
 ```
@@ -158,10 +159,11 @@ jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana 4/A
 
 Los tests de `tests/test_features_avance1.py` comparan contra los resultados del avance 1 y se saltan si los datos no están descargados (por ejemplo, en CI).
 
-### Opción C: frontend (Angular)
+### Opción C: frontend (Angular) en el host
 
+Sin Docker para el frontend (la opción A ya lo levanta en el servicio `web`).
 Requisito: Node 24 LTS (`^24.15.0`) y npm; Angular 22 se usa con `npx`, sin instalar nada global.
-La API no tiene CORS: `ng serve` reenvía `/api` a `http://localhost:8000` con `frontend/proxy.conf.json`.
+La API no tiene CORS: `ng serve` reenvía `/api` a `API_URL` (por defecto `http://localhost:8000`) con `frontend/proxy.conf.js`.
 
 ```powershell
 # API en el host (con GPU si hay), desde la raíz y con el .venv activo; o la de Docker (opción A)
@@ -180,9 +182,10 @@ generan desde `docs/contrato/reporte.schema.json` con `npm run tipos`. Detalle e
 
 ### Whisper en CPU o GPU
 
-Por defecto Whisper usa `small` en int8 y corre en cualquier máquina (`WHISPER_DISPOSITIVO=auto`,
-`WHISPER_COMPUTE_TYPE=auto`: float16 en GPU, int8 en CPU). El perfil GPU del `.env.example`
-(`large-v3-turbo`, `float16`) necesita `pip install -e ".[gpu]"`. Si el `WHISPER_COMPUTE_TYPE` pedido
+Whisper usa `large-v3-turbo` en CPU y en GPU (ADR-018, `WHISPER_MODELO_CPU`); otro modelo deja el
+aviso `transcripcion_no_referencia`. Corre en cualquier máquina (`WHISPER_DISPOSITIVO=auto`,
+`WHISPER_COMPUTE_TYPE=auto`: float16 en GPU, int8 en CPU); para usar la GPU desde el host hace falta
+`pip install -e ".[gpu]"`, y en Docker la API transcribe en CPU. Si el `WHISPER_COMPUTE_TYPE` pedido
 solo existe en GPU (`float16`, `bfloat16`…) y Whisper termina en CPU, se cambia por int8 en lugar de
 fallar, y `/health` lo avisa. Detalle en [docs/dev/transcripcion.md](docs/dev/transcripcion.md).
 

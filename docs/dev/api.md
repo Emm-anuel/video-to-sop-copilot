@@ -153,10 +153,11 @@ de compose.
 
 1. Requisitos: venv con `pip install -e ".[dev,gpu]"` (ver `docs/dev/transcripcion.md`) y ffmpeg
    en el PATH (`winget install Gyan.FFmpeg`).
-2. La base y Ollama con la GPU en Docker, sin la `api` del contenedor (ocupa el puerto 8000):
+2. La base, Ollama con la GPU y el frontend (`web`) en Docker, sin la `api` del contenedor (ocupa el puerto 8000):
 
    ```powershell
-   make up-gpu                    # sin make: docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama
+   make up-gpu                    # sin make: ver la línea siguiente
+   # $env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web; Remove-Item Env:API_URL_WEB
    docker compose stop api        # si estaba arriba
    alembic upgrade head           # desde el venv; usa POSTGRES_HOST=localhost del .env
    ```
