@@ -4,16 +4,16 @@ En modo "No tengo SOP", con el análisis, la ficha de contexto (RF-12) y los pas
 extraídos sin SOP, regla 5), arma un `SOP` en español con el mismo esquema que el de referencia.
 Gemma solo redacta valores y copia citas; el código pone todo lo demás (regla 4):
 
-1. **Agrupar** (`sop_generado_agrupar_v3`, criterio de resultado): Gemma recibe los pasos del
-   video numerados con su narración y pone a cada uno una etiqueta: "nuevo" (empieza un paso del
-   SOP), "continua" (sigue el del paso del video anterior) o por qué queda fuera (presentación,
-   cierre, preguntas del entrevistador, comentarios); el código arma los grupos
-   (`agrupar_por_etiquetas`). Sin SOP no hay fusión (ADR-013) y `gemma4:e4b` sobre-segmenta: sin
-   agrupar, un SOP tendría el doble de pasos. **Candado** (`SOP_CANDADO`, apagado por defecto;
+1. **Agrupar** (`sop_generado_agrupar_v2`): Gemma recibe los pasos del video numerados con su
+   narración y pone a cada uno una etiqueta: "nuevo" (empieza un paso del SOP), "continua" (sigue
+   el del paso del video anterior) o por qué queda fuera (presentación, cierre, preguntas del
+   entrevistador, comentarios); el código arma los grupos (`agrupar_por_etiquetas`). La v2 es
+   estable y no mezcla pasos, pero junta poco: el SOP sale más detallado que uno escrito a mano y
+   quien revisa junta pasos con RF-26 (ADR-023). **Candado** (`SOP_CANDADO`, apagado por defecto;
    `aplicar_candado`): un "continua" cuyo coseno MiniLM con el paso del video anterior es menor
-   que `UMBRAL_FUSION` empieza un paso nuevo. La v1 (Gemma devolvía los grupos completos,
-   `validar_agrupacion`) y la v2 (mismas etiquetas, sin criterio de resultado) se conservan. Si
-   falla, un paso del SOP por paso del video.
+   que `UMBRAL_FUSION` empieza un paso nuevo. Se conservan la v1 (Gemma devolvía los grupos
+   completos, `validar_agrupacion`) y la v3 (mismas etiquetas con criterio de resultado: junta
+   más, pero mezcla pasos y no es estable). Si falla, un paso del SOP por paso del video.
 2. **Pasos** (`sop_generado_pasos_v1`, por lotes de `PASOS_POR_LOTE`): nombre en infinitivo,
    descripción, y equipo y puntos de validación con su cita. Número, tiempos, responsable (la
    ficha, `personas.quien_hizo`) y tiempo esperado (`tiempos.duracion_narrada` o la medida de
@@ -112,7 +112,7 @@ from sopvid.texto import (
 
 logger = logging.getLogger(__name__)
 
-PROMPT_AGRUPAR = "sop_generado_agrupar_v3"  # archivos en lenguaje/prompts/; uno nuevo por versión
+PROMPT_AGRUPAR = "sop_generado_agrupar_v2"  # archivos en lenguaje/prompts/; uno nuevo por versión
 PROMPT_PASOS = "sop_generado_pasos_v1"
 PROMPT_RESUMEN = "sop_generado_resumen_v1"
 PROMPT_CLAVES = "sop_generado_claves_v1"

@@ -1,0 +1,445 @@
+{
+  "fecha": "2026-11-10 11:52",
+  "git": {
+    "commit": "584bd7cdd76c363dc32a9fd1dc644b708dd72f43",
+    "rama": "feat/s5",
+    "cambios_sin_commit": 12
+  },
+  "configuracion": {
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "llm_dispositivo": "cpu",
+    "whisper": "large-v3-turbo",
+    "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+    "prompt_agrupar": "sop_generado_agrupar_v2",
+    "candado": false,
+    "umbral_fusion": 0.55
+  },
+  "corridas": [
+    {
+      "video": "video_e",
+      "n": 1,
+      "dispositivo": "cpu",
+      "vram_mib": 1835,
+      "pasos_video": 18,
+      "pasos_sop": 15,
+      "segundos": {
+        "contexto": 63.66,
+        "segmentacion": 153.29,
+        "sop": 259.25,
+        "total_gemma": 476.2
+      },
+      "llamadas": [
+        {
+          "etapa": "contexto",
+          "s": 63.66,
+          "tokens": 369,
+          "tok_s": 13.9
+        },
+        {
+          "etapa": "segmentacion",
+          "s": 45.05,
+          "tokens": 550,
+          "tok_s": 17.5
+        },
+        {
+          "etapa": "segmentacion",
+          "s": 108.24,
+          "tokens": 1414,
+          "tok_s": 15.7
+        },
+        {
+          "etapa": "agrupar",
+          "s": 41.91,
+          "tokens": 344,
+          "tok_s": 17.79,
+          "intentos": 1
+        },
+        {
+          "etapa": "pasos",
+          "s": 61.75,
+          "tokens": 668,
+          "tok_s": 14.69,
+          "intentos": 1
+        },
+        {
+          "etapa": "pasos",
+          "s": 36.91,
+          "tokens": 498,
+          "tok_s": 14.89,
+          "intentos": 1
+        },
+        {
+          "etapa": "resumen",
+          "s": 52.88,
+          "tokens": 408,
+          "tok_s": 14.76,
+          "intentos": 1
+        },
+        {
+          "etapa": "claves",
+          "s": 65.8,
+          "tokens": 692,
+          "tok_s": 15.53,
+          "intentos": 1
+        }
+      ],
+      "agrupacion": {
+        "metodo": "llm",
+        "etiquetas": [
+          "introduccion",
+          "comentario",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "nuevo",
+          "cierre"
+        ],
+        "grupos": [
+          [
+            3
+          ],
+          [
+            4
+          ],
+          [
+            5
+          ],
+          [
+            6
+          ],
+          [
+            7
+          ],
+          [
+            8
+          ],
+          [
+            9
+          ],
+          [
+            10
+          ],
+          [
+            11
+          ],
+          [
+            12
+          ],
+          [
+            13
+          ],
+          [
+            14
+          ],
+          [
+            15
+          ],
+          [
+            16
+          ],
+          [
+            17
+          ]
+        ],
+        "fuera": [
+          "1 introduccion",
+          "2 comentario",
+          "18 cierre"
+        ],
+        "candado": false,
+        "cortes_candado": []
+      },
+      "advertencias": [],
+      "archivo_sop": "video_e-1-cpu.json"
+    }
+  ],
+  "idiomas": {
+    "video_e": {
+      "codigo": "en",
+      "confianza": 0.999,
+      "fijado_a_mano": false
+    }
+  },
+  "completitud": {
+    "video_e": {
+      "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+      "objetivo": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo.",
+      "alcance": "Cubre solo el filtro de cartucho montado en la pared en la línea de enjuague. No incluye reemplazar la carcasa del filtro o la válvula de corte.",
+      "lugar": "Línea de enjuague",
+      "horario": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+      "responsable": "Técnico de mantenimiento",
+      "roles": [
+        "Técnico de mantenimiento"
+      ],
+      "equipo": 16,
+      "riesgos": 2,
+      "en_caso_de_falla": 1,
+      "duracion_total_min": 2.8,
+      "pasos_en_infinitivo": 15,
+      "pasos": 15,
+      "puntos_clave": 8,
+      "palabras_clave": 13,
+      "inferidos": 16
+    }
+  },
+  "rnf05": {
+    "video_e [1]": {
+      "pasos_generados": 15,
+      "tramos_correctos": 15,
+      "tramos_pct": 100.0,
+      "correctos": 6,
+      "pct": 40.0,
+      "referencia_cubierta": 6,
+      "referencia_faltan": [],
+      "referencia_total": 6,
+      "cobertura_en_orden": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cobertura_pct": 100.0,
+      "filas": [
+        {
+          "paso": 1,
+          "nombre": "Poner equipo de protección personal",
+          "t_inicio": 52.46,
+          "t_fin": 75.53,
+          "referencia": 1,
+          "nombre_referencia": "Ponerse guantes y lentes",
+          "estado": "Cumple",
+          "similitud": 0.792,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true,
+          "ref_tramo": 1,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 2,
+          "nombre": "Cerrar válvula de corte antes filtro",
+          "t_inicio": 77.32,
+          "t_fin": 100.44,
+          "referencia": 2,
+          "nombre_referencia": "Cerrar la llave de paso",
+          "estado": "Cumple",
+          "similitud": 0.714,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true,
+          "ref_tramo": 2,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 3,
+          "nombre": "Liberar presión del sistema",
+          "t_inicio": 102.12,
+          "t_fin": 110.78,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 3,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 4,
+          "nombre": "Colocar cubo debajo del filtro",
+          "t_inicio": 111.36,
+          "t_fin": 117.5,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 3,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 5,
+          "nombre": "Presionar botón rojo en carcasa",
+          "t_inicio": 118.2,
+          "t_fin": 131.3,
+          "referencia": 3,
+          "nombre_referencia": "Liberar la presión",
+          "estado": "Cumple",
+          "similitud": 0.864,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true,
+          "ref_tramo": 3,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 6,
+          "nombre": "Retirar carcasa con llave",
+          "t_inicio": 133.76,
+          "t_fin": 145.88,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 4,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 7,
+          "nombre": "Sacar cartucho viejo en bolsa",
+          "t_inicio": 147.77,
+          "t_fin": 153.23,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 4,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 8,
+          "nombre": "Verificar anillo de goma",
+          "t_inicio": 153.23,
+          "t_fin": 163.85,
+          "referencia": 4,
+          "nombre_referencia": "Retirar la carcasa y el cartucho usado",
+          "estado": "Parcial",
+          "similitud": 0.663,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true,
+          "ref_tramo": 4,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 9,
+          "nombre": "Instalar cartucho nuevo",
+          "t_inicio": 165.62,
+          "t_fin": 169.64,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 5,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 10,
+          "nombre": "Retirar envoltura colocar centro",
+          "t_inicio": 170.04,
+          "t_fin": 176.4,
+          "referencia": 5,
+          "nombre_referencia": "Colocar el cartucho nuevo",
+          "estado": "Parcial",
+          "similitud": 0.708,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true,
+          "ref_tramo": 5,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 11,
+          "nombre": "Enroscar perno con llave",
+          "t_inicio": 176.4,
+          "t_fin": 187.36,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 5,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 12,
+          "nombre": "Abrir válvula tubo lentamente",
+          "t_inicio": 188.44,
+          "t_fin": 192.84,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 6,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 13,
+          "nombre": "Verter aire botón rojo",
+          "t_inicio": 193.26,
+          "t_fin": 198.34,
+          "referencia": 6,
+          "nombre_referencia": "Abrir la llave y revisar fugas",
+          "estado": "Parcial",
+          "similitud": 0.698,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true,
+          "ref_tramo": 6,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 14,
+          "nombre": "Verificar junta guante conexión",
+          "t_inicio": 200.19,
+          "t_fin": 205.47,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 6,
+          "correcto_tramo": true
+        },
+        {
+          "paso": 15,
+          "nombre": "Comprobar fugas y presión",
+          "t_inicio": 205.47,
+          "t_fin": 219.77,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false,
+          "ref_tramo": 6,
+          "correcto_tramo": true
+        }
+      ]
+    }
+  },
+  "ollama_ps": "NAME                    ID              SIZE      PROCESSOR    CONTEXT    RUNNER      UNTIL               \ngemma4:e4b-it-q4_K_M    dc35e8d9c606    1.9 GB    100% CPU     8192       llamacpp    29 minutes from now"
+}

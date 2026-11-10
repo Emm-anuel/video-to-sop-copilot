@@ -223,6 +223,19 @@ reordenar pasos) sobre el mismo componente.
 - Pendiente (RF-26): edición con `PUT /sops/{id}` (la API ya valida el SOP completo y responde
   422 si no cumple el contrato), descargar el Markdown (`GET /sops/{id}.md`) y repetir la
   generación (`POST /videos/{id}/generar`).
+- **Para Sara (RF-26, 10 nov): el editor necesita "Unir con el siguiente paso".** La agrupación
+  predeterminada (v2, ADR-023) encuentra bien dónde empieza y termina cada paso y no inventa ni
+  mezcla pasos, pero el SOP sale más detallado que uno escrito a mano (unos 15 pasos contra 6 en
+  el video E): quien revisa junta pasos. En cada fila (menos la última), un botón que una el paso
+  con el siguiente en el mismo `PasoSOP`:
+  - `t_inicio` del primero y `t_fin` del segundo (los tiempos salen del video: no se escriben a
+    mano);
+  - nombre del primero, editable; descripciones unidas en orden;
+  - `equipo`, `puntos_validacion`, `evidencia` y `campos_inferidos` unidos sin repetir;
+    `tiempo_esperado_min`, la suma; `cita`, `fuente` y `confianza`, las del primero;
+  - renumerar los pasos (1…n) y el `paso` de cada riesgo del resumen: el que apuntaba al segundo
+    pasa al paso unido y los de después bajan uno.
+  Se guarda con el mismo `PUT /sops/{id}`. Lo contrario ("Partir") no hace falta para este caso.
 
 ## Desarrollo
 

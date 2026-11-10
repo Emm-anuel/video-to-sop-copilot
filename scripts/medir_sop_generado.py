@@ -11,12 +11,20 @@ número de pasos del video y la VRAM usada (`nvidia-smi`, con el modelo cargado)
 cada corrida antes de descargarlo. Si Gemma quedó en CPU sin `LLM_DISPOSITIVO=cpu`, se detiene
 sin medir (código 3).
 
-Con `--referencia` (el SOP escrito a mano) y una anotación con la clave del video, compara los
-pasos generados contra los de referencia (RNF-05): MiniLM, húngaro, umbrales y el juez de la zona
-gris, como el emparejamiento de la validación, pero **sin fusión ni rescate**, porque RNF-05 se
-mide sobre los pasos generados y la fusión juntaría los de más. Un paso generado es correcto si
-su par es *Cumple* o *Parcial* (nombre y lo esencial de la descripción, a juicio de MiniLM y del
-juez), no está fuera de orden y su punto medio cae en el tramo anotado de ese paso de referencia.
+Con `--referencia` (el SOP escrito a mano) y una anotación con la clave del video, mide RNF-05
+("al menos 80 % de los pasos generados coinciden con los que narra el operador") de dos formas:
+
+- **Por tramos (principal, ADR-023).** Un paso generado es correcto si cae dentro del tramo
+  anotado de un solo paso de referencia (de su segundo al siguiente segundo anotado, con
+  `TOLERANCIA_TRAMO_S` en cada borde: la anotación está verificada a ±0.8 s) y respeta el orden
+  (su paso de referencia no es anterior al de un paso correcto previo). Un SOP más detallado que
+  el de referencia no se castiga; uno que mezcla pasos de referencia, sí.
+- **Uno a uno (secundario, más estricto).** MiniLM, húngaro, umbrales y el juez de la zona gris,
+  como el emparejamiento de la validación, pero sin fusión ni rescate. Correcto si su par es
+  *Cumple* o *Parcial*, no está fuera de orden y su punto medio cae en el tramo de ese paso de
+  referencia: cada paso de más es *Sobra*.
+
+Además, la cobertura en orden (pasos de referencia con un par *Cumple* o *Parcial* en orden).
 
 Con `--validar clave=ruta`, valida ese video contra el SOP generado en la primera corrida del
 primer video (uso cruzado, RF-27), con `validar` de producción. El SOP pasa antes por JSON, como
@@ -75,6 +83,7 @@ from sopvid.plataforma.hardware import get_hardware
 SALIDA = PROJECT_ROOT / "data" / "interim" / "sop_generado"
 DOCS = PROJECT_ROOT / "docs" / "adr" / "datos" / "sop_generado"
 GPU_NO_CONFIRMADA = 3
+TOLERANCIA_TRAMO_S = 1.0  # bordes del tramo anotado; la anotación está verificada a ±0.8 s
 
 logger = logging.getLogger("medir_sop_generado")
 
@@ -291,6 +300,43 @@ def tramos_anotados(anotacion: dict[str, Any], duracion: float) -> dict[int, tup
     return tramos
 
 
+def paso_del_tramo(
+    t_inicio: float,
+    t_fin: float,
+    tramos: dict[int, tuple[float, float]],
+    tolerancia: float = TOLERANCIA_TRAMO_S,
+) -> int | None:
+    """El paso de referencia cuyo tramo contiene todo [t_inicio, t_fin], con `tolerancia` en cada
+    borde; None si el paso generado se sale de todos (mezcla pasos de referencia o cae en la
+    presentación o el cierre). Si por la tolerancia cabe en dos, gana el de su punto medio."""
+    dentro = [
+        r for r, (a, b) in tramos.items() if a - tolerancia <= t_inicio and t_fin <= b + tolerancia
+    ]
+    if len(dentro) > 1:
+        medio = (t_inicio + t_fin) / 2
+        return next((r for r in dentro if tramos[r][0] <= medio < tramos[r][1]), dentro[0])
+    return dentro[0] if dentro else None
+
+
+def correctos_por_tramos(
+    pasos: list[tuple[float, float]],
+    tramos: dict[int, tuple[float, float]],
+    tolerancia: float = TOLERANCIA_TRAMO_S,
+) -> list[tuple[int | None, bool]]:
+    """RNF-05 por tramos: por cada paso generado (inicio, fin), en orden, su paso de referencia y
+    si es correcto: cae dentro del tramo de un solo paso de referencia y ese paso no es anterior
+    al de un paso correcto previo."""
+    resultado: list[tuple[int | None, bool]] = []
+    ultimo = 0
+    for t_inicio, t_fin in pasos:
+        ref = paso_del_tramo(t_inicio, t_fin, tramos, tolerancia)
+        correcto = ref is not None and ref >= ultimo
+        if ref is not None and correcto:
+            ultimo = ref
+        resultado.append((ref, correcto))
+    return resultado
+
+
 def cobertura_en_orden(filas: list[dict[str, Any]]) -> list[int]:
     """Dato secundario de RNF-05 (para el paper): los pasos de referencia cubiertos en orden, es
     decir, con un paso generado emparejado como *Cumple* o *Parcial* que no está fuera de orden.
@@ -324,6 +370,9 @@ def comparar(
     clasificacion = orden(clasificacion)
     llm.descargar()
     tramos = tramos_anotados(anotacion, analisis.duracion_s)
+    por_tramos = correctos_por_tramos(
+        [(p.t_inicio or 0.0, p.t_fin or 0.0) for p in generado.pasos], tramos
+    )
     por_video = {r.indice_video: r for r in clasificacion.pasos if r.indice_video is not None}
     filas = []
     for i, p in enumerate(generado.pasos):
@@ -346,6 +395,8 @@ def comparar(
                 "fuera_de_orden": bool(r and r.fuera_de_orden),
                 "en_tramo": en_tramo,
                 "correcto": correcto,
+                "ref_tramo": por_tramos[i][0],
+                "correcto_tramo": por_tramos[i][1],
             }
         )
     faltan = [
@@ -355,8 +406,11 @@ def comparar(
     ]
     correctos = sum(f["correcto"] for f in filas)
     cubiertos = cobertura_en_orden(filas)
+    tramos_ok = sum(ok for _, ok in por_tramos)
     return {
         "pasos_generados": len(filas),
+        "tramos_correctos": tramos_ok,
+        "tramos_pct": round(100 * tramos_ok / len(filas), 1) if filas else 0.0,
         "correctos": correctos,
         "pct": round(100 * correctos / len(filas), 1) if filas else 0.0,
         "referencia_cubierta": len(referencia.pasos) - len(faltan),
@@ -474,33 +528,41 @@ def informe(datos: dict[str, Any]) -> str:
     if datos.get("rnf05"):
         lineas += [
             "",
-            "## Resumen RNF-05 (uno a uno) y cobertura en orden (dato secundario)",
+            "## Resumen RNF-05",
             "",
-            "| Corrida | Pasos generados | Correctos | RNF-05 | Cobertura en orden |",
+            "Principal: por tramos (dentro del tramo de un solo paso de referencia, ±"
+            f"{TOLERANCIA_TRAMO_S:g} s, en orden). Secundarios: uno a uno (húngaro, más estricto) "
+            "y cobertura en orden.",
+            "",
+            "| Corrida | Pasos generados | RNF-05 por tramos | Uno a uno | Cobertura en orden |",
             "|---|---|---|---|---|",
         ]
         for clave, rnf in datos["rnf05"].items():
             total = rnf.get("referencia_total", 6)
             cubiertos = rnf.get("cobertura_en_orden", [])
             lineas.append(
-                f"| {clave} | {rnf['pasos_generados']} | {rnf['correctos']} | {rnf['pct']} % | "
+                f"| {clave} | {rnf['pasos_generados']} | {rnf.get('tramos_correctos')} "
+                f"({rnf.get('tramos_pct')} %) | {rnf['correctos']} ({rnf['pct']} %) | "
                 f"{len(cubiertos)} de {total} ({rnf.get('cobertura_pct')} %) |"
             )
     for clave, rnf in datos.get("rnf05", {}).items():
         lineas += [
             "",
-            f"## RNF-05 · {clave}: {rnf['correctos']} de {rnf['pasos_generados']} pasos "
-            f"generados correctos ({rnf['pct']} %); referencia cubierta "
+            f"## RNF-05 · {clave}: por tramos {rnf.get('tramos_correctos')} de "
+            f"{rnf['pasos_generados']} ({rnf.get('tramos_pct')} %); uno a uno {rnf['correctos']} "
+            f"({rnf['pct']} %); referencia cubierta "
             f"{rnf['referencia_cubierta']} de {rnf.get('referencia_total', 6)}, faltan "
             f"{rnf['referencia_faltan']}; cubierta en orden {rnf.get('cobertura_en_orden')}",
             "",
-            "| Paso | Nombre | Tramo s | Referencia | Estado | Coseno | Fuera de orden | "
-            "En su tramo | Correcto |",
-            "|---|---|---|---|---|---|---|---|---|",
+            "| Paso | Nombre | Tramo s | Dentro del paso de ref. | Correcto (tramos) | "
+            "Par uno a uno | Estado | Coseno | Fuera de orden | En su tramo | "
+            "Correcto (uno a uno) |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         for f in rnf["filas"]:
             lineas.append(
                 f"| {f['paso']} | {f['nombre']} | {f['t_inicio']:.1f}–{f['t_fin']:.1f} | "
+                f"{f.get('ref_tramo') or '—'} | {'sí' if f.get('correcto_tramo') else 'no'} | "
                 f"{f['referencia']} {f['nombre_referencia'] or ''} | {f['estado']} | "
                 f"{f['similitud']} | {'sí' if f['fuera_de_orden'] else 'no'} | "
                 f"{'sí' if f['en_tramo'] else 'no'} | {'sí' if f['correcto'] else 'no'} |"
