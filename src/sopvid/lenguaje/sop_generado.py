@@ -113,8 +113,8 @@ from sopvid.texto import (
 logger = logging.getLogger(__name__)
 
 PROMPT_AGRUPAR = "sop_generado_agrupar_v2"  # archivos en lenguaje/prompts/; uno nuevo por versión
-PROMPT_PASOS = "sop_generado_pasos_v1"
-PROMPT_RESUMEN = "sop_generado_resumen_v1"
+PROMPT_PASOS = "sop_generado_pasos_v2"
+PROMPT_RESUMEN = "sop_generado_resumen_v2"
 PROMPT_CLAVES = "sop_generado_claves_v1"
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es un JSON del esquema
 PASOS_POR_LOTE = 8  # pasos del SOP por llamada de redacción
@@ -897,19 +897,47 @@ def _roles(
     return elementos
 
 
-def _equipo_operacion(pasos: Sequence[PasoSOP], contexto: Contexto | None) -> list[Elemento]:
-    """El equipo de los pasos y el de la ficha, sin repetir y en ese orden."""
+def unir_equipo(
+    nombres: Sequence[str], embedder: Embedder | None = None, umbral: float | None = None
+) -> list[str]:
+    """El equipo sin repetir, en el orden en que aparece. Primero junta los nombres iguales sin
+    importar acentos, mayúsculas, plural ni género (`clave_elemento`); después, un nombre cuyo
+    coseno MiniLM (en minúsculas) con uno ya guardado es ≥ `umbral` (por defecto
+    `UMBRAL_EQUIPO`) se une a ese, que conserva su nombre ("botón rojo en la carcasa" y "botón
+    rojo"). Se compara contra los guardados, no en cadena. Los nombres deben venir ya en
+    español: entre idiomas, el coseno no basta (ADR-023)."""
+    if umbral is None:
+        umbral = get_settings().umbral_equipo
+    unicos: list[str] = []
+    claves: set[str] = set()
+    for nombre in nombres:
+        valor = _valor_lista(nombre)
+        if valor and (clave := clave_elemento(valor)) not in claves:
+            claves.add(clave)
+            unicos.append(valor)
+    if len(unicos) < 2:
+        return unicos
+    vectores = (embedder or get_embedder()).embed([n.lower() for n in unicos])
+    guardados: list[int] = []
+    for i in range(len(unicos)):
+        parecido = max(
+            (float(similitud(vectores[i], vectores[j])[0, 0]) for j in guardados), default=0.0
+        )
+        if parecido < umbral:
+            guardados.append(i)
+        else:
+            logger.debug("SOP generado, equipo: se une un nombre (coseno %.2f)", parecido)
+    return [unicos[i] for i in guardados]
+
+
+def _equipo_operacion(
+    pasos: Sequence[PasoSOP], contexto: Contexto | None, embedder: Embedder | None = None
+) -> list[Elemento]:
+    """El equipo de los pasos y el de la ficha, en ese orden, unido con `unir_equipo`."""
     nombres = [e for p in pasos for e in p.equipo]
     if contexto is not None:
         nombres += [e.nombre for e in contexto.equipos]
-    vistos: set[str] = set()
-    elementos = []
-    for nombre in nombres:
-        valor = _valor_lista(nombre)
-        if valor and (clave := clave_elemento(valor)) not in vistos:
-            vistos.add(clave)
-            elementos.append(Elemento(nombre=valor))
-    return elementos
+    return [Elemento(nombre=n) for n in unir_equipo(nombres, embedder)]
 
 
 def titulo_de(propuesto: str | None, contexto: Contexto | None, video_id: int) -> str:
@@ -921,10 +949,14 @@ def titulo_de(propuesto: str | None, contexto: Contexto | None, video_id: int) -
 
 
 def resumen_por_codigo(
-    pasos: Sequence[PasoSOP], contexto: Contexto | None, comparador: ComparadorRoles
+    pasos: Sequence[PasoSOP],
+    contexto: Contexto | None,
+    comparador: ComparadorRoles,
+    embedder: Embedder | None = None,
 ) -> Resumen:
     """Lo del cuadro resumen que no se le pide a Gemma: lugar y horario (ficha), responsable,
-    roles y personas, equipo de operación, duración total (suma de los pasos) y versión."""
+    roles y personas, equipo de operación (sin repetir, `unir_equipo`), duración total (suma de
+    los pasos) y versión."""
     duraciones = [p.tiempo_esperado_min for p in pasos]
     total = round(sum(d for d in duraciones if d is not None), 2) if duraciones else None
     return Resumen(
@@ -933,7 +965,7 @@ def resumen_por_codigo(
         lugar=_dato_de_ficha(contexto.lugar if contexto else None),
         horario_frecuencia=_dato_de_ficha(contexto.horario_mencionado if contexto else None),
         duracion_total_min=total,
-        equipo_operacion=_equipo_operacion(pasos, contexto),
+        equipo_operacion=_equipo_operacion(pasos, contexto, embedder),
         roles=_roles(pasos, contexto.personas if contexto else [], comparador),
         personas=list(contexto.personas) if contexto else [],
     )
@@ -1255,7 +1287,7 @@ def generar_sop(
                 )
             )
 
-    resumen = resumen_por_codigo(pasos, contexto, armado.comparador)
+    resumen = resumen_por_codigo(pasos, contexto, armado.comparador, embedder)
     avanzar("sop_resumen")
     redactado, llamada = _resumir(analisis, pasos, contexto, llm, plazos)
     llamadas.append(llamada)
@@ -1292,6 +1324,7 @@ def generar_sop(
         puntos_clave=puntos,
         palabras_clave=palabras,
     )
+    advertencias += revisar_idioma(sop, analisis)
     generacion = GeneracionSOP(
         video_id=analisis.video_id,
         modelo=llm.modelo,
@@ -1379,6 +1412,89 @@ def _redactar(
                 sin_redactar.append(numero)
             pasos.append(armado.paso(numero, numeros, redaccion))
     return pasos, llamadas, sin_redactar
+
+
+# ── Revisión del idioma: todo lo que no es cita va en español ────────────────────────────────
+
+PALABRA_MIN = 3  # letras: las palabras más cortas (artículos, preposiciones) no cuentan
+UMBRAL_SIN_TRADUCIR = 0.5  # fracción de palabras del valor que aparecen en la transcripción
+
+
+def vocabulario(analisis: Analisis) -> frozenset[str]:
+    """Las palabras de la transcripción en `forma_busqueda` (sin acentos ni mayúsculas, con
+    plural simple), para saber si un valor repite palabras del video."""
+    return frozenset(w for s in analisis.transcripcion for w in forma_busqueda(s.texto).split())
+
+
+def parece_sin_traducir(valor: str | None, palabras_del_video: frozenset[str]) -> bool:
+    """Un valor parece copiado del video sin traducir si más de `UMBRAL_SIN_TRADUCIR` de sus
+    palabras (de `PALABRA_MIN` letras o más, sin números) aparecen en la transcripción. Solo
+    tiene sentido si el video no está en español; un término igual en los dos idiomas
+    ("manual", "panel") da un falso aviso, que solo es una advertencia."""
+    palabras = [
+        w for w in forma_busqueda(valor or "").split() if len(w) >= PALABRA_MIN and w.isalpha()
+    ]
+    if not palabras:
+        return False
+    en_video = sum(w in palabras_del_video for w in palabras)
+    return en_video / len(palabras) > UMBRAL_SIN_TRADUCIR
+
+
+def _valores_redactados(sop: SOP) -> list[tuple[str, list[str | None]]]:
+    """Cada lugar del SOP con texto que no es cita, con sus valores (las citas y la forma
+    literal de las palabras clave van en el idioma del video y no se revisan)."""
+    r = sop.resumen
+    lugares: list[tuple[str, list[str | None]]] = [
+        ("título", [sop.titulo]),
+        ("objetivo", [r.objetivo.valor]),
+        ("alcance", [r.alcance.valor]),
+        ("lugar", [r.lugar.valor]),
+        ("horario", [r.horario_frecuencia.valor]),
+        ("equipo de operación", [e.nombre for e in r.equipo_operacion]),
+        ("roles", [e.nombre for e in r.roles]),
+    ]
+    for i, x in enumerate(r.riesgos, start=1):
+        lugares += [
+            (f"riesgo {i}, descripción", [x.descripcion]),
+            (f"riesgo {i}, control", [x.control]),
+        ]
+    for i, x in enumerate(r.en_caso_de_falla, start=1):
+        lugares += [(f"falla {i}, situación", [x.situacion]), (f"falla {i}, acción", [x.accion])]
+    for p in sop.pasos:
+        lugares += [
+            (f"paso {p.numero}, nombre", [p.nombre]),
+            (f"paso {p.numero}, descripción", [p.descripcion]),
+            (f"paso {p.numero}, equipo", list(p.equipo)),
+            (f"paso {p.numero}, puntos de validación", list(p.puntos_validacion)),
+        ]
+    lugares += [("puntos clave", [x.texto for x in sop.puntos_clave])]
+    lugares += [("palabras clave", [x.termino for x in sop.palabras_clave])]
+    return lugares
+
+
+def revisar_idioma(sop: SOP, analisis: Analisis) -> list[AvisoConversion]:
+    """Advertencia `sin_traducir` por cada lugar del SOP con valores que parecen copiados del
+    video sin traducir (`parece_sin_traducir`). Si el video está en español no revisa nada. El
+    mensaje dice el lugar y cuántos valores, nunca el texto del video."""
+    if analisis.idioma.codigo.lower().startswith("es"):
+        return []
+    palabras_del_video = vocabulario(analisis)
+    avisos = []
+    for lugar, valores in _valores_redactados(sop):
+        n = sum(parece_sin_traducir(v, palabras_del_video) for v in valores)
+        if n:
+            avisos.append(
+                AvisoConversion(
+                    tipo="sin_traducir",
+                    mensaje=(
+                        f"{lugar}: {n} {'valor parece' if n == 1 else 'valores parecen'} "
+                        "en el idioma del video, sin traducir al español"
+                    ),
+                )
+            )
+    if avisos:
+        logger.warning("SOP generado: %d lugares con valores sin traducir", len(avisos))
+    return avisos
 
 
 def _incompleto(detalle: str) -> AvisoConversion:

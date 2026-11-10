@@ -113,6 +113,9 @@ class Settings(BaseSettings):
     # anterior pero su coseno MiniLM (minúsculas, nombre, descripción y cita) es menor que
     # `umbral_fusion`, el código lo parte ahí en un paso nuevo.
     sop_candado: bool = False
+    # Equipo de operación del SOP generado (ADR-023): dos nombres (ya en español) con coseno
+    # MiniLM ≥ `umbral_equipo`, en minúsculas, se unen en uno. Medido solo con el video E.
+    umbral_equipo: float = Field(default=0.85, ge=0, le=1)
 
     # Cortes del semáforo de cumplimiento (RF-19, RNF-14; SOP V1.0 §5.6): verde desde
     # `semaforo_verde`, amarillo desde `semaforo_amarillo`, rojo por debajo.

@@ -548,7 +548,8 @@ def test_un_json_roto_se_reintenta_y_ollama_caido_no(embedder):
 class VectorizadorPorPaso:
     """Embedder falso: cada paso del video es un vector unitario en el plano; los pasos 2 y 3
     forman un ángulo con coseno `coseno_2_3`, y 4 y 5, uno con coseno 0.9. Guarda los textos
-    que recibe para revisar que van en minúsculas y con la cita."""
+    de cada llamada (la primera es la del candado) para revisar que van en minúsculas y con la
+    cita."""
 
     def __init__(self, coseno_2_3: float):
         import math
@@ -563,12 +564,12 @@ class VectorizadorPorPaso:
             6: (1.0, 0.0),
             7: (1.0, 0.0),
         }
-        self.textos: list[str] = []
+        self.llamadas: list[list[str]] = []
 
     def embed(self, textos: list[str]) -> Any:
         import numpy as np
 
-        self.textos = list(textos)
+        self.llamadas.append(list(textos))
         return np.array([self.vectores[i] for i in range(1, len(textos) + 1)])
 
 
@@ -582,7 +583,7 @@ def test_el_candado_parte_un_continua_poco_parecido_al_anterior(embedder):
     assert r.generacion.etiquetas == ETIQUETAS  # lo que dijo Gemma queda tal cual
     assert len(r.sop.pasos) == 4
     assert (
-        vectorizador.textos[1]
+        vectorizador.llamadas[0][1]
         == "colocación de guantes. descripción del paso 2. i put on my nitrile gloves"
     )
 
@@ -941,3 +942,121 @@ def test_la_v2_y_la_v3_usan_las_mismas_etiquetas(embedder, monkeypatch, version)
 
 def test_el_candado_esta_apagado_por_defecto():
     assert Settings.model_fields["sop_candado"].default is False
+
+
+# ── Equipo sin repetir y valores en español (ADR-023, prueba manual de E) ────────────────────
+
+
+class VectorizadorPorNombre:
+    """Embedder falso: un vector fijo por nombre (en minúsculas); guarda lo que recibe."""
+
+    def __init__(self, vectores: dict[str, tuple[float, float]]):
+        self.vectores = vectores
+        self.recibidos: list[str] = []
+
+    def embed(self, textos: list[str]) -> Any:
+        import numpy as np
+
+        self.recibidos += textos
+        return np.array([self.vectores[t] for t in textos])
+
+
+def test_el_equipo_se_une_por_coseno_en_minusculas_y_conserva_el_primer_nombre():
+    vectorizador = VectorizadorPorNombre(
+        {
+            "botón rojo en la carcasa": (1.0, 0.0),
+            "cubeta": (0.0, 1.0),
+            "botón rojo": (0.95, 0.31),  # coseno 0.95 con el primero
+            "cubo": (0.2, 0.98),  # coseno 0.98 con la cubeta
+        }
+    )
+    nombres = ["Botón rojo en la carcasa", "Cubeta", "botón rojo", "Cubetas", "Cubo"]
+    unidos = gen.unir_equipo(nombres, vectorizador, 0.9)  # type: ignore[arg-type]
+    assert unidos == ["Botón rojo en la carcasa", "Cubeta"]
+    assert "cubetas" not in vectorizador.recibidos  # el plural ya se unió sin MiniLM
+    assert all(t == t.lower() for t in vectorizador.recibidos)
+
+
+def test_el_equipo_se_compara_contra_los_guardados_no_en_cadena():
+    # a~b (0.92) y b~c (0.92), pero a y c (0.70) son distintos: c queda.
+    import math
+
+    def angulo(grados: float) -> tuple[float, float]:
+        return (math.cos(math.radians(grados)), math.sin(math.radians(grados)))
+
+    vectorizador = VectorizadorPorNombre(
+        {"a": angulo(0), "b": angulo(math.degrees(math.acos(0.92))), "c": angulo(45.6)}
+    )
+    assert gen.unir_equipo(["a", "b", "c"], vectorizador, 0.9) == ["a", "c"]  # type: ignore[arg-type]
+
+
+def test_con_un_solo_nombre_no_vectoriza():
+    class SinUso:
+        def embed(self, textos: list[str]) -> Any:
+            raise AssertionError("no debía vectorizar")
+
+    assert gen.unir_equipo(["Aceitera", "aceiteras"], SinUso()) == ["Aceitera"]  # type: ignore[arg-type]
+
+
+def test_el_umbral_del_equipo_sale_de_la_configuracion(monkeypatch):
+    vectorizador = VectorizadorPorNombre({"x": (1.0, 0.0), "y": (0.8, 0.6)})  # coseno 0.8
+    monkeypatch.setenv("UMBRAL_EQUIPO", "0.75")
+    get_settings.cache_clear()
+    try:
+        assert gen.unir_equipo(["x", "y"], vectorizador) == ["x"]  # type: ignore[arg-type]
+    finally:
+        get_settings.cache_clear()
+    assert Settings.model_fields["umbral_equipo"].default == 0.85
+
+
+@pytest.mark.parametrize(
+    ("valor", "sin_traducir"),
+    [
+        ("oil can", True),
+        ("The conveyor is stopped", True),
+        ("Aceitera", False),
+        ("Detener el transportador", False),  # "transportador" no es "conveyor"
+        ("Botón rojo de paro (red stop)", False),  # 2 de 4 palabras: no más de la mitad
+        ("", False),
+        (None, False),
+        ("10 kg", False),  # sin palabras que contar
+    ],
+)
+def test_un_valor_copiado_del_video_parece_sin_traducir(valor, sin_traducir):
+    palabras = gen.vocabulario(analisis_ingles())
+    assert gen.parece_sin_traducir(valor, palabras) is sin_traducir
+
+
+def test_un_sop_con_valores_en_ingles_deja_una_advertencia_por_lugar(embedder):
+    pasos = [dict(p) for p in PASOS]
+    pasos[2] = dict(PASOS[2], equipo=[{"cita": "with the oil can", "valor": "oil can"}])
+    resumen = dict(RESUMEN)
+    resumen["riesgos"] = [
+        dict(RESUMEN["riesgos"][0], control="I stop the conveyor with the red stop button")
+    ]
+    r = generar(LLMGuionado(guion(pasos=[pasos], resumen=[resumen])), embedder)
+    avisos = [a for a in r.advertencias if a.tipo == "sin_traducir"]
+    assert [a.mensaje.split(":")[0] for a in avisos] == [
+        "equipo de operación",
+        "riesgo 1, control",
+        "paso 3, equipo",
+    ]
+    assert all("oil" not in a.mensaje and "conveyor" not in a.mensaje for a in avisos)
+
+
+def test_un_video_en_espanol_no_se_revisa():
+    analisis = analisis_ingles().model_copy(update={"idioma": Idioma(codigo="es", confianza=1)})
+    sop = SOP.model_validate(
+        {"titulo": "x", "pasos": [{"numero": 1, "nombre": "The conveyor", "responsable": "T"}]}
+    )
+    assert gen.revisar_idioma(sop, analisis) == []
+    assert gen.revisar_idioma(sop, analisis_ingles())[0].tipo == "sin_traducir"
+
+
+def test_los_prompts_de_redaccion_piden_los_valores_en_espanol():
+    assert (gen.PROMPT_PASOS, gen.PROMPT_RESUMEN) == (
+        "sop_generado_pasos_v2",
+        "sop_generado_resumen_v2",
+    )
+    for version in (gen.PROMPT_PASOS, gen.PROMPT_RESUMEN):
+        assert "Todo lo que no es cita va en español" in gen.cargar_prompt(version).sistema

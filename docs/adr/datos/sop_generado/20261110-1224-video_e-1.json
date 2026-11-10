@@ -1,0 +1,1164 @@
+{
+  "sop": {
+    "version_contrato": 1,
+    "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+    "resumen": {
+      "version": "1.0",
+      "objetivo": {
+        "valor": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 9.28,
+        "cita": "The goal is to change the cartridge with no leaks and get the working pressure back."
+      },
+      "alcance": {
+        "valor": "Cubre solo el filtro de cartucho montado en la pared en la línea de enjuague. No incluye reemplazar la carcasa del filtro ni la válvula de corte.",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 14.94,
+        "cita": "This covers only the wall-mounted cartridge filter at the rinse line in length. It does not include replacing the filter housing or the"
+      },
+      "responsable": {
+        "valor": "Técnico de mantenimiento",
+        "confianza": "media",
+        "fuente": "audio",
+        "t": 0.14,
+        "cita": "Good morning, I'm Emmanuel, the maintenance technician."
+      },
+      "lugar": {
+        "valor": "Línea de enjuague",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 14.94,
+        "cita": ""
+      },
+      "horario_frecuencia": {
+        "valor": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 27.18,
+        "cita": ""
+      },
+      "duracion_total_min": 3.0,
+      "equipo_operacion": [
+        {
+          "nombre": "Guantes neutros",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Gafas de seguridad",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Supervisor de ajuste",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Cubo",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Botón rojo en la carcasa",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Medidor de presión",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Llave de carcasa",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Bolsa de residuos",
+          "descripcion": ""
+        },
+        {
+          "nombre": "cartucho nuevo",
+          "descripcion": ""
+        },
+        {
+          "nombre": "envoltura plástica",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave",
+          "descripcion": ""
+        },
+        {
+          "nombre": "toalla de papel",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave inglesa",
+          "descripcion": ""
+        },
+        {
+          "nombre": "contenedor",
+          "descripcion": ""
+        },
+        {
+          "nombre": "cartucho de filtro",
+          "descripcion": ""
+        },
+        {
+          "nombre": "manómetro",
+          "descripcion": ""
+        },
+        {
+          "nombre": "válvula de corte",
+          "descripcion": ""
+        },
+        {
+          "nombre": "herramienta de soporte de carcasa",
+          "descripcion": ""
+        }
+      ],
+      "roles": [
+        {
+          "nombre": "Técnico de mantenimiento",
+          "descripcion": ""
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "Emmanuel",
+          "rol": "Técnico de mantenimiento",
+          "participacion": "participa",
+          "t": 0.14,
+          "cita": "Good morning, I'm Emmanuel, the maintenance technician."
+        }
+      ],
+      "riesgos": [
+        {
+          "descripcion": "Agua bajo presión al abrir la carcasa",
+          "nivel": "alto",
+          "paso": 3,
+          "control": "Liberar la presión del sistema",
+          "cita": "Now I release the pressure, this is the highest risk, water under pressure when the housing is opened.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 102.12
+        },
+        {
+          "descripcion": "El suelo puede mojarse",
+          "nivel": "bajo",
+          "paso": 4,
+          "control": "Colocar cubo debajo del filtro",
+          "cita": "I place the bucket under the filter because the floor can get wet.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 111.36
+        }
+      ],
+      "en_caso_de_falla": [
+        {
+          "situacion": "Hay una fuga en la unión del perno",
+          "accion": "Cerrar la válvula, liberar la presión y revisar el anillo de goma.",
+          "cita": "If there is a leak at the bolt joint, close the valve, release the pressure and check the o-ring.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 205.47
+        }
+      ]
+    },
+    "pasos": [
+      {
+        "numero": 1,
+        "nombre": "Colocar equipo de protección personal",
+        "descripcion": "Ponerse guantes neutros para proteger las manos y gafas de seguridad porque el agua puede salpicar al liberar la presión. El equipo de protección debe estar completo antes de tocar el filtro.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Guantes neutros",
+          "Gafas de seguridad"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.41,
+        "t_inicio": 52.46,
+        "t_fin": 75.53,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I put on neutral gloves to protect my hands, and I put on safety glasses",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Guantes neutros",
+            "cita": "neutral gloves",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 52.46
+          },
+          {
+            "campo": "equipo",
+            "valor": "Gafas de seguridad",
+            "cita": "safety glasses",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 52.46
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.41",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 2,
+        "nombre": "Cerrar válvula de corte antes filtro",
+        "descripcion": "Cerrar la válvula de corte antes del filtro girándola completamente hacia la derecha hasta que el mango quede a través de la tubería. Si la válvula no cierra o está demasiado apretada, no usar una barra de extensión llamada el supervisor de ajuste.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Supervisor de ajuste"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.41,
+        "t_inicio": 77.32,
+        "t_fin": 100.44,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Next I close the shove off valve before the filter, it turns it to the",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Supervisor de ajuste",
+            "cita": "sniff supervisor",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 91.88
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.41",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 3,
+        "nombre": "Liberar la presión del sistema",
+        "descripcion": "Liberar la presión, ya que este es el mayor riesgo debido al agua a presión cuando se abre la carcasa.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.15,
+        "t_inicio": 102.12,
+        "t_fin": 110.78,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Now I release the pressure, this is the highest risk, water under pressure",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.15",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 4,
+        "nombre": "Colocar cubo debajo del filtro",
+        "descripcion": "Colocar el cubo debajo del filtro porque el suelo puede mojarse.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Cubo"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.11,
+        "t_inicio": 111.36,
+        "t_fin": 117.5,
+        "confianza": "media",
+        "campos_inferidos": [
+          "equipo",
+          "tiempo_esperado_min"
+        ],
+        "cita": "I place the bucket under the filter because the floor can get wet.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Cubo",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "baja",
+            "t": null
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.11",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 5,
+        "nombre": "Presionar botón rojo y verificar presión",
+        "descripcion": "Presionar y mantener el botón rojo en la carcasa hasta que salga el aire y la lectura de presión en el medidor sea cero, lo que indica que es seguro abrir.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Botón rojo en la carcasa",
+          "Medidor de presión"
+        ],
+        "puntos_validacion": [
+          "La lectura del medidor de presión es cero"
+        ],
+        "tiempo_esperado_min": 0.26,
+        "t_inicio": 118.2,
+        "t_fin": 131.3,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I press and hold the red button on the housing, air is coming out.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Botón rojo en la carcasa",
+            "cita": "red button on the housing",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 118.2
+          },
+          {
+            "campo": "equipo",
+            "valor": "Medidor de presión",
+            "cita": "pressure couch",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 124.26
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "La lectura del medidor de presión es cero",
+            "cita": "the pressure couch reads zero",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 124.26
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.26",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 6,
+        "nombre": "Retirar carcasa aflojando perno",
+        "descripcion": "Retirar la carcasa con la llave de carcasa, aflojando el perno girándolo hacia la izquierda y bajándola con cuidado porque está llena de agua.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Llave de carcasa"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.23,
+        "t_inicio": 133.76,
+        "t_fin": 145.88,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I removed the housing with the housing grant, I loosened the bolt by turning it",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Llave de carcasa",
+            "cita": "housing grant",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 133.76
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.23",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 7,
+        "nombre": "Sacar cartucho viejo y desecharlo",
+        "descripcion": "Sacar el cartucho viejo y colocarlo en la bolsa de residuos.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Bolsa de residuos"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.09,
+        "t_inicio": 147.77,
+        "t_fin": 153.23,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I take out the old cartridge and put it in the waste bag.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Bolsa de residuos",
+            "cita": "waste bag",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 147.77
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.09",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 8,
+        "nombre": "Verificar anillo de goma o junta",
+        "descripcion": "Revisar el anillo de goma o junta para ver si está doblado o agrietado; si está dañado, se debe reemplazar.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.21,
+        "t_inicio": 153.23,
+        "t_fin": 163.85,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I check the rubber or ring, it's now flutter or crack so it stays",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.21",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 9,
+        "nombre": "Instalar cartucho nuevo filtro agua",
+        "descripcion": "Instalar el cartucho nuevo, asegurándose de que sea del mismo modelo que el anterior.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "cartucho nuevo"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.07,
+        "t_inicio": 165.62,
+        "t_fin": 169.64,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I install the new cartridge, the same model as the old one.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "cartucho nuevo",
+            "cita": "the new cartridge, the same model as the old one.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 165.62
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.07",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 10,
+        "nombre": "Retirar envoltura plástica colocar centro",
+        "descripcion": "Retirar la envoltura plástica y colocarla en el centro del perno con la pendiente hacia arriba.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "envoltura plástica"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.11,
+        "t_inicio": 170.04,
+        "t_fin": 176.4,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I remove the plastic wrap and put it in the center of the bolt with",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "envoltura plástica",
+            "cita": "the plastic wrap",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 170.04
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.11",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 11,
+        "nombre": "Enroscar perno mano dar cuarto giro",
+        "descripcion": "Enroscar el perno a mano y luego darle un cuarto de vuelta con la llave sin apretar demasiado.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "llave"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.2,
+        "t_inicio": 176.4,
+        "t_fin": 187.36,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I screw the bolt on by hand and then I give it a quarter turn",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "llave",
+            "cita": "the wrench",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 176.4
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.2",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 12,
+        "nombre": "Abrir válvula tubo lentamente",
+        "descripcion": "Abrir la válvula del tubo lentamente.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.08,
+        "t_inicio": 188.44,
+        "t_fin": 192.84,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Finally, I open the tube off valve slowly.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.08",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 13,
+        "nombre": "Verter aire botón rojo hasta agua",
+        "descripcion": "Verter el aire con el botón rojo hasta que solo salga agua.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "botón rojo"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.12,
+        "t_inicio": 193.26,
+        "t_fin": 198.34,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I pour the air with the red button until only water comes out.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "botón rojo",
+            "cita": "the red button",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 193.26
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.12",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 14,
+        "nombre": "Verificar junta guante conexión papel",
+        "descripcion": "Verificar la junta del guante y la conexión utilizando una toalla de papel.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "toalla de papel"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.09,
+        "t_inicio": 200.19,
+        "t_fin": 205.47,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I check the glove joint and the connection with the paper towel.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "toalla de papel",
+            "cita": "the paper towel",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 200.19
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.09",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      }
+    ],
+    "puntos_clave": [
+      {
+        "texto": "Usar guantes neutros y gafas de seguridad al liberar la presión.",
+        "t": 52.46,
+        "cita": "I put on neutral gloves to protect my hands, and I put on safety glasses because the water can splash when I release the pressure.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Cerrar la válvula de corte antes del filtro completamente.",
+        "t": 77.32,
+        "cita": "Next I close the shove off valve before the filter, it turns it to the right all the way.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Liberar la presión del sistema es el mayor riesgo al abrir la carcasa.",
+        "t": 102.12,
+        "cita": "Now I release the pressure, this is the highest risk, water under pressure when the housing is opened.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Colocar un cubo debajo del filtro para evitar que el suelo se moje.",
+        "t": 111.36,
+        "cita": "I place the bucket under the filter because the floor can get wet.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Verificar que el manómetro marque cero antes de abrir la carcasa.",
+        "t": 124.26,
+        "cita": "There stopped, the pressure couch reads zero, now it's safe to open.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Verificar el anillo de goma para asegurar que no esté dañado.",
+        "t": 153.23,
+        "cita": "I check the rubber or ring, it's now flutter or crack so it stays, if it were damaged I would replace it.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Apretar el perno a mano y luego un cuarto de giro con la llave sin excederse.",
+        "t": 176.4,
+        "cita": "I screw the bolt on by hand and then I give it a quarter turn with the wrench without over littering.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Si hay fuga en la unión del perno, cerrar válvula, liberar presión y revisar junta.",
+        "t": 205.47,
+        "cita": "If there is a leak at the bolt joint, close the valve, release the pressure and check the o-ring. The pressure guard reads forward.",
+        "fuente": "audio",
+        "confianza": "alta"
+      }
+    ],
+    "palabras_clave": [
+      {
+        "termino": "guantes",
+        "categoria": "seguridad",
+        "menciones": 2,
+        "t": [
+          58.66,
+          201.53
+        ],
+        "literal": "gloves"
+      },
+      {
+        "termino": "gafas",
+        "categoria": "seguridad",
+        "menciones": 1,
+        "t": [
+          66.07
+        ],
+        "literal": "safety glasses"
+      },
+      {
+        "termino": "válvula",
+        "categoria": "equipo",
+        "menciones": 3,
+        "t": [
+          25.4,
+          79.68,
+          190.18
+        ],
+        "literal": "shove off valve"
+      },
+      {
+        "termino": "filtro",
+        "categoria": "equipo",
+        "menciones": 7,
+        "t": [
+          6.22,
+          17.68,
+          23.46,
+          75.17,
+          82.28,
+          113.8,
+          222.59
+        ],
+        "literal": "filter"
+      },
+      {
+        "termino": "presión",
+        "categoria": "calidad",
+        "menciones": 8,
+        "t": [
+          13.86,
+          32.5,
+          70.85,
+          104.4,
+          108.14,
+          127.18,
+          214.17,
+          217.39
+        ],
+        "literal": "pressure"
+      },
+      {
+        "termino": "cubo",
+        "categoria": "material",
+        "menciones": 1,
+        "t": [
+          112.76
+        ],
+        "literal": "bucket"
+      },
+      {
+        "termino": "botón",
+        "categoria": "equipo",
+        "menciones": 2,
+        "t": [
+          120.28,
+          195.36
+        ],
+        "literal": "red button"
+      },
+      {
+        "termino": "carcasa",
+        "categoria": "equipo",
+        "menciones": 5,
+        "t": [
+          23.82,
+          109.52,
+          121.58,
+          134.9,
+          136.02
+        ],
+        "literal": "housing"
+      },
+      {
+        "termino": "perno",
+        "categoria": "equipo",
+        "menciones": 4,
+        "t": [
+          139.0,
+          173.72,
+          178.18,
+          211.15
+        ],
+        "literal": "bolt"
+      },
+      {
+        "termino": "cartucho",
+        "categoria": "material",
+        "menciones": 6,
+        "t": [
+          6.62,
+          11.42,
+          17.04,
+          150.33,
+          166.94,
+          222.93
+        ],
+        "literal": "cartridge"
+      },
+      {
+        "termino": "anillo",
+        "categoria": "material",
+        "menciones": 2,
+        "t": [
+          155.43,
+          216.25
+        ],
+        "literal": "ring"
+      },
+      {
+        "termino": "llave",
+        "categoria": "equipo",
+        "menciones": 1,
+        "t": [
+          184.22
+        ],
+        "literal": "wrench"
+      },
+      {
+        "termino": "junta",
+        "categoria": "calidad",
+        "menciones": 1,
+        "t": [
+          201.53
+        ],
+        "literal": "glove joint"
+      }
+    ]
+  },
+  "advertencias": [],
+  "generacion": {
+    "version_contrato": 1,
+    "video_id": 0,
+    "modelo": "gemma4:e4b-it-q4_K_M",
+    "pasos_video": 17,
+    "agrupacion": "llm",
+    "grupos": [
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ],
+      [
+        9
+      ],
+      [
+        10
+      ],
+      [
+        11
+      ],
+      [
+        12
+      ],
+      [
+        13
+      ],
+      [
+        14
+      ],
+      [
+        15
+      ],
+      [
+        16
+      ]
+    ],
+    "fuera": [
+      {
+        "paso_video": 1,
+        "tipo": "introduccion"
+      },
+      {
+        "paso_video": 2,
+        "tipo": "comentario"
+      },
+      {
+        "paso_video": 17,
+        "tipo": "cierre"
+      }
+    ],
+    "etiquetas": [
+      "introduccion",
+      "comentario",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "cierre"
+    ],
+    "candado": false,
+    "cortes_candado": [],
+    "llamadas": [
+      {
+        "etapa": "agrupar",
+        "prompt": "sop_generado_agrupar_v2",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 4.06,
+        "tokens_entrada": 1274,
+        "tokens_salida": 325,
+        "tokens_por_s": 100.07,
+        "primer_token_s": 0.81
+      },
+      {
+        "etapa": "pasos",
+        "prompt": "sop_generado_pasos_v2",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 8.81,
+        "tokens_entrada": 1025,
+        "tokens_salida": 693,
+        "tokens_por_s": 85.27,
+        "primer_token_s": 0.69
+      },
+      {
+        "etapa": "pasos",
+        "prompt": "sop_generado_pasos_v2",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 5.36,
+        "tokens_entrada": 857,
+        "tokens_salida": 413,
+        "tokens_por_s": 82.31,
+        "primer_token_s": 0.33
+      },
+      {
+        "etapa": "resumen",
+        "prompt": "sop_generado_resumen_v2",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 5.31,
+        "tokens_entrada": 1545,
+        "tokens_salida": 364,
+        "tokens_por_s": 83.0,
+        "primer_token_s": 0.92
+      },
+      {
+        "etapa": "claves",
+        "prompt": "sop_generado_claves_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 8.03,
+        "tokens_entrada": 1146,
+        "tokens_salida": 691,
+        "tokens_por_s": 94.45,
+        "primer_token_s": 0.7
+      }
+    ],
+    "duracion_narrada": {
+      "valor": "3",
+      "confianza": "alta",
+      "fuente": "audio",
+      "t": 27.18,
+      "cita": "the whole job takes about 3 minutes, if something goes wrong, the SNP supervisor is the person to call, ..."
+    },
+    "segundos": 44.03,
+    "dispositivo_llm": "desconocido",
+    "contexto_reusado": false,
+    "segmentacion_reusada": false
+  }
+}

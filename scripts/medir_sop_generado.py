@@ -185,6 +185,8 @@ class Corrida:
     segundos: dict[str, float] = field(default_factory=dict)
     llamadas: list[dict[str, Any]] = field(default_factory=list)
     agrupacion: dict[str, Any] = field(default_factory=dict)
+    equipo_operacion: list[str] = field(default_factory=list)
+    sin_traducir: list[str] = field(default_factory=list)
     advertencias: list[str] = field(default_factory=list)
     archivo_sop: str = ""
 
@@ -258,6 +260,8 @@ def generar(
         llamadas,
         [f"{a.tipo}: {a.mensaje}" for a in generado.advertencias],
     )
+    corrida.equipo_operacion = [e.nombre for e in generado.sop.resumen.equipo_operacion]
+    corrida.sin_traducir = [a.mensaje for a in generado.advertencias if a.tipo == "sin_traducir"]
     g = generado.generacion
     corrida.agrupacion = {
         "metodo": g.agrupacion,
@@ -474,8 +478,8 @@ def informe(datos: dict[str, Any]) -> str:
         "## Corridas",
         "",
         "| Video | n | Gemma | VRAM MiB | Pasos del video | Pasos del SOP | Ficha s | Pasos s | "
-        "SOP s | Total Gemma s | Advertencias |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "SOP s | Total Gemma s | Advertencias | Equipo de operación | Sin traducir |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for c in datos["corridas"]:
         s = c["segundos"]
@@ -483,7 +487,8 @@ def informe(datos: dict[str, Any]) -> str:
             f"| {c['video']} | {c['n']} | {c['dispositivo']} | {c['vram_mib']} | "
             f"{c['pasos_video']} | {c['pasos_sop']} | {s.get('contexto')} | "
             f"{s.get('segmentacion')} | {s.get('sop')} | {s.get('total_gemma')} | "
-            f"{len(c['advertencias'])} |"
+            f"{len(c['advertencias'])} | {len(c.get('equipo_operacion', []))} | "
+            f"{len(c.get('sin_traducir', []))} |"
         )
     lineas += [
         "",
@@ -514,6 +519,13 @@ def informe(datos: dict[str, Any]) -> str:
         "",
         "Etiquetas: N nuevo, c continua, i introducción, x cierre, e entrevistador, o comentario.",
     ]
+    lineas += ["", "## Equipo de operación y valores sin traducir", ""]
+    for c in datos["corridas"]:
+        lineas.append(
+            f"- {c['video']} [{c['n']}]: {len(c.get('equipo_operacion', []))} elementos: "
+            + "; ".join(c.get("equipo_operacion", []))
+        )
+        lineas += [f"  - sin traducir · {m}" for m in c.get("sin_traducir", [])]
     lineas += ["", "## Llamadas (segundos · tokens de salida · tokens/s)", ""]
     for c in datos["corridas"]:
         partes = [f"{x['etapa']} {x['s']} s · {x['tokens']} · {x['tok_s']}" for x in c["llamadas"]]

@@ -356,6 +356,65 @@ SOP, las mismas etiquetas que en GPU y RNF-05 de 100 % por tramos (40 % uno a un
 64 s en GPU, son unas 7.4 veces más; con la v1 en CPU fueron 428.8 s (la v2 tarda más en redactar
 porque son 15 pasos, no 5). Sigue siendo respaldo (ADR-018), no para la demo.
 
+## Prueba manual de E (10 nov): valores en español y equipo sin repetir
+
+**Lo que se vio** (video 6971, SOP 6314, v2 con `pasos_v1` y `resumen_v1`). Las citas salen bien
+en inglés, pero algunos valores también: el equipo de 5 pasos ("cartridge", "plastic wrap",
+"wrench", "red button", "paper towel"), el control de un riesgo y la acción de las dos fallas,
+copiados de la cita. Y el equipo de operación tenía 19 elementos para 7 reales: la unión del
+equipo de los pasos y de la ficha solo juntaba nombres iguales.
+
+**Cambios.**
+
+1. **Prompts** `sop_generado_pasos_v2` y `sop_generado_resumen_v2` (las v1 se conservan): todo lo
+   que no es cita va en español, traducido y redactado con palabras propias, con un ejemplo de
+   otro procedimiento; el nombre del equipo, corto y sin lugar ni descripción.
+2. **Revisión por código** (`revisar_idioma`, advertencia `sin_traducir`): si el video no está en
+   español, un valor (título, objetivo, alcance, lugar, horario, equipo, roles, riesgos, fallas,
+   nombre, descripción, equipo y validación de cada paso, puntos clave y términos de las palabras
+   clave) parece sin traducir si más de la mitad de sus palabras de 3 letras o más aparecen en la
+   transcripción (`forma_busqueda`). Hay una advertencia por lugar, con el lugar y cuántos
+   valores, nunca el texto. Sobre el SOP 6314 marca exactamente lo visto (9 lugares), sin avisos
+   falsos en las descripciones. Un término igual en los dos idiomas ("manual", "panel") puede
+   dar un aviso falso: es solo una advertencia.
+3. **Equipo de operación** (`unir_equipo`, `UMBRAL_EQUIPO=0.85`): primero junta los nombres
+   iguales (`clave_elemento`); después, un nombre cuyo coseno MiniLM en minúsculas con uno ya
+   guardado es ≥ el umbral se une a ese, que conserva su nombre. Compara contra los guardados, no
+   en cadena.
+
+**Medición** (E ×3 en GPU, mismo `analisis.json`;
+[`sop-generado-20261110-1224.md`](datos/sop_generado/sop-generado-20261110-1224.md)):
+
+| Corrida | Pasos del SOP | Valores sin traducir | Equipo de operación | RNF-05 por tramos | Uno a uno |
+|---|---|---|---|---|---|
+| E 1 | 14 | 0 | 18 | 100 % | 42.9 % |
+| E 2 | 14 | 0 | 16 | 100 % | 42.9 % |
+| E 3 | 15 | 0 | 16 | 100 % | 40.0 % |
+
+Los valores salen en español en las 3 corridas y RNF-05 no empeora. **El equipo no queda cerca
+del real (7):** los duplicados que quedan son sinónimos que MiniLM no relaciona, y bajar el umbral
+junta antes cosas distintas.
+
+- Del equipo de los pasos salen 12 nombres por corrida, todos con cita: los 7 reales, otros que
+  sí se nombran (el botón de purga, la envoltura del cartucho, la válvula, el manómetro) y dos
+  ruidos ("Supervisor de ajuste", de un error de Whisper; "llave" junto a "llave de carcasa", con
+  coseno 0.77). La ficha de contexto agrega 4–6 que son los mismos con otras palabras:
+  "manómetro" / "medidor de presión", "cartucho de filtro" / "cartucho nuevo", "contenedor" /
+  "cubo", "llave inglesa" (cosenos < 0.52).
+- Barrido del umbral en E: 0.85 y 0.80 dan 18 / 16 / 16; 0.75, 17 / 15 / 15; 0.65, 15 / 13 / 14.
+  Mientras tanto se unen pares distintos ("llave de carcasa" / "contenedor" 0.66, "válvula de
+  corte" / "cartucho de filtro" 0.67).
+- En A (español) el umbral 0.85 ya deja 9–11 de 10–12, pero 0.75 une "llave de la carcasa" (la
+  herramienta) con "llave de paso" (la válvula). Quitar el equipo de la ficha tampoco sirve: en A
+  la ficha trae equipo real que los pasos no nombran (lentes, bolsa de residuos, cartucho).
+- Con cualquier umbral, en español "llave" y "llave de paso" (0.90) se unen: el coseno no
+  distingue la herramienta de la válvula.
+
+**Pendiente (decisión del equipo).** Juntar sinónimos necesita algo más que el coseno. La opción
+más directa es pedir a Gemma, en la llamada del resumen, la lista única del equipo en español
+(juntando sinónimos, cada uno con una cita verificada) y dejar `unir_equipo` como red de
+seguridad. Mientras tanto, quien revisa quita los repetidos con RF-26.
+
 ## Referencias
 
 - Documento SOP V1.0, §6, §10 y §14; RF-22 a RF-27, RNF-05 y RNF-06.
