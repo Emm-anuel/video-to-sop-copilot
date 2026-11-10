@@ -219,6 +219,7 @@ docs/
 | Levantar con el LLM, GPU si hay (recomendado) | — | `.\scripts\levantar.ps1 -Build` (`-Plan` solo muestra qué haría; `-Cpu` fuerza CPU) |
 | Levantar con el LLM (CPU, cualquier equipo) | — | `docker compose --profile llm up -d --build` |
 | Levantar con el LLM en GPU NVIDIA (ADR-018) | — | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build` |
+| Postgres y Ollama en GPU, API en el host (demo y mediciones, `docs/dev/api.md`) | `make up-gpu` | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama` |
 | Detener (conserva datos) | `make down` | `docker compose down` |
 | Detener también el LLM (conserva modelos) | — | `docker compose --profile llm down` |
 | Logs | `make logs` | `docker compose logs -f` |

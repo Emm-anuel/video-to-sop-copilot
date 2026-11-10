@@ -1,10 +1,13 @@
 # Atajos de desarrollo. En Windows sin `make`, ver los equivalentes de PowerShell
 # en la sección 5 del README.
 
-.PHONY: up down logs migrate test lint format
+.PHONY: up up-gpu down logs migrate test lint format
 
 up:        ## Construye y levanta API + Postgres en segundo plano
 	docker compose up -d --build
+
+up-gpu:    ## Postgres y Ollama con la GPU NVIDIA (ADR-018); la API corre en el host (docs/dev/api.md)
+	docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama
 
 down:      ## Detiene los servicios (conserva el volumen de datos)
 	docker compose down

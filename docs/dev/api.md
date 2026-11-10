@@ -133,13 +133,23 @@ de compose.
 
 1. Requisitos: venv con `pip install -e ".[dev,gpu]"` (ver `docs/dev/transcripcion.md`) y ffmpeg
    en el PATH (`winget install Gyan.FFmpeg`).
-2. Solo la base en Docker, sin la `api` del contenedor (ocupa el puerto 8000):
+2. La base y Ollama con la GPU en Docker, sin la `api` del contenedor (ocupa el puerto 8000):
 
    ```powershell
-   docker compose up -d db
+   make up-gpu                    # sin make: docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama
    docker compose stop api        # si estaba arriba
    alembic upgrade head           # desde el venv; usa POSTGRES_HOST=localhost del .env
    ```
+
+   Antes de medir con Gemma, confirma que el modelo quedó en la GPU (columna PROCESSOR, ADR-018):
+
+   ```powershell
+   docker compose exec ollama ollama ps   # "100% GPU"; si dice CPU sin LLM_DISPOSITIVO=cpu, no midas
+   ```
+
+   El modelo solo aparece en la lista mientras está cargado (después de la primera llamada y
+   antes de que la etapa lo descargue). Los scripts de medición lo consultan con
+   `ClienteLLM.dispositivo_cargado()`.
 
 3. Perfil gpu en `.env` (o en la sesión de PowerShell):
 

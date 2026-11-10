@@ -148,6 +148,7 @@ El archivo se lee en UTF-8. Las advertencias (numeración, claves desconocidas, 
 | `make` | PowerShell (desde la raíz, con el `.venv` activo para test/lint) |
 |---|---|
 | `make up` | `docker compose up -d --build` |
+| `make up-gpu` | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama` (la API en el host con la GPU, `docs/dev/api.md`) |
 | `make down` | `docker compose down` |
 | `make logs` | `docker compose logs -f` |
 | `make migrate` | `docker compose exec api alembic upgrade head` |
