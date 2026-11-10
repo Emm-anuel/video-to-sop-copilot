@@ -90,16 +90,86 @@ coincidan.
 Se guardan en el repo con LF; las pruebas leen con `encoding="utf-8"` y construyen en memoria las
 variantes con CRLF y BOM.
 
+## `sop_otro_procedimiento.md` y `sop_procedimiento_cercano.md`
+
+SOP INVENTADOS con la plantilla de ADR-015 para medir la afinidad de contexto (RF-17, ADR-020).
+No corresponden a ningún video grabado.
+
+- `sop_otro_procedimiento.md`: "Preparar café en una cafetera de goteo", 5 pasos, un rol
+  (auxiliar de cafetería). Una tarea muy distinta del cambio del cartucho: la afinidad debe
+  quedar lejos del umbral.
+- `sop_procedimiento_cercano.md`: "Cambio del filtro de aire de un minisplit", 6 pasos, un rol
+  (técnico de aire acondicionado). Parecida al cambio del cartucho (mantenimiento, cambiar un
+  filtro, guantes de nitrilo) pero distinta: sirve para ver el margen.
+
+## `contexto_ejemplo.json`
+
+Ejemplo de `sopvid.contrato.Contexto`, la ficha de contexto del video (RF-12; esquema en
+`docs/contrato/contexto.schema.json`). Es la que saldría del video INVENTADO de Laura
+(`analisis_ejemplo.json`).
+
+- **Datos de audio, con el segundo del segmento donde se dicen:** actividad, propósito, lugar y
+  horario mencionado.
+- **Datos inferidos, con confianza media y sin segundo:** tema y resumen.
+- **Personas:** Laura, técnica de mantenimiento (*participa*), y el supervisor de turno, que solo
+  se *menciona* y no se nombra ("No identificado"). Cada una con la cita literal de su segmento.
+- **Equipos:** los de los fotogramas y la narración.
+
+Se escribió a mano. `tests/test_contrato.py` comprueba que vaya y vuelva sin cambios y que cada
+cita aparezca en el segmento que empieza en su `t`.
+
+## `sop_generado_ejemplo.json`
+
+Ejemplo de `SOP` generado desde el video (RF-22 a RF-27): el de Laura, INVENTADO, con el mismo
+esquema que un SOP cargado.
+
+- **Pasos:** los 6 pasos en infinitivo, con `t_inicio` y `t_fin` del primer y del último segmento
+  de cada uno, según la tabla de inicios de arriba. El tiempo es la duración medida.
+- **Inferido que resaltar (RF-25):** el paso 1 lleva `puntos_validacion` inferido, con confianza
+  media y `campos_inferidos`.
+- **Resumen:** datos con fuente audio o inferido, y `personas` como en `contexto_ejemplo.json`.
+- **Puntos clave:** con su segundo.
+- **Palabras clave:** con `menciones` y el segundo de cada mención, tomados de los tiempos por
+  palabra de `analisis_ejemplo.json`. Para "llave de paso" solo cuentan las dos veces que se dice
+  completa.
+
+Se escribió a mano. Las pruebas comprueban:
+
+- que los tiempos de los pasos sean bordes de segmentos;
+- que cada `t` de las palabras clave sea el inicio de una palabra igual a la primera del término.
+
 ## `reporte_ejemplo.json` y `reporte_ejemplo_provisional.json`
 
 Ejemplos de `ReporteValidacion` (la respuesta de `GET /videos/{id}/reporte`, esquema en
 `docs/contrato/reporte.schema.json`) para la pantalla del reporte (RF-20). Todo es **INVENTADO**:
-la transcripción de `analisis_ejemplo.json` (Laura) y el SOP de `sop_ejemplo.json` con dos
+la transcripción de `analisis_ejemplo.json` (Laura) y el SOP de `sop_ejemplo.json` con estos
 cambios para que salgan todos los casos:
 
 - los pasos 1 y 2 intercambiados ("Cerrar la llave de paso" antes de "Ponerse guantes y lentes"):
   Laura se pone los guantes primero, así que "Cerrar la llave" sale *Cumple* fuera de orden;
-- un paso 7 que Laura no narra ("Registrar el cambio en la bitácora"): *Falta*.
+- un paso 7 que Laura no narra ("Registrar el cambio en la bitácora"): *Falta*;
+- tiempos esperados por paso de 0.25 / 0.2 / — / 0.4 / 0.5 / 0.4 min (en vez de 0.5 en todos);
+- el paso 6 a cargo del "Supervisor de turno" y un tercer rol, "Almacenista".
+
+**Campos de S5 (RF-15 a RF-17), guionados:** todavía no hay lógica, así que el script los agrega al
+final. Solo `observado_min` sale del video: t_fin − t_inicio del paso, o la duración del video
+para el total. Con la tolerancia por defecto (20 %) dan:
+
+- **Afinidad:** 87, sin bajo umbral.
+- **Responsable:** *Distinto* en el paso 6 (Supervisor de turno contra Laura); los demás pares,
+  *Coincide*.
+- **Tiempos:** *En tiempo* en los pasos 1, 2 y 6; *Excede* en el 4 (0.58 contra 0.4); *Menor*
+  en el 5 (0.35 contra 0.5); *Sin referencia* en el 3.
+- **Roles:**
+  - técnico *presente* (0.4 s, "soy Laura, técnica de mantenimiento");
+  - supervisor *mencionado* (47.68 s, "mejor avisen al supervisor de turno");
+  - almacenista *ausente*.
+- **Tiempo total:** 3.0 contra 2.63 min, en tiempo.
+- **Horario:** coincide (12.53 s).
+- **Conteo:** `personas_con_diferencias` 2 (el distinto y el ausente) y `pasos_fuera_de_tiempo` 2.
+
+Las citas son literales del segmento que empieza en su segundo (regla 4); el script y
+`tests/test_contrato.py` lo comprueban.
 
 Los pasos del video son 9 tramos de la transcripción con cita literal: la intro (1–3, marco
 "intro"), el aviso al supervisor (8, *Sobra* real) y el cierre (25, marco "cierre") no emparejan;
@@ -119,3 +189,17 @@ python scripts/ejemplo_reporte.py
 ```
 
 `tests/test_reporte.py` falla si el script deja de dar exactamente estos archivos.
+
+## `rescate.json`
+
+Fixtures de regresión del rescate de un *Falta* (ADR-022), que usa `tests/test_rescate_fixtures.py`.
+A diferencia del resto de esta carpeta, el texto **no es inventado aquí**: sale de los videos A y
+B que **grabó el equipo** narrando el SOP inventado `sop_filtro_agua.md` (nada del cliente, sin
+nombres de personas). Trae, del video A, las 4 segmentaciones de Gemma 4 que dejaban el paso 6 en
+*Falta* y su transcripción (24 segmentos); del B, un caso adversario (su segmentación con tres
+fragmentos de A insertados después del paso 5, y la transcripción correspondiente). Para correr
+sin LLM ni MiniLM, también trae los vectores de MiniLM (float16, por huella del texto, sin el
+texto) y los juicios de Gemma por entrada exacta.
+
+Se regenera con `scripts/grabar_rescate.py` (necesita Ollama y los `analisis.json` de A y B, que
+viven fuera de git); no se edita a mano.

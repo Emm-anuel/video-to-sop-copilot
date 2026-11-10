@@ -8,12 +8,17 @@ porcentaje a verde, amarillo o rojo con los cortes de la configuración (RNF-14)
 
 `armar_reporte` arma la respuesta de `GET /videos/{id}/reporte` (`ReporteValidacion`) a partir
 de lo guardado (`ResultadoValidacion`) y del SOP: una fila por resultado, con el nombre del paso
-del SOP y del video, el segundo y la cita (siempre de la transcripción, regla 4).
+del SOP y del video, el segundo y la cita (siempre de la transcripción, regla 4). La afinidad,
+los roles y el responsable de cada par (RF-15, RF-17, ADR-020) se copian de lo guardado, igual
+que el tiempo de cada par, el total y el horario (RF-16, ADR-021). Un reporte guardado antes de
+ADR-020 sale con la afinidad en None, sin roles ni responsables; uno anterior a ADR-021, sin
+tiempos. `FilaReporte.rescatado` sale del registro de la fusión (ADR-022).
 """
 
 from datetime import datetime
 
 from sopvid.contrato import (
+    ESTADOS_PAR,
     SOP,
     ConteoReporte,
     FilaReporte,
@@ -82,11 +87,17 @@ def armar_reporte(
     """La respuesta de la API con lo guardado. `cumplimiento` es el de la columna (dos decimales).
 
     Las filas siguen el orden de la clasificación: primero los pasos del SOP y después los Sobra,
-    en el orden del video. El conteo sale del resumen de la clasificación.
+    en el orden del video. El conteo sale del resumen de la clasificación, más las personas con
+    diferencias (§5.6, ADR-020) y los pasos que exceden su tiempo (ADR-021).
     """
     resultado = validacion.resultado
+    n = len(resultado.clasificacion.pasos)
+    responsables = validacion.responsables or [None] * n
+    tiempos = validacion.tiempos or [None] * n
     filas = []
-    for paso in resultado.clasificacion.pasos:
+    for paso, responsable, tiempo in zip(
+        resultado.clasificacion.pasos, responsables, tiempos, strict=True
+    ):
         video = None if paso.indice_video is None else resultado.pasos_video[paso.indice_video]
         del_sop = None if paso.indice_sop is None else sop.pasos[paso.indice_sop]
         juicio = paso.juicio
@@ -103,6 +114,13 @@ def armar_reporte(
                 fuera_de_orden=paso.fuera_de_orden,
                 marco_operador=paso.marco_operador,
                 justificacion=juicio.justificacion if juicio and juicio.justificacion else None,
+                responsable=responsable,
+                tiempo=tiempo,
+                rescatado=(
+                    paso.estado in ESTADOS_PAR
+                    and paso.indice_video is not None
+                    and resultado.fusiones[paso.indice_video].rescate
+                ),
             )
         )
     resumen = resultado.clasificacion.resumen
@@ -114,6 +132,15 @@ def armar_reporte(
         sobra=resumen.conteo["Sobra"],
         sin_revisar=resumen.conteo["zona_gris"],
         marco_operador=resumen.marco_operador,
+        # §5.6: responsables distintos más roles ausentes que son responsables de algún paso.
+        personas_con_diferencias=(
+            sum(f.responsable is not None and f.responsable.estado == "distinto" for f in filas)
+            + sum(r.estado == "ausente" and r.con_pasos for r in validacion.roles)
+        ),
+        # ADR-021: solo "excede"; "menor" es más rápido de lo esperado, no un incumplimiento.
+        pasos_fuera_de_tiempo=sum(
+            f.tiempo is not None and f.tiempo.estado == "excede" for f in filas
+        ),
     )
     return ReporteValidacion(
         video_id=video_id,
@@ -129,8 +156,12 @@ def armar_reporte(
         cumplimiento=cumplimiento,
         semaforo=validacion.semaforo,
         provisional=bool(validacion.metadatos.avisos),
+        afinidad=validacion.afinidad,
         conteo=conteo,
         filas=filas,
+        roles=validacion.roles,
+        tiempo_total=validacion.tiempo_total,
+        horario=validacion.horario,
         metadatos=validacion.metadatos,
         creado=creado,
     )

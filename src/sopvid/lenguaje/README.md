@@ -77,5 +77,15 @@ segmenta (`segmentar`), empareja con el juez (`emparejar`), pide a Ollama que su
 embedder, umbrales, segundos por etapa y avisos). Las dependencias (`DependenciasValidacion`: LLM,
 juez y embedder) se inyectan; el procesador de la API las crea con una fábrica.
 
-Búsqueda, chat y la redacción del SOP siguen reservados. La extensión `vector` ya queda
+`sop_generado.py` (RF-22 a RF-25, [ADR-023](../../../docs/adr/ADR-023-sop-generado.md)) redacta
+el SOP en modo "No tengo SOP" con el análisis, la ficha y los pasos del video: agrupa los pasos
+del video en pasos del SOP (Gemma elige solo números; sin SOP no hay fusión), redacta los pasos
+por lotes, el cuadro resumen y los puntos y palabras clave (cuatro prompts
+`prompts/sop_generado_*_v1.md`). El código pone número, tiempos, responsable (`personas.quien_hizo`),
+tiempo narrado o medido (`tiempos`), la evidencia de cada dato (RF-25: cita verificada → audio y
+su segundo; fotograma → visual; si no, inferido con confianza baja y el campo en
+`campos_inferidos`) y las menciones de cada palabra clave con su forma literal
+(`texto.forma_busqueda`). Si una llamada falla, el SOP sale con la advertencia `sop_incompleto`.
+
+Búsqueda y chat siguen reservados. La extensión `vector` ya queda
 habilitada en la base desde la primera migración.

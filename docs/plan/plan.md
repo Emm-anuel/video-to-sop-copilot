@@ -182,12 +182,12 @@ agrega la redacción; la búsqueda exacta no usa IA.
 | Idioma y transcripción | RF-09, 10 | Emmanuel (tomados el 25 oct) | S2 |
 | Subida por partes y avance en vivo | RF-06 (partes), 08 | Sara | S5 |
 | Fotogramas | RF-11 | Sara | S5 |
-| SOP de referencia | RF-03 (TXT/MD, ADR-015) · RF-01, 02 (PDF/Word) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
-| Pasos del video y contexto | RF-13 · RF-12 | Emmanuel | S2–S3 · S5 |
-| Validación | RF-14, 19 · RF-15, 16, 17 | Emmanuel | S3–S4 · S5 |
+| SOP de referencia | ✓ RF-03 (TXT/MD, ADR-015) · ✓ RF-01, 02 (PDF/Word, 7 nov) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
+| Pasos del video y contexto | ✓ RF-13 · ✓ RF-12 (7 nov) | Emmanuel | S2–S3 · S5 |
+| Validación | ✓ RF-14, 19 · ✓ RF-15, 16, 17 (8–9 nov) | Emmanuel | S3–S4 · S5 |
 | Evidencia y revisión | RF-20 · RF-21 | Sara | S3–S4 · S7 |
 | Base de Angular y pantalla para subir SOP y video (MVP, opcional) | — | Emmanuel (7 nov) | S4 |
-| SOP generado | RF-22 a 25, 27 · RF-26 | Emmanuel · Sara | S5 · S5–S6 |
+| SOP generado | ✓ RF-22 a 25, 27 (10 nov) · RF-26 (parcial: solo el endpoint de edición; falta el editor con "Unir con el siguiente paso") | Emmanuel · Sara | S5 · S5–S6 |
 | PDF y descargas | RF-29, 30 · RF-31 | Emmanuel · Sara | S6 |
 | Búsqueda | RF-32 a 37 | Sara | S6 |
 
@@ -213,8 +213,8 @@ dentro del contenedor de la API**, no en la GPU: así no compite con faster-whis
 | `aplicar_juez(clasificacion, pasos_sop, pasos_video, transcripcion, juez)` | Pasa cada `zona_gris` por el juez; "no corresponde" rompe el par en *Falta* + *Sobra*; con Ollama caído deja de llamarlo en esa corrida | `Clasificacion` → `Clasificacion` con `Juicio` y resumen del juez (veredictos y `segundos_juez`) |
 | `marcar_marco(clasificacion)` | ADR-016: un *Sobra* que empieza antes del primer paso emparejado o después del último lleva `marco_operador` ("intro" / "cierre"); sigue en el resultado con su cita y su segundo, pero sale de `conteo["Sobra"]` | `Clasificacion` → `Clasificacion` con la marca y `resumen.marco_operador` |
 | `emparejar(sop, pasos_video, juez=None, transcripcion=())` | Cascada completa: `fusionar` → similitud sobre los pasos fusionados → `asignar` → `clasificar` → juez (si lo hay) → `orden` → `marcar_marco`; `EmparejadorMiniLM` cumple `Emparejador` | SOP + pasos del video (+ transcripción) → `ResultadoEmparejamiento` (clasificación, fusiones, pasos fusionados) |
-| `afinidad(sop, contexto)` | Coseno entre objetivo + alcance + equipo del SOP y la ficha de contexto, × 100 (RF-17, umbral 60) | SOP, contexto → 0–100 |
-| `emparejar_roles(roles, personas)` | Mejor coincidencia de cada rol del SOP entre las personas identificadas (RF-15) | roles, personas → *Presente / Mencionado / Ausente* |
+| `afinidad(sop, contexto, embedder)` | `lenguaje/afinidad.py` (ADR-020, 8 nov): global, título ~ actividad, objetivo ~ propósito y equipos, sin palabras genéricas y en minúsculas; cada componente a 0–100 con un mapeo lineal (`AFINIDAD_COS_CERO/CIEN`) y promedio ponderado por la evidencia; explicación armada por el código. Bajo `AFINIDAD_MIN` la validación se detiene tras la ficha (`afinidad_baja`) hasta `?continuar=true` | SOP, contexto → `Afinidad` (0–100) o None sin ficha |
+| `emparejar_roles(roles, personas, embedder)` y `asignar_responsables(...)` | `lenguaje/personas.py` (ADR-020): roles por núcleo y complemento (`UMBRAL_ROL`, `UMBRAL_ROL_COMPLEMENTO`); responsable de cada par por el responsable del paso, el nombre en la narración o el narrador único; *distinto* solo con una persona distinguible | roles, personas → *Presente / Mencionado / Ausente*; pares → *Coincide / Distinto / No identificado* |
 
 **Dependencias:** `sentence-transformers` con versión exacta en `pyproject.toml` (la conservadora al
 agregarla) y `torch` en su build de CPU para no inflar la imagen. `scipy` ya está fijado (1.17.1).
@@ -243,7 +243,7 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct); ✓ **ingesta de audio y transcripción**, tomadas de Sara (rama `feat/percepcion-transcripcion`, 25 oct): `medios.py` (duración, mp3 mono 16 kHz) y `transcripcion.py` (RF-09, RF-10: idioma, tiempo por palabra, TXT en vivo); GPU en el host, Docker solo CPU (ADR-014); ✓ **subida simple** (RF-06 del MVP), tomada de Sara (25 oct): `POST /videos`, cola de análisis de un trabajador y consulta de estado, TXT en vivo y `Analisis` | Grabar videos A–E | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
 | S4 · 2–8 nov | ✓ **juez Gemma 4 en la zona gris** (`lenguaje/juez.py`, adelantado al 27 oct; falta medirlo con A y B); porcentaje; **calibrar umbrales MiniLM** con A y B | Pantalla del reporte con la API (RF-20; base de Angular y `/nuevo` por Emmanuel el 7 nov; `GET /videos/{id}/video` listo) | **MVP de validación** (videos A y B; la lógica cumple desde el 27 oct) | — |
-| S5 · 9–15 nov | SOP generado; **MiniLM:** `afinidad` y `emparejar_roles`; tiempos; contexto; PDF y Word | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E | — |
+| S5 · 9–15 nov | ✓ SOP generado (RF-22 a 25, 27; ADR-023); ✓ **MiniLM:** `afinidad` y `emparejar_roles` (RF-15, 17; ADR-020); ✓ tiempos (RF-16, ADR-021); ✓ contexto (RF-12); ✓ PDF y Word (RF-01, 02); ✓ rescate de *Falta* y segmentación guardada (ADR-022); RF-26 parcial (solo el endpoint) | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E grabados; ✓ **medición de cierre (10 nov, [informe](../adr/datos/s5/medicion-s5-20261110-1311.md)):** con GPU A–E pasan la §14 en 14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por un valor sin traducir y RNF-01 no se cumple (21.2 min) | — |
 | S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta (tablas `palabras` y `busquedas` ya existen desde S2: solo falta la lógica de publicar y buscar); pantallas restantes; descargas | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
 | S7 · 23–29 nov | Experimentos del paper; si da tiempo RF-18 | Ajustes; si da tiempo RF-21 | Demo con el patrocinador (*Por confirmar*) | Resumen ejecutivo (*Por confirmar*) |
 | S8 · 30 nov–6 dic | Borrador del paper | Informe de pruebas y README | Documento de requerimientos actualizado | Presentación final (*Por confirmar*) |

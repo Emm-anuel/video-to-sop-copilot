@@ -1,0 +1,96 @@
+{
+  "version_contrato": 1,
+  "actividad": {
+    "valor": "Cambio del cartucho del filtro de agua",
+    "confianza": "alta",
+    "fuente": "audio",
+    "t": 6.36,
+    "cita": ""
+  },
+  "tema": {
+    "valor": "Mantenimiento preventivo del filtro de agua",
+    "confianza": "media",
+    "fuente": "inferido",
+    "t": null,
+    "cita": ""
+  },
+  "lugar": {
+    "valor": "Línea de enjuague",
+    "confianza": "alta",
+    "fuente": "audio",
+    "t": 0.4,
+    "cita": ""
+  },
+  "horario_mencionado": {
+    "valor": "Cada tres meses o cuando el manómetro marca menos de dos bar",
+    "confianza": "alta",
+    "fuente": "audio",
+    "t": 12.53,
+    "cita": ""
+  },
+  "proposito": {
+    "valor": "Mostrar paso a paso cómo se cambia el cartucho del filtro de agua",
+    "confianza": "alta",
+    "fuente": "audio",
+    "t": 6.36,
+    "cita": ""
+  },
+  "resumen": {
+    "valor": "Laura, técnica de mantenimiento, cambia el cartucho del filtro de agua de la línea de enjuague: se pone guantes y lentes, cierra la llave de paso, libera la presión, cambia el cartucho y revisa que no haya fugas.",
+    "confianza": "media",
+    "fuente": "inferido",
+    "t": null,
+    "cita": ""
+  },
+  "personas": [
+    {
+      "nombre": "Laura",
+      "rol": "Técnica de mantenimiento",
+      "participacion": "participa",
+      "t": 0.4,
+      "cita": "soy Laura, técnica de mantenimiento"
+    },
+    {
+      "nombre": "No identificado",
+      "rol": "Supervisor de turno",
+      "participacion": "mencionado",
+      "t": 47.68,
+      "cita": "mejor avisen al supervisor de turno"
+    }
+  ],
+  "equipos": [
+    {
+      "nombre": "Filtro de cartucho",
+      "descripcion": "Montado en la pared, antes de la línea de enjuague."
+    },
+    {
+      "nombre": "Manómetro",
+      "descripcion": "Baja a cero al liberar la presión y regresa a cuatro bar."
+    },
+    {
+      "nombre": "Llave de paso",
+      "descripcion": "Antes del filtro; cerrada con la manija atravesada a la tubería."
+    },
+    {
+      "nombre": "Llave de carcasa",
+      "descripcion": "Afloja y aprieta el vaso del filtro."
+    },
+    {
+      "nombre": "Cubeta",
+      "descripcion": "Recoge el agua que escurre."
+    },
+    {
+      "nombre": "Guantes de nitrilo",
+      "descripcion": ""
+    },
+    {
+      "nombre": "Lentes de seguridad",
+      "descripcion": ""
+    },
+    {
+      "nombre": "Toalla de papel",
+      "descripcion": "Para revisar fugas en la unión del vaso."
+    }
+  ],
+  "avisos": []
+}

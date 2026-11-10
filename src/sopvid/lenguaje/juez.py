@@ -25,7 +25,7 @@ import logging
 import string
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from typing import Any, Protocol
@@ -55,6 +55,8 @@ MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es válid
 PALABRAS_CITA = (4, 15)  # igual que la cita de los pasos del video (RF-13)
 MAX_JUSTIFICACION = 300  # caracteres; una más larga se recorta en una frontera de palabra
 
+# Las secciones que tiene todo prompt (las demás van a `Prompt.extras`).
+_SECCIONES_BASE = frozenset({"sistema", "usuario", "correccion"})
 # Secciones del archivo del prompt y los marcadores que debe usar cada una.
 _MARCADORES: dict[str, frozenset[str]] = {
     "sistema": frozenset(),
@@ -90,27 +92,43 @@ class Juez(Protocol):
 
 @dataclass(frozen=True)
 class Prompt:
-    """Prompt del juez leído de su archivo: el mensaje de sistema y dos plantillas."""
+    """Prompt leído de su archivo: el mensaje de sistema y dos plantillas.
+
+    `extras` son las secciones que no son `sistema`, `usuario` ni `correccion` (p. ej. las que
+    la ficha de contexto agrega solo cuando hay fotogramas); los prompts del juez y del SOP no
+    tienen.
+    """
 
     version: str
     sistema: str
     usuario: string.Template
     correccion: string.Template
+    extras: dict[str, string.Template] = field(default_factory=dict)
 
 
 @cache
 def cargar_prompt(version: str = PROMPT) -> Prompt:
     """Lee `prompts/<version>.md` del paquete (ver `leer_prompt`)."""
+    return leer_prompt(version, texto_del_prompt(version))
+
+
+def texto_del_prompt(version: str) -> str:
+    """Contenido de `prompts/<version>.md`, el archivo versionado del paquete."""
     archivo = resources.files("sopvid.lenguaje") / "prompts" / f"{version}.md"
-    return leer_prompt(version, archivo.read_text(encoding="utf-8"))
+    return archivo.read_text(encoding="utf-8")
 
 
-def leer_prompt(version: str, texto: str) -> Prompt:
+def leer_prompt(
+    version: str, texto: str, marcadores: dict[str, frozenset[str]] | None = None
+) -> Prompt:
     """Separa las secciones `## sistema`, `## usuario` y `## correccion` de `texto`.
 
     Lo que va antes de la primera sección es documentación y se ignora. Falla si falta o sobra
-    una sección, o si una plantilla no usa exactamente sus marcadores (`$nombre`).
+    una sección, o si una plantilla no usa exactamente sus marcadores (`$nombre`). Sin
+    `marcadores`, los del juez; otro prompt pasa los suyos, que deben incluir las tres secciones
+    y pueden sumar otras (van a `Prompt.extras`).
     """
+    marcadores = _MARCADORES if marcadores is None else marcadores
     secciones: dict[str, list[str]] = {}
     actual: list[str] | None = None
     for linea in texto.splitlines():
@@ -121,13 +139,13 @@ def leer_prompt(version: str, texto: str) -> Prompt:
             actual = secciones[nombre] = []
         elif actual is not None:
             actual.append(linea)
-    if set(secciones) != set(_MARCADORES):
+    if set(secciones) != set(marcadores):
         raise ValueError(
-            f"prompt {version}: se esperaban las secciones {sorted(_MARCADORES)} "
+            f"prompt {version}: se esperaban las secciones {sorted(marcadores)} "
             f"y hay {sorted(secciones)}"
         )
     cuerpo = {nombre: "\n".join(lineas).strip() for nombre, lineas in secciones.items()}
-    for nombre, esperados in _MARCADORES.items():
+    for nombre, esperados in marcadores.items():
         plantilla = string.Template(cuerpo[nombre])
         if not plantilla.is_valid() or set(plantilla.get_identifiers()) != esperados:
             raise ValueError(
@@ -139,6 +157,11 @@ def leer_prompt(version: str, texto: str) -> Prompt:
         sistema=cuerpo["sistema"],
         usuario=string.Template(cuerpo["usuario"]),
         correccion=string.Template(cuerpo["correccion"]),
+        extras={
+            nombre: string.Template(texto)
+            for nombre, texto in cuerpo.items()
+            if nombre not in _SECCIONES_BASE
+        },
     )
 
 

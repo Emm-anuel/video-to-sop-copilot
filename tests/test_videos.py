@@ -19,10 +19,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dobles import SEGMENTOS, Entorno, guardar_sop
-from sopvid.contrato import Analisis, Idioma, ReporteValidacion
+from sopvid.contrato import Analisis, Contexto, Idioma, ReporteValidacion
 from sopvid.plataforma.api.main import create_app
 from sopvid.plataforma.modelos import Video
-from sopvid.plataforma.procesamiento import ERROR_REINICIO
+from sopvid.plataforma.procesamiento import ERROR_LLM_GENERAR, ERROR_REINICIO, FIN_ANALISIS_GENERAR
 
 RAIZ = Path(__file__).resolve().parents[1]
 ESQUEMA = RAIZ / "docs" / "contrato" / "analisis.schema.json"
@@ -158,15 +158,48 @@ def test_sop_id_invalido(client: TestClient, entorno: Entorno, datos: dict, codi
     assert entorno.pendientes == []
 
 
-def test_modo_generar_no_crea_dependencias_de_validacion(
+def test_modo_generar_genera_ficha_pasos_y_sop_en_una_carga_de_gemma(
     client: TestClient, entorno: Entorno, generar_video
 ) -> None:
     video_id = subir(client, generar_video().read_bytes()).json()["id"]
     entorno.correr_pendientes()
 
-    assert entorno.video(video_id).proceso == "listo"
-    assert entorno.clientes == []
-    assert entorno.eventos == ["whisper_liberado"]  # nada llegó a Ollama
+    video = entorno.video(video_id)
+    assert (video.proceso, video.etapa, video.progreso) == ("listo", "listo", 100)
+    # Gemma se carga después de Whisper, una sola vez: ficha, pasos del video y SOP (ADR-023).
+    assert entorno.eventos == [
+        "whisper_liberado",
+        "tags",
+        "chat:contexto",
+        "chat:fronteras",
+        "chat:redaccion",
+        "chat:agrupar",
+        "chat:pasos",
+        "chat:resumen",
+        "chat:claves",
+        "descargar",
+    ]
+    assert [c._http.is_closed for c in entorno.clientes] == [True]
+    assert Contexto.model_validate(video.contexto).actividad.fuente == "audio"
+    assert video.pasos_video["metodo"] == "llm"
+    assert video.reporte is None
+    assert video.sop is not None and video.sop.origen == "generado"
+
+
+def test_modo_generar_sin_ollama_queda_en_error_reprocesable(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    entorno.ollama.disponible = False
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    entorno.correr_pendientes()
+
+    video = entorno.video(video_id)
+    assert video.proceso == "error"
+    assert video.error == ERROR_LLM_GENERAR.format(id=video_id)
+    assert (video.contexto, video.sop_id) == (None, None)
+    assert video.transcripcion is not None  # el análisis quedó guardado
+    assert entorno.eventos == ["whisper_liberado"]
+    assert [c._http.is_closed for c in entorno.clientes] == [True]
 
 
 # ── Reporte ──────────────────────────────────────────────────────────────────
@@ -197,7 +230,8 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
         "amarillo",
         False,
     )
-    assert reporte.afinidad is None
+    # La ficha del doble es del mismo procedimiento que SOP_PRUEBA (ADR-020).
+    assert reporte.afinidad is not None and not reporte.afinidad.bajo_umbral
     assert [(f.estado, f.paso_sop, f.paso_video) for f in reporte.filas] == [
         ("Cumple", 1, 1),
         ("Parcial", 2, 2),
@@ -217,7 +251,25 @@ def test_reporte_listo(client: TestClient, entorno: Entorno, generar_video) -> N
         "sobra": 0,
         "sin_revisar": 0,
         "marco_operador": 0,
+        # ADR-020: la ficha del doble no trae personas, así que el rol "Técnico" (responsable de
+        # los pasos) queda ausente y cuenta.
+        "personas_con_diferencias": 1,
+        # RF-16 (ADR-021): el SOP de prueba no trae tiempos, ningún paso excede.
+        "pasos_fuera_de_tiempo": 0,
     }
+    assert [(r.rol, r.estado, r.con_pasos) for r in reporte.roles] == [("Técnico", "ausente", True)]
+    # Sin personas en la ficha, el rol que escribe la segmentación ("Técnico") basta.
+    assert [(f.responsable.estado, f.responsable.observado) for f in reporte.filas] == [
+        ("coincide", "Técnico")
+    ] * 3
+    # Tiempos (ADR-021): medidos sobre la transcripción, sin referencia en este SOP.
+    assert [(f.tiempo.origen, f.tiempo.estado) for f in reporte.filas] == [
+        ("medido", "sin_referencia")
+    ] * 3
+    assert reporte.tiempo_total is not None
+    assert reporte.tiempo_total.estado == "sin_referencia"
+    assert reporte.horario is not None and reporte.horario.estado == "sin_referencia"
+    assert reporte.metadatos.umbrales.afinidad_min == 60  # se registra la configuración
 
 
 def test_reporte_409_antes_de_terminar(client: TestClient, entorno: Entorno) -> None:
@@ -271,7 +323,8 @@ def test_avance_hasta_listo_y_txt_en_vivo(
     assert [len(d[3]) for d in durante] == [0, 1, 2]
     assert durante[1][3] == ["[00:00] Primero reviso el manómetro."]
     progresos = [d[2] for d in durante]
-    assert progresos == sorted(progresos) and 15 <= progresos[0] < progresos[-1] < 100
+    assert progresos == sorted(progresos)
+    assert 15 * FIN_ANALISIS_GENERAR // 100 <= progresos[0] < progresos[-1] < FIN_ANALISIS_GENERAR
 
     final = client.get(url).json()
     assert (final["proceso"], final["etapa"], final["progreso"]) == ("listo", "listo", 100)
@@ -279,6 +332,38 @@ def test_avance_hasta_listo_y_txt_en_vivo(
     assert final["idioma"] == "es"
     assert final["error"] is None
     assert len(client.get(f"{url}/transcripcion.txt").text.splitlines()) == 3
+
+
+def test_contexto_404_409_y_200(client: TestClient, entorno: Entorno, generar_video) -> None:
+    assert client.get("/videos/999999999/contexto").status_code == 404
+
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    r = client.get(f"/videos/{video_id}/contexto")
+    assert r.status_code == 409
+    assert r.json()["detail"] == {
+        "mensaje": "la ficha de contexto no se ha generado",
+        "proceso": "en_cola",
+    }
+
+    entorno.correr_pendientes()
+    r = client.get(f"/videos/{video_id}/contexto")
+    assert r.status_code == 200
+    contexto = Contexto.model_validate(r.json())
+    assert contexto.actividad.fuente == "audio"
+    assert contexto.lugar.valor is None  # no se dice: vacío
+    assert r.json() == contexto.model_dump(mode="json")
+
+
+def test_contexto_409_si_la_ficha_no_se_genero(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    entorno.ollama.contexto_caido = True
+    video_id = subir(client, generar_video().read_bytes()).json()["id"]
+    entorno.correr_pendientes()
+
+    assert entorno.video(video_id).proceso == "listo"
+    r = client.get(f"/videos/{video_id}/contexto")
+    assert (r.status_code, r.json()["detail"]["proceso"]) == (409, "listo")
 
 
 def test_analisis_409_antes_de_terminar_y_completo_despues(
@@ -301,9 +386,11 @@ def test_analisis_409_antes_de_terminar_y_completo_despues(
     assert analisis.video_id == video_id
     assert [s.texto for s in analisis.transcripcion] == [s.texto for s in SEGMENTOS]
     assert analisis.idioma == Idioma(codigo="es", confianza=0.97, fijado_a_mano=False)
-    # Opción 1: el idioma completo y los segmentos van en el JSONB `transcripcion`.
+    assert analisis.modelo_transcripcion == "large-v3-turbo"
+    # Opción 1: el idioma completo, el modelo de Whisper y los segmentos van en el JSONB
+    # `transcripcion`.
     guardado = entorno.video(video_id).transcripcion
-    assert set(guardado) == {"version_contrato", "idioma", "segmentos"}
+    assert set(guardado) == {"version_contrato", "idioma", "modelo_transcripcion", "segmentos"}
 
 
 def test_idioma_fijado_llega_al_transcriptor(

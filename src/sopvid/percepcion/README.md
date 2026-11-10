@@ -7,6 +7,7 @@ Frente de **percepción**: convierte un video en pasos con marca de tiempo.
 | Ingesta | Recibe el video (archivo, cámara, teléfono) tras una misma interfaz; mide la duración y extrae el audio en mp3 mono a 16 kHz (`medios.py`) | ffmpeg |
 | Transcripción (RF-09, RF-10) | Idioma con confianza (o fijado a mano) y texto con tiempo por segmento y por palabra; TXT que se escribe mientras avanza (`transcripcion.py`) | faster-whisper |
 | Análisis del video | Une ingesta y transcripción en un `Analisis` validado del contrato, con avance por etapa (`pipeline.py`, `scripts/analizar_video.py`) | — |
+| Ficha de contexto (RF-12) | Actividad, tema, lugar, horario, propósito, resumen, personas y equipos del video, cada dato con su evidencia (`contexto.py`) | LLM local con citas que el código verifica contra la transcripción |
 | Pasos del video (RF-13) | Convierte el análisis del video en pasos con nombre, descripción, responsable, tiempos, cita, fuente y confianza, sin ver el SOP | LLM local que elige el segmento donde empieza cada paso y redacta el resto; heurística de transiciones y pausas como respaldo ([ADR-010](../../../docs/adr/ADR-010-segmentacion-pasos-llm.md)) |
 
 ## Contrato
@@ -64,6 +65,28 @@ deja más allá del final del video (inicio y fin de segmentos y palabras) se re
 escribe `analisis.json`, el TXT y el audio en `MEDIA_DIR/<nombre del video>/` (o en `--salida`).
 Si ya hay un `analisis.json`, sale con código 1 sin procesar nada, salvo con `--sobrescribir`. El
 JSON entra tal cual a `segmentacion.segmentar` y después al emparejamiento.
+
+## `contexto.py`
+
+`generar_contexto(analisis, cliente_llm) -> ResultadoContexto`: la ficha de contexto (RF-12) con
+Gemma 4 y el prompt versionado `lenguaje/prompts/contexto_v2.md` (la v1 se conserva). Corre después de la
+transcripción y antes de los pasos del video, en la misma ventana de Gemma (`validar`, o sola en
+modo generar).
+
+- Entrada: los segmentos con su número (`[s=N]`) y el idioma; si el análisis trae fotogramas,
+  también cada uno con el suyo (`[f=N]`, desde 1 y por posición) y la sección del prompt que
+  explica cómo citarlos. Sin fotogramas ni el prompt ni el esquema los mencionan
+  (`ESQUEMA_CONTEXTO` frente a `ESQUEMA_CONTEXTO_FOTOGRAMAS`). Nunca el SOP ni tiempos.
+- El modelo escribe valores y citas; el código pone fuente, confianza y segundo (regla 4): cita
+  encontrada → "audio" y el inicio del primer segmento donde aparece, con confianza "alta" si
+  tiene de 4 a 25 palabras y "media" si tiene 2 o 3 (menos de 2, inferido); fotograma que existe
+  → "visual", "media" y su `t`; nada → "inferido", "baja" y sin `t`. El resumen va "inferido" y
+  "media". Una persona sin cita verificada ni fotograma se descarta (`Persona.t` es obligatorio).
+- Llamada en flujo: primer token en `LLM_TIMEOUT_S`, `LLM_INACTIVIDAD_S` sin tokens, tope total
+  `LLM_TIMEOUT_CONTEXTO_S` (600 s); hasta 3 intentos solo por JSON inválido. Nunca lanza: la
+  ficha va vacía con `motivo`, y `aviso_contexto` da el aviso "contexto_sin_generar".
+- `ResultadoContexto` trae intentos, tokens de entrada y de salida, espera al primer token,
+  tokens/s, segundos, fotogramas en la entrada, citas no verificadas y personas descartadas.
 
 ## `segmentacion.py`
 

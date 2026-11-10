@@ -5,15 +5,23 @@
   un paso "sin revisar" y el aviso `juez_sin_revisar`.
 
 Datos INVENTADOS (tests/fixtures/README.md): la transcripción de `analisis_ejemplo.json` (Laura,
-cambio del cartucho del filtro) y el SOP de `sop_ejemplo.json` con dos cambios para que salgan
+cambio del cartucho del filtro) y el SOP de `sop_ejemplo.json` con cambios para que salgan
 todos los casos: los pasos 1 y 2 intercambiados (Laura se pone los guantes antes de cerrar la
-llave: fuera de orden) y un paso 7 que no narra (bitácora: Falta).
+llave: fuera de orden), un paso 7 que no narra (bitácora: Falta), tiempos esperados por paso
+(uno excede, uno menor, uno sin referencia), el paso 6 a cargo del supervisor (responsable
+distinto) y un rol "Almacenista" que no aparece y no es responsable de ningún paso (ausente, sin
+contar como diferencia).
 
 Corre el código real de `emparejar` (fusión, húngaro, umbrales, juez, orden y marco del
-operador), `porcentaje`, `semaforo`, `avisos_de` y `armar_reporte`. Solo los pasos del video, el
-vectorizador y el juez están guionados (sin Gemma 4 ni MiniLM), así que el resultado es siempre
-el mismo. Los tiempos y las citas salen de la transcripción (regla 4). Los umbrales son los
-valores por defecto de `Settings`, sin leer `.env`.
+operador), `emparejar_roles` y `asignar_responsables` (RF-15, ADR-020) con la ficha de
+`contexto_ejemplo.json`, los tiempos y el horario (RF-16, ADR-021), `porcentaje`, `semaforo`,
+`avisos_de` y `armar_reporte`. Solo los pasos del video, el vectorizador y el juez están
+guionados (sin Gemma 4 ni MiniLM), así que el resultado es siempre el mismo. Los tiempos y las
+citas salen de la transcripción (regla 4). Los umbrales son los valores por defecto de
+`Settings`, sin leer `.env`.
+
+La afinidad va guionada (su valor depende de MiniLM, que aquí no corre): se agrega al final
+(`completar_afinidad`) y el reporte se valida de nuevo.
 
 Uso:
     python scripts/ejemplo_reporte.py
@@ -35,19 +43,29 @@ import numpy as np
 from sopvid.contrato import (
     SOP,
     Analisis,
+    Contexto,
     Dispositivos,
+    Elemento,
     Juicio,
     MetadatosValidacion,
     PasoSOP,
     PasoVideo,
     ReporteValidacion,
+    ResultadoEmparejamiento,
     ResultadoValidacion,
-    Umbrales,
+    TiempoFila,
 )
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.lenguaje.juez import respaldo
+from sopvid.lenguaje.personas import (
+    ComparadorRoles,
+    asignar_responsables,
+    emparejar_roles,
+    roles_del_sop,
+)
 from sopvid.lenguaje.reporte import armar_reporte, porcentaje, semaforo
-from sopvid.lenguaje.validacion import avisos_de
+from sopvid.lenguaje.tiempos import comparar_horario, tiempo_total, tiempos_por_paso
+from sopvid.lenguaje.validacion import avisos_de, umbrales_de
 from sopvid.percepcion.segmentacion import Segmentacion
 from sopvid.plataforma.config import Settings
 
@@ -101,6 +119,26 @@ SEGUNDOS = {
     "emparejamiento": 9.6,
 }
 CREADO = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
+
+# ── Guion de S5 (RF-15 a RF-17) ──────────────────────────────────────────────────────────────
+# Tiempo esperado (min) de cada paso del SOP del ejemplo, en el orden ya intercambiado, y el
+# estado que debe dar `tiempos_por_paso` con la tolerancia por defecto (20 %) frente a la
+# duración medida en el video (se comprueba al construir).
+TIEMPOS: dict[int, tuple[float | None, str]] = {
+    1: (0.25, "en_tiempo"),  # Cerrar la llave: 0.24 medido
+    2: (0.2, "en_tiempo"),  # Guantes y lentes: 0.22
+    3: (None, "sin_referencia"),  # Liberar la presión: el SOP no dice cuánto
+    4: (0.4, "excede"),  # Retirar el cartucho: 0.60
+    5: (0.5, "menor"),  # Colocar el cartucho: 0.37
+    6: (0.4, "en_tiempo"),  # Abrir la llave y revisar fugas: 0.41
+}
+RESPONSABLE_DISTINTO = (6, "Supervisor de turno")  # paso del SOP y su responsable
+ALMACENISTA = Elemento(nombre="Almacenista", descripcion="Entrega el cartucho nuevo.")
+AFINIDAD = (
+    87,
+    "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de "
+    "enjuague) y el mismo equipo: llave de carcasa, cubeta y manómetro.",
+)
 
 
 class VectorizadorGuionado:
@@ -159,9 +197,54 @@ def sop_del_ejemplo() -> SOP:
             puntos_validacion=["Bitácora firmada"],
         )
     )
-    return sop.model_copy(
-        update={"pasos": [p.model_copy(update={"numero": n}) for n, p in enumerate(pasos, 1)]}
+    pasos = [p.model_copy(update={"numero": n}) for n, p in enumerate(pasos, 1)]
+    for numero, (esperado, _) in TIEMPOS.items():
+        pasos[numero - 1] = pasos[numero - 1].model_copy(update={"tiempo_esperado_min": esperado})
+    numero, responsable = RESPONSABLE_DISTINTO
+    pasos[numero - 1] = pasos[numero - 1].model_copy(update={"responsable": responsable})
+    resumen = sop.resumen.model_copy(update={"roles": [*sop.resumen.roles, ALMACENISTA]})
+    return SOP.model_validate(
+        sop.model_copy(update={"pasos": pasos, "resumen": resumen}).model_dump()
     )
+
+
+def _cita_en(analisis: Analisis, t: float, cita: str) -> None:
+    """La cita aparece tal cual en el segmento que empieza en `t` (regla 4)."""
+    segmento = next(s for s in analisis.transcripcion if s.t_inicio == t)
+    assert cita in segmento.texto, f"la cita del segundo {t} no es literal"
+
+
+def completar_afinidad(
+    reporte: ReporteValidacion, analisis: Analisis, settings: Settings
+) -> ReporteValidacion:
+    """Agrega al reporte la afinidad guionada y lo revalida. Comprueba que las citas de los roles
+    y del horario sean literales (regla 4)."""
+    for rol in reporte.roles:
+        if rol.t is not None:
+            _cita_en(analisis, rol.t, rol.cita)
+    if reporte.horario is not None and reporte.horario.t is not None:
+        _cita_en(analisis, reporte.horario.t, reporte.horario.cita)
+    valor, explicacion = AFINIDAD
+    return ReporteValidacion.model_validate(
+        {
+            **reporte.model_dump(),
+            "afinidad": {
+                "valor": valor,
+                "explicacion": explicacion,
+                "bajo_umbral": valor < settings.afinidad_min,
+            },
+        }
+    )
+
+
+def _comprobar_tiempos(
+    resultado: ResultadoEmparejamiento, tiempos: list[TiempoFila | None], sop: SOP
+) -> None:
+    """Los estados que da `tiempos_por_paso` son los del guion (`TIEMPOS`)."""
+    for paso, tiempo in zip(resultado.clasificacion.pasos, tiempos, strict=True):
+        if tiempo is not None and paso.indice_sop is not None:
+            numero = sop.pasos[paso.indice_sop].numero
+            assert tiempo.estado == TIEMPOS[numero][1], f"paso {numero}: {tiempo.estado}"
 
 
 def pasos_del_video(analisis: Analisis) -> list[PasoVideo]:
@@ -186,12 +269,16 @@ def pasos_del_video(analisis: Analisis) -> list[PasoVideo]:
     return pasos
 
 
-def construir(caido: bool) -> ReporteValidacion:
-    """El reporte del ejemplo; con `caido`, el juez no responde y el reporte es provisional."""
-    settings = Settings(_env_file=None)
-    analisis = Analisis.model_validate_json(
+def analisis_del_ejemplo() -> Analisis:
+    return Analisis.model_validate_json(
         (FIXTURES / "analisis_ejemplo.json").read_text(encoding="utf-8")
     )
+
+
+def construir_validacion(caido: bool) -> ResultadoValidacion:
+    """Lo que se guardaría en `reportes.resultado`; con `caido`, el juez no responde."""
+    settings = Settings(_env_file=None)
+    analisis = analisis_del_ejemplo()
     sop = sop_del_ejemplo()
     pasos = pasos_del_video(analisis)
     embedder = emp.Embedder(
@@ -211,8 +298,25 @@ def construir(caido: bool) -> ReporteValidacion:
         update={"clasificacion": resultado.clasificacion.model_copy(update={"resumen": resumen})}
     )
     segmentacion = Segmentacion(pasos, "llm", None, settings.llm_model, 1, 1)
+    contexto = Contexto.model_validate_json(
+        (FIXTURES / "contexto_ejemplo.json").read_text(encoding="utf-8")
+    )
+    comparador = ComparadorRoles(embedder, settings)
+    roles = emparejar_roles(
+        roles_del_sop(sop),
+        contexto.personas,
+        responsables=[p.responsable for p in sop.pasos],
+        comparador=comparador,
+    )
+    responsables = asignar_responsables(
+        resultado, sop, contexto, analisis.transcripcion, pasos, comparador=comparador
+    )
+    tiempos = tiempos_por_paso(
+        resultado, sop, analisis.transcripcion, settings.tolerancia_tiempo, analisis.duracion_s
+    )
+    _comprobar_tiempos(resultado, tiempos, sop)
     pct = porcentaje(resultado)
-    validacion = ResultadoValidacion(
+    return ResultadoValidacion(
         resultado=resultado,
         cumplimiento=pct,
         semaforo=semaforo(pct, settings),
@@ -220,13 +324,7 @@ def construir(caido: bool) -> ReporteValidacion:
             segmentacion="llm",
             modelo_llm=settings.llm_model,
             embedder=settings.embedder_model,
-            umbrales=Umbrales(
-                bajo=settings.umbral_bajo,
-                alto=settings.umbral_alto,
-                fusion=settings.umbral_fusion,
-                semaforo_verde=settings.semaforo_verde,
-                semaforo_amarillo=settings.semaforo_amarillo,
-            ),
+            umbrales=umbrales_de(settings),
             segundos=SEGUNDOS,
             avisos=avisos_de(segmentacion, resultado),
             # Equipo de ejemplo: Whisper y Gemma en la GPU, MiniLM en CPU (ADR-018).
@@ -234,16 +332,30 @@ def construir(caido: bool) -> ReporteValidacion:
                 gpu="GPU de ejemplo", transcripcion="gpu", llm="gpu", embedder="cpu"
             ),
         ),
+        roles=roles,
+        responsables=responsables,
+        tiempos=tiempos,
+        tiempo_total=tiempo_total(tiempos, sop, settings.tolerancia_tiempo),
+        horario=comparar_horario(
+            sop, contexto, analisis.transcripcion, embedder, settings.umbral_horario
+        ),
     )
-    return armar_reporte(
+
+
+def construir(caido: bool) -> ReporteValidacion:
+    """El reporte del ejemplo; con `caido`, el juez no responde y el reporte es provisional."""
+    validacion = construir_validacion(caido)
+    sop = sop_del_ejemplo()
+    reporte = armar_reporte(
         validacion,
         sop,
         video_id=1,
         sop_id=1,
         codigo="SOP-0001",
-        cumplimiento=round(pct, 2),
+        cumplimiento=round(validacion.cumplimiento, 2),
         creado=CREADO,
     )
+    return completar_afinidad(reporte, analisis_del_ejemplo(), Settings(_env_file=None))
 
 
 def serializar(reporte: ReporteValidacion) -> str:

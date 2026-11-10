@@ -1,7 +1,9 @@
 # ADR-018 · Usar la CPU como base y la GPU solo para acelerar, sin cambiar de modelo
 
-- **Estado:** Propuesto. Reemplazará a ADR-014 cuando se tengan los números de la medición en CPU
-- **Fecha:** 2026-10-27
+- **Estado:** Propuesto. La parte de Whisper está decidida (8 nov 2026: `large-v3-turbo` en CPU y
+  en GPU). Pasa a Aprobado, y ADR-014 a Reemplazado, cuando se fije el plazo de Gemma en CPU para
+  la segmentación y se acuerde RNF-01 sin GPU.
+- **Fecha:** 2026-10-27 (decisión de Whisper: 2026-11-08)
 - **Autores:** Emmanuel Merida
 - **Decisores:** equipo y asesor (Dr. Raúl); RNF-01 sin GPU, con el patrocinador
 
@@ -36,8 +38,20 @@ de RNF-01 de menos de 5.
 Opción C. La GPU cambia **dónde** corre cada modelo, nunca **cuál**.
 
 - **Whisper:** `WHISPER_DISPOSITIVO=auto` (ya existía): cuda si ctranslate2 ve la GPU; si falla
-  antes del primer segmento, repite en CPU. Un solo `WHISPER_MODELO` para todos los equipos, que se
-  elige con la medición (`small` contra `large-v3-turbo` int8 en CPU).
+  antes del primer segmento, repite en CPU. **Decidido el 8 nov 2026: `large-v3-turbo` en los dos
+  dispositivos** (int8 en CPU, float16 en cuda), por defecto en `WHISPER_MODELO` y
+  `WHISPER_MODELO_CPU` (Settings, `.env.example` y `docker-compose.yml`). Quien configure otro
+  modelo en CPU (p. ej. `small`, la mitad de tiempo) puede: el reporte y la ficha llevan el aviso
+  `transcripcion_no_referencia` y el reporte queda provisional. Medición que lo respalda (A y B,
+  i7-10700K, contra la transcripción de GPU; detalle en el seguimiento del 8 nov):
+
+  | Whisper en CPU | Whisper (s) | RAM pico | WER | Errores que llegan a ficha / pasos | Ruta completa en CPU |
+  |---|---|---|---|---|---|
+  | `small`, int8 (antes) | 19.5-24.2 | 0.77 GB | 4.8-6.2 % | A 2 / 4 · B 2 / 8 | A 159.6 s · B 164.4 s |
+  | `large-v3-turbo`, int8 (decidido) | 38.8-60.5 | 1.95 GB | 0.4-1.3 % | A 0 / 0 · B 1 / 2 | A 244.1 s (1.53×) · B 163.9 s (1.00×) |
+
+  Criterio acordado: si `large-v3-turbo` en CPU no más que duplica el tiempo total por video, se usa
+  el mismo modelo en los dos dispositivos. El peor caso medido fue 1.53× (con int8_float32, 1.16×).
 - **Gemma 4:** nueva `LLM_DISPOSITIVO=auto|cpu`. Con `auto`, Ollama usa la GPU si la ve; con `cpu`,
   el cliente manda `num_gpu=0` y corre solo en CPU.
 - **MiniLM:** siempre en CPU (ADR-012), sin cambios.
@@ -106,9 +120,10 @@ Lo que dicen los números:
 
    Con temperatura 0 y semilla fija, Gemma en Ollama 0.40.2 no da la misma segmentación en todas
    las corridas, ni en CPU ni en GPU. Es un riesgo para RNF-07 independiente de esta decisión.
-4. **Whisper único: todavía no.** En CPU, `small` tarda la mitad que `large-v3-turbo`. En B,
-   `large-v3-turbo` dio 1 Sobra en CPU y GPU; `small`, 2 y 4. Con dos videos y la variación de
-   Gemma no alcanza para elegir: se decide con C–E y varias corridas por configuración.
+4. **Whisper único: todavía no** (27 oct). En CPU, `small` tarda la mitad que `large-v3-turbo`. En
+   B, `large-v3-turbo` dio 1 Sobra en CPU y GPU; `small`, 2 y 4. Con dos videos y la variación de
+   Gemma no alcanza para elegir. *Decidido el 8 nov con la medición de WER y de errores que llegan a
+   la ficha y a los pasos: `large-v3-turbo` en los dos (ver Decisión y el seguimiento del 8 nov).*
 
 Siguientes pasos:
 
@@ -119,6 +134,199 @@ Siguientes pasos:
 - **Medir con repeticiones:** el script acepta la misma clave varias veces
   (`video_a=… video_a=…`); repetir cada configuración al menos 3 veces antes de atribuir una
   diferencia al dispositivo.
+
+## Seguimiento: conversión del SOP con Gemma 4 en CPU y en GPU (7 nov 2026)
+
+Mismo equipo de referencia (RTX 2070 SUPER, i7-10700K), `gemma4:e4b-it-q4_K_M`, Ollama 0.40.2.
+En CPU, `LLM_DISPOSITIVO=cpu` y el resto de los valores por defecto (Ollama confirmó "cpu" en
+`/api/ps`). Dos documentos inventados: el Word en prosa del fixture (1 420 caracteres) y un texto
+de 9 047 caracteres con la misma prosa y notas que no son pasos (`num_ctx` 16384). Una corrida por
+celda; datos en `docs/adr/datos/sop/antes-v2-20261107-1949.json` (prompt v2) y
+`despues-v3-20261107-2014.json` (prompt v3, esquema recortado, ADR-015).
+
+| Documento · prompt | GPU: tiempo · tokens/s · pasos | CPU: tiempo · tokens/s · pasos | Tokens de salida (GPU / CPU) |
+|---|---|---|---|
+| Prosa · v2 | 26.5 s · 110.0 · 8 | 138.0 s · 17.0 · 8 | 1 829 / 1 829 |
+| Largo · v2 | 25.7 s · 103.5 · **8** | 201.2 s · 15.3 · **9** | 1 842 / 1 999 |
+| Prosa · v3 | 17.5 s · 110.2 · 8 | 95.9 s · 17.2 · 8 | 1 156 / 1 130 |
+| Largo · v3 | 19.1 s · 103.8 · 8 | 146.8 s · 14.9 · 8 | 1 163 / 1 181 |
+
+- **CPU, unas 6.5 veces más lento:** genera ≈ 15-17 tokens/s contra ≈ 104-110 en GPU, y lee el
+  prompt a ≈ 55 tokens/s. Con el plazo fijo de 180 s el texto largo con v2 (201 s) fallaba; con la
+  respuesta en flujo (corte por inactividad, tope de 900 s) y `POST /sops` asíncrono, los dos
+  documentos convierten sin error en CPU con los valores por defecto. El esquema recortado bajó el
+  peor caso en CPU de 201 a 147 s.
+- **El texto largo con v2: 8 pasos en GPU, 9 en CPU.** Los dos parten igual hasta el paso 2
+  ("Girar la llave de paso a la derecha"). La CPU agrega un paso 3, "Verificar posición de la
+  manija", con la frase "La manija debe quedar atravesada a la tubería."; la GPU pone esa misma
+  frase como punto de validación del paso 2. **Se apega más al documento la de 8 (GPU):** la
+  frase no es una acción nueva, es cómo se comprueba que la llave quedó cerrada; en la plantilla
+  original del fixture es la "Validación" del paso 2. Del paso 4 en adelante coinciden (con
+  palabras distintas). Con v3, los dos dispositivos dan 8 pasos en los dos documentos, con la
+  misma división y nombres que cambian de palabras ("Presionar botón rojo" en GPU, "Presionar botón
+  y purgar aire" en CPU).
+- **RNF-07 significa el mismo modelo, no la misma salida idéntica.** En CPU y en GPU corren los
+  mismos pesos (`gemma4:e4b-it-q4_K_M`), el mismo prompt, temperatura 0 y la misma semilla; lo que
+  cambia es la aritmética de punto flotante de cada dispositivo, que en los tokens casi empatados
+  elige otro y desde ahí el texto diverge. No se puede exigir la salida idéntica byte a byte (ya se
+  veía en GPU sola, ver arriba: A dio 100 / 83.3 / 100 %). Lo que sí se exige es no cambiar de
+  modelo según el equipo (opción B, descartada).
+- **RF-04 cubre la diferencia.** Un SOP convertido con el LLM sale con `metodo: "llm"` y sus
+  advertencias, y debe pasar por la corrección humana antes de usarse para validar (RF-04,
+  ADR-008; la pantalla es de S5 y todavía no existe): un paso de más como el "Verificar posición
+  de la manija" es justo lo que esa revisión corrige. El
+  código ya garantiza lo que no puede variar: cada paso trae una cita verificada contra el
+  documento, y lo que no la tiene sale con confianza baja y la advertencia `paso_sin_evidencia`.
+
+## Seguimiento: ficha de contexto con Gemma 4 en CPU y en GPU (7 nov 2026)
+
+Ficha de contexto (RF-12, `percepcion/contexto.py`, prompt `contexto_v1`) sobre A y B, con el
+mismo equipo de referencia, `gemma4:e4b-it-q4_K_M` y Ollama 0.40.2. La etapa no cambia de lógica
+con el dispositivo: mismo prompt, esquema, cortes, temperatura 0 y semilla. **Fotogramas en la
+entrada: 0** (RF-11 aún no existe). Gemma se descarga antes de cada corrida, como en la API, así
+que la espera al primer token incluye la carga en frío. Datos y fichas completas en
+`docs/adr/datos/contexto/contexto-20261107-2344.*` (parte a) y `contexto-20261107-2349.*`
+(parte b), con `scripts/medir_contexto.py`.
+
+**a) Solo Gemma, con la misma transcripción guardada** (`media/video_*_v3/analisis.json`,
+Whisper `large-v3-turbo`), dos corridas por celda:
+
+| Video · Gemma | Tokens entrada → salida | Primer token | Tokens/s | Ficha |
+|---|---|---|---|---|
+| A · GPU | 1 114 → 290-292 | 6.7-6.9 s | 87-88 | 10.0-10.2 s |
+| A · CPU | 1 114 → 291 | 28.1-30.9 s | 15.1-15.2 | 47.4-50.1 s |
+| B · GPU | 984 → 284-310 | 5.9-6.2 s | 75-102 | 8.9-10.0 s |
+| B · CPU | 984 → 307 | 25.9-27.8 s | 13.3-14.9 | 48.4-49.1 s |
+
+- **Mismas personas en las 8 corridas:** un narrador, "No identificado", rol "técnico de
+  mantenimiento", "participa" (A y B no dicen el nombre). Sin riesgo para P3 por el dispositivo.
+- Datos con valor o vacíos: iguales entre CPU y GPU en A. En B, `proposito` sale lleno en 3 de 4
+  corridas y vacío en la segunda de GPU: es la variación de Gemma en un mismo dispositivo, no de
+  la CPU. Equipos: en A, CPU escribe "cartucho" donde GPU escribe "cartucho de filtro de agua";
+  en B, iguales.
+- La ficha mide ~290-310 tokens de salida (el tope que se fijó para recortar el esquema era
+  ~600). En CPU la espera al primer token queda en 26-31 s, lejos de los 120 s que pondrían en
+  riesgo el corte de 180 s cuando lleguen los fotogramas.
+
+**b) Ruta completa** (Whisper + `validar` contra el SOP del fixture), una corrida por celda:
+GPU = Whisper `large-v3-turbo` en cuda + Gemma en GPU; CPU = Whisper `small` int8 en CPU (su
+valor por defecto) + Gemma en CPU.
+
+| Video · ruta | Transcripción | Ficha | Pasos | Emparejamiento | Total | Ficha / total |
+|---|---|---|---|---|---|---|
+| A · GPU | 12.1 s | 10.4 s | 11.5 s | 31.1 s | 66.5 s | 16 % |
+| B · GPU | 5.9 s | 8.4 s | 8.2 s | 1.5 s | 24.4 s | 35 % |
+| A · CPU | 22.7 s | 49.1 s | 67.7 s | 16.3 s | 156.3 s | 31 % |
+| B · CPU | 22.5 s | 50.6 s | 76.4 s | 34.5 s | 185.4 s | 27 % |
+
+- **La ficha suma ~8-10 s por video en GPU y ~50 s en CPU.** El emparejamiento varía con los
+  pares que llegan al juez y, en A con GPU (la primera corrida del proceso), incluye la carga de
+  MiniLM; no se midió aparte.
+- **El cambio de modelo de Whisper sí altera la ficha.** Mismas personas en las dos rutas, pero
+  en A Whisper `small` transcribió "línea de enjuague" como "clínica del jugo": la ficha en CPU
+  dice `lugar = "Clínica del jugo"` con fuente "audio" y confianza "alta", porque la cita sí
+  aparece en esa transcripción. En equipos pasan los errores de Whisper ("guantes del tilo",
+  "anillo de higule"). **La cita verificada prueba que el dato está en la transcripción, no que
+  la transcripción esté bien:** con Whisper `small` en CPU, un dato de alta confianza puede ser
+  un error de reconocimiento. Esto pesa para P3 (afinidad con el lugar del SOP) y para el SOP
+  generado (P5). RNF-07 pide el mismo modelo; hoy la ruta de CPU por defecto usa otro Whisper
+  (`small`) por tiempo. Opciones a decidir: `large-v3-turbo` también en CPU (más lento) o una
+  advertencia en la ficha cuando Whisper no es el de referencia.
+- Hallazgo del prompt v1, igual en los dos dispositivos: Gemma copia a veces citas literales de 3
+  palabras ("línea de enjuague", "técnico de mantenimiento"), por debajo del mínimo de 4. El
+  código las deja como "inferido" con confianza baja (el valor se conserva). En B, Gemma no llenó
+  `lugar` aunque se dice. Para un `contexto_v2`: pedir la frase completa alrededor del dato.
+
+## Seguimiento: Whisper large-v3-turbo en CPU contra small (8 nov 2026)
+
+La medición de la ficha de contexto mostró que Whisper `small` en CPU transcribió "línea de
+enjuague" como "clínica del jugue", y que la ficha lo dio como lugar con cita verificada. Se midió
+`large-v3-turbo` en CPU (i7-10700K, 32 GB) con A y B, contra la transcripción de GPU como
+referencia, con `scripts/medir_whisper.py`. Datos: `docs/adr/datos/whisper/whisper-20261108-0018.*`
+(WER por palabras normalizadas, sin acentos ni puntuación; cada transcripción en su propio proceso
+para medir la RAM pico; una corrida por celda).
+
+| Video · Whisper | Segundos | × tiempo real | RAM pico | WER | Tramos que llegan a ficha / pasos |
+|---|---|---|---|---|---|
+| A · large-v3-turbo, cuda float16 (referencia) | 7.4 | 0.06 | 1.8 GB | — | — |
+| A · large-v3-turbo, CPU int8 | 60.5 | 0.45 | 1.95 GB | 0.4 % | 0 / 0 |
+| A · large-v3-turbo, CPU int8_float32 | 55.4 | 0.41 | 1.95 GB | 0.4 % | 0 / 0 |
+| A · small, CPU int8 | 24.2 | 0.18 | 0.77 GB | 4.8 % | 2 / 4 |
+| B · large-v3-turbo, cuda float16 (referencia) | 8.7 | 0.08 | 1.8 GB | — | — |
+| B · large-v3-turbo, CPU int8 | 38.8 | 0.34 | 1.95 GB | 1.3 % | 1 / 2 |
+| B · large-v3-turbo, CPU int8_float32 | 39.4 | 0.34 | 1.95 GB | 1.3 % | 1 / 2 |
+| B · small, CPU int8 | 19.5 | 0.17 | 0.77 GB | 6.2 % | 2 / 8 |
+
+- **"Clínica del jugue" desaparece con large-v3-turbo en CPU.** Solo `small` la produce (A), y
+  llega al lugar y al resumen de la ficha. Con `small` también llegan a los pasos "plastanon",
+  "ranobra", "marcasero" o "del tilo" (por "de nitrilo"). Con `large-v3-turbo` en CPU queda un
+  error que llega a la ficha y a un paso ("del trilo" por "de nitrilo", en B) y un "flojo" por
+  "aflojo" (B); en A, ninguno. RNF-07 sigue siendo el mismo modelo, no la misma salida: la CPU no
+  reproduce byte a byte la transcripción de GPU, pero se le acerca diez veces más que `small`.
+- **int8 e int8_float32 tardan lo mismo** (en CPU, ctranslate2 hace las dos con pesos int8 y
+  cálculo en float32) y dieron transcripciones idénticas en A y en B. Se queda int8, el que ya usa `COMPUTE_TYPE_CPU`.
+- **RAM:** ~1.95 GB contra 0.77 GB. Whisper y Gemma no corren a la vez (ADR-014), así que cabe de
+  sobra en el equipo de referencia; en un equipo de 8 GB habría que revisarlo con Gemma en CPU.
+
+**Ruta completa en CPU** (Whisper + ficha + pasos + emparejamiento con Gemma en CPU):
+
+| Video | small | large-v3-turbo int8 | large-v3-turbo int8_float32 | GPU (referencia) |
+|---|---|---|---|---|
+| A | 159.6 s | 244.1 s (1.53×) | 184.9 s (1.16×) | 47.0 s |
+| B | 164.4 s | 163.9 s (1.00×) | 164.6 s (1.00×) | 29.0 s |
+
+Whisper en sí suma +36 s (A) y +19 s (B) sobre `small`; el resto de la diferencia de A con int8
+(244 s) viene de las etapas de Gemma de esa corrida (ficha 61 s y pasos 103 s contra 47 y 68 s de
+la corrida de int8_float32, con el mismo modelo y una transcripción idéntica), no de Whisper:
+es la variación de Gemma en CPU entre corridas. En los dos videos, el cumplimiento fue igual en las cuatro rutas (A 100 %, B 66.67 %).
+
+**Decisión (8 nov 2026): `WHISPER_MODELO_CPU=large-v3-turbo` (int8), el mismo modelo en los dos
+dispositivos.** Con el criterio acordado (si `large-v3-turbo` en CPU no más que duplica el tiempo
+total por video, se usa el mismo modelo), el peor caso medido es 1.53× y el típico 1.0–1.2×. Queda
+por defecto en Settings, `.env.example` y `docker-compose.yml` (la API en Docker, que corre en CPU,
+usa `WHISPER_MODELO_CPU`; `WHISPER_MODELO_API` ya no existe). El aviso
+`transcripcion_no_referencia` se queda para quien configure otro modelo. Pendiente: confirmar los
+tiempos en un equipo sin GPU de verdad y con los videos C–E.
+
+## Seguimiento: RNF-07 con la segmentación guardada (9 nov 2026)
+
+Desde el 9 nov, repetir la validación (`POST /videos/{id}/validar`, ADR-019) **reusa la
+segmentación guardada** (`SegmentacionGuardada` en `videos.pasos_video`) en lugar de volver a
+llamar a Gemma; `?segmentar=true` la vuelve a pedir (ADR-022, sección RNF-07). RNF-07 se informa
+en dos niveles, con `scripts/medir_reproducibilidad.py` (GPU, los `analisis.json` de cada video,
+SOP del filtro): [`datos/rnf07/rnf07-20261109-0140.md`](datos/rnf07/rnf07-20261109-0140.md) (A) y
+[`datos/rnf07/rnf07-20261109-0147.md`](datos/rnf07/rnf07-20261109-0147.md) (B, C, D).
+
+**Estabilidad del análisis (segmentación nueva en cada corrida): se informa como rango.**
+
+| Video | Segmentaciones nuevas | Porcentaje | Semáforo | Pasos del video por corrida |
+|---|---|---|---|---|
+| A | 6 | **91.67–100 %** | verde 6/6 | 14 (3), 15 (1), 17 (2) |
+| B | 3 | 66.67 % | rojo 3/3 | 7 (3) |
+| C | 3 | 75 % | amarillo 3/3 | 9 (3) |
+| D | 3 | 0 % | rojo 3/3 | 10 (3) |
+
+Contando las mediciones del 8 y el 9 nov, A dio entre 83.33 y 100 % antes del rescate (ADR-022) y
+entre 91.67 y 100 % después. El semáforo de A queda en verde en todas las corridas desde el
+rescate, pero el porcentaje no es un número fijo: depende de cómo parta Gemma los pasos (las dos
+corridas de 91.67 % tienen 17 pasos y el paso 6 en *Parcial*).
+
+**Reproducibilidad del reporte (misma segmentación, regenerado dos veces):**
+
+- **Porcentaje:** el de la validación original en las 30 regeneraciones (15 validaciones × 2).
+- **Las dos regeneraciones idénticas entre sí**, sin contar los segundos: A 6/6, B 3/3, C 3/3, D
+  2/3. En D 2 difieren solo en la redacción de la justificación del juez de un par (mismo
+  veredicto, *no_corresponde*); se reprodujo en otra corrida de D (1 de 3).
+- **Iguales a la validación original:** A 2/6, B 2/3, C 3/3, D 1/3. Lo que se inspeccionó (A y D)
+  es la redacción de la justificación del juez: en la original, el juez corre después de la ficha
+  y la segmentación en la misma carga de Gemma; en la regeneración, solo.
+
+Conclusión: con la segmentación guardada, **el porcentaje se reproduce**; el texto del reporte no
+siempre, porque la redacción del juez varía aun con la misma entrada (las respuestas cortas varían
+menos: el 9 nov, 10 llamadas idénticas seguidas dieron el mismo texto). La regla de RNF-07 sigue
+siendo el mismo modelo en CPU y GPU, no la salida idéntica; para el reporte, el compromiso medible
+es "mismo porcentaje al regenerar". Si se quiere el reporte idéntico, la siguiente medida es
+guardar también los juicios y reusarlos al regenerar (propuesta en ADR-022, sin implementar).
 
 ## Referencias
 

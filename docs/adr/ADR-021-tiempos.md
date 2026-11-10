@@ -1,0 +1,211 @@
+# ADR-021 · Tiempos: duración narrada o medida, solo *excede* cuenta
+
+- **Estado:** Aprobado por el equipo (8 nov). Corregido el mismo día, antes de P5: la duración
+  narrada gana siempre, como pide §5.5 (antes, solo si era mayor que la medida). El 9 nov se
+  adopta la medida hasta el inicio del siguiente paso del video (antes, t_fin − t_inicio).
+- **Fecha:** 2026-11-08
+- **Autores:** Emmanuel Merida
+- **Decisores:** equipo
+
+---
+
+## Contexto
+
+El documento SOP V1.0 (§5.5, RF-16) pide comparar la duración de cada paso del video con el tiempo
+esperado del SOP, la duración total con la del SOP, y el horario o la frecuencia del SOP con lo que se
+dice en el video. El video C de la sección 14 lo evalúa: un paso tarda el doble y debe salir
+exactamente un *Excede*.
+
+El contrato ya estaba (P0): `TiempoFila` (esperado, observado, origen `narrado` | `medido`, estado
+`en_tiempo` | `excede` | `menor` | `sin_referencia`, cita), `TiempoTotal`, `Horario` (con
+`no_mencionado`) y `ConteoReporte.pasos_fuera_de_tiempo`. `TOLERANCIA_TIEMPO = 0.20` ya estaba en
+`Settings` (RNF-14). Falta la lógica.
+
+Restricciones:
+
+- **Sin LLM.** El LLM no calcula ni escribe tiempos (regla 4 de CLAUDE.md). Todo es código sobre la
+  transcripción y los pasos del video; MiniLM solo para comparar el horario.
+- **General.** Nada pensado para A, B, C o D: ni frases, ni duraciones, ni tolerancias. Esos videos
+  son pruebas de aceptación.
+- **El video también es en inglés** (video E): la detección de la duración narrada entiende español
+  e inglés.
+
+## Opciones consideradas
+
+| Opción | A favor | En contra |
+|---|---|---|
+| A. Solo el tiempo medido (hasta el siguiente paso del video) | Simple, siempre disponible | Una espera con corte o en silencio ("espero 5 minutos") no se ve en el video |
+| **B. La duración narrada siempre gana sobre la medida** | Es lo que pide §5.5; respeta lo que dice el operador y cubre las esperas con corte | "Esto tarda 30 segundos" (lo que *debería* tardar) esconde un paso que tardó 70 s: el *Excede* se pierde |
+| C. La narrada gana solo si es ≥ la medida | El video es una cota inferior de lo que tardó | Se aparta de §5.5 (se usó de la primera versión a la corrección del 8 nov) |
+
+Para detectar la duración narrada: (1) cualquier cantidad con unidad de tiempo, (2) con disparador
+en una lista blanca, (3) con lista negra de acciones breves ("presionar", "mantener"). La 1 toma "tres
+segundos" de un botón; la 3 depende de adivinar todas las acciones. Se elige la 2.
+
+## Decisión
+
+### 1. Duración observada de un paso
+
+- **Medida (desde el 9 nov):** del inicio del paso del video ya fusionado (ADR-013) al inicio
+  del **siguiente paso del video**, sea otro par, un *Sobra* o el cierre del operador: la pausa
+  después de hablar queda dentro (`fin_del_paso`). El último paso del video termina al final del
+  video; por eso el último par termina en el cierre si hay uno. Un paso fusionado empieza en el
+  primer inicio de sus originales; personas, en cambio, usa el original citado (ADR-020). Hasta
+  el 8 nov la medida era `t_fin − t_inicio` (fin del último segmento del paso), que perdía la
+  pausa: 5–8 s por paso en A y B (sección "Otra medida", abajo).
+- **Narrada:** si en el tramo hay una duración narrada (regla de abajo), **esa gana siempre**
+  (§5.5): es la observada, con `origen="narrado"` y su cita, aunque el video dure más o menos. Si
+  no hay, la medida (`origen="medido"`, sin cita). La fila muestra la cita: quien revisa ve que el
+  tiempo salió de lo que dijo el operador.
+- La intro y el cierre del operador (ADR-016) son pasos del video aparte, marcados en un *Sobra*:
+  nunca caen dentro del tramo de un par. Una intro solo entraría en el paso 1 si MiniLM la fusiona con
+  él (coseno ≥ `UMBRAL_FUSION`), es decir, si habla del paso.
+
+### 2. Regla de la duración narrada (`lenguaje/tiempos.py`, `duracion_narrada`)
+
+Sobre los segmentos que **empiezan** dentro del tramo, en una copia del texto en minúsculas y sin
+acentos (de la misma longitud, para cortar la cita del texto original):
+
+1. **Cantidad + unidad de tiempo.** Unidades: segundo(s)/seg, minuto(s)/min, hora(s)/hr y
+   second(s)/sec, minute(s)/min, hour(s)/hr (sin "s" ni "h" sueltas). Cantidades en cifra (`5`,
+   `1.5`, `1,5`) o en letra de 0 a 99 en español ("veinticinco", "treinta y cinco") e inglés
+   ("twenty-five"); "un/una/a/an" = 1. Fracciones y giros: "medio minuto", "media hora", "un cuarto
+   de hora", "un minuto y medio", "un par de", "half a minute", "half an hour", "a quarter of an
+   hour", "a minute and a half", "one and a half", "a couple of". Rangos ("entre 5 y 10", "de 5 a 10",
+   "5-10", "between 5 and 10", "5 to 10") dan el punto medio. Compuestas ("un minuto y treinta
+   segundos", "2 minutes and 30 seconds") se suman.
+2. **Disparador obligatorio (lista blanca).** La cantidad solo cuenta si en la misma cláusula (sin
+   `. ; : ? !` de por medio) y a lo más 6 palabras antes hay un verbo o sustantivo de duración:
+   tardar, durar/duración, demorar, tomar, llevar, esperar/espera, aguardar, dejar, reposar/reposo;
+   take, last, wait, let, leave, sit, rest. También cuenta "N minutos de espera / de reposo" y
+   "a N-minute wait".
+3. **"durante", "por" y "for" no son disparadores por sí solos:** solo pueden ir entre el disparador y
+   la cantidad ("espero durante 5 minutos", "wait for 5 minutes"). "Mantengo presionado el botón
+   durante tres segundos" y "presiono tres segundos el botón" no cuentan. "2 bar" y "un cuarto de
+   vuelta" no tienen unidad de tiempo y nunca cuentan.
+4. Si hay varias, la del segmento más temprano del tramo (y dentro de él, la primera).
+5. La cita es el fragmento literal desde el disparador hasta la unidad; el segundo, el inicio de su
+   segmento (regla 4).
+
+**Ante la duda, no se usa:** es preferible caer al tiempo medido que tomar una cantidad equivocada.
+
+### 3. Estado de un paso
+
+`comparar(esperado, observado, tolerancia)`: sin esperado (o esperado ≤ 0) → `sin_referencia`;
+dentro de ±`TOLERANCIA_TIEMPO` × esperado (inclusive) → `en_tiempo`; arriba → `excede`; abajo →
+`menor`. El observado se redondea a dos decimales antes de comparar, para que el estado cuadre con lo
+que se muestra. Solo los pares (Cumple, Parcial, *sin revisar*, con o sin fuera de orden) llevan
+tiempo; Falta y Sobra van sin tiempo (un Sobra no tiene esperado).
+
+**Solo *excede* cuenta en `pasos_fuera_de_tiempo`.** *Menor* se muestra, pero es más rápido de lo
+esperado, no un incumplimiento. El porcentaje de cumplimiento (§5.6) no cambia: el tiempo se muestra
+junto a él.
+
+### 4. Total y horario
+
+- **Total:** suma de los observados de los pares (Falta y Sobra no suman) contra
+  `resumen.duracion_total_min`; si el SOP no lo trae, contra la suma de los esperados, solo si todos
+  los pasos tienen tiempo (una suma parcial engañaría). Sin ninguno de los dos, `sin_referencia`.
+- **Horario:** el `horario_frecuencia` del SOP contra el `horario_mencionado` de la ficha (solo si
+  trae su segundo; uno inferido no es evidencia). Sin horario en el SOP → `sin_referencia`; el SOP lo
+  define y el video no → `no_mencionado` (contrato de P0). Si los dos están: `coincide` si una
+  alternativa del SOP (partido en ", o", ";" y " o cuando") está contenida en lo dicho o al revés,
+  tras normalizar (minúsculas, sin acentos, números en letra a cifra), o si el coseno MiniLM en
+  minúsculas (como ADR-020) es ≥ `UMBRAL_HORARIO` (0.75, sin calibrar); si no, `distinto`. Sin
+  calcular fechas. La cita es el segmento de la transcripción que empieza en ese segundo.
+
+Si la validación se detiene por afinidad baja (ADR-020), no se calculan tiempos.
+
+## Consecuencias
+
+- **Positivas:** todo tiempo sale de la transcripción y es reproducible (no depende de Gemma más que
+  por las fronteras de los pasos). La tolerancia y el umbral del horario están en `Settings` y se
+  registran en `Umbrales` del reporte.
+- **Negativas / riesgos:**
+  - Las fronteras de los pasos son de Gemma (ADR-010): un paso partido en dos y no fusionado deja un
+    pedazo como *Sobra* y subestima la medida; uno que absorbe al siguiente la sobreestima.
+  - La medida incluye la pausa hasta el siguiente paso del video: una pausa larga (alguien
+    espera en silencio) cuenta para el paso anterior, que es lo esperado; un *Sobra* entre dos
+    pares corta la medida del primero.
+  - Como la narrada gana siempre, el disparador que no sabe de qué habla se paga: "el agua tarda 3
+    segundos en salir" o "esto tarda 30 segundos" (lo que *debería* tardar) reemplazan a la medida y
+    pueden esconder un *excede*. Se mitiga mostrando la cita en la fila. "Caliento durante 5
+    minutos" no se detecta (sin verbo de duración) y cae a la medida. Números en letra solo hasta 99; "un ratito" o "unos cuantos minutos"
+    se ignoran a propósito.
+  - Con SOP de pasos cortos (0.5 min) y ±20 %, una narración ágil sale *menor* en casi todos los
+    pasos; no cuenta como incumplimiento, pero se ve en el reporte.
+- **Seguimiento:** medición con A, B y C (abajo). Calibrar `UMBRAL_HORARIO` cuando haya más SOP con
+  horario.
+
+## Medición
+
+9 nov, con la medida hasta el inicio del siguiente paso y el rescate de ADR-022.
+`scripts/medir_tiempos.py` con A, B y C contra `tests/fixtures/sop_filtro_agua.md` (6 pasos de
+0.5 min, total 3 min; tolerancia ±20 %: en tiempo de 0.40 a 0.60 min), 3 repeticiones por video,
+Gemma 4 en la GPU (RTX 2070 SUPER), Whisper `large-v3-turbo` (los `analisis.json` de cada video).
+Datos crudos en [`datos/tiempos/tiempos-20261109-0111.md`](datos/tiempos/tiempos-20261109-0111.md)
+y `.json`. La medición del 8 nov, con la medida anterior (t_fin − t_inicio), queda en
+[`datos/tiempos/tiempos-20261108-1630.md`](datos/tiempos/tiempos-20261108-1630.md).
+
+| Video · rep. | Cumpl. | en tiempo / menor / excede | Excede en | Total obs. / esp. (min) | Horario |
+|---|---|---|---|---|---|
+| A · 1 | 91.67 | 0 / 6 / 0 | — | 1.50 / 3.00, menor | no_mencionado |
+| A · 2 | 100.0 | 0 / 6 / 0 | — | 1.62 / 3.00, menor | no_mencionado |
+| A · 3 | 91.67 | 0 / 6 / 0 | — | 1.50 / 3.00, menor | no_mencionado |
+| B · 1–3 | 66.67 | 2 / 2 / 0 | — | 1.43 / 3.00, menor | no_mencionado |
+| **C · 1** | 75.0 | 2 / 3 / **1** | **paso 1** | 2.75 / 3.00, en tiempo | no_mencionado |
+| **C · 2** | 83.33 | 3 / 2 / **1** | **paso 1** | 3.05 / 3.00, en tiempo | no_mencionado |
+| **C · 3** | 83.33 | 3 / 2 / **1** | **paso 1** | 3.05 / 3.00, en tiempo | no_mencionado |
+
+- **C pasa la aceptación de la sección 14 en las 3 corridas:** exactamente un *excede*, el paso 1
+  (1.02 min contra 0.5), y ninguno en los demás. Todos los tiempos salieron medidos: ningún video
+  narra duraciones. C · 2 y C · 3 dan 83.33 % y no 75 % porque el juez dio *Cumple* y no *Parcial*
+  en un par; los dos *Fuera de orden* (2 y 5) siguen.
+- **A y B, ningún *excede*.** A sale *menor* en todos los pasos (0.10–0.32 min); B, *en tiempo* en
+  los pasos 4 (0.40) y 5 (0.48) y *menor* en el 1 y el 3. Con la pausa incluida, los totales suben
+  de 0.78–1.11 a 1.43–1.62 min.
+- **Contra la anotación a mano** (inicio del paso al inicio de lo siguiente), error medio de la
+  duración por paso: A 3.9 s, B 1.1 s, C 9.1 s (antes 9.5, 5.2 y 8.3 s).
+  - Donde Gemma pone bien las fronteras, la medida coincide a ±0.3 s (A, pasos 1, 2 y 5; B, pasos
+    1, 3 y 4; C, paso 6).
+  - Lo que queda viene de fragmentos que Gemma deja como *Sobra* y cortan la medida: A, pasos 3 y
+    4 (−5 s); A, paso 6 (−8 a −15 s, cuando la segmentación lo parte y el par se queda con un
+    fragmento sin dejarlo en *Falta*, así que no hay rescate).
+  - En C, las fronteras corridas de Gemma: el paso 1 pierde su última frase (−10 s, sigue en
+    *excede*); el 4 empieza 17 s tarde. En C · 1, el paso 2 absorbe el inicio del 4 (0.54 min, a
+    0.06 del límite).
+  - La anotación de C es asistida y no está verificada a mano (`media/anotacion_ab.json`).
+- **Horario:** `no_mencionado` en todas las corridas. Los videos dicen "el manómetro marca menos de
+  dos bar", pero la ficha lo guarda como propósito, no en `horario_mencionado`. La comparación del
+  horario solo queda probada con datos inventados (`tests/test_tiempos.py`).
+- **El amarillo de A del 8 nov** (el juez rompía el par del paso 6) lo resuelve ADR-022. En estas
+  3 corridas, y en las 6 de `medir_mvp` del mismo día, A sale verde.
+
+### Otra medida: hasta el inicio del siguiente paso (comparada el 8 nov, adoptada el 9 nov)
+
+Con los mismos tramos de Gemma, la medida «del inicio del paso al inicio del siguiente paso del
+video, pausa incluida (el último, hasta su t_fin)» se compara con la actual contra la anotación a
+mano: [`datos/tiempos/comparacion-medida-20261108.md`](datos/tiempos/comparacion-medida-20261108.md).
+
+| Video | Error medio abs., actual | Error medio abs., hasta el siguiente | *Excede* (actual → siguiente) |
+|---|---|---|---|
+| A | 9.5 s | 4.0 s | ninguno → ninguno |
+| B | 5.2 s | 0.6 s | ninguno → ninguno |
+| C | 8.3 s | 7.8 s | paso 1 → paso 1, en las 3 corridas |
+
+- Donde Gemma puso bien las dos fronteras (A, pasos 1, 2 y 5; B, pasos 1, 3 y 4), la medida nueva
+  coincide con la anotación a ±0.1 s: recupera la pausa que la actual pierde (5–8 s por paso).
+- Lo que queda de error viene de las fronteras de Gemma, no de la regla. Un pedazo del paso que
+  quedó como *Sobra* corta el tramo (A, paso 4 en la corrida 2: 3.6 s contra 24.4 s), y en C las
+  fronteras están corridas (pasos 3 y 4).
+- Cambia un estado: B, paso 4, pasa de *menor* a *en tiempo*. Ningún *excede* cambia.
+- En C · 1, el paso 2 que absorbió el inicio del 4 sube de 0.50 a 0.54 min (límite 0.60).
+
+Adoptada el 9 nov (decisión del equipo). La tabla de la medición se rehízo con ella y con el
+rescate de ADR-022.
+
+## Referencias
+
+- Documento SOP V1.0, §5.5, §5.6 y §14; RF-16, RNF-14.
+- ADR-010 (fronteras de los pasos), ADR-013 (fusión), ADR-016 (intro y cierre), ADR-020 (afinidad y
+  MiniLM en minúsculas).

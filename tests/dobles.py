@@ -2,13 +2,17 @@
 
 - `TranscriptorFalso`: entrega `SEGMENTOS` (tres frases inventadas de 0 a 2.8 s).
 - `OllamaFalso`: Ollama simulado con `httpx.MockTransport` para `ClienteLLM`: `/api/tags`, las
-  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido),
+  dos llamadas de la segmentación (fronteras y redacción, según el esquema pedido), la ficha de
+  contexto (`respuestas_contexto`, en flujo), la
+  conversión de un SOP sin plantilla (`respuestas_sop`, en flujo NDJSON como `chat_en_flujo`),
   `/api/generate` con `keep_alive: 0` y `/api/ps` (el modelo en GPU, salvo `vram=0`).
+- `flujo_ndjson`: cuerpo en flujo de Ollama, con tokens lentos o un Ollama que se calla.
 - `JuezFalso`: decide cada par de la zona gris con un veredicto fijo, o deja el respaldo.
 - `VectorizadorGuionado`: el vector de cada texto según su prefijo, para fijar el coseno de cada
   par sin MiniLM.
-- `Entorno`: la app con la sesión de la prueba, ajustes en `tmp_path`, trabajos que corren a mano
-  y estos dobles inyectados.
+- `VectorizadorPalabras`: bolsa de palabras, para probar la afinidad y los roles sin MiniLM.
+- `Entorno`: la app con la sesión de la prueba, ajustes en `tmp_path`, una `ColaTrabajos` que se
+  corre a mano (`correr_pendientes`), un candado de modelo pesado propio y estos dobles inyectados.
 
 Todo es inventado por el equipo (CLAUDE.md §2.1). `eventos` es una lista compartida que registra,
 en orden, cuándo Whisper soltó la memoria y cada petición a Ollama (ADR-014).
@@ -17,6 +21,7 @@ en orden, cuándo Whisper soltó la memoria y cada petición a Ollama (ADR-014).
 import hashlib
 import json
 import math
+import time
 from collections.abc import Callable, Iterator
 from contextlib import nullcontext
 from pathlib import Path
@@ -28,17 +33,23 @@ from sqlalchemy.orm import Session
 
 from sopvid.contrato import SOP, Idioma, Juicio, Palabra, PasoSOP, PasoVideo, Segmento
 from sopvid.lenguaje import emparejamiento as emp
+from sopvid.lenguaje import sop_generado as gen
 from sopvid.lenguaje.juez import respaldo
+from sopvid.lenguaje.lectura_sop import ESQUEMA_SOP_LIBRE
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.validacion import DependenciasValidacion
+from sopvid.percepcion.contexto import ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS
 from sopvid.percepcion.segmentacion import ESQUEMA_FRONTERAS, ESQUEMA_REDACCION
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion
 from sopvid.plataforma.api.main import create_app
+from sopvid.plataforma.api.sops import get_fabrica_llm
 from sopvid.plataforma.api.videos import get_procesador, get_transcriptor, get_validacion
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
+from sopvid.plataforma.hardware import CandadoModeloPesado
 from sopvid.plataforma.modelos import Sop, Video
-from sopvid.plataforma.procesamiento import Procesador
+from sopvid.plataforma.procesamiento import ColaTrabajos, Procesador
+from sopvid.texto import comparable
 
 # ── Transcripción ────────────────────────────────────────────────────────────────────────────
 
@@ -79,6 +90,8 @@ class TranscriptorFalso:
         eventos: list[str] | None = None,
     ):
         self.antes, self.error = antes, error
+        # El de referencia (ADR-018); con otro, el reporte lleva "transcripcion_no_referencia".
+        self.modelo = "large-v3-turbo"
         self.eventos = eventos if eventos is not None else []
         self.idiomas: list[str | None] = []
 
@@ -100,7 +113,7 @@ class TranscriptorFalso:
             ),
             segmentos=list(SEGMENTOS),
             duracion_s=3.0,
-            modelo="falso",
+            modelo=self.modelo,
             dispositivo="cpu",
             compute_type="int8",
             segundos=0.0,
@@ -139,14 +152,82 @@ REDACCION = [
     {"numero": n, "descripcion": "", "responsable": "Técnico", "cita": s.texto}
     for n, s in enumerate(SEGMENTOS, start=1)
 ]
+# La ficha de contexto que respondería Gemma 4 para SEGMENTOS: la actividad con una cita que
+# existe, el tema sin cita (inferido) y lo que no se dice en null.
+CONTEXTO = {
+    "actividad": {"cita": "Primero reviso el manómetro", "valor": "Revisión de la línea de agua"},
+    "tema": {"cita": "", "valor": "Mantenimiento"},
+    "lugar": {"cita": "", "valor": None},
+    "horario_mencionado": {"cita": "", "valor": None},
+    "proposito": {"cita": "", "valor": None},
+    "resumen": "Se revisa el manómetro, se cierra la válvula y se anota la lectura.",
+    "personas": [],
+    "equipos": ["Manómetro", "Válvula"],
+}
+
+
+# Lo que respondería Gemma 4 a las cuatro llamadas del SOP generado (ADR-023) para SEGMENTOS
+# segmentados con FRONTERAS: un paso del SOP por paso del video, ninguno fuera (agrupación v2:
+# una etiqueta por paso del video).
+AGRUPACION_SOP = {"pasos": [{"paso_video": n, "etiqueta": "nuevo"} for n in (1, 2, 3)]}
+PASOS_SOP = [
+    {
+        "numero": 1,
+        "nombre": "Revisar el manómetro",
+        "descripcion": "Revisar la lectura del manómetro.",
+        "equipo": [{"cita": "reviso el manómetro", "valor": "Manómetro"}],
+        "puntos_validacion": [],
+    },
+    {
+        "numero": 2,
+        "nombre": "Cerrar la válvula",
+        "descripcion": "Cerrar la válvula de la línea.",
+        "equipo": [{"cita": "cierro la válvula", "valor": "Válvula"}],
+        "puntos_validacion": [],
+    },
+    {
+        "numero": 3,
+        "nombre": "Anotar la lectura",
+        "descripcion": "Anotar la lectura en la bitácora.",
+        "equipo": [],
+        "puntos_validacion": [{"cita": "anoto la lectura", "valor": "Lectura anotada"}],
+    },
+]
+RESUMEN_SOP = {
+    "titulo": "Revisión de la línea de agua",
+    "objetivo": {"cita": "", "valor": None},
+    "alcance": {"cita": "", "valor": None},
+    "duracion_total": {"cita": ""},
+    "riesgos": [],
+    "en_caso_de_falla": [],
+}
+CLAVES_SOP = {
+    "puntos_clave": [{"cita": "Después cierro la válvula", "texto": "Cerrar la válvula."}],
+    "palabras_clave": [{"termino": "manómetro", "literal": "manómetro", "categoria": "equipo"}],
+}
 
 
 class OllamaFalso:
     """Ollama simulado. `disponible=False`: no responde a nada; `caido_en_chat=True`: responde
     `/api/tags` pero se cae en `/api/chat` y `/api/generate` (Ollama cae a medias).
 
-    Registra en `eventos` "tags", "chat:fronteras", "chat:redaccion" y "descargar"; `al_pedir`
-    corre en cada petición (para ver el estado del video mientras segmenta).
+    Registra en `eventos` "tags", "chat:contexto", "chat:fronteras", "chat:redaccion",
+    "chat:sop" y "descargar"; `al_pedir` corre en cada petición (para ver el estado del video
+    mientras segmenta).
+
+    `respuestas_contexto` es lo que responde cada petición de la ficha de contexto, en orden (la
+    última se repite; sin ninguna, `CONTEXTO`), con las mismas reglas que `respuestas_sop`.
+    `mensajes_contexto` y `esquemas_contexto` guardan lo pedido; con `contexto_caido`, Ollama se
+    cae solo en esa petición, y `pausa_contexto_s` la vuelve lenta.
+
+    `respuestas_sop` es lo que responde cada conversión de un SOP sin plantilla, en orden (la
+    última se repite): un objeto se manda como JSON y un `str`, tal cual (p. ej. JSON roto).
+
+    Las cuatro llamadas del SOP generado (ADR-023) se registran como "chat:agrupar",
+    "chat:pasos", "chat:resumen" y "chat:claves" y responden `respuestas_generado[etapa]` (por
+    defecto, `AGRUPACION_SOP`, `PASOS_SOP`, `RESUMEN_SOP` y `CLAVES_SOP`); `mensajes_generado`
+    guarda los mensajes de cada una, en orden.
+    `mensajes_sop` y `opciones_sop` guardan los mensajes y las opciones (`num_ctx`) de cada una.
     """
 
     def __init__(self, eventos: list[str], *, disponible: bool = True):
@@ -155,8 +236,24 @@ class OllamaFalso:
         self.caido_en_chat = False
         self.al_pedir: Callable[[], None] | None = None
         self.descargas: list[dict[str, Any]] = []
+        self.respuestas_sop: list[Any] = []
+        self.mensajes_sop: list[list[dict[str, str]]] = []
+        self.opciones_sop: list[dict[str, Any]] = []
+        self.pausa_s = 0.0  # entre fragmentos del flujo (Gemma lento)
+        self.respuestas_contexto: list[Any] = []
+        self.mensajes_contexto: list[list[dict[str, str]]] = []
+        self.esquemas_contexto: list[dict[str, Any]] = []
+        self.contexto_caido = False
+        self.pausa_contexto_s = 0.0
         # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
         self.vram = 100
+        self.respuestas_generado: dict[str, Any] = {
+            "agrupar": AGRUPACION_SOP,
+            "pasos": PASOS_SOP,
+            "resumen": RESUMEN_SOP,
+            "claves": CLAVES_SOP,
+        }
+        self.mensajes_generado: list[tuple[str, list[dict[str, str]]]] = []
 
     def cliente(self) -> ClienteLLM:
         return ClienteLLM(
@@ -183,7 +280,27 @@ class OllamaFalso:
                 raise httpx.ConnectError("Ollama se cayó", request=request)
             return httpx.Response(200, json={"model": MODELO, "done": True})
         assert ruta == "/api/chat", ruta
-        if cuerpo.get("format") == ESQUEMA_FRONTERAS:
+        pausa_s = self.pausa_s
+        if cuerpo.get("format") in (ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS):
+            self.eventos.append("chat:contexto")
+            self.mensajes_contexto.append(cuerpo["messages"])
+            self.esquemas_contexto.append(cuerpo["format"])
+            if self.contexto_caido:
+                raise httpx.ConnectError("Ollama se cayó", request=request)
+            i = min(len(self.mensajes_contexto), len(self.respuestas_contexto)) - 1
+            contenido = self.respuestas_contexto[i] if self.respuestas_contexto else CONTEXTO
+            pausa_s = self.pausa_contexto_s
+        elif cuerpo.get("format") == ESQUEMA_SOP_LIBRE:
+            self.eventos.append("chat:sop")
+            self.mensajes_sop.append(cuerpo["messages"])
+            self.opciones_sop.append(cuerpo["options"])
+            i = min(len(self.mensajes_sop), len(self.respuestas_sop)) - 1
+            contenido = self.respuestas_sop[i] if self.respuestas_sop else None
+        elif (etapa := _ETAPA_GENERADO.get(json.dumps(cuerpo.get("format")))) is not None:
+            self.eventos.append(f"chat:{etapa}")
+            self.mensajes_generado.append((etapa, cuerpo["messages"]))
+            contenido = self.respuestas_generado[etapa]
+        elif cuerpo.get("format") == ESQUEMA_FRONTERAS:
             self.eventos.append("chat:fronteras")
             contenido = FRONTERAS
         else:
@@ -192,13 +309,53 @@ class OllamaFalso:
             contenido = REDACCION
         if self.caido_en_chat:
             raise httpx.ConnectError("Ollama se cayó", request=request)
+        texto = contenido if isinstance(contenido, str) else json.dumps(contenido)
+        if cuerpo.get("stream"):  # chat_en_flujo (ficha de contexto y conversión del SOP)
+            return httpx.Response(200, content=flujo_ndjson(texto, pausa_s=pausa_s))
         return httpx.Response(
-            200,
-            json={
-                "model": MODELO,
-                "message": {"role": "assistant", "content": json.dumps(contenido)},
-            },
+            200, json={"model": MODELO, "message": {"role": "assistant", "content": texto}}
         )
+
+
+_ETAPA_GENERADO = {
+    json.dumps(esquema): etapa
+    for etapa, esquemas in (
+        ("agrupar", (gen.ESQUEMA_AGRUPAR, gen.ESQUEMA_AGRUPAR_V1)),
+        ("pasos", (gen.ESQUEMA_PASOS, gen.ESQUEMA_PASOS_FOTOGRAMAS)),
+        ("resumen", (gen.ESQUEMA_RESUMEN, gen.ESQUEMA_RESUMEN_FOTOGRAMAS)),
+        ("claves", (gen.ESQUEMA_CLAVES,)),
+    )
+    for esquema in esquemas
+}
+
+
+def flujo_ndjson(
+    texto: str, *, tamano: int = 40, pausa_s: float = 0.0, callar_tras: int | None = None
+) -> Iterator[bytes]:
+    """Respuesta de `/api/chat` con `stream: true`: `texto` en fragmentos de `tamano`
+    caracteres, uno por línea NDJSON, y la línea final con `done` y las métricas de Ollama.
+
+    `pausa_s` espera antes de cada fragmento (tokens lentos). Con `callar_tras=n`, después de
+    `n` fragmentos se queda callado (sin cerrar) hasta 30 s, como un Ollama colgado.
+    """
+    fragmentos = [texto[i : i + tamano] for i in range(0, len(texto), tamano)] or [""]
+    for n, fragmento in enumerate(fragmentos):
+        if callar_tras is not None and n >= callar_tras:
+            time.sleep(30)
+            return
+        time.sleep(pausa_s)
+        linea = {"model": MODELO, "message": {"role": "assistant", "content": fragmento}}
+        yield (json.dumps(linea | {"done": False}) + "\n").encode()
+    final = {
+        "model": MODELO,
+        "message": {"role": "assistant", "content": ""},
+        "done": True,
+        "done_reason": "stop",
+        "prompt_eval_count": 100,
+        "eval_count": len(fragmentos),
+        "eval_duration": len(fragmentos) * 50_000_000,  # 20 tokens/s
+    }
+    yield (json.dumps(final) + "\n").encode()
 
 
 # ── Juez y vectorizador ──────────────────────────────────────────────────────────────────────
@@ -240,10 +397,16 @@ class VectorizadorGuionado:
     `guion` asigna a cada prefijo un concepto y un coseno: el paso del SOP con coseno 1 es el
     vector base del concepto, y un paso del video con coseno s queda a ese coseno de él (con una
     componente propia ortogonal). Un texto sin prefijo recibe un vector propio, ortogonal a todo.
+
+    Con `palabras=True`, un texto sin prefijo recibe en cambio su bolsa de palabras (como
+    `VectorizadorPalabras`) en las dimensiones 10 a 99, que el guion no usa: los textos del guion
+    siguen con el coseno guionado y ortogonales a los demás, y los otros (la ficha de contexto y
+    el SOP en la afinidad, ADR-020) se parecen según sus palabras.
     """
 
-    def __init__(self, guion: dict[str, tuple[int, float]]):
+    def __init__(self, guion: dict[str, tuple[int, float]], *, palabras: bool = False):
         self.guion = guion
+        self.palabras = palabras
 
     def encode(self, sentences: list[str], **kwargs: Any) -> np.ndarray:
         x = np.zeros((len(sentences), emp.DIMENSION))
@@ -254,12 +417,47 @@ class VectorizadorGuionado:
                     x[i, 100 + _indice(prefijo)] = math.sqrt(max(0.0, 1 - coseno**2))
                     break
             else:
-                x[i, 100 + _indice(texto)] = 1.0
+                if self.palabras and (raices := _raices(texto)):
+                    for raiz in raices:
+                        x[i, 10 + int(hashlib.md5(raiz.encode()).hexdigest(), 16) % 90] += 1
+                else:
+                    x[i, 100 + _indice(texto)] = 1.0
         return x
 
 
 def _indice(texto: str) -> int:
     return int(hashlib.md5(texto.encode()).hexdigest(), 16) % (emp.DIMENSION - 100)
+
+
+# Palabras que el vectorizador por palabras no cuenta (artículos, preposiciones).
+_VACIAS_PALABRAS = frozenset(
+    "de del la el los las lo en y a al con un una para por que se su sus".split()  # noqa: SIM905
+)
+
+
+def _raices(texto: str) -> list[str]:
+    """Las palabras de `texto` sin acentos ni palabras vacías, recortadas a 5 letras."""
+    return [p[:5] for p in comparable(texto).split() if p not in _VACIAS_PALABRAS]
+
+
+class VectorizadorPalabras:
+    """Bolsa de palabras sin MiniLM: cada palabra (sin acentos, recortada a sus primeras 5
+    letras, para unir "cambio" y "cambiar") suma 1 en una dimensión fija. El coseno entre dos
+    textos crece con las palabras que comparten; sin palabras en común, 0. Sirve para probar la
+    lógica de la afinidad y de los roles con textos inventados, no para medir MiniLM.
+    """
+
+    def encode(self, sentences: list[str], **kwargs: Any) -> np.ndarray:
+        x = np.zeros((len(sentences), emp.DIMENSION))
+        for i, texto in enumerate(sentences):
+            for raiz in _raices(texto):
+                x[i, int(hashlib.md5(raiz.encode()).hexdigest(), 16) % emp.DIMENSION] += 1
+        return x
+
+
+def embedder_palabras(cache: Path) -> emp.Embedder:
+    vectorizador = VectorizadorPalabras()
+    return emp.Embedder("palabras-falso", cache, cargador=lambda modelo, ruta: vectorizador)
 
 
 # Paso 1 y 3: Cumple; paso 2 en zona gris (0.65): lo decide el juez.
@@ -273,8 +471,10 @@ GUION_PRUEBA = {
 }
 
 
-def embedder_guionado(guion: dict[str, tuple[int, float]], cache: Path) -> emp.Embedder:
-    vectorizador = VectorizadorGuionado(guion)
+def embedder_guionado(
+    guion: dict[str, tuple[int, float]], cache: Path, *, palabras: bool = False
+) -> emp.Embedder:
+    vectorizador = VectorizadorGuionado(guion, palabras=palabras)
     return emp.Embedder("vectorizador-guionado", cache, cargador=lambda m, c: vectorizador)
 
 
@@ -287,25 +487,30 @@ class Entorno:
     def __init__(self, db_session: Session, tmp_path: Path):
         self.session = db_session
         self.settings = Settings(media_dir=tmp_path / "media", subida_max_mb=1)
-        self.pendientes: list[Callable[[], None]] = []
+        self.cola = ColaTrabajos()
         self.eventos: list[str] = []
         self.transcriptor = TranscriptorFalso(eventos=self.eventos)
         self.ollama = OllamaFalso(self.eventos)
         self.juez = JuezFalso()
         self.guion = dict(GUION_PRUEBA)
         self.clientes: list[ClienteLLM] = []
+        # Candado de modelo pesado propio de la prueba, compartido por el procesador y la API.
+        self.candado = CandadoModeloPesado()
         self.procesador = procesador = Procesador(
             lambda: nullcontext(db_session),
             self.settings.media_path,
-            self.pendientes.append,
+            self.cola,
             gpu=lambda: "GPU de prueba",
+            candado=self.candado,
         )
 
         def dependencias() -> DependenciasValidacion:
             cliente = self.ollama.cliente()
             self.clientes.append(cliente)
             return DependenciasValidacion(
-                cliente, self.juez, embedder_guionado(self.guion, tmp_path / "modelos")
+                cliente,
+                self.juez,
+                embedder_guionado(self.guion, tmp_path / "modelos", palabras=True),
             )
 
         def sesion() -> Iterator[Session]:
@@ -319,10 +524,15 @@ class Entorno:
         self.app.dependency_overrides[get_procesador] = lambda: procesador
         self.app.dependency_overrides[get_transcriptor] = lambda: self.transcriptor
         self.app.dependency_overrides[get_validacion] = lambda: dependencias
+        self.app.dependency_overrides[get_fabrica_llm] = lambda: self.ollama.cliente
+
+    @property
+    def pendientes(self) -> list[Callable[[], None]]:
+        """Los trabajos en cola, en el orden en que van a correr (los SOP primero)."""
+        return self.cola.pendientes()
 
     def correr_pendientes(self) -> None:
-        while self.pendientes:
-            self.pendientes.pop(0)()
+        self.cola.correr_pendientes()
 
     def video(self, video_id: int) -> Video:
         video = self.session.get(Video, video_id)

@@ -246,7 +246,8 @@ def correr(
     trabajo: Path,
 ) -> Corrida:
     settings = base.model_copy(
-        update=CONFIGS[config] | {"whisper_modelo": whisper, "llm_timeout_s": timeout_llm}
+        update=CONFIGS[config]
+        | {"whisper_modelo": whisper, "whisper_modelo_cpu": whisper, "llm_timeout_s": timeout_llm}
     )
     corrida = Corrida(config=config, whisper=whisper, video=clave)
     llm = ClienteLLM.desde_settings(settings)

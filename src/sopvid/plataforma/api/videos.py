@@ -6,10 +6,20 @@ bloques; en la fila va la ruta relativa a `MEDIA_DIR`, nunca el nombre original.
 limita dos veces: `limitar_content_length` rechaza la petición antes de recibirla si el
 `Content-Length` ya excede el límite, y la copia cuenta los bytes reales.
 
-En modo validar, `sop_id` es obligatorio y el trabajo sigue con la validación (pasos del video,
-emparejamiento y reporte). `POST /videos/{id}/validar` la repite sin volver a transcribir
-(ADR-019) y `GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
+En modo validar hace falta un SOP de referencia y el trabajo sigue con la validación (pasos del
+video, emparejamiento y reporte). El SOP es uno de la biblioteca (`sop_id`) o uno nuevo adjunto
+(`sop`, RF-02). El adjunto sigue el mismo camino que `POST /sops`: la petición revisa que se
+pueda leer (`leer_archivo_sop`: 415, 413 o 422 antes de guardar nada), crea el SOP en "en_cola"
+en la misma transacción que el video y encola su conversión antes que el video. El video espera
+a su SOP (va después en la cola); si la conversión falla, el video queda en error con el mensaje
+del SOP. Un `sop_id` de un SOP en error da 422; uno que todavía convierte se acepta y espera.
+`POST /videos/{id}/validar` repite la validación sin volver a transcribir (ADR-019) y
+`GET /videos/{id}/reporte` devuelve el reporte (`ReporteValidacion`).
+Afinidad baja (ADR-020): si el video parece no ser del SOP, la validación se detiene con
+`proceso="afinidad_baja"` y `GET /videos/{id}` trae la `afinidad` (valor y explicación) para
+advertirlo; `POST /videos/{id}/validar?continuar=true` sigue sin detenerse.
 `GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
+`GET /videos/{id}/contexto` devuelve la ficha de contexto (RF-12) si ya se generó.
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
@@ -23,24 +33,54 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, BinaryIO
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis, ReporteValidacion, ResultadoValidacion
+from sopvid.contrato import (
+    SOP,
+    Afinidad,
+    Analisis,
+    Contexto,
+    ReporteValidacion,
+    ResultadoValidacion,
+)
+from sopvid.lenguaje.lectura_sop import AjustesConversion
 from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
+from sopvid.plataforma.api.sops import (
+    FabricaLLM,
+    carpeta_sop,
+    get_fabrica_llm,
+    get_procesador,
+    leer_archivo_sop,
+)
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
 from sopvid.plataforma.procesamiento import (
+    AFINIDAD_BAJA,
     EN_COLA,
     LISTO,
     PROCESANDO,
+    SOP_ERROR,
+    SOP_LISTO,
     Procesador,
+    crear_sop_en_cola,
+    error_de_sop,
     leer_analisis,
 )
 
@@ -50,14 +90,20 @@ router = APIRouter(tags=["videos"])
 
 EXTENSIONES = (".mp4", ".mov", ".mkv", ".webm")
 BLOQUE = 1024 * 1024
-# Holgura para los campos del formulario y los separadores multipart en el Content-Length.
+# Holgura para los campos del formulario y los separadores multipart en el Content-Length. No
+# cubre un SOP adjunto grande (hasta `sops.SOP_DOCUMENTO_MAX_BYTES`): con un video justo en el
+# límite, el middleware rechaza la petición antes de leerla; con los límites reales (GB) no pasa.
 HOLGURA_FORMULARIO = 1024 * 1024
 _IDIOMA = re.compile(r"^[a-z]{2,3}$")
 
 
 class VideoCreado(BaseModel):
+    """`sop_id`: el SOP de referencia; con uno adjunto, el nuevo (su estado, en
+    `GET /sops/{sop_id}/estado`)."""
+
     id: int
     proceso: str
+    sop_id: int | None = None
 
 
 class EstadoVideo(BaseModel):
@@ -71,10 +117,11 @@ class EstadoVideo(BaseModel):
     idioma: str | None
     error: str | None
     creado: datetime
-
-
-def get_procesador(request: Request) -> Procesador:
-    return request.app.state.procesador
+    # SOP de referencia; uno adjunto puede seguir convirtiéndose (GET /sops/{id}/estado).
+    sop_id: int | None = None
+    # Afinidad de contexto (RF-17, ADR-020): con "afinidad_baja", la de la detención (la pantalla
+    # advierte y ofrece continuar); con "listo", la del reporte. None sin ficha o sin validación.
+    afinidad: Afinidad | None = None
 
 
 def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Transcriptor:
@@ -85,7 +132,8 @@ def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Tr
 def get_validacion(settings: Annotated[Settings, Depends(get_settings)]) -> FabricaValidacion:
     """Fábrica de las dependencias de la validación (Gemma 4 por Ollama, juez y MiniLM).
 
-    Se llama dentro del trabajo, solo en modo validar; el procesador cierra el cliente.
+    Se llama dentro del trabajo: en modo validar para la validación, y en modo generar solo para
+    la ficha de contexto (MiniLM no se carga). El procesador cierra el cliente.
     """
     return lambda: DependenciasValidacion.desde_settings(settings)
 
@@ -114,9 +162,14 @@ def subir_video(
     procesador: Annotated[Procesador, Depends(get_procesador)],
     transcriptor: Annotated[Transcriptor, Depends(get_transcriptor)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+    fabrica_llm: Annotated[FabricaLLM, Depends(get_fabrica_llm)],
     idioma: Annotated[str | None, Form(description="ISO 639-1 para fijarlo (p. ej. es)")] = None,
     sop_id: Annotated[
-        int | None, Form(description="SOP de referencia; obligatorio con modo=validar")
+        int | None, Form(description="SOP de la biblioteca; con modo=validar, este o `sop`")
+    ] = None,
+    sop: Annotated[
+        UploadFile | None,
+        File(description="SOP nuevo (.md, .txt, .pdf o .docx); con modo=validar, este o sop_id"),
     ] = None,
 ) -> VideoCreado:
     extension = Path(archivo.filename or "").suffix.lower()
@@ -130,39 +183,67 @@ def subir_video(
     idioma = (idioma or "").strip().lower() or None
     if idioma is not None and not _IDIOMA.match(idioma):
         raise HTTPException(422, "idioma debe ser un código ISO 639-1, p. ej. 'es'")
-    if modo == "validar" and sop_id is None:
-        raise HTTPException(422, "sop_id es obligatorio con modo=validar")
-    if modo == "generar" and sop_id is not None:
-        raise HTTPException(422, "sop_id no va con modo=generar: el SOP sale del video")
-    if sop_id is not None and session.get(Sop, sop_id) is None:
-        raise HTTPException(404, "SOP no encontrado")
+    if sop is not None and sop_id is not None:
+        raise HTTPException(422, "usa sop_id o sop, no los dos")
+    if modo == "validar" and sop_id is None and sop is None:
+        raise HTTPException(422, "sop_id o sop es obligatorio con modo=validar")
+    if modo == "generar" and (sop_id is not None or sop is not None):
+        raise HTTPException(422, "sop_id y sop no van con modo=generar: el SOP sale del video")
+    if sop_id is not None:
+        referencia = session.get(Sop, sop_id)
+        if referencia is None:
+            raise HTTPException(404, "SOP no encontrado")
+        if referencia.estado == SOP_ERROR:
+            raise HTTPException(422, error_de_sop(referencia))
+        if not referencia.en_biblioteca:
+            raise HTTPException(
+                422,
+                f"El SOP {referencia.codigo} se generó desde un video y no está en la biblioteca: "
+                "guárdalo con POST /sops/{id}/biblioteca para usarlo como referencia",
+            )
+    # Del SOP adjunto se revisa aquí que se pueda leer; lo convierte el trabajador.
+    adjunto = leer_archivo_sop(sop) if sop is not None else None
 
-    video = Video(
-        titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
-    )
-    session.add(video)
-    session.flush()  # asigna el id
-    relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
-    destino = settings.media_path / relativa
+    carpetas: list[Path] = []
     try:
+        if adjunto is not None:
+            fila_sop = crear_sop_en_cola(
+                session, settings.media_path, adjunto.datos, adjunto.extension
+            )
+            carpetas.append(carpeta_sop(settings.media_path, fila_sop.id))
+            sop_id = fila_sop.id
+        video = Video(
+            titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
+        )
+        session.add(video)
+        session.flush()  # asigna el id
+        relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
+        destino = settings.media_path / relativa
+        carpetas.append(destino.parent)
         _copiar(archivo.file, destino, settings.subida_max_bytes)
-    except _TamanoExcedido:
+        video.archivo = str(relativa)
+        session.commit()
+    except BaseException as exc:
         session.rollback()
-        shutil.rmtree(destino.parent, ignore_errors=True)
-        raise HTTPException(413, _detalle_tamano(settings)) from None
-    except BaseException:
-        session.rollback()
-        shutil.rmtree(destino.parent, ignore_errors=True)
+        for carpeta in carpetas:
+            shutil.rmtree(carpeta, ignore_errors=True)
+        if isinstance(exc, _TamanoExcedido):
+            raise HTTPException(413, _detalle_tamano(settings)) from None
         raise
-    video.archivo = str(relativa)
-    session.commit()
     logger.info(
-        "Video %d recibido (%s, %.1f MB)", video.id, extension, destino.stat().st_size / 1e6
+        "Video %d recibido (%s, %.1f MB%s)",
+        video.id,
+        extension,
+        destino.stat().st_size / 1e6,
+        f", SOP adjunto {sop_id} {adjunto.extension}" if adjunto is not None else "",
     )
 
-    procesador.encolar(video.id, idioma, transcriptor, validacion if modo == "validar" else None)
+    if adjunto is not None:  # antes que el video, que lo espera
+        assert sop_id is not None
+        procesador.encolar_sop(sop_id, fabrica_llm, AjustesConversion.desde_settings(settings))
+    procesador.encolar(video.id, idioma, transcriptor, validacion)
     response.headers["Location"] = f"/videos/{video.id}"
-    return VideoCreado(id=video.id, proceso=video.proceso)
+    return VideoCreado(id=video.id, proceso=video.proceso, sop_id=sop_id)
 
 
 @router.post("/videos/{video_id}/validar", status_code=202, response_model=VideoCreado)
@@ -171,8 +252,24 @@ def revalidar_video(
     session: Annotated[Session, Depends(get_session)],
     procesador: Annotated[Procesador, Depends(get_procesador)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+    continuar: Annotated[
+        bool,
+        Query(description="true: no detenerse por afinidad baja (quien carga ya la vio)"),
+    ] = False,
+    segmentar: Annotated[
+        bool,
+        Query(description="true: volver a segmentar con Gemma en lugar de reusar los pasos"),
+    ] = False,
 ) -> VideoCreado:
-    """Repite solo la validación con la transcripción guardada (ADR-019)."""
+    """Repite solo la validación con la transcripción guardada (ADR-019).
+
+    Se acepta en "listo", "error" y "afinidad_baja". Con `continuar=true` no se detiene por
+    afinidad baja (ADR-020) y el reporte lleva la afinidad con `bajo_umbral=true`. Reusa los
+    pasos del video guardados (RNF-07: mismo porcentaje; la redacción del juez puede variar);
+    con `segmentar=true`
+    los vuelve a pedir a Gemma. Si los guardados son de la heurística de respaldo o quedaron
+    incompletos, siempre se vuelve a segmentar.
+    """
     video = _buscar(session, video_id)
     if video.modo != "validar":
         raise HTTPException(422, "solo un video de modo validar tiene validación")
@@ -182,14 +279,80 @@ def revalidar_video(
         raise HTTPException(409, "el video no tiene análisis guardado: vuelve a subirlo")
     video.proceso, video.error = EN_COLA, None
     session.commit()
-    procesador.revalidar(video.id, validacion)
+    procesador.revalidar(video.id, validacion, continuar=continuar, segmentar=segmentar)
     return VideoCreado(id=video.id, proceso=video.proceso)
+
+
+@router.post("/videos/{video_id}/generar", status_code=202, response_model=VideoCreado)
+def regenerar_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    procesador: Annotated[Procesador, Depends(get_procesador)],
+    validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+    segmentar: Annotated[
+        bool,
+        Query(description="true: volver a segmentar con Gemma en lugar de reusar los pasos"),
+    ] = False,
+) -> VideoCreado:
+    """Repite la generación del SOP con la transcripción guardada, sin Whisper (ADR-023,
+    criterio de ADR-019).
+
+    Reusa la ficha de contexto y los pasos del video guardados (RNF-07); con `segmentar=true` los
+    pasos se vuelven a pedir a Gemma (una segmentación de la heurística o incompleta siempre se
+    repite). Reescribe el SOP generado del video, salvo que ya esté en la biblioteca: entonces
+    crea uno nuevo. Se acepta en "listo" y "error"; 422 si el video no es de modo generar, 409 si
+    está en proceso o no tiene análisis guardado.
+    """
+    video = _buscar(session, video_id)
+    if video.modo != "generar":
+        raise HTTPException(422, "solo un video de modo generar genera un SOP")
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(409, {"mensaje": "el video está en proceso", "proceso": video.proceso})
+    if video.transcripcion is None:
+        raise HTTPException(409, "el video no tiene análisis guardado: vuelve a subirlo")
+    video.proceso, video.error = EN_COLA, None
+    session.commit()
+    procesador.regenerar(video.id, validacion, segmentar=segmentar)
+    return VideoCreado(id=video.id, proceso=video.proceso, sop_id=video.sop_id)
+
+
+@router.get("/videos/{video_id}/sop", response_model=SOP)
+def sop_generado(video_id: int, session: Annotated[Session, Depends(get_session)]) -> SOP:
+    """El SOP generado desde el video (modo generar, RF-22 a RF-25). 409 mientras no esté listo
+    (con el proceso del video y el estado del SOP); 422 si el video es de modo validar. Sus
+    advertencias, si quedó incompleto, y cómo se generó: `GET /sops/{sop_id}`."""
+    video = _buscar(session, video_id)
+    if video.modo != "generar":
+        raise HTTPException(422, "el video es de modo validar: su SOP es el de referencia")
+    fila = session.get(Sop, video.sop_id) if video.sop_id is not None else None
+    if fila is None or fila.estado != SOP_LISTO:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el SOP generado no está listo",
+                "proceso": video.proceso,
+                "estado": fila.estado if fila is not None else None,
+                "error": video.error or (fila.error if fila is not None else None),
+            },
+        )
+    return SOP.model_validate(fila.contenido)
 
 
 @router.get("/videos/{video_id}", response_model=EstadoVideo)
 def estado_video(video_id: int, session: Annotated[Session, Depends(get_session)]) -> EstadoVideo:
     video = _buscar(session, video_id)
-    return EstadoVideo.model_validate(video, from_attributes=True)
+    estado = EstadoVideo.model_validate(video, from_attributes=True)
+    return estado.model_copy(update={"afinidad": _afinidad(video)})
+
+
+def _afinidad(video: Video) -> Afinidad | None:
+    """La afinidad guardada en el reporte (de la detención o del reporte de pasos), o None. La
+    `DetencionAfinidad` y el `ResultadoValidacion` la llevan en la misma clave."""
+    reporte = video.reporte
+    if video.proceso not in (LISTO, AFINIDAD_BAJA) or reporte is None:
+        return None
+    datos = (reporte.resultado or {}).get("afinidad")
+    return None if datos is None else Afinidad.model_validate(datos)
 
 
 @router.get("/videos/{video_id}/transcripcion.txt")
@@ -237,6 +400,23 @@ def analisis_video(video_id: int, session: Annotated[Session, Depends(get_sessio
             409, {"mensaje": "el análisis no ha terminado", "proceso": video.proceso}
         )
     return leer_analisis(video)
+
+
+@router.get("/videos/{video_id}/contexto", response_model=Contexto)
+def contexto_video(video_id: int, session: Annotated[Session, Depends(get_session)]) -> Contexto:
+    """Ficha de contexto (RF-12): 409 mientras no se genere.
+
+    Se genera en los dos modos, después de la transcripción. Queda sin generar si el video sigue
+    en proceso, si Ollama falló (en modo validar el reporte lo dice con el aviso
+    "contexto_sin_generar"; `POST /videos/{id}/validar` la vuelve a intentar) o si el video se
+    procesó antes de que existiera la ficha.
+    """
+    video = _buscar(session, video_id)
+    if video.contexto is None:
+        raise HTTPException(
+            409, {"mensaje": "la ficha de contexto no se ha generado", "proceso": video.proceso}
+        )
+    return Contexto.model_validate(video.contexto)
 
 
 @router.get("/videos/{video_id}/reporte", response_model=ReporteValidacion)

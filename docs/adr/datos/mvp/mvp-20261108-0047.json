@@ -1,0 +1,272 @@
+{
+  "fecha": "2026-11-08 00:50",
+  "repeticiones": 3,
+  "git": {
+    "commit": "d7c22e2d346a672da10de010f9304b62c9267c8f",
+    "rama": "feat/contexto",
+    "cambios_sin_commit": 6
+  },
+  "configuracion": {
+    "whisper": "large-v3-turbo",
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "umbral_bajo": 0.55,
+    "umbral_alto": 0.75,
+    "umbral_fusion": 0.55,
+    "semaforo_verde": 90.0,
+    "semaforo_amarillo": 70.0,
+    "gpu": "NVIDIA GeForce RTX 2070 SUPER"
+  },
+  "veredicto": "pasa",
+  "resumen": {
+    "video_a": {
+      "pasan": 3,
+      "corridas": 3,
+      "no_validas": 0,
+      "cumplimiento_min": 100.0,
+      "cumplimiento_max": 100.0,
+      "semaforos": [
+        "verde"
+      ]
+    },
+    "video_b": {
+      "pasan": 3,
+      "corridas": 3,
+      "no_validas": 0,
+      "cumplimiento_min": 66.67,
+      "cumplimiento_max": 66.67,
+      "semaforos": [
+        "rojo"
+      ]
+    }
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "repeticion": 1,
+      "cumplimiento": 100.0,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 4,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "sobra_falsos": [
+        66.9,
+        68.5,
+        110.0,
+        112.5
+      ],
+      "segmentacion": "llm",
+      "avisos": [],
+      "segundos": 39.7,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "valida": true,
+      "pasa": true
+    },
+    {
+      "video": "video_a",
+      "repeticion": 2,
+      "cumplimiento": 100.0,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 5,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "sobra_falsos": [
+        49.2,
+        51.5,
+        66.9,
+        68.5,
+        110.0
+      ],
+      "segmentacion": "llm",
+      "avisos": [],
+      "segundos": 24.5,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "valida": true,
+      "pasa": true
+    },
+    {
+      "video": "video_a",
+      "repeticion": 3,
+      "cumplimiento": 100.0,
+      "semaforo": "verde",
+      "conteo": {
+        "Cumple": 6,
+        "Parcial": 0,
+        "Falta": 0,
+        "Sobra": 5,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [],
+        "falta_esperada": [],
+        "extras_encontrados": "0/0"
+      },
+      "sobra_falsos": [
+        49.2,
+        51.5,
+        66.9,
+        68.5,
+        110.0
+      ],
+      "segmentacion": "llm",
+      "avisos": [],
+      "segundos": 25.1,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "valida": true,
+      "pasa": true
+    },
+    {
+      "video": "video_b",
+      "repeticion": 1,
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "sobra_falsos": [],
+      "segmentacion": "llm",
+      "avisos": [],
+      "segundos": 22.3,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "valida": true,
+      "pasa": true
+    },
+    {
+      "video": "video_b",
+      "repeticion": 2,
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "sobra_falsos": [],
+      "segmentacion": "llm",
+      "avisos": [],
+      "segundos": 21.4,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "valida": true,
+      "pasa": true
+    },
+    {
+      "video": "video_b",
+      "repeticion": 3,
+      "cumplimiento": 66.67,
+      "semaforo": "rojo",
+      "conteo": {
+        "Cumple": 4,
+        "Parcial": 0,
+        "Falta": 2,
+        "Sobra": 1,
+        "zona_gris": 0
+      },
+      "criterio": {
+        "pasa": true,
+        "falta_obtenida": [
+          2,
+          6
+        ],
+        "falta_esperada": [
+          2,
+          6
+        ],
+        "extras_encontrados": "1/1"
+      },
+      "sobra_falsos": [],
+      "segmentacion": "llm",
+      "avisos": [],
+      "segundos": 21.2,
+      "dispositivos": {
+        "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+        "transcripcion": "gpu",
+        "transcripcion_respaldo_cpu": false,
+        "llm": "gpu",
+        "embedder": "cpu"
+      },
+      "valida": true,
+      "pasa": true
+    }
+  ]
+}

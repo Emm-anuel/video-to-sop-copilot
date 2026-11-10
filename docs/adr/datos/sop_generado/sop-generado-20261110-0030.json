@@ -1,0 +1,122 @@
+{
+  "fecha": "2026-11-10 00:30",
+  "git": {
+    "commit": "95d7d404096528607a0da720bcc5a82f5c4c9542",
+    "rama": "feat/s5",
+    "cambios_sin_commit": 10
+  },
+  "configuracion": {
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "llm_dispositivo": "auto",
+    "whisper": "large-v3-turbo",
+    "gpu": "NVIDIA GeForce RTX 2070 SUPER"
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "n": 1,
+      "dispositivo": "gpu",
+      "vram_mib": 6720,
+      "pasos_video": 14,
+      "pasos_sop": 14,
+      "segundos": {
+        "contexto": 9.84,
+        "segmentacion": 14.38,
+        "sop": 32.67,
+        "total_gemma": 56.89
+      },
+      "llamadas": [
+        {
+          "etapa": "contexto",
+          "s": 9.84,
+          "tokens": 316,
+          "tok_s": 89.2
+        },
+        {
+          "etapa": "segmentacion",
+          "s": 4.48,
+          "tokens": 437,
+          "tok_s": 108.8
+        },
+        {
+          "etapa": "segmentacion",
+          "s": 9.9,
+          "tokens": 973,
+          "tok_s": 104.3
+        },
+        {
+          "etapa": "agrupar (falló: respuesta_invalida)",
+          "s": 6.42,
+          "tokens": null,
+          "tok_s": null,
+          "intentos": 3
+        },
+        {
+          "etapa": "pasos",
+          "s": 7.81,
+          "tokens": 664,
+          "tok_s": 92.1,
+          "intentos": 1
+        },
+        {
+          "etapa": "pasos",
+          "s": 7.14,
+          "tokens": 601,
+          "tok_s": 89.08,
+          "intentos": 1
+        },
+        {
+          "etapa": "resumen",
+          "s": 4.19,
+          "tokens": 227,
+          "tok_s": 66.53,
+          "intentos": 1
+        },
+        {
+          "etapa": "claves",
+          "s": 7.11,
+          "tokens": 608,
+          "tok_s": 94.2,
+          "intentos": 1
+        }
+      ],
+      "advertencias": [
+        "sop_incompleto: SOP incompleto: agrupación (respuesta_invalida): un paso del SOP por paso del video",
+        "sop_incompleto: SOP incompleto: pasos sin redactar [14]: llevan el nombre del paso del video y quedan como inferidos",
+        "infinitivo: el nombre del paso 14 no empieza con un infinitivo"
+      ],
+      "archivo_sop": "video_a-1.json"
+    }
+  ],
+  "idiomas": {
+    "video_a": {
+      "codigo": "es",
+      "confianza": 0.9995,
+      "fijado_a_mano": false
+    }
+  },
+  "completitud": {
+    "video_a": {
+      "titulo": "Cambio de cartucho de filtro de agua",
+      "objetivo": "Cambiar el cartucho porque el manómetro marca menos de 2 bar",
+      "alcance": null,
+      "lugar": null,
+      "horario": null,
+      "responsable": "Técnico de mantenimiento",
+      "roles": [
+        "Técnico de mantenimiento"
+      ],
+      "equipo": 11,
+      "riesgos": 2,
+      "en_caso_de_falla": 0,
+      "duracion_total_min": 2.24,
+      "pasos_en_infinitivo": 13,
+      "pasos": 14,
+      "puntos_clave": 8,
+      "palabras_clave": 12,
+      "inferidos": 18
+    }
+  },
+  "rnf05": {},
+  "ollama_ps": "NAME                    ID              SIZE      PROCESSOR    CONTEXT    RUNNER      UNTIL               \ngemma4:e4b-it-q4_K_M    dc35e8d9c606    261 MB    100% GPU     8192       llamacpp    29 minutes from now"
+}

@@ -98,6 +98,7 @@ def audio(tmp_path: Path) -> Path:
 def ajustes(tmp_path: Path, **valores) -> Settings:
     """Ajustes de Whisper fijos: no dependen del perfil que tenga el `.env` de quien corre."""
     valores.setdefault("whisper_modelo", "small")
+    valores.setdefault("whisper_modelo_cpu", None)
     valores.setdefault("whisper_dispositivo", "cpu")
     valores.setdefault("whisper_compute_type", "auto")
     return Settings(whisper_cache_dir=tmp_path / "whisper", **valores)
@@ -343,7 +344,99 @@ def test_sin_respaldo_si_ya_salieron_segmentos(tmp_path: Path, audio: Path, monk
     assert len(lineas) == 1  # el TXT no recibe segmentos repetidos
 
 
+# ── Modelo por dispositivo y modelo de referencia (ADR-018) ──────────────────
+
+
+def test_whisper_modelo_cpu_se_usa_en_cpu(tmp_path: Path, audio: Path) -> None:
+    fabrica = FabricaFalsa(cpu=ModeloFalso(CRUDOS))
+    ajuste = ajustes(tmp_path, whisper_modelo="large-v3-turbo", whisper_modelo_cpu="small")
+
+    t = TranscriptorWhisper(ajuste, fabrica).transcribir(audio)
+
+    assert fabrica.cargas[0][:2] == ("small", "cpu")
+    assert t.modelo == "small"
+
+
+def test_sin_whisper_modelo_cpu_usa_el_mismo_modelo(tmp_path: Path, audio: Path) -> None:
+    fabrica = FabricaFalsa(cpu=ModeloFalso(CRUDOS))
+    ajuste = ajustes(tmp_path, whisper_modelo="large-v3-turbo")
+
+    t = TranscriptorWhisper(ajuste, fabrica).transcribir(audio)
+
+    assert (fabrica.cargas[0][0], t.modelo) == ("large-v3-turbo", "large-v3-turbo")
+
+
+def test_whisper_modelo_cpu_no_cambia_el_de_gpu_y_vale_en_el_respaldo(
+    tmp_path: Path, audio: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(tr, "_gpus_cuda", lambda: 1)
+    fabrica = FabricaFalsa(
+        cuda=ModeloFalso(CRUDOS, error=RuntimeError("sin cuBLAS")), cpu=ModeloFalso(CRUDOS)
+    )
+    ajuste = ajustes(
+        tmp_path,
+        whisper_dispositivo="auto",
+        whisper_modelo="large-v3-turbo",
+        whisper_modelo_cpu="small",
+    )
+
+    t = TranscriptorWhisper(ajuste, fabrica).transcribir(audio)
+
+    assert [(m, d) for m, d, _, _ in fabrica.cargas] == [
+        ("large-v3-turbo", "cuda"),
+        ("small", "cpu"),
+    ]
+    assert (t.modelo, t.respaldo_cpu) == ("small", True)
+
+
+@pytest.mark.parametrize(
+    ("modelo", "referencia"),
+    [
+        ("large-v3-turbo", True),
+        ("models/whisper/faster-whisper-large-v3-turbo", True),
+        ("small", False),
+        ("large-v3", False),
+        ("tiny", False),
+    ],
+)
+def test_es_modelo_referencia(modelo: str, referencia: bool) -> None:
+    assert tr.es_modelo_referencia(modelo) is referencia
+
+
+def _analisis_con(modelo: str | None) -> Analisis:
+    return Analisis(
+        video_id=1,
+        duracion_s=1.0,
+        idioma=Idioma(codigo="es", confianza=1.0),
+        transcripcion=[],
+        modelo_transcripcion=modelo,
+    )
+
+
+def test_aviso_transcripcion_solo_si_el_modelo_no_es_el_de_referencia() -> None:
+    assert tr.aviso_transcripcion(_analisis_con("large-v3-turbo")) is None
+    assert tr.aviso_transcripcion(_analisis_con(None)) is None  # análisis de antes: no se sabe
+    aviso = tr.aviso_transcripcion(_analisis_con("C:/modelos/small"))
+    assert aviso is not None and aviso.tipo == "transcripcion_no_referencia"
+    assert aviso.detalle == (
+        "transcrito con Whisper small; el de referencia es large-v3-turbo y puede haber errores "
+        "de reconocimiento"
+    )
+
+
 # ── Configuración ────────────────────────────────────────────────────────────
+
+
+def test_mismo_modelo_en_cpu_y_gpu_por_defecto(monkeypatch) -> None:
+    """ADR-018 (8 nov): large-v3-turbo en los dos dispositivos, sin depender del `.env`."""
+    for variable in ("WHISPER_MODELO", "WHISPER_MODELO_CPU"):
+        monkeypatch.delenv(variable, raising=False)
+    ajuste = Settings(_env_file=None)
+    assert ajuste.modelo_whisper("cpu") == ajuste.modelo_whisper("cuda") == "large-v3-turbo"
+    assert tr.es_modelo_referencia(ajuste.modelo_whisper("cpu"))
+    # Vacío, el de WHISPER_MODELO; otro modelo en CPU es posible (con aviso en el reporte).
+    assert Settings(_env_file=None, whisper_modelo_cpu="").modelo_whisper("cpu") == "large-v3-turbo"
+    assert Settings(_env_file=None, whisper_modelo_cpu="small").modelo_whisper("cpu") == "small"
 
 
 def test_config_de_whisper() -> None:

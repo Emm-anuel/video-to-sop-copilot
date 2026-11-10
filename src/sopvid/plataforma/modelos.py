@@ -35,8 +35,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sopvid.plataforma.db import Base
 
 ORIGENES_SOP = ("cargado", "generado")
+METODOS_SOP = ("plantilla", "llm")  # cómo se convirtió un SOP cargado (ADR-015)
+ESTADOS_SOP = ("en_cola", "convirtiendo", "listo", "error")  # conversión en el trabajador
 MODOS_VIDEO = ("validar", "generar")
-PROCESOS_VIDEO = ("en_cola", "procesando", "listo", "error")
+# "afinidad_baja" (migración 0005, ADR-020): la validación se detuvo porque el video parece no ser
+# del SOP; espera a que quien carga decida continuar (POST /videos/{id}/validar?continuar=true).
+PROCESOS_VIDEO = ("en_cola", "procesando", "listo", "error", "afinidad_baja")
 
 
 def _en(columna: str, valores: tuple[str, ...]) -> str:
@@ -52,7 +56,15 @@ class Sop(Base):
     """SOP de referencia, cargado por el usuario o generado desde un video."""
 
     __tablename__ = "sops"
-    __table_args__ = (CheckConstraint(_en("origen", ORIGENES_SOP), name="origen"),)
+    __table_args__ = (
+        CheckConstraint(_en("origen", ORIGENES_SOP), name="origen"),
+        CheckConstraint(_en("metodo", METODOS_SOP), name="metodo"),
+        CheckConstraint(_en("estado", ESTADOS_SOP), name="estado"),
+        CheckConstraint(
+            "estado <> 'listo' OR (titulo IS NOT NULL AND contenido IS NOT NULL)",
+            name="listo_completo",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # Columna generada: la base la calcula en el mismo INSERT a partir del id, así que no
@@ -62,10 +74,25 @@ class Sop(Base):
         Computed("'SOP-' || lpad(id::text, greatest(4, length(id::text)), '0')", persisted=True),
         unique=True,
     )
-    titulo: Mapped[str] = mapped_column(String(300))
+    # Título y SOP del contrato: None hasta que la conversión termina (migración 0004).
+    titulo: Mapped[str | None] = mapped_column(String(300))
     origen: Mapped[str] = mapped_column(String)
     archivo_original: Mapped[str | None] = mapped_column(String)
-    contenido: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    contenido: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Conversión en el trabajador: en_cola → convirtiendo → listo | error (mensaje en `error`).
+    estado: Mapped[str] = mapped_column(String, default="listo", server_default="listo")
+    error: Mapped[str | None] = mapped_column(Text)
+    # Cómo se convirtió (migración 0003): "plantilla" o "llm"; None en un SOP generado o en los
+    # cargados antes. `advertencias`: las de la conversión (tipo, línea, mensaje), para RF-04.
+    metodo: Mapped[str | None] = mapped_column(String)
+    advertencias: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    # Biblioteca (RF-27, migración 0006): si se puede usar como referencia en otro video. Los
+    # cargados entran solos; un generado, al guardarlo. `generacion`: cómo se generó desde el
+    # video (`GeneracionSOP`, ADR-023); NULL en un SOP cargado.
+    en_biblioteca: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    generacion: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     creado: Mapped[datetime] = _creado()
 
     # passive_deletes="all": el ORM no pone videos.sop_id = NULL al borrar el SOP; la base
@@ -101,7 +128,8 @@ class Video(Base):
     transcripcion: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     fotogramas: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     contexto: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    pasos_video: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # `SegmentacionGuardada` (dict, RNF-07); las filas anteriores guardaban solo la lista.
+    pasos_video: Mapped[dict[str, Any] | list[dict[str, Any]] | None] = mapped_column(JSONB)
     publicado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     creado: Mapped[datetime] = _creado()
 

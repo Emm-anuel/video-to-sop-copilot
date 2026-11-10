@@ -143,6 +143,48 @@ with ClienteLLM.desde_settings() as llm:
 El cliente fija `temperature=0`, `seed=42` y `num_ctx=LLM_NUM_CTX`, envía `"think": false` salvo
 que se pida lo contrario, reintenta una sola vez ante timeout o error de red y lanza
 `LLMNoDisponible`, `LLMRespuestaInvalida` o `LLMError` en lugar de excepciones de httpx.
+`chat(..., num_ctx=N)` cambia la ventana solo en esa petición (Ollama recarga el modelo si cambia).
+
+`chat_en_flujo` pide la respuesta con `stream: true` (el `format` con JSON Schema sigue valiendo) y
+cambia el plazo fijo por plazos por fragmento: espera el primero hasta `LLM_TIMEOUT_S` (carga y
+lectura del prompt), después corta si pasan `LLM_INACTIVIDAD_S` (60 s) sin un fragmento, y en
+total corta en el tope que se le pase. Lo usa la conversión del SOP, con tope `LLM_TIMEOUT_SOP_S`
+(900 s) para toda la conversión: en CPU genera ≈ 16 tokens/s y un SOP tarda 150-200 s, más que
+el `LLM_TIMEOUT_S` de 180 s con que fallaba. Los errores se distinguen: `LLMNoDisponible`
+("Ollama no responde": sin conexión, sin ningún token o callado a media respuesta) y
+`LLMTiempoExcedido` (seguía generando y pasó el tope). Ninguno se reintenta. Cada llamada, en
+flujo o no, deja en el log los tokens generados y los tokens/s (`eval_count`, `eval_duration`).
+
+## Ventana de contexto para convertir un SOP (`LLM_NUM_CTX_SOP`, ADR-015)
+
+La conversión de un SOP sin plantilla (`lectura_sop.convertir_documento`) estima los tokens antes
+de llamar al LLM: caracteres / 3.5 de los mensajes (prompt y documento), más una salida de 3 veces
+los tokens del documento + 512, más una corrección (cada reintento manda solo la última, sin la
+respuesta anterior). Si cabe en `LLM_NUM_CTX` (8192), se usa esa ventana; si no, cada petición
+pide `LLM_NUM_CTX_SOP` (16384); si tampoco cabe, el SOP queda en error "El documento es demasiado
+largo; divídelo o usa la plantilla". Con el prompt v3, eso deja ≈ 5 800 caracteres de documento
+en 8192 y ≈ 13 000 en 16384.
+
+La estimación es conservadora a propósito. Con el prompt v3 y el esquema recortado, en el Word en
+prosa del fixture (1 420 caracteres) estimó 3 118 tokens y usó 2 303 (1 147 de entrada, 1 156 de
+salida); en un texto de 9 047 caracteres con notas que no son pasos estimó 11 834 y usó 4 352
+(3 189 + 1 163), porque la salida crece con los pasos, no con todo el texto. Con v2 la salida era
+1 829 y 1 842 tokens (`docs/adr/datos/sop/antes-v2-…` y `despues-v3-…`). El texto medido da
+≈ 3.35 caracteres por token.
+
+**VRAM en la RTX 2070 SUPER (8 GB), 7 nov 2026, Ollama 0.40.2, `gemma4:e4b-it-q4_K_M`, FA y caché
+KV f16** (`nvidia-smi` antes y después de cargar; el escritorio ya ocupaba 2 055 MiB):
+
+| `num_ctx` | VRAM en uso | Del modelo | Capas en GPU |
+|---|---|---|---|
+| — (sin modelo) | 2 055 MiB | — | — |
+| 8192 | 6 827 MiB | +4 772 MiB | todas (`gpu_layers=-1`) |
+| 16384 | 7 030 MiB | +4 975 MiB | todas |
+
+Doblar la ventana cuesta solo ≈ 200 MiB: Gemma 4 usa atención de ventana deslizante en la mayoría de
+sus capas y la caché KV casi no crece. Con 16384 quedan ≈ 1.1 GB libres en esta GPU; la conversión
+de 9 047 caracteres pidió 16384, tardó 25 s y dejó la VRAM total en 6 917 MiB. Whisper no está
+cargado al mismo tiempo: lo impide el candado de modelo pesado (ADR-014).
 
 ## Carga en frío, `OLLAMA_KEEP_ALIVE` y `LLM_TIMEOUT_S`
 

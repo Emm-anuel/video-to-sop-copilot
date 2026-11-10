@@ -7,25 +7,37 @@ ADR-011). Código: `sopvid.percepcion.transcripcion`. Hardware de referencia: AD
 | Pieza | Valor |
 |---|---|
 | Paquetes | `faster-whisper==1.2.1`, `ctranslate2==4.8.3`, `onnxruntime==1.31.0` (VAD) y `av==18.1.0` (decodificación), fijados por RNF-07; sin torch |
-| Perfil CPU (por defecto) | `small` en int8 |
-| Perfil gpu | `large-v3-turbo` en float16, en el venv de Windows con el extra `gpu` |
+| Modelo (ADR-018) | `large-v3-turbo` en CPU (int8) y en GPU (float16, en el venv de Windows con el extra `gpu`): el mismo modelo, la GPU solo acelera |
 | Decodificación (RNF-07) | `temperature=0` sin respaldo, `beam_size=5`, `condition_on_previous_text=False`, VAD Silero, tiempo por palabra |
 | Pesos | `WHISPER_CACHE_DIR` (`models/whisper`, ignorada por Git; en Docker, volumen `modelos`) |
 | Memoria | el modelo se carga en cada `transcribir` y se libera al terminar (no cabe junto a Gemma 4) |
 
-## Perfiles
+## Configuración
 
-Se eligen con tres variables en `.env` (ver `.env.example`):
+Variables en `.env` (ver `.env.example`). Desde el 8 nov (ADR-018) el modelo es el mismo en CPU y
+en GPU; solo cambian el dispositivo y el tipo de cálculo:
 
-| Variable | CPU | gpu |
+| Variable | CPU | GPU |
 |---|---|---|
-| `WHISPER_MODELO` | `small` | `large-v3-turbo` |
-| `WHISPER_DISPOSITIVO` | `auto` o `cpu` | `cuda` |
-| `WHISPER_COMPUTE_TYPE` | `auto` (int8) | `float16` (o `auto`) |
+| `WHISPER_MODELO` / `WHISPER_MODELO_CPU` | `large-v3-turbo` | `large-v3-turbo` |
+| `WHISPER_DISPOSITIVO` | `auto` o `cpu` | `auto` o `cuda` |
+| `WHISPER_COMPUTE_TYPE` | `auto` (int8) | `auto` (float16) |
+
+Medido con A y B en el i7-10700K: `large-v3-turbo` en CPU tarda 0.34-0.45× el tiempo del audio
+(39-60 s para 2 min), con ~1.95 GB de RAM pico y 0.4-1.3 % de WER contra la transcripción de GPU;
+`small` tardaba la mitad pero con 4.8-6.2 % de WER, y sus errores llegaban a la ficha y a los pasos
+("clínica del jugue" por "línea de enjuague").
 
 Con `WHISPER_DISPOSITIVO=auto`, se usa cuda si ctranslate2 ve una GPU NVIDIA. Si cuda falla
 antes del primer segmento (p. ej. faltan las DLL de cuBLAS), se repite en CPU con int8 y queda un
 aviso. Con `cuda` explícito no hay respaldo: el error sale tal cual.
+
+`WHISPER_MODELO_CPU` es el modelo cuando Whisper corre en CPU: `WHISPER_DISPOSITIVO=cpu`, `auto`
+sin GPU o el respaldo cuando cuda falla (vacío, se usa `WHISPER_MODELO`). Por defecto,
+`large-v3-turbo`, el de referencia. Quien configure otro (p. ej. `small`, para ir más rápido en
+CPU) puede hacerlo: el `Analisis` registra el modelo en `modelo_transcripcion` y el reporte y la
+ficha de contexto llevan el aviso `transcripcion_no_referencia` (el reporte queda provisional).
+Los números están en el seguimiento de ADR-018.
 
 ## Uso
 
@@ -53,7 +65,8 @@ print(t.idioma, len(t.segmentos), t.dispositivo, t.respaldo_cpu, t.segundos)
 python -m venv .venv ; .venv\Scripts\activate ; pip install -e .[dev]
 ```
 
-No hace falta nada más. La primera corrida descarga `small` (~0.5 GB) a `models/whisper`.
+No hace falta nada más. La primera corrida descarga `large-v3-turbo` (~1.6 GB) a
+`models/whisper`.
 
 ## GPU en Windows (RTX 2070 SUPER, venv)
 
@@ -104,7 +117,7 @@ que los tiempos no pasen de la duración.
 ```powershell
 $env:SOPVID_AUDIO_PRUEBA = "$env:TEMP\sopvid_prueba\narracion.mp3"
 # CPU
-$env:WHISPER_DISPOSITIVO = "cpu"; $env:WHISPER_MODELO = "small"; $env:SOPVID_DISPOSITIVO_ESPERADO = "cpu"
+$env:WHISPER_DISPOSITIVO = "cpu"; $env:SOPVID_DISPOSITIVO_ESPERADO = "cpu"  # large-v3-turbo; con WHISPER_MODELO_CPU = "small", más rápido
 pytest tests/test_transcripcion.py -m lento
 # GPU
 $env:WHISPER_DISPOSITIVO = "cuda"; $env:WHISPER_MODELO = "large-v3-turbo"; $env:SOPVID_DISPOSITIVO_ESPERADO = "cuda"

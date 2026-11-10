@@ -2,7 +2,8 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "cli": {
-    "packageManager": "npm"
+    "packageManager": "npm",
+    "analytics": "cf35deb9-097b-4b4b-ac3f-1515a6da70c8"
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -69,7 +70,7 @@
           },
           "defaultConfiguration": "development",
           "options": {
-            "proxyConfig": "proxy.conf.json"
+            "proxyConfig": "proxy.conf.js"
           }
         },
         "test": {

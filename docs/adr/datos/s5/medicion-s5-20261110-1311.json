@@ -1,0 +1,3157 @@
+{
+  "fecha": "2026-11-10 13:11",
+  "git": {
+    "commit": "dab41325233674ef918e901fa803a7aaaeed867d",
+    "rama": "feat/s5",
+    "cambios_sin_commit": 9,
+    "archivos_sin_commit": [
+      " M .env.example",
+      " M CLAUDE.md",
+      " M Makefile",
+      " M README.md",
+      " M docker-compose.yml",
+      " M docs/dev/api.md",
+      " M frontend/README.md",
+      " M frontend/angular.json",
+      " D frontend/proxy.conf.json",
+      "?? frontend/proxy.conf.js",
+      "?? scripts/medir_s5.py"
+    ]
+  },
+  "settings": {
+    "whisper_modelo": "large-v3-turbo",
+    "whisper_modelo_cpu": "large-v3-turbo",
+    "whisper_dispositivo": "cuda",
+    "whisper_compute_type": "float16",
+    "llm_model": "gemma4:e4b-it-q4_K_M",
+    "llm_dispositivo": "auto",
+    "llm_num_ctx": 8192,
+    "llm_num_ctx_sop": 16384,
+    "llm_timeout_s": 180.0,
+    "embedder_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "umbral_bajo": 0.55,
+    "umbral_alto": 0.75,
+    "umbral_fusion": 0.55,
+    "sop_candado": false,
+    "umbral_equipo": 0.85,
+    "semaforo_verde": 90.0,
+    "semaforo_amarillo": 70.0,
+    "afinidad_min": 60.0,
+    "afinidad_cos_cero": 0.3,
+    "afinidad_cos_cien": 0.8,
+    "afinidad_umbral_equipo": 0.75,
+    "tolerancia_tiempo": 0.2,
+    "umbral_rol": 0.85,
+    "umbral_rol_complemento": 0.7,
+    "umbral_horario": 0.75
+  },
+  "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+  "meta_rnf01": {
+    "video_s": 600,
+    "limite_s": 300
+  },
+  "fases": [
+    {
+      "fase": "gpu",
+      "inicio": "2026-11-10T12:47:45",
+      "git": {
+        "commit": "dab41325233674ef918e901fa803a7aaaeed867d",
+        "rama": "feat/s5",
+        "cambios_sin_commit": 9,
+        "archivos_sin_commit": [
+          " M .env.example",
+          " M CLAUDE.md",
+          " M Makefile",
+          " M README.md",
+          " M docker-compose.yml",
+          " M docs/dev/api.md",
+          " M frontend/README.md",
+          " M frontend/angular.json",
+          " D frontend/proxy.conf.json",
+          "?? frontend/proxy.conf.js",
+          "?? scripts/medir_s5.py"
+        ]
+      },
+      "settings": {
+        "whisper_modelo": "large-v3-turbo",
+        "whisper_modelo_cpu": "large-v3-turbo",
+        "whisper_dispositivo": "cuda",
+        "whisper_compute_type": "float16",
+        "llm_model": "gemma4:e4b-it-q4_K_M",
+        "llm_dispositivo": "auto",
+        "llm_num_ctx": 8192,
+        "llm_num_ctx_sop": 16384,
+        "llm_timeout_s": 180.0,
+        "embedder_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "umbral_bajo": 0.55,
+        "umbral_alto": 0.75,
+        "umbral_fusion": 0.55,
+        "sop_candado": false,
+        "umbral_equipo": 0.85,
+        "semaforo_verde": 90.0,
+        "semaforo_amarillo": 70.0,
+        "afinidad_min": 60.0,
+        "afinidad_cos_cero": 0.3,
+        "afinidad_cos_cien": 0.8,
+        "afinidad_umbral_equipo": 0.75,
+        "tolerancia_tiempo": 0.2,
+        "umbral_rol": 0.85,
+        "umbral_rol_complemento": 0.7,
+        "umbral_horario": 0.75
+      },
+      "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+      "repeticiones": {
+        "video_a": 3,
+        "video_b": 3,
+        "video_c": 3,
+        "video_d": 3,
+        "video_e": 2
+      },
+      "corridas": [
+        {
+          "video": "video_a",
+          "n": 1,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 135.0,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 6,
+            "zona_gris": 0
+          },
+          "afinidad": 75,
+          "detenida": false,
+          "pasos_video_antes": 15,
+          "pasos_video_despues": 14,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.07,
+            "audio": 0.47,
+            "transcripcion": 9.05,
+            "contexto": 10.94,
+            "afinidad": 0.65,
+            "segmentacion": 13.07,
+            "emparejamiento": 0.39,
+            "personas": 0.02,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 10.94,
+              "tokens": 315,
+              "tok_s": 88.1
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 4.04,
+              "tokens": 478,
+              "tok_s": 130.5
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 9.03,
+              "tokens": 1032,
+              "tok_s": 121.1
+            }
+          ],
+          "tokens": {
+            "llamadas": 3,
+            "tokens_salida": 1825,
+            "tok_s_medio": 113.2
+          },
+          "vram_base_mib": 1973.0,
+          "vram_pico_mib": 6893.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "verde y sin Falta",
+              "pasa": true,
+              "obtenido": 100.0,
+              "esperado": "≥ 90.0, Falta []"
+            },
+            {
+              "nombre": "afinidad",
+              "pasa": true,
+              "obtenido": 75,
+              "esperado": "≥ 60.0"
+            },
+            {
+              "nombre": "responsables distinto",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Cambiar el cartucho porque el manómetro marca menos de 2 bar",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de la carcasa",
+              "cartucho",
+              "bolsa de residuos",
+              "toalla de papel"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.36
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 34.7,
+          "factor": 0.257,
+          "estimado_10_min_s": 154.1
+        },
+        {
+          "video": "video_a",
+          "n": 2,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 135.0,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 5,
+            "zona_gris": 0
+          },
+          "afinidad": 75,
+          "detenida": false,
+          "pasos_video_antes": 14,
+          "pasos_video_despues": 13,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.07,
+            "audio": 0.45,
+            "transcripcion": 6.97,
+            "contexto": 10.07,
+            "afinidad": 1.26,
+            "segmentacion": 12.16,
+            "emparejamiento": 0.42,
+            "personas": 0.01,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 10.07,
+              "tokens": 315,
+              "tok_s": 100.5
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 3.76,
+              "tokens": 437,
+              "tok_s": 129.3
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 8.39,
+              "tokens": 973,
+              "tok_s": 124.7
+            }
+          ],
+          "tokens": {
+            "llamadas": 3,
+            "tokens_salida": 1725,
+            "tok_s_medio": 118.2
+          },
+          "vram_base_mib": 2040.0,
+          "vram_pico_mib": 6857.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "verde y sin Falta",
+              "pasa": true,
+              "obtenido": 100.0,
+              "esperado": "≥ 90.0, Falta []"
+            },
+            {
+              "nombre": "afinidad",
+              "pasa": true,
+              "obtenido": 75,
+              "esperado": "≥ 60.0"
+            },
+            {
+              "nombre": "responsables distinto",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Cambiar el cartucho porque el manómetro marca menos de 2 bar",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de la carcasa",
+              "cartucho",
+              "bolsa de residuos",
+              "toalla de papel"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.36
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 31.5,
+          "factor": 0.233,
+          "estimado_10_min_s": 140.1
+        },
+        {
+          "video": "video_a",
+          "n": 3,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 135.0,
+          "cumplimiento": 91.67,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 5,
+            "Parcial": 1,
+            "Falta": 0,
+            "Sobra": 8,
+            "zona_gris": 0
+          },
+          "afinidad": 72,
+          "detenida": false,
+          "pasos_video_antes": 17,
+          "pasos_video_despues": 17,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.07,
+            "audio": 0.45,
+            "transcripcion": 6.88,
+            "contexto": 9.57,
+            "afinidad": 0.4,
+            "segmentacion": 14.46,
+            "emparejamiento": 1.55,
+            "personas": 0.02,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.57,
+              "tokens": 307,
+              "tok_s": 100.9
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 4.55,
+              "tokens": 524,
+              "tok_s": 126.3
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 9.91,
+              "tokens": 1163,
+              "tok_s": 124.4
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.15,
+              "tokens": 79,
+              "tok_s": 96.7
+            }
+          ],
+          "tokens": {
+            "llamadas": 4,
+            "tokens_salida": 2073,
+            "tok_s_medio": 112.1
+          },
+          "vram_base_mib": 2036.0,
+          "vram_pico_mib": 6861.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "verde y sin Falta",
+              "pasa": true,
+              "obtenido": 91.66666666666667,
+              "esperado": "≥ 90.0, Falta []"
+            },
+            {
+              "nombre": "afinidad",
+              "pasa": true,
+              "obtenido": 72,
+              "esperado": "≥ 60.0"
+            },
+            {
+              "nombre": "responsables distinto",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Cambiar el cartucho porque el manómetro marca menos de 2 bar",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de la carcasa",
+              "cartucho nuevo",
+              "toalla de papel"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.36
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 33.6,
+          "factor": 0.249,
+          "estimado_10_min_s": 149.3
+        },
+        {
+          "video": "video_b",
+          "n": 1,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 114.643,
+          "cumplimiento": 66.67,
+          "semaforo": "rojo",
+          "conteo": {
+            "Cumple": 4,
+            "Parcial": 0,
+            "Falta": 2,
+            "Sobra": 1,
+            "zona_gris": 0
+          },
+          "afinidad": 95,
+          "detenida": false,
+          "pasos_video_antes": 7,
+          "pasos_video_despues": 6,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.06,
+            "audio": 0.42,
+            "transcripcion": 6.38,
+            "contexto": 10.16,
+            "afinidad": 0.56,
+            "segmentacion": 7.57,
+            "emparejamiento": 1.71,
+            "personas": 0.66,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 10.16,
+              "tokens": 335,
+              "tok_s": 92.2
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 1.98,
+              "tokens": 215,
+              "tok_s": 127.7
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 5.59,
+              "tokens": 589,
+              "tok_s": 114.4
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.09,
+              "tokens": 86,
+              "tok_s": 115.9
+            }
+          ],
+          "tokens": {
+            "llamadas": 4,
+            "tokens_salida": 1225,
+            "tok_s_medio": 112.6
+          },
+          "vram_base_mib": 2044.0,
+          "vram_pico_mib": 6864.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "Falta",
+              "pasa": true,
+              "obtenido": [
+                2,
+                6
+              ],
+              "esperado": [
+                2,
+                6
+              ]
+            },
+            {
+              "nombre": "Sobra de la limpieza en su tramo",
+              "pasa": true,
+              "obtenido": {
+                "en_tramo": "1/1",
+                "otros_sobra_s": []
+              },
+              "esperado": {
+                "en_tramo": "1/1",
+                "otros_sobra_s": []
+              }
+            },
+            {
+              "nombre": "cumplimiento",
+              "pasa": true,
+              "obtenido": 66.67,
+              "esperado": 66.67
+            }
+          ],
+          "datos": {
+            "sobras": [
+              {
+                "t": 74.12,
+                "cita": "Le echo un poco de agua limpia al vaso, lo tallo con un trapo",
+                "conocido_compañera": false
+              }
+            ],
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": "Línea de enjuague",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "proposito": {
+              "valor": "Cambiar el cartucho del filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de carcasa",
+              "trapo",
+              "cartucho de filtro de agua",
+              "bolsa de residuos",
+              "manómetro",
+              "llave"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 3.5
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 27.7,
+          "factor": 0.241,
+          "estimado_10_min_s": 144.7
+        },
+        {
+          "video": "video_b",
+          "n": 2,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 114.643,
+          "cumplimiento": 66.67,
+          "semaforo": "rojo",
+          "conteo": {
+            "Cumple": 4,
+            "Parcial": 0,
+            "Falta": 2,
+            "Sobra": 1,
+            "zona_gris": 0
+          },
+          "afinidad": 94,
+          "detenida": false,
+          "pasos_video_antes": 7,
+          "pasos_video_despues": 6,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.06,
+            "audio": 0.39,
+            "transcripcion": 6.22,
+            "contexto": 9.55,
+            "afinidad": 0.66,
+            "segmentacion": 7.39,
+            "emparejamiento": 1.98,
+            "personas": 0.39,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.55,
+              "tokens": 308,
+              "tok_s": 93.2
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 1.89,
+              "tokens": 216,
+              "tok_s": 134.4
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 5.5,
+              "tokens": 594,
+              "tok_s": 117.4
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.3,
+              "tokens": 92,
+              "tok_s": 99.7
+            }
+          ],
+          "tokens": {
+            "llamadas": 4,
+            "tokens_salida": 1210,
+            "tok_s_medio": 111.2
+          },
+          "vram_base_mib": 2045.0,
+          "vram_pico_mib": 6872.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "Falta",
+              "pasa": true,
+              "obtenido": [
+                2,
+                6
+              ],
+              "esperado": [
+                2,
+                6
+              ]
+            },
+            {
+              "nombre": "Sobra de la limpieza en su tramo",
+              "pasa": true,
+              "obtenido": {
+                "en_tramo": "1/1",
+                "otros_sobra_s": []
+              },
+              "esperado": {
+                "en_tramo": "1/1",
+                "otros_sobra_s": []
+              }
+            },
+            {
+              "nombre": "cumplimiento",
+              "pasa": true,
+              "obtenido": 66.67,
+              "esperado": 66.67
+            }
+          ],
+          "datos": {
+            "sobras": [
+              {
+                "t": 74.12,
+                "cita": "Le echo un poco de agua limpia al vaso, lo tallo con un trapo",
+                "conocido_compañera": false
+              }
+            ],
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": "Línea de enjuague",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "proposito": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de carcasa",
+              "trapo",
+              "cartucho de filtro de agua",
+              "bolsa de residuos",
+              "agua limpia"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 3.5
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 26.8,
+          "factor": 0.233,
+          "estimado_10_min_s": 140.1
+        },
+        {
+          "video": "video_b",
+          "n": 3,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 114.643,
+          "cumplimiento": 66.67,
+          "semaforo": "rojo",
+          "conteo": {
+            "Cumple": 4,
+            "Parcial": 0,
+            "Falta": 2,
+            "Sobra": 1,
+            "zona_gris": 0
+          },
+          "afinidad": 94,
+          "detenida": false,
+          "pasos_video_antes": 7,
+          "pasos_video_despues": 6,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.06,
+            "audio": 0.37,
+            "transcripcion": 6.29,
+            "contexto": 9.67,
+            "afinidad": 1.01,
+            "segmentacion": 7.48,
+            "emparejamiento": 1.95,
+            "personas": 0.33,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.67,
+              "tokens": 308,
+              "tok_s": 94.1
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 1.96,
+              "tokens": 215,
+              "tok_s": 132.7
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 5.52,
+              "tokens": 596,
+              "tok_s": 117.0
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.25,
+              "tokens": 85,
+              "tok_s": 105.1
+            }
+          ],
+          "tokens": {
+            "llamadas": 4,
+            "tokens_salida": 1204,
+            "tok_s_medio": 112.2
+          },
+          "vram_base_mib": 2051.0,
+          "vram_pico_mib": 6878.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "Falta",
+              "pasa": true,
+              "obtenido": [
+                2,
+                6
+              ],
+              "esperado": [
+                2,
+                6
+              ]
+            },
+            {
+              "nombre": "Sobra de la limpieza en su tramo",
+              "pasa": true,
+              "obtenido": {
+                "en_tramo": "1/1",
+                "otros_sobra_s": []
+              },
+              "esperado": {
+                "en_tramo": "1/1",
+                "otros_sobra_s": []
+              }
+            },
+            {
+              "nombre": "cumplimiento",
+              "pasa": true,
+              "obtenido": 66.67,
+              "esperado": 66.67
+            }
+          ],
+          "datos": {
+            "sobras": [
+              {
+                "t": 74.12,
+                "cita": "Le echo un poco de agua limpia al vaso, lo tallo con un trapo",
+                "conocido_compañera": false
+              }
+            ],
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": "Línea de enjuague",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "proposito": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de carcasa",
+              "trapo",
+              "cartucho de filtro de agua",
+              "bolsa de residuos",
+              "agua limpia"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 3.5
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 27.4,
+          "factor": 0.239,
+          "estimado_10_min_s": 143.4
+        },
+        {
+          "video": "video_c",
+          "n": 1,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 201.128,
+          "cumplimiento": 75.0,
+          "semaforo": "amarillo",
+          "conteo": {
+            "Cumple": 5,
+            "Parcial": 1,
+            "Falta": 0,
+            "Sobra": 0,
+            "zona_gris": 0
+          },
+          "afinidad": 97,
+          "detenida": false,
+          "pasos_video_antes": 9,
+          "pasos_video_despues": 7,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.08,
+            "audio": 0.59,
+            "transcripcion": 9.7,
+            "contexto": 9.93,
+            "afinidad": 0.84,
+            "segmentacion": 9.69,
+            "emparejamiento": 2.64,
+            "personas": 0.04,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.93,
+              "tokens": 364,
+              "tok_s": 104.0
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 2.77,
+              "tokens": 283,
+              "tok_s": 128.2
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 6.93,
+              "tokens": 720,
+              "tok_s": 115.3
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.28,
+              "tokens": 74,
+              "tok_s": 89.2
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.07,
+              "tokens": 80,
+              "tok_s": 107.7
+            }
+          ],
+          "tokens": {
+            "llamadas": 5,
+            "tokens_salida": 1521,
+            "tok_s_medio": 108.9
+          },
+          "vram_base_mib": 2061.0,
+          "vram_pico_mib": 6888.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "fuera de orden",
+              "pasa": true,
+              "obtenido": [
+                2,
+                5
+              ],
+              "esperado": [
+                2,
+                5
+              ]
+            },
+            {
+              "nombre": "afinidad y distinto",
+              "pasa": true,
+              "obtenido": {
+                "afinidad": 97,
+                "distinto": [
+                  4
+                ]
+              },
+              "esperado": {
+                "afinidad": "≥ 60.0",
+                "distinto": [
+                  4
+                ]
+              }
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [
+                1
+              ],
+              "esperado": [
+                1
+              ]
+            }
+          ],
+          "datos": {
+            "sobras": [],
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: presente"
+            ],
+            "excede": [
+              1
+            ],
+            "distinto": [
+              4
+            ]
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": "Línea de enjuague",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "proposito": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "equipos": [
+              "cartucho del filtro de agua",
+              "manómetro",
+              "equipo de protección",
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de carcasa",
+              "toalla de papel",
+              "cartucho nuevo",
+              "llave de paso"
+            ],
+            "personas": [
+              {
+                "nombre": "Emanuel",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.81
+              },
+              {
+                "nombre": "Sara",
+                "rol": "supervisora de turno",
+                "participacion": "participa",
+                "t": 124.3
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 33.6,
+          "factor": 0.167,
+          "estimado_10_min_s": 100.3
+        },
+        {
+          "video": "video_c",
+          "n": 2,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 201.128,
+          "cumplimiento": 75.0,
+          "semaforo": "amarillo",
+          "conteo": {
+            "Cumple": 5,
+            "Parcial": 1,
+            "Falta": 0,
+            "Sobra": 0,
+            "zona_gris": 0
+          },
+          "afinidad": 97,
+          "detenida": false,
+          "pasos_video_antes": 9,
+          "pasos_video_despues": 7,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.06,
+            "audio": 0.57,
+            "transcripcion": 9.6,
+            "contexto": 9.86,
+            "afinidad": 1.06,
+            "segmentacion": 9.47,
+            "emparejamiento": 2.81,
+            "personas": 0.03,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.86,
+              "tokens": 364,
+              "tok_s": 104.2
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 2.7,
+              "tokens": 283,
+              "tok_s": 129.5
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 6.77,
+              "tokens": 720,
+              "tok_s": 117.2
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.29,
+              "tokens": 74,
+              "tok_s": 92.5
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.06,
+              "tokens": 80,
+              "tok_s": 109.1
+            }
+          ],
+          "tokens": {
+            "llamadas": 5,
+            "tokens_salida": 1521,
+            "tok_s_medio": 110.5
+          },
+          "vram_base_mib": 2067.0,
+          "vram_pico_mib": 6894.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "fuera de orden",
+              "pasa": true,
+              "obtenido": [
+                2,
+                5
+              ],
+              "esperado": [
+                2,
+                5
+              ]
+            },
+            {
+              "nombre": "afinidad y distinto",
+              "pasa": true,
+              "obtenido": {
+                "afinidad": 97,
+                "distinto": [
+                  4
+                ]
+              },
+              "esperado": {
+                "afinidad": "≥ 60.0",
+                "distinto": [
+                  4
+                ]
+              }
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [
+                1
+              ],
+              "esperado": [
+                1
+              ]
+            }
+          ],
+          "datos": {
+            "sobras": [],
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: presente"
+            ],
+            "excede": [
+              1
+            ],
+            "distinto": [
+              4
+            ]
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": "Línea de enjuague",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "proposito": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "equipos": [
+              "cartucho del filtro de agua",
+              "manómetro",
+              "equipo de protección",
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de carcasa",
+              "toalla de papel",
+              "cartucho nuevo",
+              "llave de paso"
+            ],
+            "personas": [
+              {
+                "nombre": "Emanuel",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.81
+              },
+              {
+                "nombre": "Sara",
+                "rol": "supervisora de turno",
+                "participacion": "participa",
+                "t": 124.3
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 33.6,
+          "factor": 0.167,
+          "estimado_10_min_s": 100.2
+        },
+        {
+          "video": "video_c",
+          "n": 3,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 201.128,
+          "cumplimiento": 75.0,
+          "semaforo": "amarillo",
+          "conteo": {
+            "Cumple": 5,
+            "Parcial": 1,
+            "Falta": 0,
+            "Sobra": 0,
+            "zona_gris": 0
+          },
+          "afinidad": 97,
+          "detenida": false,
+          "pasos_video_antes": 9,
+          "pasos_video_despues": 7,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.07,
+            "audio": 0.58,
+            "transcripcion": 9.98,
+            "contexto": 10.0,
+            "afinidad": 1.04,
+            "segmentacion": 9.35,
+            "emparejamiento": 3.04,
+            "personas": 0.03,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.99,
+              "tokens": 364,
+              "tok_s": 102.5
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 2.73,
+              "tokens": 284,
+              "tok_s": 127.7
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 6.62,
+              "tokens": 710,
+              "tok_s": 118.7
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.29,
+              "tokens": 74,
+              "tok_s": 91.3
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.11,
+              "tokens": 80,
+              "tok_s": 109.7
+            }
+          ],
+          "tokens": {
+            "llamadas": 5,
+            "tokens_salida": 1512,
+            "tok_s_medio": 110.0
+          },
+          "vram_base_mib": 2080.0,
+          "vram_pico_mib": 6904.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "fuera de orden",
+              "pasa": true,
+              "obtenido": [
+                2,
+                5
+              ],
+              "esperado": [
+                2,
+                5
+              ]
+            },
+            {
+              "nombre": "afinidad y distinto",
+              "pasa": true,
+              "obtenido": {
+                "afinidad": 97,
+                "distinto": [
+                  4
+                ]
+              },
+              "esperado": {
+                "afinidad": "≥ 60.0",
+                "distinto": [
+                  4
+                ]
+              }
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [
+                1
+              ],
+              "esperado": [
+                1
+              ]
+            }
+          ],
+          "datos": {
+            "sobras": [],
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: presente"
+            ],
+            "excede": [
+              1
+            ],
+            "distinto": [
+              4
+            ]
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": "Línea de enjuague",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "proposito": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "equipos": [
+              "cartucho del filtro de agua",
+              "manómetro",
+              "equipo de protección",
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "llave de carcasa",
+              "toalla de papel",
+              "cartucho nuevo",
+              "llave de paso"
+            ],
+            "personas": [
+              {
+                "nombre": "Emanuel",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.81
+              },
+              {
+                "nombre": "Sara",
+                "rol": "supervisora de turno",
+                "participacion": "participa",
+                "t": 124.3
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 34.1,
+          "factor": 0.17,
+          "estimado_10_min_s": 101.8
+        },
+        {
+          "video": "video_d",
+          "n": 1,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 167.829,
+          "hasta_detencion_s": 18.7,
+          "segundos_detencion": {
+            "duracion": 0.08,
+            "audio": 0.51,
+            "transcripcion": 7.8,
+            "contexto": 9.04,
+            "afinidad": 1.28
+          },
+          "dispositivos_detencion": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "cumplimiento": 0.0,
+          "semaforo": "rojo",
+          "conteo": {
+            "Cumple": 0,
+            "Parcial": 0,
+            "Falta": 6,
+            "Sobra": 10,
+            "zona_gris": 0
+          },
+          "afinidad": 18,
+          "detenida": true,
+          "pasos_video_antes": 10,
+          "pasos_video_despues": 10,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "afinidad": 0.52,
+            "segmentacion": 15.41,
+            "emparejamiento": 5.3,
+            "personas": 0.58,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.04,
+              "tokens": 311,
+              "tok_s": 96.8
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 7.96,
+              "tokens": 304,
+              "tok_s": 135.6
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 7.45,
+              "tokens": 842,
+              "tok_s": 120.0
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.19,
+              "tokens": 79,
+              "tok_s": 96.4
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.19,
+              "tokens": 80,
+              "tok_s": 92.0
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.29,
+              "tokens": 82,
+              "tok_s": 92.4
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.34,
+              "tokens": 80,
+              "tok_s": 88.1
+            }
+          ],
+          "tokens": {
+            "llamadas": 7,
+            "tokens_salida": 1778,
+            "tok_s_medio": 103.0
+          },
+          "vram_base_mib": 2085.0,
+          "vram_pico_mib": 6913.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "afinidad baja, detenida y 6 Falta al continuar",
+              "pasa": true,
+              "obtenido": {
+                "afinidad": 18,
+                "detenida": true,
+                "falta": 6
+              },
+              "esperado": {
+                "afinidad": "< 60.0",
+                "detenida": true,
+                "falta": 6
+              }
+            },
+            {
+              "nombre": "detenida antes de segmentar",
+              "pasa": true,
+              "obtenido": true,
+              "esperado": true
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: ausente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de rollo de etiquetas en la etiquetadora",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Envasado",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Finalizar el cambio del rollo de etiquetas",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "etiquetadora",
+              "panel",
+              "banda transportadora",
+              "puerta de acrílico",
+              "portarrollos",
+              "contenedor de reciclaje de cartón",
+              "rodillo",
+              "sensor",
+              "rebobinador",
+              "cinta adhesiva",
+              "botella",
+              "rollo de etiquetas"
+            ],
+            "personas": [
+              {
+                "nombre": "Emanuel",
+                "rol": "operador de la línea de envasado",
+                "participacion": "participa",
+                "t": 1.87
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 40.7,
+          "factor": 0.242,
+          "estimado_10_min_s": 145.3
+        },
+        {
+          "video": "video_d",
+          "n": 2,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 167.829,
+          "hasta_detencion_s": 18.8,
+          "segundos_detencion": {
+            "duracion": 0.07,
+            "audio": 0.51,
+            "transcripcion": 7.8,
+            "contexto": 9.12,
+            "afinidad": 1.29
+          },
+          "dispositivos_detencion": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "cumplimiento": 0.0,
+          "semaforo": "rojo",
+          "conteo": {
+            "Cumple": 0,
+            "Parcial": 0,
+            "Falta": 6,
+            "Sobra": 10,
+            "zona_gris": 0
+          },
+          "afinidad": 20,
+          "detenida": true,
+          "pasos_video_antes": 10,
+          "pasos_video_despues": 10,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "afinidad": 0.49,
+            "segmentacion": 15.66,
+            "emparejamiento": 6.66,
+            "personas": 0.04,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.12,
+              "tokens": 311,
+              "tok_s": 95.5
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 8.25,
+              "tokens": 303,
+              "tok_s": 125.7
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 7.41,
+              "tokens": 839,
+              "tok_s": 120.6
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.17,
+              "tokens": 78,
+              "tok_s": 99.3
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.11,
+              "tokens": 73,
+              "tok_s": 92.6
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.22,
+              "tokens": 82,
+              "tok_s": 95.2
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.26,
+              "tokens": 78,
+              "tok_s": 87.1
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.16,
+              "tokens": 80,
+              "tok_s": 97.1
+            }
+          ],
+          "tokens": {
+            "llamadas": 8,
+            "tokens_salida": 1844,
+            "tok_s_medio": 101.6
+          },
+          "vram_base_mib": 2091.0,
+          "vram_pico_mib": 6918.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "afinidad baja, detenida y 6 Falta al continuar",
+              "pasa": true,
+              "obtenido": {
+                "afinidad": 20,
+                "detenida": true,
+                "falta": 6
+              },
+              "esperado": {
+                "afinidad": "< 60.0",
+                "detenida": true,
+                "falta": 6
+              }
+            },
+            {
+              "nombre": "detenida antes de segmentar",
+              "pasa": true,
+              "obtenido": true,
+              "esperado": true
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: ausente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de rollo de etiquetas en la etiquetadora",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Envasado",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Finalizar el cambio del rollo de etiquetas",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "etiquetadora",
+              "panel",
+              "banda transportadora",
+              "puerta de acrílico",
+              "portarrollos",
+              "contenedor de reciclaje de cartón",
+              "rodillo",
+              "sensor",
+              "placa de despegue",
+              "rebobinador",
+              "cinta adhesiva",
+              "botellas"
+            ],
+            "personas": [
+              {
+                "nombre": "Emanuel",
+                "rol": "operador de la línea de envasado",
+                "participacion": "participa",
+                "t": 1.87
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 41.8,
+          "factor": 0.249,
+          "estimado_10_min_s": 149.4
+        },
+        {
+          "video": "video_d",
+          "n": 3,
+          "fase": "gpu",
+          "modo": "validar",
+          "duracion_s": 167.829,
+          "hasta_detencion_s": 19.3,
+          "segundos_detencion": {
+            "duracion": 0.07,
+            "audio": 0.51,
+            "transcripcion": 8.19,
+            "contexto": 9.33,
+            "afinidad": 1.14
+          },
+          "dispositivos_detencion": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "cumplimiento": 0.0,
+          "semaforo": "rojo",
+          "conteo": {
+            "Cumple": 0,
+            "Parcial": 0,
+            "Falta": 6,
+            "Sobra": 10,
+            "zona_gris": 0
+          },
+          "afinidad": 19,
+          "detenida": true,
+          "pasos_video_antes": 10,
+          "pasos_video_despues": 10,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "afinidad": 0.49,
+            "segmentacion": 15.44,
+            "emparejamiento": 5.15,
+            "personas": 0.6,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 9.33,
+              "tokens": 303,
+              "tok_s": 95.9
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 7.98,
+              "tokens": 304,
+              "tok_s": 135.3
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 7.46,
+              "tokens": 842,
+              "tok_s": 120.1
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.14,
+              "tokens": 78,
+              "tok_s": 101.7
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.23,
+              "tokens": 80,
+              "tok_s": 88.2
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.2,
+              "tokens": 82,
+              "tok_s": 98.5
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 1.27,
+              "tokens": 80,
+              "tok_s": 88.0
+            }
+          ],
+          "tokens": {
+            "llamadas": 7,
+            "tokens_salida": 1769,
+            "tok_s_medio": 104.0
+          },
+          "vram_base_mib": 2106.0,
+          "vram_pico_mib": 6926.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "afinidad baja, detenida y 6 Falta al continuar",
+              "pasa": true,
+              "obtenido": {
+                "afinidad": 19,
+                "detenida": true,
+                "falta": 6
+              },
+              "esperado": {
+                "afinidad": "< 60.0",
+                "detenida": true,
+                "falta": 6
+              }
+            },
+            {
+              "nombre": "detenida antes de segmentar",
+              "pasa": true,
+              "obtenido": true,
+              "esperado": true
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: ausente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de rollo de etiquetas en la etiquetadora",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Envasado",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Finalizar el cambio del rollo de etiquetas",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "etiquetadora",
+              "panel",
+              "banda transportadora",
+              "puerta de acrílico",
+              "portarrollos",
+              "contenedor de reciclaje de cartón",
+              "rodillo",
+              "sensor",
+              "rebobinador",
+              "cinta adhesiva",
+              "botellas"
+            ],
+            "personas": [
+              {
+                "nombre": "Emanuel",
+                "rol": "operador de la línea de envasado",
+                "participacion": "participa",
+                "t": 1.87
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 41.1,
+          "factor": 0.245,
+          "estimado_10_min_s": 146.9
+        },
+        {
+          "video": "video_e",
+          "n": 1,
+          "fase": "gpu",
+          "modo": "generar",
+          "duracion_s": 227.264,
+          "idioma": {
+            "codigo": "en",
+            "confianza": 0.999,
+            "fijado_a_mano": false
+          },
+          "pasos_video_antes": 18,
+          "pasos_sop": 15,
+          "grupos": [
+            [
+              3
+            ],
+            [
+              4
+            ],
+            [
+              5
+            ],
+            [
+              6
+            ],
+            [
+              7
+            ],
+            [
+              8
+            ],
+            [
+              9
+            ],
+            [
+              10
+            ],
+            [
+              11
+            ],
+            [
+              12
+            ],
+            [
+              13
+            ],
+            [
+              14
+            ],
+            [
+              15
+            ],
+            [
+              16
+            ],
+            [
+              17
+            ]
+          ],
+          "segundos": {
+            "duracion": 0.08,
+            "audio": 0.72,
+            "transcripcion": 9.83,
+            "contexto": 10.39,
+            "segmentacion": 17.36,
+            "sop": 29.72,
+            "total_gemma": 57.47
+          },
+          "segundos_rnf05_fuera_de_rnf01": 9.5,
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 10.39,
+              "tokens": 376,
+              "tok_s": 96.2
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 4.9,
+              "tokens": 548,
+              "tok_s": 123.0
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 12.45,
+              "tokens": 1336,
+              "tok_s": 113.0
+            },
+            {
+              "etapa": "agrupar",
+              "s": 3.73,
+              "tokens": 344,
+              "tok_s": 115.37,
+              "intentos": 1
+            },
+            {
+              "etapa": "pasos",
+              "s": 8.19,
+              "tokens": 753,
+              "tok_s": 99.34,
+              "intentos": 1
+            },
+            {
+              "etapa": "pasos",
+              "s": 5.58,
+              "tokens": 510,
+              "tok_s": 97.01,
+              "intentos": 1
+            },
+            {
+              "etapa": "resumen",
+              "s": 5.02,
+              "tokens": 352,
+              "tok_s": 86.14,
+              "intentos": 1
+            },
+            {
+              "etapa": "claves",
+              "s": 6.95,
+              "tokens": 686,
+              "tok_s": 110.71,
+              "intentos": 1
+            }
+          ],
+          "tokens": {
+            "llamadas": 8,
+            "tokens_salida": 4905,
+            "tok_s_medio": 105.1
+          },
+          "vram_base_mib": 2109.0,
+          "vram_pico_mib": 6938.0,
+          "vram_con_modelo_mib": 6933,
+          "advertencias": [],
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "idioma",
+              "pasa": true,
+              "obtenido": "en",
+              "esperado": "en"
+            },
+            {
+              "nombre": "cuadro resumen y tabla de pasos llenos",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "sin valores en inglés (sin_traducir)",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "RNF-05 por tramos",
+              "pasa": true,
+              "obtenido": 100.0,
+              "esperado": "≥ 80.0"
+            }
+          ],
+          "datos": {
+            "rnf05_tramos": "15/15 (100.0 %)",
+            "uno_a_uno": "6/15 (40.0 %)",
+            "cobertura_en_orden": "6/6 (100.0 %)",
+            "equipo_operacion": 16,
+            "equipo_operacion_nombres": [
+              "Guantes neutros",
+              "Gafas de seguridad",
+              "Válvula de corte antes del filtro",
+              "Supervisor de ajuste",
+              "Cubo bajo el filtro",
+              "Botón rojo en la carcasa",
+              "Llave de carcasa",
+              "Bolsa de residuos",
+              "Cartucho nuevo",
+              "Envoltura plástica",
+              "Llave",
+              "Toalla de papel",
+              "cubo",
+              "herramienta de soporte",
+              "cartucho de filtro",
+              "manómetro"
+            ],
+            "pasos_generados": [
+              "Colocar equipo de protección personal",
+              "Cerrar válvula de corte antes filtro",
+              "Liberar presión del sistema",
+              "Colocar recipiente bajo filtro",
+              "Presionar botón y verificar presión",
+              "Retirar carcasa con llave",
+              "Sacar cartucho viejo y desechar",
+              "Revisar anillo de goma",
+              "Instalar cartucho nuevo filtro agua",
+              "Retirar envoltura plástica colocar centro",
+              "Enroscar perno mano dar cuarto giro",
+              "Abrir tubo válvula lentamente",
+              "Verter aire botón rojo hasta agua",
+              "Verificar junta guante conexión papel",
+              "Comprobar secado ausencia fugas"
+            ],
+            "completitud": {
+              "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+              "objetivo": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo",
+              "alcance": "Cubre solo el filtro de cartucho montado en la pared en la línea de enjuague. No incluye reemplazar la carcasa del filtro ni la válvula de corte.",
+              "lugar": "Línea de enjuague",
+              "horario": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+              "responsable": "Técnico de mantenimiento",
+              "roles": [
+                "Técnico de mantenimiento"
+              ],
+              "equipo": 16,
+              "riesgos": 2,
+              "en_caso_de_falla": 1,
+              "duracion_total_min": 3.0,
+              "pasos_en_infinitivo": 15,
+              "pasos": 15,
+              "puntos_clave": 8,
+              "palabras_clave": 14,
+              "inferidos": 15
+            }
+          },
+          "pasa": true,
+          "total_s": 68.2,
+          "factor": 0.3,
+          "estimado_10_min_s": 180.1
+        },
+        {
+          "video": "video_e",
+          "n": 2,
+          "fase": "gpu",
+          "modo": "generar",
+          "duracion_s": 227.264,
+          "idioma": {
+            "codigo": "en",
+            "confianza": 0.999,
+            "fijado_a_mano": false
+          },
+          "pasos_video_antes": 18,
+          "pasos_sop": 15,
+          "grupos": [
+            [
+              3
+            ],
+            [
+              4
+            ],
+            [
+              5
+            ],
+            [
+              6
+            ],
+            [
+              7
+            ],
+            [
+              8
+            ],
+            [
+              9
+            ],
+            [
+              10
+            ],
+            [
+              11
+            ],
+            [
+              12
+            ],
+            [
+              13
+            ],
+            [
+              14
+            ],
+            [
+              15
+            ],
+            [
+              16
+            ],
+            [
+              17
+            ]
+          ],
+          "segundos": {
+            "duracion": 0.07,
+            "audio": 0.64,
+            "transcripcion": 9.66,
+            "contexto": 10.43,
+            "segmentacion": 17.65,
+            "sop": 30.3,
+            "total_gemma": 58.38
+          },
+          "segundos_rnf05_fuera_de_rnf01": 9.5,
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "gpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "gpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 10.43,
+              "tokens": 389,
+              "tok_s": 92.1
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 5.09,
+              "tokens": 548,
+              "tok_s": 120.0
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 12.56,
+              "tokens": 1333,
+              "tok_s": 112.7
+            },
+            {
+              "etapa": "agrupar",
+              "s": 3.78,
+              "tokens": 344,
+              "tok_s": 117.56,
+              "intentos": 1
+            },
+            {
+              "etapa": "pasos",
+              "s": 8.41,
+              "tokens": 753,
+              "tok_s": 97.96,
+              "intentos": 1
+            },
+            {
+              "etapa": "pasos",
+              "s": 5.64,
+              "tokens": 506,
+              "tok_s": 95.8,
+              "intentos": 1
+            },
+            {
+              "etapa": "resumen",
+              "s": 5.48,
+              "tokens": 403,
+              "tok_s": 88.26,
+              "intentos": 1
+            },
+            {
+              "etapa": "claves",
+              "s": 6.94,
+              "tokens": 672,
+              "tok_s": 107.39,
+              "intentos": 1
+            }
+          ],
+          "tokens": {
+            "llamadas": 8,
+            "tokens_salida": 4948,
+            "tok_s_medio": 104.0
+          },
+          "vram_base_mib": 2122.0,
+          "vram_pico_mib": 6947.0,
+          "vram_con_modelo_mib": 6938,
+          "advertencias": [],
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "idioma",
+              "pasa": true,
+              "obtenido": "en",
+              "esperado": "en"
+            },
+            {
+              "nombre": "cuadro resumen y tabla de pasos llenos",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "sin valores en inglés (sin_traducir)",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "RNF-05 por tramos",
+              "pasa": true,
+              "obtenido": 100.0,
+              "esperado": "≥ 80.0"
+            }
+          ],
+          "datos": {
+            "rnf05_tramos": "15/15 (100.0 %)",
+            "uno_a_uno": "5/15 (33.3 %)",
+            "cobertura_en_orden": "5/6 (83.3 %)",
+            "equipo_operacion": 16,
+            "equipo_operacion_nombres": [
+              "Guantes neutros",
+              "Gafas de seguridad",
+              "Válvula de corte antes del filtro",
+              "Supervisor de ajuste",
+              "Cubo",
+              "Botón rojo en la carcasa",
+              "Llave de carcasa",
+              "Bolsa de residuos",
+              "Cartucho nuevo",
+              "Envoltura plástica",
+              "Llave",
+              "Toalla de papel",
+              "herramienta de sujeción",
+              "llave inglesa",
+              "cartucho de filtro",
+              "manómetro de presión"
+            ],
+            "pasos_generados": [
+              "Colocar equipo de protección personal",
+              "Cerrar válvula de corte antes filtro",
+              "Liberar presión del sistema",
+              "Colocar recipiente bajo filtro",
+              "Presionar botón y verificar presión",
+              "Retirar carcasa con llave",
+              "Sacar cartucho viejo y desechar",
+              "Revisar anillo de goma",
+              "Instalar cartucho nuevo",
+              "Colocar envoltura plástica",
+              "Apretar perno con llave",
+              "Abrir válvula tubo lentamente",
+              "Verter aire con botón",
+              "Revisar junta y conexión",
+              "Verificar ausencia de fugas"
+            ],
+            "completitud": {
+              "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+              "objetivo": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo.",
+              "alcance": "Cubre solo el filtro de cartucho montado en la pared en la línea de enjuague. No incluye reemplazar la carcasa del filtro o la válvula de corte.",
+              "lugar": "Línea de enjuague.",
+              "horario": "Cada 3 meses o cuando el manómetro marca menos de 2 bar.",
+              "responsable": "Técnico de mantenimiento",
+              "roles": [
+                "Técnico de mantenimiento"
+              ],
+              "equipo": 16,
+              "riesgos": 3,
+              "en_caso_de_falla": 1,
+              "duracion_total_min": 3.0,
+              "pasos_en_infinitivo": 15,
+              "pasos": 15,
+              "puntos_clave": 8,
+              "palabras_clave": 14,
+              "inferidos": 15
+            }
+          },
+          "pasa": true,
+          "total_s": 69.1,
+          "factor": 0.304,
+          "estimado_10_min_s": 182.4
+        }
+      ],
+      "reproducibilidad": {
+        "original": {
+          "cumplimiento": 100.0,
+          "huella": "bfcb765eaafd"
+        },
+        "regeneradas": [
+          {
+            "cumplimiento": 100.0,
+            "huella": "8b5f8da90e06",
+            "reusada": true,
+            "segundos": {
+              "afinidad": 0.48,
+              "emparejamiento": 0.45,
+              "personas": 0.02,
+              "tiempos": 0.0
+            }
+          },
+          {
+            "cumplimiento": 100.0,
+            "huella": "8b5f8da90e06",
+            "reusada": true,
+            "segundos": {
+              "afinidad": 0.47,
+              "emparejamiento": 0.47,
+              "personas": 0.03,
+              "tiempos": 0.0
+            }
+          }
+        ],
+        "mismo_porcentaje": true,
+        "huellas_regeneradas_iguales": true
+      },
+      "dispositivo_gemma": "gpu",
+      "ollama_ps": "NAME                    ID              SIZE      PROCESSOR    CONTEXT    RUNNER      UNTIL               \ngemma4:e4b-it-q4_K_M    dc35e8d9c606    261 MB    100% GPU     8192       llamacpp    29 minutes from now",
+      "fin": "2026-11-10T12:57:51",
+      "segundos_fase": 584.4
+    },
+    {
+      "fase": "cpu",
+      "inicio": "2026-11-10T12:58:03",
+      "git": {
+        "commit": "dab41325233674ef918e901fa803a7aaaeed867d",
+        "rama": "feat/s5",
+        "cambios_sin_commit": 11,
+        "archivos_sin_commit": [
+          " M .env.example",
+          " M CLAUDE.md",
+          " M Makefile",
+          " M README.md",
+          " M docker-compose.yml",
+          " M docs/dev/api.md",
+          " M docs/plan/estado.md",
+          " M docs/plan/plan.md",
+          " M frontend/README.md",
+          " M frontend/angular.json",
+          " D frontend/proxy.conf.json",
+          "?? frontend/proxy.conf.js",
+          "?? scripts/medir_s5.py"
+        ]
+      },
+      "settings": {
+        "whisper_modelo": "large-v3-turbo",
+        "whisper_modelo_cpu": "large-v3-turbo",
+        "whisper_dispositivo": "cpu",
+        "whisper_compute_type": "float16",
+        "llm_model": "gemma4:e4b-it-q4_K_M",
+        "llm_dispositivo": "cpu",
+        "llm_num_ctx": 8192,
+        "llm_num_ctx_sop": 16384,
+        "llm_timeout_s": 180.0,
+        "embedder_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "umbral_bajo": 0.55,
+        "umbral_alto": 0.75,
+        "umbral_fusion": 0.55,
+        "sop_candado": false,
+        "umbral_equipo": 0.85,
+        "semaforo_verde": 90.0,
+        "semaforo_amarillo": 70.0,
+        "afinidad_min": 60.0,
+        "afinidad_cos_cero": 0.3,
+        "afinidad_cos_cien": 0.8,
+        "afinidad_umbral_equipo": 0.75,
+        "tolerancia_tiempo": 0.2,
+        "umbral_rol": 0.85,
+        "umbral_rol_complemento": 0.7,
+        "umbral_horario": 0.75
+      },
+      "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+      "repeticiones": {
+        "video_a": 1,
+        "video_e": 1
+      },
+      "corridas": [
+        {
+          "video": "video_a",
+          "n": 1,
+          "fase": "cpu",
+          "modo": "validar",
+          "duracion_s": 135.0,
+          "cumplimiento": 100.0,
+          "semaforo": "verde",
+          "conteo": {
+            "Cumple": 6,
+            "Parcial": 0,
+            "Falta": 0,
+            "Sobra": 0,
+            "zona_gris": 0
+          },
+          "afinidad": 100,
+          "detenida": false,
+          "pasos_video_antes": 8,
+          "pasos_video_despues": 8,
+          "rescatados": 0,
+          "rescate": false,
+          "segundos": {
+            "duracion": 0.73,
+            "audio": 0.72,
+            "transcripcion": 59.46,
+            "contexto": 52.72,
+            "afinidad": 0.67,
+            "segmentacion": 75.36,
+            "emparejamiento": 16.62,
+            "personas": 0.02,
+            "tiempos": 0.0
+          },
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "cpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "cpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 52.72,
+              "tokens": 320,
+              "tok_s": 14.4
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 23.41,
+              "tokens": 240,
+              "tok_s": 16.8
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 51.94,
+              "tokens": 623,
+              "tok_s": 16.1
+            },
+            {
+              "etapa": "emparejamiento",
+              "s": 15.53,
+              "tokens": 89,
+              "tok_s": 15.0
+            }
+          ],
+          "tokens": {
+            "llamadas": 4,
+            "tokens_salida": 1272,
+            "tok_s_medio": 15.6
+          },
+          "vram_base_mib": 2009.0,
+          "vram_pico_mib": 2009.0,
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "verde y sin Falta",
+              "pasa": true,
+              "obtenido": 100.0,
+              "esperado": "≥ 90.0, Falta []"
+            },
+            {
+              "nombre": "afinidad",
+              "pasa": true,
+              "obtenido": 100,
+              "esperado": "≥ 60.0"
+            },
+            {
+              "nombre": "responsables distinto",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "excede",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            }
+          ],
+          "datos": {
+            "roles": [
+              "Técnico de mantenimiento: presente",
+              "Supervisor de turno: ausente"
+            ],
+            "excede": [],
+            "distinto": []
+          },
+          "ficha": {
+            "actividad": {
+              "valor": "Cambio de cartucho de filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "tema": {
+              "valor": "Mantenimiento",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "lugar": {
+              "valor": null,
+              "fuente": "inferido",
+              "confianza": "baja"
+            },
+            "proposito": {
+              "valor": "Cambiar el cartucho del filtro de agua",
+              "fuente": "audio",
+              "confianza": "alta"
+            },
+            "equipos": [
+              "guantes de nitrilo",
+              "lentes de seguridad",
+              "cubeta",
+              "cartucho",
+              "bolsa de residuos",
+              "toalla de papel",
+              "manómetro",
+              "llave de la carcasa",
+              "botón rojo"
+            ],
+            "personas": [
+              {
+                "nombre": "No identificado",
+                "rol": "técnico de mantenimiento",
+                "participacion": "participa",
+                "t": 1.36
+              }
+            ]
+          },
+          "pasa": true,
+          "total_s": 206.4,
+          "factor": 1.529,
+          "estimado_10_min_s": 917.1
+        },
+        {
+          "video": "video_e",
+          "n": 1,
+          "fase": "cpu",
+          "modo": "generar",
+          "duracion_s": 227.264,
+          "idioma": {
+            "codigo": "en",
+            "confianza": 0.9976,
+            "fijado_a_mano": false
+          },
+          "pasos_video_antes": 9,
+          "pasos_sop": 7,
+          "grupos": [
+            [
+              2
+            ],
+            [
+              3
+            ],
+            [
+              4
+            ],
+            [
+              5
+            ],
+            [
+              6
+            ],
+            [
+              7
+            ],
+            [
+              8
+            ]
+          ],
+          "segundos": {
+            "duracion": 0.1,
+            "audio": 1.12,
+            "transcripcion": 84.0,
+            "contexto": 69.83,
+            "segmentacion": 99.45,
+            "sop": 227.94,
+            "total_gemma": 397.22
+          },
+          "segundos_rnf05_fuera_de_rnf01": 53.1,
+          "dispositivos": {
+            "gpu": "NVIDIA GeForce RTX 2070 SUPER",
+            "transcripcion": "cpu",
+            "transcripcion_respaldo_cpu": false,
+            "llm": "cpu",
+            "embedder": "cpu"
+          },
+          "llamadas": [
+            {
+              "etapa": "contexto",
+              "s": 69.83,
+              "tokens": 448,
+              "tok_s": 13.4
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 32.71,
+              "tokens": 276,
+              "tok_s": 15.6
+            },
+            {
+              "etapa": "segmentacion",
+              "s": 66.73,
+              "tokens": 751,
+              "tok_s": 15.1
+            },
+            {
+              "etapa": "agrupar",
+              "s": 32.48,
+              "tokens": 173,
+              "tok_s": 15.48,
+              "intentos": 1
+            },
+            {
+              "etapa": "pasos",
+              "s": 77.14,
+              "tokens": 761,
+              "tok_s": 13.52,
+              "intentos": 1
+            },
+            {
+              "etapa": "resumen",
+              "s": 54.45,
+              "tokens": 377,
+              "tok_s": 13.94,
+              "intentos": 1
+            },
+            {
+              "etapa": "claves",
+              "s": 62.69,
+              "tokens": 644,
+              "tok_s": 14.86,
+              "intentos": 1
+            }
+          ],
+          "tokens": {
+            "llamadas": 7,
+            "tokens_salida": 3430,
+            "tok_s_medio": 14.6
+          },
+          "vram_base_mib": 1950.0,
+          "vram_pico_mib": 1976.0,
+          "vram_con_modelo_mib": 1973,
+          "advertencias": [],
+          "valida": true,
+          "chequeos": [
+            {
+              "nombre": "idioma",
+              "pasa": true,
+              "obtenido": "en",
+              "esperado": "en"
+            },
+            {
+              "nombre": "cuadro resumen y tabla de pasos llenos",
+              "pasa": true,
+              "obtenido": [],
+              "esperado": []
+            },
+            {
+              "nombre": "sin valores en inglés (sin_traducir)",
+              "pasa": false,
+              "obtenido": [
+                "falla 1, acción: 1 valor parece en el idioma del video, sin traducir al español"
+              ],
+              "esperado": []
+            },
+            {
+              "nombre": "RNF-05 por tramos",
+              "pasa": true,
+              "obtenido": 85.7,
+              "esperado": "≥ 80.0"
+            }
+          ],
+          "datos": {
+            "rnf05_tramos": "6/7 (85.7 %)",
+            "uno_a_uno": "6/7 (85.7 %)",
+            "cobertura_en_orden": "6/6 (100.0 %)",
+            "equipo_operacion": 11,
+            "equipo_operacion_nombres": [
+              "Guantes neutros",
+              "Barra de extensión",
+              "Cubeta",
+              "Bolsa de residuos",
+              "Llave",
+              "Botón rojo",
+              "Toalla de papel",
+              "gafas de seguridad",
+              "medidor de presión",
+              "cartucho de filtro",
+              "válvula de corte"
+            ],
+            "pasos_generados": [
+              "Colocar equipo de protección personal",
+              "Cerrar válvula de corte antes filtro",
+              "Liberar presión y abrir carcasa",
+              "Retirar cartucho viejo y revisar anillo",
+              "Instalar cartucho nuevo y apretar perno",
+              "Abrir válvula y purgar aire",
+              "Verificar fugas y presión"
+            ],
+            "completitud": {
+              "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+              "objetivo": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo.",
+              "alcance": "Cubre solo el filtro de cartucho mantenido en la línea de enjuague. No incluye reemplazar la carcasa del filtro o la válvula de corte.",
+              "lugar": "Línea de enjuague.",
+              "horario": "Cada 3 meses o cuando la presión sea menor a 2 bares.",
+              "responsable": "Técnico de mantenimiento",
+              "roles": [
+                "Técnico de mantenimiento"
+              ],
+              "equipo": 11,
+              "riesgos": 2,
+              "en_caso_de_falla": 2,
+              "duracion_total_min": 3.0,
+              "pasos_en_infinitivo": 7,
+              "pasos": 7,
+              "puntos_clave": 8,
+              "palabras_clave": 12,
+              "inferidos": 8
+            }
+          },
+          "pasa": false,
+          "total_s": 482.7,
+          "factor": 2.124,
+          "estimado_10_min_s": 1274.3
+        }
+      ],
+      "reproducibilidad": null,
+      "dispositivo_gemma": "cpu",
+      "ollama_ps": "NAME                    ID              SIZE      PROCESSOR    CONTEXT    RUNNER      UNTIL               \ngemma4:e4b-it-q4_K_M    dc35e8d9c606    1.9 GB    100% CPU     8192       llamacpp    29 minutes from now",
+      "fin": "2026-11-10T13:10:58",
+      "segundos_fase": 744.8
+    }
+  ],
+  "tiempos": {
+    "gpu": {
+      "video_a": {
+        "duracion_s": 135.0,
+        "corridas": 3,
+        "total_medio_s": 33.3,
+        "total_min_s": 31.5,
+        "total_max_s": 34.7,
+        "factor_medio": 0.246,
+        "estimado_10_min_s": 147.8,
+        "estimado_10_min_max_s": 154.1,
+        "cumple_rnf01": true
+      },
+      "video_b": {
+        "duracion_s": 114.643,
+        "corridas": 3,
+        "total_medio_s": 27.3,
+        "total_min_s": 26.8,
+        "total_max_s": 27.7,
+        "factor_medio": 0.238,
+        "estimado_10_min_s": 142.7,
+        "estimado_10_min_max_s": 144.7,
+        "cumple_rnf01": true
+      },
+      "video_c": {
+        "duracion_s": 201.128,
+        "corridas": 3,
+        "total_medio_s": 33.8,
+        "total_min_s": 33.6,
+        "total_max_s": 34.1,
+        "factor_medio": 0.168,
+        "estimado_10_min_s": 100.8,
+        "estimado_10_min_max_s": 101.8,
+        "cumple_rnf01": true
+      },
+      "video_d": {
+        "duracion_s": 167.829,
+        "corridas": 3,
+        "total_medio_s": 41.2,
+        "total_min_s": 40.7,
+        "total_max_s": 41.8,
+        "factor_medio": 0.245,
+        "estimado_10_min_s": 147.2,
+        "estimado_10_min_max_s": 149.4,
+        "cumple_rnf01": true
+      },
+      "video_e": {
+        "duracion_s": 227.264,
+        "corridas": 2,
+        "total_medio_s": 68.7,
+        "total_min_s": 68.2,
+        "total_max_s": 69.1,
+        "factor_medio": 0.302,
+        "estimado_10_min_s": 181.2,
+        "estimado_10_min_max_s": 182.4,
+        "cumple_rnf01": true
+      }
+    },
+    "cpu": {
+      "video_a": {
+        "duracion_s": 135.0,
+        "corridas": 1,
+        "total_medio_s": 206.4,
+        "total_min_s": 206.4,
+        "total_max_s": 206.4,
+        "factor_medio": 1.529,
+        "estimado_10_min_s": 917.1,
+        "estimado_10_min_max_s": 917.1,
+        "cumple_rnf01": false
+      },
+      "video_e": {
+        "duracion_s": 227.264,
+        "corridas": 1,
+        "total_medio_s": 482.7,
+        "total_min_s": 482.7,
+        "total_max_s": 482.7,
+        "factor_medio": 2.124,
+        "estimado_10_min_s": 1274.3,
+        "estimado_10_min_max_s": 1274.3,
+        "cumple_rnf01": false
+      }
+    }
+  },
+  "fallos": [
+    {
+      "fase": "cpu",
+      "video": "E",
+      "n": 1,
+      "etapa": "criterio",
+      "que": "sin valores en inglés (sin_traducir): ['falla 1, acción: 1 valor parece en el idioma del video, sin traducir al español'] (esperado [])"
+    }
+  ]
+}

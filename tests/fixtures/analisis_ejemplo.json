@@ -576,5 +576,6 @@
       "texto_visible": ["bar"],
       "riesgos": []
     }
-  ]
+  ],
+  "modelo_transcripcion": "large-v3-turbo"
 }

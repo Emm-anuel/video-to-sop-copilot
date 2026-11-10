@@ -64,18 +64,19 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Base de datos | PostgreSQL 16 (imagen con pgvector, ADR-005). Tablas del documento: `sops`, `videos`, `reportes`, `palabras`, `busquedas`; análisis y reportes como JSONB. pgvector queda para la búsqueda semántica de la versión 2 |
 | Contenedores | Docker Compose, versiones fijadas, configuración por variables de entorno |
 | Medios | ffmpeg: duración, audio mp3 mono 16 kHz, fotogramas (máx. 20), miniaturas |
-| Transcripción | faster-whisper `large-v3-turbo` en GPU (float16) o `small` en CPU (int8); tiempo por palabra, VAD, detección de idioma |
+| Transcripción | faster-whisper `large-v3-turbo`, el mismo modelo en CPU (int8) y en GPU (float16) (ADR-018, `WHISPER_MODELO_CPU`); otro modelo da el aviso `transcripcion_no_referencia`. Tiempo por palabra, VAD, detección de idioma |
 | LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir SOP sin plantilla (S5, [ADR-015](docs/adr/ADR-015-sop-plantilla-markdown.md)), describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
 | Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
 | ML académico | pandas, scikit-learn, LightGBM |
-| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` con proxy `/api` → `localhost:8000` (la API no tiene CORS). MVP: `frontend/README.md` |
+| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` en el servicio `web` de compose (puerto 4200) con proxy `/api` → la API según `API_URL` (`frontend/proxy.conf.js`; la API no tiene CORS). MVP: `frontend/README.md` |
 | Calidad | pytest, ruff, GitHub Actions |
 
 Hardware de referencia (ADR-014): RTX 2070 SUPER de 8 GB, i7-10700K, 32 GB de RAM. faster-whisper y
 Gemma 4 no caben juntos en la GPU: las etapas corren en secuencia, con un modelo cargado a la vez.
-**CPU de base, GPU opcional (ADR-018, propuesto):** nada exige tarjeta de video; si hay GPU, solo
-acelera. La GPU cambia dónde corre cada modelo, nunca cuál (RNF-07). Cada reporte guarda dónde
+**CPU de base, GPU opcional (ADR-018; el modelo de Whisper se decidió el 8 nov):** nada exige
+tarjeta de video; si hay GPU, solo acelera. La GPU cambia dónde corre cada modelo, nunca cuál
+(RNF-07): Whisper es `large-v3-turbo` en los dos, Gemma 4 el mismo. Cada reporte guarda dónde
 corrió cada modelo en `metadatos.dispositivos` (`plataforma/hardware.py`, `LLM_DISPOSITIVO`).
 Colab ya no forma parte del flujo; solo es respaldo si la GPU local falla.
 
@@ -115,23 +116,29 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 7 nov 2026 (resumen semanal en `docs/plan/estado.md`):
+> Estado al 10 nov 2026 (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
 >   en Docker, estado del LLM en `/health`, ADR-006 con su benchmark y el prototipo de segmentación
 >   (`percepcion/segmentacion.py`, ADR-010). Se reutilizan en 1.0.
-> - **Lectura del SOP en Markdown/TXT:** con código, sin LLM, según la plantilla de
+> - **Lectura del SOP:** con código, sin LLM, según la plantilla de
 >   `docs/contrato/plantilla_sop.md` (`lenguaje/sop_markdown.py`, `scripts/convertir_sop.py`,
->   ADR-015). PDF y Word siguen pendientes (S5).
+>   ADR-015). PDF y Word (7 nov, rama `feat/sop-pdf-word`): `lenguaje/lectura_sop.py` saca el
+>   texto y prueba la plantilla; si no la sigue (también un .md o .txt), Gemma 4
+>   (`prompts/sop_texto_libre_v3.md`, una cita verificada por paso, `num_ctx` según el largo).
+>   `POST /sops` es asíncrono: 202 y `GET /sops/{id}/estado`; la conversión corre en el
+>   trabajador, con prioridad sobre el siguiente video, en flujo con corte por inactividad
+>   (`ClienteLLM.chat_en_flujo`). Un SOP adjunto a `POST /videos` (RF-02) sigue el mismo camino.
+>   `sops.metodo`, `sops.advertencias`, `sops.estado` y `sops.error`: migraciones `0003` y `0004`.
 > - **Tablas del modelo de datos (sección 10):** las cinco (`sops`, `videos`, `reportes`,
->   `palabras`, `busquedas`) en `plataforma/modelos.py` y la migración `0002`; `sops.codigo` es
->   una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
+>   `palabras`, `busquedas`) en `plataforma/modelos.py` y las migraciones `0002` a `0004`;
+>   `sops.codigo` es una columna generada. La lógica de publicar y buscar sigue pendiente (S6).
 > - **Ingesta de audio y transcripción (25 oct, en `main`):**
 >   `percepcion/medios.py` (duración con ffprobe, audio mp3 mono 16 kHz con ffmpeg) y
 >   `percepcion/transcripcion.py` (RF-09 idioma con confianza o fijado a mano; RF-10 tiempo por
 >   segmento y por palabra, TXT `[mm:ss]` en vivo). faster-whisper con GPU corre en el host, desde el
->   venv con el extra `gpu`; en Docker, solo CPU (`small`; seguimiento en ADR-014,
+>   venv con el extra `gpu`; en Docker, solo CPU (`large-v3-turbo` int8 desde el 8 nov; seguimiento en ADR-014,
 >   `docs/dev/transcripcion.md`).
 > - **Emparejamiento en `main`:** `clasificar`, `orden` y `emparejar` (`lenguaje/emparejamiento.py`):
 >   cascada completa (ADR-012, ADR-013). Juez Gemma 4 de la zona gris (27 oct) en `lenguaje/juez.py`,
@@ -173,9 +180,38 @@ docs/
 > - **Frontend (7 nov):** Emmanuel crea la base de Angular y la pantalla `/nuevo` (subir SOP y video);
 >   Sara hace la pantalla del reporte (`/videos/:id/reporte`, RF-20) sobre esa base, reemplazando un
 >   componente provisional. Detalle, contrato y reglas de presentación: `frontend/README.md`.
-> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); lectura del
->   SOP en PDF y Word, SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
->   MVP.
+> - **Ficha de contexto (7 nov, rama `feat/contexto`, RF-12):** `percepcion/contexto.py` con
+>   Gemma 4 (`prompts/contexto_v2.md`; v1 se conserva) después de la transcripción y antes de los pasos, en la
+>   misma carga del modelo; cita verificada por dato y por persona, y fuente, confianza y segundo
+>   puestos por el código. Se guarda en `videos.contexto` solo si se generó (si no, NULL y aviso
+>   `contexto_sin_generar`); `GET /videos/{id}/contexto`. Los fotogramas ([f=N]) entran solo si
+>   existen. Medición CPU/GPU: `scripts/medir_contexto.py`, seguimiento en ADR-018.
+> - **Afinidad y personas (8 nov, rama `feat/afinidad-roles`, ADR-020):** `lenguaje/afinidad.py`
+>   (RF-17) y `lenguaje/personas.py` (RF-15), solo MiniLM y código. Afinidad < `AFINIDAD_MIN` detiene
+>   la validación tras la ficha con `proceso="afinidad_baja"` (migración `0005`);
+>   `POST /videos/{id}/validar?continuar=true` sigue. Roles por núcleo y complemento; *distinto*
+>   solo con una persona distinguible. Umbrales nuevos en `Settings`, sin calibrar. Medición:
+>   `scripts/medir_afinidad.py` (A–D pasan).
+> - **Tiempos (8 nov, rama `feat/s5`, ADR-021):** `lenguaje/tiempos.py`, solo código. Si el operador
+>   narra la duración (verbo de duración de una lista cerrada, ES/EN), esa gana siempre (§5.5); si
+>   no, la medida del paso fusionado hasta el inicio del siguiente paso del video (pausa incluida).
+>   ±`TOLERANCIA_TIEMPO`; solo *excede* cuenta en `pasos_fuera_de_tiempo`. Total y horario
+>   (`UMBRAL_HORARIO`, sin calibrar). Medición:
+>   `scripts/medir_tiempos.py` (C: 1 *excede* en el paso 1). `/nuevo` acepta PDF y Word con la
+>   conversión asíncrona (`frontend/README.md`).
+> - **Rescate y RNF-07 (9 nov, rama `feat/s5`, ADR-022):** un *Falta* se busca en los *Sobra*
+>   contiguos entre sus pares vecinos (`emparejamiento.rescatar`; ventana ≥ `UMBRAL_ALTO` y siempre
+>   con el juez; `Fusion.rescate`, `FilaReporte.rescatado`). La segmentación de Gemma no es
+>   determinista: `videos.pasos_video` la guarda (`SegmentacionGuardada`) y repetir la validación la
+>   reusa (`?segmentar=true` la vuelve a pedir). Con la misma segmentación el porcentaje se
+>   reproduce; la redacción del juez puede variar. A: 91.67–100 % con segmentaciones nuevas (ADR-018).
+> - **Cierre de S5 (10 nov, `scripts/medir_s5.py`,
+>   [informe](docs/adr/datos/s5/medicion-s5-20261110-1311.md)):** con GPU, A–E pasan la §14 en
+>   14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por
+>   un valor sin traducir y RNF-01 no se cumple (15–21 min). SOP generado (RF-22 a 25, 27) en
+>   `lenguaje/sop_generado.py` (ADR-023); RF-26 solo el endpoint.
+> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6); editor
+>   de RF-26; pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
@@ -184,10 +220,11 @@ docs/
 
 | Acción | Make | PowerShell (Windows) |
 |---|---|---|
-| Levantar API + Postgres | `make up` | `docker compose up -d --build` |
+| Levantar API + Postgres + frontend (4200) | `make up` | `docker compose up -d --build` |
 | Levantar con el LLM, GPU si hay (recomendado) | — | `.\scripts\levantar.ps1 -Build` (`-Plan` solo muestra qué haría; `-Cpu` fuerza CPU) |
 | Levantar con el LLM (CPU, cualquier equipo) | — | `docker compose --profile llm up -d --build` |
 | Levantar con el LLM en GPU NVIDIA (ADR-018) | — | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build` |
+| Postgres, Ollama en GPU y frontend, API en el host (demo y mediciones, `docs/dev/api.md`) | `make up-gpu` | `$env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web; Remove-Item Env:API_URL_WEB` |
 | Detener (conserva datos) | `make down` | `docker compose down` |
 | Detener también el LLM (conserva modelos) | — | `docker compose --profile llm down` |
 | Logs | `make logs` | `docker compose logs -f` |
@@ -199,6 +236,9 @@ docs/
 | Ejecutar un entregable | — | `jupyter nbconvert --to notebook --execute --inplace "docs/entregables/Semana N/AvanceN.51.ipynb"` |
 | Benchmark del LLM / evaluar segmentación | — | `python scripts/benchmark_llm.py --tabla` · `python scripts/evaluar_segmentacion.py --tabla` |
 | Medir CPU contra GPU con A y B (ADR-018) | — | `python scripts/medir_dispositivos.py --help` |
+| Medir la ficha de contexto en CPU y GPU (ADR-018) | — | `python scripts/medir_contexto.py --config gpu --config cpu video_a=…analisis.json` |
+| Medir Whisper en CPU contra la referencia (ADR-018) | — | `python scripts/medir_whisper.py --sop … video_a=…mp4` |
+| Medir afinidad y personas con los videos A–D (ADR-020) | — | `python scripts/medir_afinidad.py --sop … --sop-extra … --anotacion … video_a=…` |
 | Calibrar los umbrales / diagnosticar el emparejamiento | — | `python scripts/calibrar_umbrales.py --sop … --anotacion … video_a=… video_b=…` · `python scripts/diagnosticar_emparejamiento.py …` |
 
 Salud del sistema: `GET http://localhost:8000/health` → `{"status":"ok","db":"ok","llm":"ok",

@@ -22,6 +22,7 @@ módulo, para que la API arranque rápido y las pruebas puedan simular el modelo
 import logging
 import time
 from bisect import bisect_left
+from collections import Counter
 from collections.abc import Callable, Sequence
 from functools import lru_cache
 from itertools import pairwise
@@ -34,22 +35,26 @@ from scipy.optimize import linear_sum_assignment
 from sopvid.contrato import (
     ESTADOS,
     ESTADOS_CON_ORDEN,
+    ESTADOS_PAR,
+    RESULTADOS_JUEZ,
     SOP,
     Clasificacion,
     Confianza,
     EstadoPaso,
     Fuente,
     Fusion,
+    Juicio,
     MarcoOperador,
     Par,
     PasoSOP,
     PasoVideo,
     ResultadoEmparejamiento,
+    ResultadoJuez,
     ResultadoPaso,
     ResumenClasificacion,
     Segmento,
 )
-from sopvid.lenguaje.juez import Juez, aplicar_juez
+from sopvid.lenguaje.juez import Juez, aplicar_juez, narracion_de
 from sopvid.plataforma.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -568,7 +573,7 @@ def emparejar(
     transcripcion: Sequence[Segmento] = (),
 ) -> ResultadoEmparejamiento:
     """Empareja los pasos del video con los del SOP: fusionar → asignar → clasificar → juez →
-    orden.
+    rescate → orden.
 
     1. `fusionar` (ADR-013) con `UMBRAL_FUSION`.
     2. Similitud recalculada entre el SOP y los pasos ya fusionados (`texto_para_embeber`). El
@@ -577,9 +582,13 @@ def emparejar(
     4. Con `juez`, `aplicar_juez` decide los pares de la zona gris leyendo la narración de cada
        paso en `transcripcion` (la del mismo video). Sin juez, quedan en zona_gris y no se
        llama al LLM.
-    5. `orden` (subsecuencia creciente), una sola vez y después del juez, porque un par roto
-       por el juez ya no cuenta para el orden.
-    6. `marcar_marco` (ADR-016): los Sobra antes del primer paso emparejado o después del
+    5. Con `juez`, `rescatar` (ADR-022) busca cada Falta en los fragmentos que quedaron como
+       Sobra entre sus pares vecinos; una ventana con coseno ≥ `UMBRAL_ALTO` va al juez y, si la
+       confirma, se une en un solo paso del video (`Fusion.rescate`). Los demás juicios se
+       conservan.
+    6. `orden` (subsecuencia creciente), una sola vez y después del juez y del rescate, porque un
+       par roto por el juez ya no cuenta para el orden y uno rescatado sí.
+    7. `marcar_marco` (ADR-016): los Sobra antes del primer paso emparejado o después del
        último quedan marcados como intro o cierre y salen del conteo de Sobra.
 
     Sin `embedder` usa el del proceso (`get_embedder()`). Los `indice_video` del resultado
@@ -606,9 +615,239 @@ def emparejar(
     clasificacion = clasificar(asignacion, pasos_sop, fusionados)
     if juez is not None:
         clasificacion = aplicar_juez(clasificacion, pasos_sop, fusionados, transcripcion, juez)
+        if pasos_video:
+            clasificacion, fusionados, fusiones = rescatar(
+                clasificacion,
+                pasos_sop,
+                pasos_video,
+                x[len(pasos_sop) :],
+                fusionados,
+                fusiones,
+                vectores_sop,
+                embedder,
+                juez,
+                transcripcion,
+            )
     clasificacion = marcar_marco(orden(clasificacion))
     return ResultadoEmparejamiento(
         clasificacion=clasificacion, fusiones=fusiones, pasos_video=fusionados
+    )
+
+
+# ── Rescate de un Falta en sus fragmentos (ADR-022) ──────────────────────────────────────────
+
+
+class _Rescate(NamedTuple):
+    """Un Falta rescatado: la ventana de pasos fusionados [a, b] que se une en un solo paso."""
+
+    a: int
+    b: int
+    indice_sop: int
+    paso: PasoVideo
+    numeros: list[int]
+    similitudes: list[float]
+    similitud: float
+    estado: EstadoPaso
+    juicio: Juicio
+
+
+def rescatar(
+    clasificacion: Clasificacion,
+    pasos_sop: Sequence[PasoSOP],
+    originales: Sequence[PasoVideo],
+    vectores_originales: np.ndarray,
+    fusionados: Sequence[PasoVideo],
+    fusiones: Sequence[Fusion],
+    vectores_sop: np.ndarray,
+    embedder: Embedder,
+    juez: Juez,
+    transcripcion: Sequence[Segmento],
+    *,
+    reloj: Callable[[], float] = time.perf_counter,
+) -> tuple[Clasificacion, list[PasoVideo], list[Fusion]]:
+    """Busca cada paso del SOP en Falta en los fragmentos que quedaron como Sobra (ADR-022).
+
+    Cuando Gemma parte un paso en fragmentos que la fusión no une (el paso del SOP más parecido
+    de cada uno se desvía), ninguno se parece lo bastante al paso y el húngaro lo deja en Falta o
+    lo empareja con un fragmento de otro paso, que el juez rechaza. Para cada Falta:
+
+    1. Anclas: el par del paso anterior del SOP y el del siguiente (Cumple, Parcial o sin
+       revisar). Sin ninguna (otro procedimiento) no se rescata nada.
+    2. Región: los pasos del video entre las dos anclas (desde el principio o hasta el final si
+       falta una); de ella, los Sobra que no se usaron en otro rescate.
+    3. Ventanas: cada subventana de Sobra contiguos, unida como en la fusión (`_unir`, con el
+       original más parecido como representante). Gana la de mayor coseno con el paso del SOP.
+    4. Solo si llega a `UMBRAL_ALTO` (evidencia fuerte), va al juez con la narración de toda la
+       ventana: Cumple o Parcial la rescata; no_corresponde la descarta; un respaldo (Ollama
+       caído) la deja como par sin revisar (zona_gris), y el reporte queda provisional.
+
+    No vuelve a emparejar ni a juzgar los demás pares: sus juicios se conservan. Devuelve la
+    clasificación, los pasos fusionados y su registro, con la ventana unida en un paso con
+    `Fusion.rescate`; sin rescates, los mismos. Los logs llevan conteos, nunca texto.
+    """
+    alto = get_settings().umbral_alto
+    inicio = reloj()
+    pares = {
+        p.indice_sop: p.indice_video
+        for p in clasificacion.pasos
+        if p.estado in ESTADOS_PAR and p.indice_sop is not None and p.indice_video is not None
+    }
+    sobra = {p.indice_video for p in clasificacion.pasos if p.estado == "Sobra"}
+    por_numero = {p.numero: (k, p) for k, p in enumerate(originales)}
+    caido = next(
+        (
+            p.juicio
+            for p in clasificacion.pasos
+            if p.juicio is not None and p.juicio.motivo == "llm_no_disponible"
+        ),
+        None,
+    )
+    usados: set[int] = set()
+    rescates: list[_Rescate] = []
+    llamadas: Counter[ResultadoJuez] = Counter()
+    faltas = sorted(
+        (p.indice_sop for p in clasificacion.pasos if p.estado == "Falta"),
+        key=lambda i: i if i is not None else -1,
+    )
+    for i in faltas:
+        assert i is not None
+        antes = [k for k in pares if k < i]
+        despues = [k for k in pares if k > i]
+        if not antes and not despues:
+            continue
+        desde = pares[max(antes)] + 1 if antes else 0
+        hasta = pares[min(despues)] - 1 if despues else len(fusionados) - 1
+        libres = [j for j in range(desde, hasta + 1) if j in sobra and j not in usados]
+        ventanas = [
+            (a, b)
+            for a in libres
+            for b in range(a, hasta + 1)
+            if all(j in libres for j in range(a, b + 1))
+        ]
+        if not ventanas:
+            continue
+        candidatas = []
+        for a, b in ventanas:
+            numeros = [n for j in range(a, b + 1) for n in fusiones[j].originales]
+            cosenos = similitud(
+                vectores_sop[i], vectores_originales[[por_numero[n][0] for n in numeros]]
+            )[0]
+            grupo = [por_numero[n][1] for n in numeros]
+            paso = _unir(grupo, grupo[int(np.argmax(cosenos))], fusionados[a].numero)
+            candidatas.append((a, b, numeros, [float(c) for c in cosenos], paso))
+        vectores = embedder.embed([texto_para_embeber(c[4]) for c in candidatas])
+        cosenos_ventana = similitud(vectores_sop[i], vectores)[0]
+        mejor = int(np.argmax(cosenos_ventana))
+        coseno = float(cosenos_ventana[mejor])
+        if coseno < alto:
+            continue
+        a, b, numeros, similitudes, paso = candidatas[mejor]
+        if caido is not None:
+            juicio = caido.model_copy(update={"similitud": coseno, "intentos": 0})
+        else:
+            juicio = juez.juzgar(pasos_sop[i], paso, coseno, narracion_de(paso, transcripcion))
+            if juicio.motivo == "llm_no_disponible":
+                caido = juicio
+        if juicio.origen == "respaldo":
+            llamadas["respaldo"] += 1
+            estado: EstadoPaso = "zona_gris"
+        else:
+            assert juicio.veredicto is not None
+            llamadas[juicio.veredicto] += 1
+            if juicio.veredicto == "no_corresponde":
+                continue
+            estado = juicio.veredicto
+        rescates.append(_Rescate(a, b, i, paso, numeros, similitudes, coseno, estado, juicio))
+        usados.update(range(a, b + 1))
+    if not llamadas:
+        return clasificacion, list(fusionados), list(fusiones)
+
+    # Unir cada ventana rescatada en un paso y renumerar.
+    por_inicio = {r.a: r for r in rescates}
+    nuevos: list[PasoVideo] = []
+    registro: list[Fusion] = []
+    nuevo_indice: dict[int, int] = {}
+    j = 0
+    while j < len(fusionados):
+        numero = len(nuevos) + 1
+        rescate = por_inicio.get(j)
+        if rescate is None:
+            nuevo_indice[j] = len(nuevos)
+            nuevos.append(fusionados[j].model_copy(update={"numero": numero}))
+            registro.append(fusiones[j].model_copy(update={"numero": numero}))
+            j += 1
+            continue
+        for k in range(rescate.a, rescate.b + 1):
+            nuevo_indice[k] = len(nuevos)
+        grupo = [por_numero[n][1] for n in rescate.numeros]
+        nuevos.append(rescate.paso.model_copy(update={"numero": numero}))
+        registro.append(
+            Fusion(
+                numero=numero,
+                originales=rescate.numeros,
+                paso_sop=pasos_sop[rescate.indice_sop].numero,
+                citas=[p.cita for p in grupo],
+                similitudes=rescate.similitudes,
+                responsables_distintos=_responsables_distintos(grupo),
+                rescate=True,
+            )
+        )
+        j = rescate.b + 1
+
+    por_sop = {r.indice_sop: r for r in rescates}
+    en_ventana = {k for r in rescates for k in range(r.a, r.b + 1)}
+    pasos: list[ResultadoPaso] = []
+    for p in clasificacion.pasos:
+        if p.estado == "Sobra" and p.indice_video in en_ventana:
+            continue
+        if p.estado == "Falta" and p.indice_sop in por_sop:
+            r = por_sop[p.indice_sop]
+            pasos.append(
+                _con_video(
+                    r.estado,
+                    nuevos[nuevo_indice[r.a]],
+                    indice_sop=r.indice_sop,
+                    indice_video=nuevo_indice[r.a],
+                    similitud=r.similitud,
+                    juicio=r.juicio,
+                )
+            )
+            continue
+        if p.indice_video is not None:
+            p = p.model_copy(update={"indice_video": nuevo_indice[p.indice_video]})
+        pasos.append(p)
+
+    resumen = clasificacion.resumen
+    conteo = dict.fromkeys(ESTADOS, 0)
+    for p in pasos:
+        conteo[p.estado] += 1
+    n_llamadas = sum(llamadas.values())
+    juez_conteo = dict(resumen.juez or dict.fromkeys(RESULTADOS_JUEZ, 0))
+    for resultado, n in llamadas.items():
+        juez_conteo[resultado] += n
+    pares_total = resumen.pares + n_llamadas
+    pares_llm = resumen.pares_llm + n_llamadas
+    segundos = (resumen.segundos_juez or 0.0) + (reloj() - inicio)
+    nuevo_resumen = resumen.model_dump() | {
+        "conteo": conteo,
+        "pares": pares_total,
+        "pares_llm": pares_llm,
+        "pct_pares_llm": 100 * pares_llm / pares_total,
+        "juez": juez_conteo,
+        "segundos_juez": segundos,
+        "rescatados": len(rescates),
+    }
+    logger.info(
+        "Rescate de Falta (umbral %.2f): %d al juez (%s), %d rescatados",
+        alto,
+        n_llamadas,
+        dict(llamadas),
+        len(rescates),
+    )
+    return (
+        Clasificacion.model_validate({"pasos": pasos, "resumen": nuevo_resumen}),
+        nuevos,
+        registro,
     )
 
 

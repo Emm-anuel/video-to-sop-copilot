@@ -1,15 +1,54 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "Afinidad": {
+      "additionalProperties": false,
+      "description": "¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la\ncolumna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).\n\n`explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada\ncomponente que se pudo calcular (\"global\", \"actividad\", \"objetivo\", \"equipos\"); vacío en las\nafinidades anteriores a ADR-020.",
+      "properties": {
+        "valor": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Valor",
+          "type": "integer"
+        },
+        "explicacion": {
+          "title": "Explicacion",
+          "type": "string"
+        },
+        "bajo_umbral": {
+          "title": "Bajo Umbral",
+          "type": "boolean"
+        },
+        "componentes": {
+          "additionalProperties": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "default": {},
+          "title": "Componentes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "valor",
+        "explicacion",
+        "bajo_umbral"
+      ],
+      "title": "Afinidad",
+      "type": "object"
+    },
     "Aviso": {
       "additionalProperties": false,
-      "description": "Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP.",
+      "description": "Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.",
       "properties": {
         "tipo": {
           "enum": [
             "segmentacion_heuristica",
             "juez_sin_revisar",
-            "pasos_sin_redactar"
+            "pasos_sin_redactar",
+            "contexto_sin_generar",
+            "transcripcion_no_referencia"
           ],
           "title": "Tipo",
           "type": "string"
@@ -28,7 +67,7 @@
     },
     "ConteoReporte": {
       "additionalProperties": false,
-      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).",
+      "description": "Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).\n\n`personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las\nfilas con responsable \"distinto\" más los roles \"ausente\" que son responsables de algún paso\n(`RolReporte.con_pasos`, ADR-020), y las filas con tiempo \"excede\" (ADR-021: \"menor\" es más\nrápido de lo esperado, no un incumplimiento). 0 en los reportes que no los calculaban.",
       "properties": {
         "cumple": {
           "minimum": 0,
@@ -63,6 +102,18 @@
         "marco_operador": {
           "minimum": 0,
           "title": "Marco Operador",
+          "type": "integer"
+        },
+        "personas_con_diferencias": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Personas Con Diferencias",
+          "type": "integer"
+        },
+        "pasos_fuera_de_tiempo": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Pasos Fuera De Tiempo",
           "type": "integer"
         }
       },
@@ -138,7 +189,7 @@
     },
     "FilaReporte": {
       "additionalProperties": false,
-      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.",
+      "description": "Una fila de la tabla del reporte: un `ResultadoPaso`, en el mismo orden.\n\n`paso_sop` es el número del paso del SOP (desde 1), sin él en un Sobra; `paso_video`, el\nnúmero del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de\nla transcripción (regla 4). Un zona_gris se muestra como \"sin revisar\". `justificacion` es la\ndel juez cuando decidió el par.\n\n`responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un\nFalta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los\nreportes guardados antes de ADR-020 y ADR-021.\n\n`rescatado` (ADR-022) es true si el paso del video del par se armó con varios fragmentos al\nrescatar un Falta, y el juez lo confirmó: la pantalla lo marca para que se vea.",
       "properties": {
         "estado": {
           "enum": [
@@ -269,12 +320,103 @@
           ],
           "default": null,
           "title": "Justificacion"
+        },
+        "responsable": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponsableFila"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tiempo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TiempoFila"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rescatado": {
+          "default": false,
+          "title": "Rescatado",
+          "type": "boolean"
         }
       },
       "required": [
         "estado"
       ],
       "title": "FilaReporte",
+      "type": "object"
+    },
+    "Horario": {
+      "additionalProperties": false,
+      "description": "Horario o frecuencia del SOP frente a lo que se dice en el video (§5.5).\n\nSin horario en el SOP, \"sin_referencia\". Si el SOP lo define y el video no lo menciona,\n\"no_mencionado\". Lo observado lleva su segundo y su frase de la transcripción (regla 4).",
+      "properties": {
+        "esperado": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Esperado"
+        },
+        "observado": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observado"
+        },
+        "estado": {
+          "enum": [
+            "coincide",
+            "distinto",
+            "no_mencionado",
+            "sin_referencia"
+          ],
+          "title": "Estado",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        }
+      },
+      "required": [
+        "estado"
+      ],
+      "title": "Horario",
       "type": "object"
     },
     "MetadatosValidacion": {
@@ -346,6 +488,11 @@
             }
           ],
           "default": null
+        },
+        "segmentacion_reusada": {
+          "default": false,
+          "title": "Segmentacion Reusada",
+          "type": "boolean"
         }
       },
       "required": [
@@ -383,6 +530,156 @@
       "title": "PasoSOPReporte",
       "type": "object"
     },
+    "ResponsableFila": {
+      "additionalProperties": false,
+      "description": "Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).\n\n`esperado` es el del SOP; `observado`, quien lo hace en el video (\"Nombre (rol)\" o el rol;\n`None` si no se sabe, y entonces el estado es \"no_identificado\" y no hay similitud).\n`similitud` es la de los roles comparados (ADR-020: la menor entre núcleo y complemento).\n`nota` dice cómo se identificó a la persona y los casos especiales (paso fusionado con varios\nresponsables, un solo narrador sin nombre…); vacía en los reportes anteriores a ADR-020.",
+      "properties": {
+        "esperado": {
+          "minLength": 1,
+          "title": "Esperado",
+          "type": "string"
+        },
+        "observado": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observado"
+        },
+        "estado": {
+          "enum": [
+            "coincide",
+            "distinto",
+            "no_identificado"
+          ],
+          "title": "Estado",
+          "type": "string"
+        },
+        "similitud": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Similitud"
+        },
+        "nota": {
+          "default": "",
+          "title": "Nota",
+          "type": "string"
+        }
+      },
+      "required": [
+        "esperado",
+        "estado"
+      ],
+      "title": "ResponsableFila",
+      "type": "object"
+    },
+    "RolReporte": {
+      "additionalProperties": false,
+      "description": "Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).\n\nPresente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona\n(regla 4), `persona` (\"Nombre (rol)\" o el rol), la `similitud` de los roles y la `confianza`\ndel rol de la persona (\"baja\" si no aparece en su cita: lo infirió el LLM); ausente no lleva\nnada de eso.\n\n`con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con\npasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un\nsupervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,\nADR-020). Por defecto true: los reportes anteriores conservan su conteo.",
+      "properties": {
+        "rol": {
+          "minLength": 1,
+          "title": "Rol",
+          "type": "string"
+        },
+        "estado": {
+          "enum": [
+            "presente",
+            "mencionado",
+            "ausente"
+          ],
+          "title": "Estado",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "persona": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Persona"
+        },
+        "similitud": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Similitud"
+        },
+        "confianza": {
+          "anyOf": [
+            {
+              "enum": [
+                "alta",
+                "media",
+                "baja"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confianza"
+        },
+        "con_pasos": {
+          "default": true,
+          "title": "Con Pasos",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rol",
+        "estado"
+      ],
+      "title": "RolReporte",
+      "type": "object"
+    },
     "SOPReporte": {
       "additionalProperties": false,
       "properties": {
@@ -413,6 +710,100 @@
         "pasos"
       ],
       "title": "SOPReporte",
+      "type": "object"
+    },
+    "TiempoFila": {
+      "additionalProperties": false,
+      "description": "Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).\n\n`observado_min` es la que narra el operador (\"narrado\", con la frase en `cita`, regla 4) o\nla medida del paso del video ya fusionado (\"medido\", sin cita): de su inicio al inicio del\nsiguiente paso del video, con la pausa (el último, hasta el final del video); si el operador\nnarra la duración, esa gana siempre (§5.5, ADR-021). Sin tiempo esperado en el SOP, el estado es\n\"sin_referencia\". Solo \"excede\" cuenta como fuera de tiempo; \"menor\" se muestra, pero no es\nun incumplimiento.",
+      "properties": {
+        "esperado_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Esperado Min"
+        },
+        "observado_min": {
+          "minimum": 0,
+          "title": "Observado Min",
+          "type": "number"
+        },
+        "origen": {
+          "enum": [
+            "narrado",
+            "medido"
+          ],
+          "title": "Origen",
+          "type": "string"
+        },
+        "estado": {
+          "enum": [
+            "en_tiempo",
+            "excede",
+            "menor",
+            "sin_referencia"
+          ],
+          "title": "Estado",
+          "type": "string"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observado_min",
+        "origen",
+        "estado"
+      ],
+      "title": "TiempoFila",
+      "type": "object"
+    },
+    "TiempoTotal": {
+      "additionalProperties": false,
+      "description": "Duración total del procedimiento frente a la del SOP (§5.5, ADR-021): la suma de lo\nobservado en los pares (Falta y Sobra no suman) frente a `resumen.duracion_total_min` o, si\nel SOP no lo trae, la suma de los esperados cuando todos los pasos lo tienen.",
+      "properties": {
+        "esperado_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Esperado Min"
+        },
+        "observado_min": {
+          "minimum": 0,
+          "title": "Observado Min",
+          "type": "number"
+        },
+        "estado": {
+          "enum": [
+            "en_tiempo",
+            "excede",
+            "menor",
+            "sin_referencia"
+          ],
+          "title": "Estado",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observado_min",
+        "estado"
+      ],
+      "title": "TiempoTotal",
       "type": "object"
     },
     "Umbrales": {
@@ -448,6 +839,118 @@
           "minimum": 0,
           "title": "Semaforo Amarillo",
           "type": "number"
+        },
+        "afinidad_min": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Min"
+        },
+        "tolerancia_tiempo": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tolerancia Tiempo"
+        },
+        "umbral_rol": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Umbral Rol"
+        },
+        "afinidad_cos_cero": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Cos Cero"
+        },
+        "afinidad_cos_cien": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Cos Cien"
+        },
+        "afinidad_umbral_equipo": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afinidad Umbral Equipo"
+        },
+        "umbral_rol_complemento": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Umbral Rol Complemento"
+        },
+        "umbral_horario": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Umbral Horario"
         }
       },
       "required": [
@@ -462,7 +965,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-019). `afinidad` queda en `None` hasta\nRF-17 (post-MVP).",
+  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-019).\n\n`afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10\ndel documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,\nigual que `responsable` y `tiempo` de cada fila.",
   "properties": {
     "version_contrato": {
       "const": 1,
@@ -499,16 +1002,13 @@
     "afinidad": {
       "anyOf": [
         {
-          "maximum": 100,
-          "minimum": 0,
-          "type": "integer"
+          "$ref": "#/$defs/Afinidad"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "Afinidad"
+      "default": null
     },
     "conteo": {
       "$ref": "#/$defs/ConteoReporte"
@@ -519,6 +1019,36 @@
       },
       "title": "Filas",
       "type": "array"
+    },
+    "roles": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RolReporte"
+      },
+      "title": "Roles",
+      "type": "array"
+    },
+    "tiempo_total": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TiempoTotal"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "horario": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Horario"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "metadatos": {
       "$ref": "#/$defs/MetadatosValidacion"

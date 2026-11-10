@@ -547,6 +547,14 @@ def test_prompt_mal_formado_falla(texto, error):
         jz.leer_prompt("minimo", texto)
 
 
+def test_prompt_con_secciones_extra_las_deja_en_extras():
+    marcadores = {**jz._MARCADORES, "notas": frozenset({"detalle"})}
+    prompt = jz.leer_prompt("minimo", PROMPT_MINIMO + "## notas\nNota: $detalle\n", marcadores)
+    assert set(prompt.extras) == {"notas"}
+    assert prompt.extras["notas"].substitute(detalle="x") == "Nota: x"
+    assert jz.leer_prompt("minimo", PROMPT_MINIMO).extras == {}
+
+
 # ── Dentro de emparejar ──────────────────────────────────────────────────────────────────────
 
 

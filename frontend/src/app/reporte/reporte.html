@@ -39,7 +39,7 @@
           </p>
         }
         @if (r.afinidad != null) {
-          <p class="afinidad">Afinidad: {{ r.afinidad | number: '1.2-2' }}</p>
+          <p class="afinidad">Afinidad: {{ r.afinidad.valor }}</p>
         }
         @if (r.provisional) {
           <div class="avisos" role="status">
@@ -235,6 +235,18 @@
             <p class="error" role="alert">{{ e.error || 'El procesamiento falló.' }}</p>
           }
         </section>
+        @if (e.proceso === 'afinidad_baja') {
+          <section class="tarjeta avisos afinidad-baja" role="alert">
+            <p><strong>El video parece no corresponder a este SOP.</strong></p>
+            @if (e.afinidad; as a) {
+              <p>Afinidad: {{ a.valor }} de 100</p>
+              <p class="explicacion">{{ a.explicacion }}</p>
+            }
+            <button type="button" [disabled]="continuando()" (click)="continuar()">
+              Continuar de todos modos
+            </button>
+          </section>
+        }
       } @else if (!errorConsulta()) {
         <p>Consultando el estado del video…</p>
       }

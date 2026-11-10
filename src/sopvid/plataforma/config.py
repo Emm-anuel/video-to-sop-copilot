@@ -57,10 +57,15 @@ class Settings(BaseSettings):
     # Tamaño máximo de un video en POST /videos (subida completa, RF-06 del MVP).
     subida_max_mb: int = Field(default=1024, gt=0)
 
-    # Transcripción con faster-whisper (RF-09, RF-10). Perfil CPU por defecto; perfil gpu:
-    # WHISPER_MODELO=large-v3-turbo, WHISPER_DISPOSITIVO=cuda, WHISPER_COMPUTE_TYPE=float16.
-    # El modelo es un nombre de faster-whisper ("small", "large-v3-turbo") o una carpeta local.
-    whisper_modelo: str = "small"
+    # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
+    # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es
+    # un nombre de faster-whisper ("large-v3-turbo", "small") o una carpeta local.
+    whisper_modelo: str = "large-v3-turbo"
+    # Modelo cuando Whisper corre en CPU (WHISPER_DISPOSITIVO=cpu, "auto" sin GPU o el respaldo si
+    # cuda falla); vacío, el mismo WHISPER_MODELO. El de referencia es large-v3-turbo: con otro
+    # (p. ej. small, más rápido en CPU), el reporte y la ficha llevan el aviso
+    # "transcripcion_no_referencia" y el reporte queda provisional.
+    whisper_modelo_cpu: str | None = "large-v3-turbo"
     # "auto": cuda si ctranslate2 ve una GPU NVIDIA; si falla antes del primer segmento, CPU.
     whisper_dispositivo: Literal["auto", "cpu", "cuda"] = "auto"
     # "auto": float16 en cuda, int8 en cpu. Cualquier otro valor se pasa tal cual a ctranslate2.
@@ -76,7 +81,19 @@ class Settings(BaseSettings):
     # Cubre la carga en frío: la primera llamada tras arrancar tardó 56-107 s (ADR-006).
     llm_timeout_s: float = 180.0
     llm_num_ctx: int = 8192
+    # Ventana para convertir un SOP sin plantilla cuando el documento no cabe en `llm_num_ctx`
+    # (ADR-015); más allá, 422. Con 16384, Gemma 4 sigue entero en la GPU de 8 GB (docs/dev/llm.md).
+    llm_num_ctx_sop: int = 16384
     llm_health_timeout_s: float = 2.0
+    # Conversión de un SOP con Gemma en flujo (`ClienteLLM.chat_en_flujo`): corta si pasan
+    # `llm_inactividad_s` sin un token (después del primero, que espera `llm_timeout_s`) o, aunque
+    # siga generando, al llegar a `llm_timeout_sop_s` en total. En CPU tarda 150-200 s (ADR-018).
+    llm_inactividad_s: float = 60.0
+    llm_timeout_sop_s: float = 900.0
+    # Ficha de contexto del video (RF-12): los mismos cortes que la conversión del SOP (primer
+    # token en `llm_timeout_s`, `llm_inactividad_s` sin tokens) y este tope total, que cubre los
+    # reintentos por JSON inválido.
+    llm_timeout_contexto_s: float = Field(default=600.0, gt=0)
     # Dónde corre Gemma (ADR-018): "auto" deja que Ollama use la GPU si la ve; "cpu" pide
     # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
     llm_dispositivo: Literal["auto", "cpu"] = "auto"
@@ -92,11 +109,44 @@ class Settings(BaseSettings):
     umbral_bajo: float = Field(default=0.55, ge=0, le=1)
     umbral_alto: float = Field(default=0.75, ge=0, le=1)
     umbral_fusion: float = Field(default=0.55, ge=0, le=1)
+    # Candado del SOP generado (ADR-023): si Gemma dice que un paso del video "continua" el
+    # anterior pero su coseno MiniLM (minúsculas, nombre, descripción y cita) es menor que
+    # `umbral_fusion`, el código lo parte ahí en un paso nuevo.
+    sop_candado: bool = False
+    # Equipo de operación del SOP generado (ADR-023): dos nombres (ya en español) con coseno
+    # MiniLM ≥ `umbral_equipo`, en minúsculas, se unen en uno. Medido solo con el video E.
+    umbral_equipo: float = Field(default=0.85, ge=0, le=1)
 
     # Cortes del semáforo de cumplimiento (RF-19, RNF-14; SOP V1.0 §5.6): verde desde
     # `semaforo_verde`, amarillo desde `semaforo_amarillo`, rojo por debajo.
     semaforo_verde: float = Field(default=90, ge=0, le=100)
     semaforo_amarillo: float = Field(default=70, ge=0, le=100)
+
+    # Contexto, personas y tiempos del reporte (RNF-14; SOP V1.0 §5.2, §5.4, §5.5).
+    # Afinidad mínima (0–100) para no advertir que el video no es de este SOP (RF-17).
+    afinidad_min: float = Field(default=60, ge=0, le=100)
+    # Mapeo de un coseno MiniLM a 0–100 para cada componente de la afinidad (ADR-020): el coseno
+    # `afinidad_cos_cero` o menos vale 0, `afinidad_cos_cien` o más vale 100, lineal entre los
+    # dos. Un equipo del SOP está "en común" si su mejor equipo de la ficha tiene coseno ≥
+    # `afinidad_umbral_equipo`. SIN CALIBRAR: valores de la sonda del 8 nov (ADR-020).
+    afinidad_cos_cero: float = Field(default=0.30, ge=-1, le=1)
+    afinidad_cos_cien: float = Field(default=0.80, ge=-1, le=1)
+    afinidad_umbral_equipo: float = Field(default=0.75, ge=0, le=1)
+    # Margen sobre el tiempo esperado de cada paso y del total (RF-16): 0.20 = ±20 %.
+    tolerancia_tiempo: float = Field(default=0.20, ge=0, le=1)
+    # Coseno MiniLM desde el que un rol del SOP coincide con el de una persona (RF-15).
+    # SIN CALIBRAR. Medido el 7 nov con roles inventados: "Técnico" ~ "Técnica de mantenimiento"
+    # 0.88, pero "Supervisor de mantenimiento" ~ "Técnico de mantenimiento" también 0.89, y con
+    # el nombre de la persona ("Laura (técnica…)") baja a 0.58. Comparar rol contra rol, sin el
+    # nombre, y no depender solo del coseno.
+    umbral_rol: float = Field(default=0.85, ge=0, le=1)
+    # Desde ADR-020 `umbral_rol` compara los núcleos de los roles ("técnico", "supervisor") y, si
+    # los dos roles traen complemento ("de mantenimiento"), los complementos deben llegar a
+    # `umbral_rol_complemento` (o compartir palabras). SIN CALIBRAR.
+    umbral_rol_complemento: float = Field(default=0.70, ge=0, le=1)
+    # Coseno MiniLM (en minúsculas) desde el que el horario del SOP y el que menciona el video
+    # coinciden, si ninguno contiene al otro (RF-16, ADR-021). SIN CALIBRAR.
+    umbral_horario: float = Field(default=0.75, ge=0, le=1)
 
     @model_validator(mode="after")
     def _umbrales_ordenados(self) -> Self:
@@ -116,6 +166,15 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _mapeo_afinidad(self) -> Self:
+        if self.afinidad_cos_cero >= self.afinidad_cos_cien:
+            raise ValueError(
+                f"AFINIDAD_COS_CERO ({self.afinidad_cos_cero}) debe ser menor que "
+                f"AFINIDAD_COS_CIEN ({self.afinidad_cos_cien})"
+            )
+        return self
+
     @property
     def data_path(self) -> Path:
         """`data_dir` absoluto; si es relativo, se resuelve contra la raíz del proyecto."""
@@ -129,6 +188,12 @@ class Settings(BaseSettings):
     @property
     def subida_max_bytes(self) -> int:
         return self.subida_max_mb * 1024 * 1024
+
+    def modelo_whisper(self, dispositivo: str) -> str:
+        """El modelo de Whisper para `dispositivo` ya resuelto ("cpu" o "cuda")."""
+        if dispositivo == "cpu" and self.whisper_modelo_cpu:
+            return self.whisper_modelo_cpu
+        return self.whisper_modelo
 
     @property
     def whisper_cache_path(self) -> Path:

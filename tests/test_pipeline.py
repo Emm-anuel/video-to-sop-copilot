@@ -103,6 +103,7 @@ def test_pipeline_completo(video: Path, tmp_path: Path) -> None:
     assert analisis.idioma == Idioma(codigo="es", confianza=0.97)
     assert [s.texto for s in analisis.transcripcion] == [s.texto for s in SEGMENTOS]
     assert analisis.fotogramas == []
+    assert analisis.modelo_transcripcion == "falso"  # el que dice la Transcripcion
     ((audio, idioma, existia),) = transcriptor.llamadas
     assert (audio, idioma, existia) == (trabajo / ARCHIVO_AUDIO, None, True)
     # El TXT se escribe mientras avanza: antes de cada segmento ya están los anteriores.

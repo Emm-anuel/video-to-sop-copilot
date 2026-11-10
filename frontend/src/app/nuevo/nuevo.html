@@ -1,22 +1,45 @@
-<h1>Validar un video contra un SOP</h1>
+<h1>{{ sinSop() ? 'Generar el SOP desde un video' : 'Validar un video contra un SOP' }}</h1>
 
 <form [formGroup]="form" (ngSubmit)="validar()" novalidate>
-  <div class="campo">
-    <label for="sop">SOP de referencia (.md o .txt)</label>
+  <div class="campo casilla">
     <input
-      id="sop"
-      type="file"
-      accept=".md,.txt"
-      (change)="elegirSop($event)"
+      id="sin-sop"
+      type="checkbox"
+      [checked]="sinSop()"
+      (change)="cambiarSinSop($event)"
       [disabled]="enviando()"
     />
-    @if (intentado() && !archivoSop()) {
-      <p class="campo-error">Elige el archivo del SOP.</p>
-    }
-    @if (sopGuardado(); as sop) {
-      <p class="nota">SOP guardado como {{ sop.codigo }}: {{ sop.titulo }}</p>
-    }
+    <label for="sin-sop">No tengo SOP: generarlo desde el video</label>
   </div>
+
+  @if (!sinSop()) {
+    <div class="campo">
+      <label for="sop">SOP de referencia (.md, .txt, .pdf o .docx)</label>
+      <input
+        id="sop"
+        type="file"
+        accept=".md,.txt,.pdf,.docx"
+        (change)="elegirSop($event)"
+        [disabled]="enviando()"
+      />
+      @if (intentado() && !archivoSop()) {
+        <p class="campo-error">Elige el archivo del SOP.</p>
+      }
+      @if (convirtiendo()) {
+        <p class="nota" role="status">Convirtiendo el SOP…</p>
+      }
+      @if (sop(); as s) {
+        @if (s.estado === 'listo') {
+          <p class="nota">SOP guardado como {{ s.codigo }}: {{ s.titulo }}</p>
+          @if (s.metodo === 'llm') {
+            <p class="nota">
+              No seguía la plantilla: lo convirtió el modelo. Vale la pena revisarlo.
+            </p>
+          }
+        }
+      }
+    </div>
+  }
 
   <div class="campo">
     <label for="video">Video (.mp4, .mov, .mkv o .webm)</label>
@@ -66,19 +89,33 @@
     </div>
   }
 
-  @if (progreso() !== null) {
+  @if (progreso() !== null && !video()) {
     <div class="subida">
       <label for="avance">Subiendo el video: {{ progreso() }} %</label>
       <progress id="avance" max="100" [value]="progreso()"></progress>
     </div>
   }
+  @if (video() && convirtiendo()) {
+    <p class="nota" role="status">Video subido. Falta que termine la conversión del SOP.</p>
+  }
 
   @if (error(); as mensaje) {
     <p class="error" role="alert">{{ mensaje }}</p>
-    @if (sopGuardado()) {
+    @if (videoSinSop()) {
+      <p class="nota">
+        El video ya se había subido, pero no se validará con ese SOP. Elige un SOP y valida de
+        nuevo: se sube otra vez.
+      </p>
+    } @else if (sop()) {
       <p class="nota">El SOP ya quedó guardado: al validar de nuevo solo se sube el video.</p>
     }
   }
 
-  <button type="submit" [disabled]="enviando()">Validar</button>
+  @if (listoParaVer()) {
+    <button type="button" (click)="verReporte()">Ver el reporte</button>
+  } @else {
+    <button type="submit" [disabled]="enviando()">
+      {{ sinSop() ? 'Generar SOP' : 'Validar' }}
+    </button>
+  }
 </form>

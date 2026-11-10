@@ -46,7 +46,12 @@
   "cumplimiento": 64.29,
   "semaforo": "rojo",
   "provisional": true,
-  "afinidad": null,
+  "afinidad": {
+    "valor": 87,
+    "explicacion": "Mismo procedimiento (cambio del cartucho del filtro de agua), mismo lugar (línea de enjuague) y el mismo equipo: llave de carcasa, cubeta y manómetro.",
+    "bajo_umbral": false,
+    "componentes": {}
+  },
   "conteo": {
     "cumple": 5,
     "parcial": 0,
@@ -54,7 +59,9 @@
     "falta": 1,
     "sobra": 1,
     "sin_revisar": 1,
-    "marco_operador": 2
+    "marco_operador": 2,
+    "personas_con_diferencias": 1,
+    "pasos_fuera_de_tiempo": 1
   },
   "filas": [
     {
@@ -68,7 +75,22 @@
       "confianza": "alta",
       "fuera_de_orden": true,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (Técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
+      },
+      "tiempo": {
+        "esperado_min": 0.25,
+        "observado_min": 0.24,
+        "origen": "medido",
+        "estado": "en_tiempo",
+        "cita": ""
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -81,7 +103,22 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (Técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
+      },
+      "tiempo": {
+        "esperado_min": 0.2,
+        "observado_min": 0.22,
+        "origen": "medido",
+        "estado": "en_tiempo",
+        "cita": ""
+      },
+      "rescatado": false
     },
     {
       "estado": "zona_gris",
@@ -94,7 +131,22 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (Técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
+      },
+      "tiempo": {
+        "esperado_min": null,
+        "observado_min": 0.22,
+        "origen": "medido",
+        "estado": "sin_referencia",
+        "cita": ""
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -107,7 +159,22 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (Técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
+      },
+      "tiempo": {
+        "esperado_min": 0.4,
+        "observado_min": 0.6,
+        "origen": "medido",
+        "estado": "excede",
+        "cita": ""
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -120,7 +187,22 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Técnico de mantenimiento",
+        "observado": "Laura (Técnica de mantenimiento)",
+        "estado": "coincide",
+        "similitud": 1.0,
+        "nota": "responsable del paso (rol)"
+      },
+      "tiempo": {
+        "esperado_min": 0.5,
+        "observado_min": 0.37,
+        "origen": "medido",
+        "estado": "menor",
+        "cita": ""
+      },
+      "rescatado": false
     },
     {
       "estado": "Cumple",
@@ -133,7 +215,22 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": {
+        "esperado": "Supervisor de turno",
+        "observado": "Laura (Técnica de mantenimiento)",
+        "estado": "distinto",
+        "similitud": 0.0,
+        "nota": "responsable del paso (rol)"
+      },
+      "tiempo": {
+        "esperado_min": 0.4,
+        "observado_min": 0.41,
+        "origen": "medido",
+        "estado": "en_tiempo",
+        "cita": ""
+      },
+      "rescatado": false
     },
     {
       "estado": "Falta",
@@ -146,7 +243,10 @@
       "confianza": null,
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null,
+      "rescatado": false
     },
     {
       "estado": "Sobra",
@@ -159,7 +259,10 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": "intro",
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null,
+      "rescatado": false
     },
     {
       "estado": "Sobra",
@@ -172,7 +275,10 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": null,
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null,
+      "rescatado": false
     },
     {
       "estado": "Sobra",
@@ -185,9 +291,56 @@
       "confianza": "alta",
       "fuera_de_orden": false,
       "marco_operador": "cierre",
-      "justificacion": null
+      "justificacion": null,
+      "responsable": null,
+      "tiempo": null,
+      "rescatado": false
     }
   ],
+  "roles": [
+    {
+      "rol": "Técnico de mantenimiento",
+      "estado": "presente",
+      "t": 0.4,
+      "cita": "soy Laura, técnica de mantenimiento",
+      "persona": "Laura (Técnica de mantenimiento)",
+      "similitud": 1.0,
+      "confianza": "alta",
+      "con_pasos": true
+    },
+    {
+      "rol": "Supervisor de turno",
+      "estado": "mencionado",
+      "t": 47.68,
+      "cita": "mejor avisen al supervisor de turno",
+      "persona": "Supervisor de turno",
+      "similitud": 1.0,
+      "confianza": "alta",
+      "con_pasos": true
+    },
+    {
+      "rol": "Almacenista",
+      "estado": "ausente",
+      "t": null,
+      "cita": "",
+      "persona": null,
+      "similitud": null,
+      "confianza": null,
+      "con_pasos": false
+    }
+  ],
+  "tiempo_total": {
+    "esperado_min": 3.0,
+    "observado_min": 2.06,
+    "estado": "menor"
+  },
+  "horario": {
+    "esperado": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
+    "observado": "Cada tres meses o cuando el manómetro marca menos de dos bar",
+    "estado": "coincide",
+    "t": 12.53,
+    "cita": "El cartucho se cambia cada tres meses o cuando el manómetro marca menos de dos bar."
+  },
   "metadatos": {
     "segmentacion": "llm",
     "motivo_respaldo": null,
@@ -198,7 +351,15 @@
       "alto": 0.75,
       "fusion": 0.55,
       "semaforo_verde": 90.0,
-      "semaforo_amarillo": 70.0
+      "semaforo_amarillo": 70.0,
+      "afinidad_min": 60.0,
+      "tolerancia_tiempo": 0.2,
+      "umbral_rol": 0.85,
+      "afinidad_cos_cero": 0.3,
+      "afinidad_cos_cien": 0.8,
+      "afinidad_umbral_equipo": 0.75,
+      "umbral_rol_complemento": 0.7,
+      "umbral_horario": 0.75
     },
     "segundos": {
       "duracion": 0.2,
@@ -219,7 +380,8 @@
       "transcripcion_respaldo_cpu": false,
       "llm": "gpu",
       "embedder": "cpu"
-    }
+    },
+    "segmentacion_reusada": false
   },
   "creado": "2026-10-27T12:00:00Z"
 }

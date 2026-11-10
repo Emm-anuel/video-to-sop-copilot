@@ -8,6 +8,10 @@ callback; `escritor_txt` lo usa para escribir el TXT mientras avanza.
 
 El modelo se carga en cada `transcribir` y se libera al terminar: en 8 GB de VRAM no cabe junto
 a Gemma 4 (ADR-014). Los logs solo llevan conteos, tiempos e idioma, nunca texto transcrito.
+
+El modelo depende del dispositivo: `WHISPER_MODELO` en GPU y `WHISPER_MODELO_CPU` (o el mismo, si
+no se define) en CPU. El de referencia es `MODELO_REFERENCIA` (ADR-018): con otro, el resultado
+lleva el aviso "transcripcion_no_referencia" (`aviso_transcripcion`).
 """
 
 import gc
@@ -24,7 +28,7 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any, Protocol
 
-from sopvid.contrato import Idioma, Palabra, Segmento
+from sopvid.contrato import Analisis, Aviso, Idioma, Palabra, Segmento
 from sopvid.percepcion.medios import MedioInvalido
 from sopvid.plataforma.config import Settings, get_settings
 
@@ -32,6 +36,9 @@ logger = logging.getLogger(__name__)
 
 BEAM = 5
 DECIMALES = 3
+# El modelo de Whisper de referencia (ADR-018, RNF-07): con otro, la transcripción puede traer
+# errores de reconocimiento que llegan citados a la ficha y a los pasos.
+MODELO_REFERENCIA = "large-v3-turbo"
 # Lo que se usa al caer a CPU, sea cual sea WHISPER_COMPUTE_TYPE (float16 no corre en CPU).
 COMPUTE_TYPE_CPU = "int8"
 # Tipos de ctranslate2 sin soporte en CPU (get_supported_compute_types("cpu") da int8,
@@ -87,10 +94,10 @@ class TranscriptorWhisper:
         if not audio.is_file():
             raise MedioInvalido(f"{audio.name}: el archivo no existe")
         codigo = idioma.strip().lower() if idioma and idioma.strip() else None
-        modelo = self.settings.whisper_modelo
         dispositivo, compute_type = elegir_dispositivo(
             self.settings.whisper_dispositivo, self.settings.whisper_compute_type
         )
+        modelo = self.settings.modelo_whisper(dispositivo)
         inicio = time.perf_counter()
         segmentos: list[Segmento] = []
         respaldo = False
@@ -100,15 +107,17 @@ class TranscriptorWhisper:
             puede_caer = self.settings.whisper_dispositivo == "auto" and dispositivo == "cuda"
             if not puede_caer or segmentos:
                 raise
+            dispositivo, compute_type, respaldo = "cpu", COMPUTE_TYPE_CPU, True
             logger.warning(
                 "Whisper %s: cuda falló antes del primer segmento (%s: %s); se repite en CPU "
-                "(%s). El tiempo de esta corrida no sirve para RNF-01.",
+                "con %s (%s). El tiempo de esta corrida no sirve para RNF-01.",
                 modelo,
                 type(exc).__name__,
                 exc,
+                self.settings.modelo_whisper(dispositivo),
                 COMPUTE_TYPE_CPU,
             )
-            dispositivo, compute_type, respaldo = "cpu", COMPUTE_TYPE_CPU, True
+            modelo = self.settings.modelo_whisper(dispositivo)
             info = self._correr(audio, codigo, dispositivo, compute_type, segmentos, al_segmento)
         segundos = time.perf_counter() - inicio
 
@@ -154,7 +163,7 @@ class TranscriptorWhisper:
     ) -> Any:
         """Carga el modelo, agrega los segmentos normalizados a `segmentos` y lo libera."""
         modelo = self._fabrica(
-            self.settings.whisper_modelo,
+            self.settings.modelo_whisper(dispositivo),
             dispositivo,
             compute_type,
             self.settings.whisper_cache_path,
@@ -181,6 +190,24 @@ class TranscriptorWhisper:
             crudos = modelo = None
             gc.collect()
             logger.debug("Whisper liberado (%s)", dispositivo)
+
+
+def es_modelo_referencia(modelo: str) -> bool:
+    """True si `modelo` (nombre de faster-whisper o carpeta) es `MODELO_REFERENCIA`."""
+    return MODELO_REFERENCIA in Path(modelo).name.lower()
+
+
+def aviso_transcripcion(analisis: Analisis) -> Aviso | None:
+    """El aviso "transcripcion_no_referencia" si se transcribió con otro modelo que el de
+    referencia. Sin modelo registrado (análisis anteriores), no se sabe y no hay aviso."""
+    modelo = analisis.modelo_transcripcion
+    if modelo is None or es_modelo_referencia(modelo):
+        return None
+    return Aviso(
+        tipo="transcripcion_no_referencia",
+        detalle=f"transcrito con Whisper {Path(modelo).name}; el de referencia es "
+        f"{MODELO_REFERENCIA} y puede haber errores de reconocimiento",
+    )
 
 
 def normalizar(crudos: Iterable[Any]) -> list[Segmento]:

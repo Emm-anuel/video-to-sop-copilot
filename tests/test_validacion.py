@@ -13,8 +13,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from dobles import SEGMENTOS, SOP_PRUEBA, Entorno, guardar_sop
-from sopvid.contrato import Dispositivos, PasoVideo, ResultadoValidacion
+from dobles import CONTEXTO, SEGMENTOS, SOP_PRUEBA, Entorno, guardar_sop
+from sopvid.contrato import (
+    Contexto,
+    Dispositivos,
+    ResultadoValidacion,
+    SegmentacionGuardada,
+)
+from sopvid.lenguaje.tiempos import fin_del_paso
 from sopvid.lenguaje.validacion import INICIO_ETAPA
 from sopvid.plataforma.modelos import Reporte, Video
 from sopvid.plataforma.procesamiento import ERROR_SIN_SOP, FIN_ANALISIS_VALIDAR
@@ -67,13 +73,18 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         None,
     )
     assert video.transcripcion is not None
-    # Los pasos de segmentar, antes de fusionar: uno por segmento, con su tiempo.
-    pasos = [PasoVideo.model_validate(p) for p in video.pasos_video]
+    # La segmentación completa (RNF-07): los pasos de segmentar, antes de fusionar, uno por
+    # segmento con su tiempo, y el método y el modelo, para poder reusarla.
+    guardada = SegmentacionGuardada.model_validate(video.pasos_video)
+    assert (guardada.metodo, guardada.modelo, guardada.reusable) == ("llm", "falso", True)
+    pasos = guardada.pasos
     assert [(p.t_inicio, p.cita) for p in pasos] == [(s.t_inicio, s.texto) for s in SEGMENTOS]
     [reporte] = _reportes(entorno.session, video_id)
-    assert (reporte.sop_id, reporte.afinidad) == (video.sop_id, None)
-    assert reporte.cumplimiento == Decimal("83.33")
     guardado = ResultadoValidacion.model_validate(reporte.resultado)
+    # La ficha del doble es del mismo procedimiento: la afinidad pasa y va en la columna.
+    assert guardado.afinidad is not None and not guardado.afinidad.bajo_umbral
+    assert (reporte.sop_id, reporte.afinidad) == (video.sop_id, guardado.afinidad.valor)
+    assert reporte.cumplimiento == Decimal("83.33")
     assert guardado.cumplimiento == pytest.approx(250 / 3)  # sin redondear
     assert guardado.semaforo == "amarillo"
     meta = guardado.metadatos
@@ -84,14 +95,40 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "duracion",
         "audio",
         "transcripcion",
+        "contexto",
+        "afinidad",
         "segmentacion",
         "emparejamiento",
+        "personas",
+        "tiempos",
     }
     assert (meta.umbrales.semaforo_verde, meta.umbrales.semaforo_amarillo) == (90, 70)
+    assert (meta.umbrales.tolerancia_tiempo, meta.umbrales.umbral_horario) == (0.2, 0.75)
+    # Tiempos (ADR-021): uno por resultado, solo en los pares, medidos sobre la transcripción.
+    # El SOP de prueba no trae tiempos ni horario: todo sin referencia.
+    pasos_clasificados = guardado.resultado.clasificacion.pasos
+    assert len(guardado.tiempos) == len(pasos_clasificados)
+    for paso, tiempo in zip(pasos_clasificados, guardado.tiempos, strict=True):
+        assert (tiempo is not None) == (paso.estado in ("Cumple", "Parcial", "zona_gris"))
+        if tiempo is not None:
+            assert (tiempo.origen, tiempo.estado) == ("medido", "sin_referencia")
+            # Del inicio del paso al inicio del siguiente paso del video (ADR-021).
+            fin = fin_del_paso(
+                guardado.resultado.pasos_video, paso.indice_video, float(video.duracion)
+            )
+            del_video = guardado.resultado.pasos_video[paso.indice_video]
+            assert tiempo.observado_min == round((fin - del_video.t_inicio) / 60, 2)
+    assert guardado.tiempo_total is not None and guardado.tiempo_total.estado == "sin_referencia"
+    assert guardado.horario is not None and guardado.horario.estado == "sin_referencia"
     assert meta.dispositivos == Dispositivos(
         gpu="GPU de prueba", transcripcion="cpu", llm="gpu", embedder="cpu"
     )
     assert entorno.juez.llamadas == [2]  # solo el par de la zona gris
+    # La ficha de contexto, con la cita de la actividad verificada (regla 4).
+    contexto = Contexto.model_validate(video.contexto)
+    assert contexto.actividad.valor == CONTEXTO["actividad"]["valor"]
+    assert (contexto.actividad.fuente, contexto.actividad.t) == ("audio", SEGMENTOS[0].t_inicio)
+    assert [e.nombre for e in contexto.equipos] == CONTEXTO["equipos"]
 
 
 def test_whisper_suelta_la_memoria_antes_de_ollama_y_ollama_al_final(
@@ -101,9 +138,11 @@ def test_whisper_suelta_la_memoria_antes_de_ollama_y_ollama_al_final(
     entorno.correr_pendientes()
 
     assert entorno.video(video_id).proceso == "listo"
+    # Una sola carga de Gemma: ficha de contexto, pasos y juez en la misma ventana.
     assert entorno.eventos == [
         "whisper_liberado",
         "tags",
+        "chat:contexto",
         "chat:fronteras",
         "chat:redaccion",
         "descargar",
@@ -129,6 +168,7 @@ def test_el_avance_no_retrocede(entorno: Entorno, subir_validar) -> None:
     assert progresos == sorted(progresos)
     transcripcion = [p for e, p in vistos if e == "transcripcion"]
     assert transcripcion and max(transcripcion) < FIN_ANALISIS_VALIDAR
+    assert ("contexto", INICIO_ETAPA["contexto"]) in vistos
     assert ("segmentacion", INICIO_ETAPA["segmentacion"]) in vistos
     assert ("emparejamiento", INICIO_ETAPA["emparejamiento"]) in vistos
     assert vistos[-1] == ("listo", 100)
@@ -163,8 +203,16 @@ def test_ollama_caido_al_empezar_deja_error_reprocesable(
     assert entorno.video(video_id).proceso == "listo"
     reporte = client.get(f"/videos/{video_id}/reporte").json()
     assert (reporte["cumplimiento"], reporte["provisional"]) == (83.33, False)
-    # Al repetir no hay segundos del análisis.
-    assert set(reporte["metadatos"]["segundos"]) == {"segmentacion", "emparejamiento"}
+    # Al repetir no hay segundos del análisis; la ficha no se había generado y se genera aquí.
+    assert set(reporte["metadatos"]["segundos"]) == {
+        "contexto",
+        "afinidad",
+        "segmentacion",
+        "emparejamiento",
+        "personas",
+        "tiempos",
+    }
+    assert entorno.video(video_id).contexto is not None
 
 
 def test_ollama_se_cae_a_medias_da_reporte_provisional(
@@ -178,9 +226,204 @@ def test_ollama_se_cae_a_medias_da_reporte_provisional(
     reporte = client.get(f"/videos/{video_id}/reporte").json()
     assert reporte["provisional"] is True
     assert reporte["metadatos"]["segmentacion"] == "heuristica"
-    assert [a["tipo"] for a in reporte["metadatos"]["avisos"]] == ["segmentacion_heuristica"]
-    assert "manómetro" not in reporte["metadatos"]["avisos"][0]["detalle"]
+    assert [a["tipo"] for a in reporte["metadatos"]["avisos"]] == [
+        "contexto_sin_generar",
+        "segmentacion_heuristica",
+    ]
+    assert all("manómetro" not in a["detalle"] for a in reporte["metadatos"]["avisos"])
     assert entorno.eventos[-1] == "descargar"  # se intenta aunque Ollama no responda
+    assert entorno.video(video_id).contexto is None  # sin ficha: la próxima validación la intenta
+
+
+# ── Ficha de contexto (RF-12) ────────────────────────────────────────────────────────────────
+
+
+def _avisos(client: TestClient, video_id: int) -> list[dict]:
+    return client.get(f"/videos/{video_id}/reporte").json()["metadatos"]["avisos"]
+
+
+@pytest.mark.parametrize(
+    ("falla", "detalle"),
+    [
+        ("mudo", "ficha de contexto vacía: llm_no_disponible"),
+        ("json", "ficha de contexto vacía: respuesta_invalida tras 3 intentos"),
+        ("tiempo", "ficha de contexto vacía: tiempo_excedido"),
+    ],
+)
+def test_ficha_sin_generar_da_aviso_y_la_validacion_sigue(
+    client: TestClient,
+    entorno: Entorno,
+    subir_validar,
+    monkeypatch: pytest.MonkeyPatch,
+    falla: str,
+    detalle: str,
+) -> None:
+    if falla == "mudo":
+        entorno.ollama.contexto_caido = True
+    elif falla == "json":
+        entorno.ollama.respuestas_contexto = ["no es json"]
+    else:  # tope total de 0.2 s y una ficha que tarda más en llegar
+        from sopvid.percepcion import contexto as ctx
+        from sopvid.plataforma.config import Settings
+
+        monkeypatch.setattr(ctx, "get_settings", lambda: Settings(llm_timeout_contexto_s=0.2))
+        entorno.ollama.pausa_contexto_s = 0.05
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    video = entorno.video(video_id)
+    assert (video.proceso, video.contexto) == ("listo", None)
+    assert _avisos(client, video_id) == [{"tipo": "contexto_sin_generar", "detalle": detalle}]
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["provisional"] is True
+    assert reporte["cumplimiento"] == 83.33  # los pasos y el juez no cambian
+    assert entorno.eventos[-1] == "descargar"
+
+
+def test_transcripcion_vacia_no_llama_al_modelo_para_la_ficha(
+    client: TestClient, entorno: Entorno, subir_validar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dobles
+
+    monkeypatch.setattr(dobles, "SEGMENTOS", [])
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    assert "chat:contexto" not in entorno.eventos
+    assert entorno.video(video_id).proceso == "listo"
+    assert _avisos(client, video_id)[0] == {
+        "tipo": "contexto_sin_generar",
+        "detalle": "ficha de contexto vacía: transcripcion_vacia",
+    }
+
+
+def test_whisper_que_no_es_el_de_referencia_da_aviso_en_el_reporte_y_la_ficha(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    entorno.transcriptor.modelo = "small"
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    [aviso] = reporte["metadatos"]["avisos"]
+    assert aviso["tipo"] == "transcripcion_no_referencia"
+    assert "manómetro" not in aviso["detalle"]
+    assert reporte["provisional"] is True
+    assert reporte["cumplimiento"] == 83.33  # el porcentaje no cambia
+    contexto = client.get(f"/videos/{video_id}/contexto").json()
+    assert contexto["avisos"] == [aviso]
+
+    # Al repetir solo la validación, el modelo sale del análisis guardado.
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+    assert _avisos(client, video_id) == [aviso]
+
+
+def test_whisper_de_referencia_no_da_aviso(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()  # TranscriptorFalso dice "large-v3-turbo"
+    entorno.correr_pendientes()
+
+    assert _avisos(client, video_id) == []
+    assert client.get(f"/videos/{video_id}/contexto").json()["avisos"] == []
+
+
+def test_repetir_la_validacion_reusa_la_ficha_guardada(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    guardada = entorno.video(video_id).contexto
+    assert entorno.eventos.count("chat:contexto") == 1
+
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+
+    assert entorno.eventos.count("chat:contexto") == 1  # no volvió a llamar al modelo
+    assert entorno.video(video_id).contexto == guardada
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    # Tampoco segmentó otra vez (RNF-07): reusó los pasos guardados.
+    assert set(reporte["metadatos"]["segundos"]) == {
+        "afinidad",
+        "emparejamiento",
+        "personas",
+        "tiempos",
+    }
+    assert reporte["metadatos"]["segmentacion_reusada"] is True
+    assert reporte["provisional"] is False
+
+
+# ── Segmentación guardada (RNF-07) ───────────────────────────────────────────────────────────
+
+
+def _sin_tiempos_de_ejecucion(reporte: dict) -> dict:
+    """El reporte sin lo que cambia en cada corrida aunque el resultado sea el mismo."""
+    datos = {k: v for k, v in reporte.items() if k != "creado"}
+    datos["metadatos"] = {k: v for k, v in reporte["metadatos"].items() if k != "segundos"}
+    return datos
+
+
+def test_regenerar_el_reporte_dos_veces_da_el_mismo_reporte(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    assert entorno.eventos.count("chat:fronteras") == 1
+    guardada = entorno.video(video_id).pasos_video
+
+    reportes = []
+    for _ in range(2):
+        assert client.post(f"/videos/{video_id}/validar").status_code == 202
+        entorno.correr_pendientes()
+        reportes.append(client.get(f"/videos/{video_id}/reporte").json())
+
+    assert entorno.eventos.count("chat:fronteras") == 1  # Gemma no volvió a segmentar
+    assert entorno.video(video_id).pasos_video == guardada
+    assert _sin_tiempos_de_ejecucion(reportes[0]) == _sin_tiempos_de_ejecucion(reportes[1])
+    assert reportes[0]["metadatos"]["segmentacion_reusada"] is True
+
+
+def test_segmentar_true_vuelve_a_pedir_los_pasos(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    respuesta = client.post(f"/videos/{video_id}/validar", params={"segmentar": "true"})
+    assert respuesta.status_code == 202
+    entorno.correr_pendientes()
+    assert entorno.eventos.count("chat:fronteras") == 2
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["metadatos"]["segmentacion_reusada"] is False
+    assert "segmentacion" in reporte["metadatos"]["segundos"]
+
+
+@pytest.mark.parametrize("guardada", ["heuristica", "lista_anterior", "sin_redactar"])
+def test_una_segmentacion_que_no_se_puede_reusar_se_vuelve_a_pedir(
+    client: TestClient, entorno: Entorno, subir_validar, guardada: str
+) -> None:
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    video = entorno.video(video_id)
+    segmentacion = SegmentacionGuardada.model_validate(video.pasos_video)
+    if guardada == "heuristica":
+        cambio = {"metodo": "heuristica", "motivo_respaldo": "llm_no_disponible"}
+        video.pasos_video = segmentacion.model_copy(update=cambio).model_dump(mode="json")
+    elif guardada == "sin_redactar":
+        cambio = {"pasos_sin_redactar": 1, "motivo_sin_redaccion": "llm_no_disponible"}
+        video.pasos_video = segmentacion.model_copy(update=cambio).model_dump(mode="json")
+    else:  # antes de RNF-07 se guardaba solo la lista de pasos, sin el método
+        video.pasos_video = [p.model_dump(mode="json") for p in segmentacion.pasos]
+    entorno.session.commit()
+
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+    assert entorno.eventos.count("chat:fronteras") == 2
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["metadatos"]["segmentacion_reusada"] is False
+    # Queda guardada otra vez con su método, lista para reusarse la próxima vez.
+    nueva = SegmentacionGuardada.model_validate(entorno.video(video_id).pasos_video)
+    assert nueva.reusable
 
 
 def test_juez_sin_revisar_da_reporte_provisional(

@@ -53,7 +53,10 @@ class PropuestaInvalida(ValueError):  # noqa: N818 (nombre de dominio)
 
 # ── LLM ──────────────────────────────────────────────────────────────────────────────────────
 
-PALABRAS_CITA = (4, 15)  # largo exigido a la cita que redacta el LLM (opción A)
+# Largo de la cita del paso: se pide de 4 a 15 palabras. Una de más de 15 se recorta; una de
+# menos de 4 no invalida la redacción: el código la amplía con las palabras vecinas del paso
+# (`ampliar_cita`, ADR-010, 8 nov).
+PALABRAS_CITA = (4, 15)
 
 
 class _Respuesta(BaseModel):
@@ -96,14 +99,13 @@ class RedaccionPaso(_Respuesta):
 
     @field_validator("cita")
     @classmethod
-    def _cita_de_4_a_15_palabras(cls, v: str) -> str:
-        """Menos de 4 palabras es inválida; más de 15 se recorta a sus primeras 15 (un recorte
-        de una cita literal sigue siendo literal, así que se verifica igual)."""
-        minimo, maximo = PALABRAS_CITA
-        n = len(_texto_comparable(v).split())
-        if n < minimo:
-            raise ValueError(f"la cita tiene {n} palabras y debe tener de {minimo} a {maximo}")
-        return recortar_cita(v, maximo) if n > maximo else v
+    def _cita_hasta_15_palabras(cls, v: str) -> str:
+        """Más de 15 palabras se recorta a sus primeras 15 (un recorte de una cita literal sigue
+        siendo literal, así que se verifica igual). Una cita corta, o vacía, no invalida el paso:
+        su descripción y su responsable sirven igual, y `_armar` la amplía si puede
+        (`ampliar_cita`); si no, la verificación le da la confianza que le toca."""
+        maximo = PALABRAS_CITA[1]
+        return recortar_cita(v, maximo) if len(_texto_comparable(v).split()) > maximo else v
 
 
 class PropuestaPaso(_Respuesta):
@@ -424,7 +426,8 @@ def _armar(validas: Sequence[PropuestaPaso], analisis: Analisis) -> list[_PasoCo
     resultado = []
     for numero, (p, (i_inicio, i_fin)) in enumerate(zip(validas, rangos, strict=True), start=1):
         primero, ultimo = segmentos[i_inicio], segmentos[i_fin]
-        confianza_cita, fuente = verificar_cita(p.cita, analisis, (primero.id, ultimo.id))
+        cita = ampliar_cita(p.cita, segmentos[i_inicio : i_fin + 1])
+        confianza_cita, fuente = verificar_cita(cita, analisis, (primero.id, ultimo.id))
         del_paso = " ".join(s.texto for s in segmentos[i_inicio : i_fin + 1])
         rol_sin_mencion = p.responsable != NO_IDENTIFICADO and not rol_mencionado(
             p.responsable, f"{introduccion} {del_paso}"
@@ -437,7 +440,7 @@ def _armar(validas: Sequence[PropuestaPaso], analisis: Analisis) -> list[_PasoCo
             responsable=p.responsable,
             t_inicio=primero.t_inicio,
             t_fin=ultimo.t_fin,
-            cita=p.cita,
+            cita=cita,
             fuente=fuente,
             confianza=confianza,
         )
@@ -495,6 +498,38 @@ def recortar_cita(cita: str, max_palabras: int = PALABRAS_CITA[1]) -> str:
     """Primeras `max_palabras` palabras de la cita, contadas como en la verificación (la
     puntuación sola no cuenta). Si la cita era literal, el recorte también lo es."""
     return recortar_palabras(cita, max_palabras)
+
+
+def ampliar_cita(cita: str, segmentos: Sequence[Segmento], minimo: int = PALABRAS_CITA[0]) -> str:
+    """La cita con al menos `minimo` palabras, tomadas de la transcripción del paso (regla 4).
+
+    Si la cita tiene menos de `minimo` palabras (contadas como en la verificación) y aparece
+    literal en los segmentos del paso (unidos, así que puede cruzar de uno al siguiente), se le
+    agregan las palabras que siguen en la transcripción y, si el paso se acaba, las anteriores,
+    hasta llegar a `minimo`; nunca sale de los segmentos del paso. Se usa la primera aparición. El
+    resultado es un tramo contiguo de la transcripción, así que sigue siendo literal y se verifica
+    igual. Si la cita no aparece en el paso, está vacía o ya tiene `minimo` palabras, se devuelve
+    tal cual (la verificación decide su confianza).
+    """
+    buscadas = _texto_comparable(cita).split()
+    if not buscadas or len(buscadas) >= minimo:
+        return cita
+    tokens = " ".join(s.texto for s in segmentos).split()
+    # Cada palabra comparable con el token de la transcripción del que sale (un token como
+    # "rojo/verde" da dos palabras).
+    palabras = [(i, w) for i, t in enumerate(tokens) for w in _texto_comparable(t).split()]
+    n = len(buscadas)
+    for k in range(len(palabras) - n + 1):
+        if [w for _, w in palabras[k : k + n]] == buscadas:
+            inicio, fin = k, k + n  # rango de palabras [inicio, fin)
+            while fin - inicio < minimo and fin < len(palabras):
+                fin += 1
+            while fin - inicio < minimo and inicio > 0:
+                inicio -= 1
+            # Tokens completos que cubren esas palabras.
+            ampliada = " ".join(tokens[palabras[inicio][0] : palabras[fin - 1][0] + 1])
+            return ampliada.strip(" ,;:")
+    return cita
 
 
 def verificar_cita(

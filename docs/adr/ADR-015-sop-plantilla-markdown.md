@@ -41,6 +41,30 @@ archivo a JSON.
 Gemma 4 convierte solo los SOP sin plantilla (texto libre, PDF y Word) en S5. Su salida se
 valida contra el mismo contrato `SOP`; el diseño de ese camino se decide al implementarlo.
 
+**Diseño del camino con Gemma 4 (S5, 7 nov 2026, `sopvid.lenguaje.lectura_sop`).**
+`extraer_texto` saca el texto sin LLM: PDF con pdfplumber (líneas partidas por el ancho de la
+página vueltas a unir, tablas como líneas "Encabezado: valor | …" en su lugar) y Word con
+python-docx (cuerpo en orden de documento, encabezados como "#", listas con su viñeta o número).
+Un PDF sin texto se rechaza con un mensaje que pide Word, TXT o Markdown (el OCR es PR-10). Luego
+`convertir_documento` intenta `convertir_sop`; si falla o ignoró texto (advertencias
+`clave_desconocida` o `seccion_desconocida`), convierte con Gemma 4: prompt
+`prompts/sop_texto_libre_v1.md`, JSON restringido a un esquema sin números de paso, fuente ni
+tiempos (los pone el código), temperatura 0, `SEMILLA` y hasta 3 intentos como el juez. El código
+pone `fuente="documento"` y hereda el responsable del resumen igual que la plantilla. Cada paso
+trae `cita_origen` (4 a 25 palabras copiadas del documento); si no aparece tal cual en el texto
+(normalizado), el paso lleva la advertencia `paso_sin_evidencia`. El nombre queda libre. La
+respuesta de `POST /sops` dice `metodo: "plantilla" | "llm"`. Si Ollama no responde, 503 y no se
+guarda nada (criterio de ADR-019). Markdown y TXT pasan por el mismo camino: si no siguen la
+plantilla, ya no dan error, los convierte Gemma 4.
+
+**Asíncrono (7 nov, después de medir en CPU).** Con Gemma solo en CPU una conversión tarda
+2-3.5 min, demasiado para una petición. `POST /sops` responde 202 y la conversión corre en el
+trabajador de la cola, que tiene prioridad (un SOP va antes que el siguiente video, sin
+interrumpir el que corre); el estado se consulta en `GET /sops/{id}/estado` (`sops.estado`,
+migración 0004). La plantilla también pasa por ahí. Si Ollama no responde, el SOP queda en
+`error` con un mensaje que dice qué hacer, en lugar del 503. Un video espera a su SOP y, si la
+conversión falla, queda en error con ese mensaje.
+
 ## Consecuencias
 
 - **Positivas:** la conversión es determinista, se prueba sin Ollama ni base de datos y cuesta
@@ -54,6 +78,78 @@ valida contra el mismo contrato `SOP`; el diseño de ese camino se decide al imp
 - **Seguimiento:** en S5, al implementar RF-01 y RF-02, se mide cuántos SOP reales (por
   identificador, sin copiarlos al repo) siguen la plantilla y cuántos necesitan a Gemma 4. Se
   decide entonces si la salida del LLM pasa por la misma revisión humana (RF-04).
+  - **Primera prueba con Gemma 4 real (7 nov 2026,
+    [`datos/sop/prosa-20261107-1845.json`](datos/sop/prosa-20261107-1845.json)).** Entrada: un
+    Word en prosa generado por `docx_en_prosa` a partir de `tests/fixtures/sop_filtro_agua.md`
+    (inventado; sin secciones, listas ni nombres de paso). `gemma4:e4b-it-q4_K_M` en la RTX 2070
+    SUPER, 3 corridas: las 3 idénticas, en el primer intento, 22–27 s cada una.
+    - Bien: 6 de 6 pasos, en el orden del documento, sin juntar ni partir; nombres en
+      infinitivo; objetivo, lugar y responsable copiados del texto; alcance, horario, tiempos,
+      riesgos y fallas en vacío, porque la prosa no los trae (no inventó). Puntos de validación y
+      equipo por paso salen del texto.
+    - Mal: (1) los nombres son telegráficos ("Girar llave de paso antes del filtro" por "girar
+      la llave de paso que está antes del filtro"), así que la verificación literal los marca a
+      los 6 como `nombre_sin_evidencia` y el aviso pierde valor (por eso se cambió a verificar
+      una cita por paso, `paso_sin_evidencia`); (2) en 3 pasos la acción quedó
+      solo en el nombre y la descripción empieza a media frase ("antes de tocar el filtro.");
+      (3) inventó descripciones genéricas para el equipo ("material necesario") y puso como
+      punto de validación una acción ("Revisar el anillo de hule…").
+    - Siguiente: un `sop_texto_libre_v2` que pida copiar el nombre como fragmento contiguo del
+      texto (o relajar la verificación a cobertura de palabras) y la descripción completa, y
+      dejar vacía la descripción del equipo si el documento no la trae. Medir con SOP reales en
+      cuanto lleguen. Mientras, la salida del LLM debe pasar por la corrección humana (RF-04).
+  - **v1 contra v2 con `cita_origen` (7 nov 2026,
+    [`prosa-v1-20261107-1858.json`](datos/sop/prosa-v1-20261107-1858.json),
+    [`prosa-v2-20261107-1858.json`](datos/sop/prosa-v2-20261107-1858.json)).** Mismo Word en
+    prosa, mismo modelo y GPU, 3 corridas por prompt, todas válidas en el primer intento (26–31
+    s). El esquema ya pide `cita_origen` en los dos; v2 (`sop_texto_libre_v2.md`, el que queda
+    por defecto) además la explica, pide descripción completa sin repetir el nombre y equipo sin
+    descripciones genéricas. Medidas: pasos con evidencia = cita verificada; descripción cortada
+    = empieza en minúscula (a media frase) o repite el nombre; equipo inventado = descripción
+    del equipo que no aparece en el documento.
+
+    | Medida (por corrida) | v1 | v2 |
+    |---|---|---|
+    | Pasos (la referencia tiene 6) | 8 · 8 · 8 | 8 · 8 · 8 |
+    | Pasos con evidencia | 7 de 8 en las 3 | 8 de 8 en las 3 |
+    | Descripciones cortadas | 6 · 2 · 2 | 0 · 0 · 0 |
+    | Equipo con descripción inventada | 7 de 7 en las 3 ("Herramienta", "Equipo de protección") | 0 de 7 |
+    | Roles con descripción inventada | 1 de 1 | 0 de 1 |
+    | Corridas idénticas | no (la 1.ª difiere) | casi (una palabra en 1 de 3) |
+
+    - v2 corrige los tres problemas que se midieron. La cita no se resume: aparece tal cual en
+      los 8 pasos. Las descripciones de v2 parafrasean un poco ("hasta que cese la salida de
+      aire"); la evidencia queda en la cita, no en la descripción.
+    - Hallazgo nuevo: con `cita_origen` en el esquema, los dos prompts parten la prosa en 8 pasos
+      en lugar de 6: "Colocar la cubeta debajo del filtro" y "Revisar y cambiar el anillo de
+      hule" salen como pasos propios (en la plantilla son la segunda oración de los pasos 3 y 4).
+      Son acciones reales, pero un SOP con más pasos que el original deja más *Falta* posibles en
+      el reporte. Sin la cita (corrida de las 18:45), v1 daba 6. Pendiente para un v3: decir que
+      en prosa cada párrafo es un paso salvo que el documento separe las acciones, y medir con SOP
+      reales antes de decidir.
+    - **Esquema recortado y prompt v3 (7 nov 2026,
+      [`antes-v2-20261107-1949.json`](datos/sop/antes-v2-20261107-1949.json),
+      [`despues-v3-20261107-2014.json`](datos/sop/despues-v3-20261107-2014.json)).** Del esquema
+      de la conversión salen la confianza y `campos_inferidos` de cada paso (con v2 siempre
+      "alta" y vacíos; ahora la confianza sale de la cita verificada), la confianza de los datos
+      del resumen ("alta" si el valor está tal cual en el texto, "media" si no) y
+      `equipo_operacion` (repetía, sin descripción, el equipo de los pasos; ahora es su unión).
+      v3 además pide el JSON compacto: con v2 Gemma lo escribía con sangría (177 saltos y 515
+      dobles espacios en 6 197 caracteres). Tokens de salida, v2 → v3: Word en prosa 1 829 →
+      1 156 (GPU) y 1 829 → 1 130 (CPU); texto largo 1 842 → 1 163 (GPU) y 1 999 → 1 181 (CPU):
+      ≈ −37 %. En la primera corrida de v3, Gemma escribió `["null"]` en listas vacías; el prompt
+      lo prohíbe y el código descarta esos "null".
+    - Resuelto (P1, punto 5): un documento largo podía no caber en `LLM_NUM_CTX` (8192) y fallar
+      los 3 intentos. Ahora se estiman los tokens antes de llamar al LLM; si no caben, cada
+      petición pide `LLM_NUM_CTX_SOP` (16384, +200 MiB de VRAM) y, si tampoco, 422 "el documento
+      es demasiado largo". Los reintentos ya no reenvían la respuesta anterior. Cifras en
+      docs/dev/llm.md.
+    - Resuelto (P1, punto 4): `POST /sops` convertía dentro de la petición sin coordinarse con
+      el trabajador, así que Gemma podía cargarse mientras Whisper transcribía otro video
+      (ADR-014). Primero se agregó `CANDADO_MODELO_PESADO` (`plataforma/hardware.py`) con una
+      espera `LLM_ESPERA_GPU_S` y 503; después, al pasar la conversión al trabajador (POST
+      /sops asíncrono), todo lo que carga un modelo corre en el mismo hilo: la espera y el 503
+      se quitaron y el candado se queda como protección.
 
 ## Referencias
 
@@ -61,3 +157,5 @@ valida contra el mismo contrato `SOP`; el diseño de ese camino se decide al imp
 - RF-01 a RF-05; ADR-004, ADR-006 (usos de Gemma 4), ADR-011, ADR-014.
 - `docs/contrato/plantilla_sop.md`, `src/sopvid/lenguaje/sop_markdown.py`,
   `scripts/convertir_sop.py`, `tests/test_sop_markdown.py`.
+- `src/sopvid/lenguaje/lectura_sop.py`, `src/sopvid/lenguaje/prompts/sop_texto_libre_v1.md`,
+  `tests/test_lectura_sop.py`; ADR-019 (503 sin LLM).

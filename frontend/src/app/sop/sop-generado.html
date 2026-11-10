@@ -1,0 +1,250 @@
+@if (error(); as mensaje) {
+  <p class="error" role="alert">{{ mensaje }}</p>
+}
+
+@if (video(); as v) {
+  @if (v.proceso === 'error') {
+    <p class="error" role="alert">No se pudo generar el SOP: {{ v.error }}</p>
+  } @else if (v.proceso !== 'listo') {
+    <div class="avance" role="status">
+      <p>{{ etapa() }}…</p>
+      <progress max="100" [value]="v.progreso"></progress>
+    </div>
+  }
+}
+
+@if (sop(); as s) {
+  <header class="encabezado">
+    <div>
+      <h1>{{ s.titulo }}</h1>
+      <p class="nota">
+        {{ detalle()?.codigo }} · versión {{ s.resumen?.version }} · generado desde el video
+        {{ videoId }}
+      </p>
+    </div>
+    @if (enBiblioteca()) {
+      <p class="guardado" role="status">Guardado en la biblioteca</p>
+    } @else {
+      <button type="button" (click)="guardar()" [disabled]="guardando()">
+        Guardar en la biblioteca
+      </button>
+    }
+  </header>
+
+  <p class="leyenda">
+    <span class="inferido">Resaltado</span>: inferido, sin evidencia en el video; revísalo. Pasa el
+    cursor sobre un dato para ver su fuente, su confianza, el segundo y la cita.
+  </p>
+
+  @if (detalle()?.advertencias?.length) {
+    <div class="advertencias" role="status">
+      <p>El SOP se generó con advertencias:</p>
+      <ul>
+        @for (a of detalle()!.advertencias; track $index) {
+          <li>{{ a.mensaje }}</li>
+        }
+      </ul>
+    </div>
+  }
+
+  @if (s.resumen; as r) {
+    <section>
+      <h2>Cuadro resumen</h2>
+      <dl class="resumen">
+        @for (
+          fila of [
+            ['Objetivo', r.objetivo],
+            ['Alcance', r.alcance],
+            ['Responsable', r.responsable],
+            ['Lugar', r.lugar],
+            ['Horario o frecuencia', r.horario_frecuencia],
+          ];
+          track fila[0]
+        ) {
+          <dt>{{ fila[0] }}</dt>
+          <dd
+            [class.inferido]="$any(fila[1])?.fuente === 'inferido'"
+            [title]="describir($any(fila[1]))"
+          >
+            {{ $any(fila[1])?.valor ?? 'No identificado' }}
+          </dd>
+        }
+        <dt>Duración total</dt>
+        <dd>{{ r.duracion_total_min ?? '—' }} min</dd>
+        <dt>Equipo de operación</dt>
+        <dd>
+          @for (e of r.equipo_operacion; track $index) {
+            <span class="ficha">{{ e.nombre }}</span>
+          } @empty {
+            —
+          }
+        </dd>
+        <dt>Roles</dt>
+        <dd>
+          @for (e of r.roles; track $index) {
+            <span class="ficha">{{ e.nombre }}</span>
+          } @empty {
+            —
+          }
+        </dd>
+        <dt>Personas en el video</dt>
+        <dd>
+          @for (p of r.personas; track $index) {
+            <span class="ficha" [title]="p.cita">
+              {{ p.nombre }}{{ p.rol ? ' (' + p.rol + ')' : '' }} · {{ p.participacion }} ·
+              {{ mmss(p.t) }}
+            </span>
+          } @empty {
+            —
+          }
+        </dd>
+      </dl>
+
+      <h3>Puntos de riesgo</h3>
+      @if (r.riesgos?.length) {
+        <table>
+          <thead>
+            <tr>
+              <th>Nivel</th>
+              <th>Riesgo</th>
+              <th>Paso</th>
+              <th>Control</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (x of r.riesgos; track $index) {
+              <tr [class.inferido]="x.fuente === 'inferido'" [title]="describir(x)">
+                <td>{{ x.nivel }}</td>
+                <td>{{ x.descripcion }}</td>
+                <td>{{ x.paso ?? '—' }}</td>
+                <td>{{ x.control }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="nota">No se mencionan riesgos.</p>
+      }
+
+      <h3>Qué hacer en caso de falla</h3>
+      @if (r.en_caso_de_falla?.length) {
+        <ul>
+          @for (f of r.en_caso_de_falla; track $index) {
+            <li [class.inferido]="f.fuente === 'inferido'" [title]="describir(f)">
+              <strong>{{ f.situacion }}:</strong> {{ f.accion }}
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="nota">No se dice qué hacer en caso de falla.</p>
+      }
+    </section>
+  }
+
+  <section>
+    <h2>Pasos</h2>
+    <table class="pasos">
+      <thead>
+        <tr>
+          <th>N.º</th>
+          <th>Paso</th>
+          <th>Descripción</th>
+          <th>Responsable</th>
+          <th>Equipo</th>
+          <th>Puntos de validación</th>
+          <th>Tiempo (min)</th>
+          <th>En el video</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of s.pasos; track p.numero) {
+          <tr>
+            <td>{{ p.numero }}</td>
+            <td [class.inferido]="inferido(p, 'nombre')">{{ p.nombre }}</td>
+            <td [class.inferido]="inferido(p, 'descripcion')">{{ p.descripcion }}</td>
+            <td
+              [class.inferido]="inferido(p, 'responsable')"
+              [title]="describir(evidencia(p, 'responsable'))"
+            >
+              {{ p.responsable }}
+            </td>
+            <td>
+              @for (e of p.equipo; track $index) {
+                <span
+                  class="ficha"
+                  [class.inferido]="evidencia(p, 'equipo', e)?.fuente === 'inferido'"
+                  [title]="describir(evidencia(p, 'equipo', e))"
+                  >{{ e }}</span
+                >
+              }
+            </td>
+            <td>
+              @for (v of p.puntos_validacion; track $index) {
+                <span
+                  class="ficha"
+                  [class.inferido]="evidencia(p, 'puntos_validacion', v)?.fuente === 'inferido'"
+                  [title]="describir(evidencia(p, 'puntos_validacion', v))"
+                  >{{ v }}</span
+                >
+              }
+            </td>
+            <td
+              [class.inferido]="inferido(p, 'tiempo_esperado_min')"
+              [title]="describir(evidencia(p, 'tiempo_esperado_min'))"
+            >
+              {{ p.tiempo_esperado_min | number: '1.0-2' }}
+            </td>
+            <td [title]="p.cita ?? ''">
+              {{ mmss(p.t_inicio) }}–{{ mmss(p.t_fin) }} · {{ p.confianza }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="claves">
+    <div>
+      <h2>Puntos clave</h2>
+      <ul>
+        @for (x of s.puntos_clave; track $index) {
+          <li [class.inferido]="x.fuente === 'inferido'" [title]="describir(x)">
+            {{ x.texto }}
+            @if (x.t !== null && x.t !== undefined) {
+              <span class="t">{{ mmss(x.t) }}</span>
+            }
+          </li>
+        } @empty {
+          <li class="nota">Sin puntos clave.</li>
+        }
+      </ul>
+    </div>
+    <div>
+      <h2>Palabras clave</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Término</th>
+            <th>Categoría</th>
+            <th>Menciones</th>
+            <th>Segundos</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (x of s.palabras_clave; track $index) {
+            <tr [title]="x.literal ? 'Dicho como «' + x.literal + '»' : ''">
+              <td>{{ x.termino }}</td>
+              <td>{{ x.categoria }}</td>
+              <td>{{ x.menciones }}</td>
+              <td>
+                @for (t of x.t; track $index) {
+                  <span class="t">{{ mmss(t) }}</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

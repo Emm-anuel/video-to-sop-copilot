@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Aviso": {
+      "additionalProperties": false,
+      "description": "Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.",
+      "properties": {
+        "tipo": {
+          "enum": [
+            "segmentacion_heuristica",
+            "juez_sin_revisar",
+            "pasos_sin_redactar",
+            "contexto_sin_generar",
+            "transcripcion_no_referencia"
+          ],
+          "title": "Tipo",
+          "type": "string"
+        },
+        "detalle": {
+          "title": "Detalle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "detalle"
+      ],
+      "title": "Aviso",
+      "type": "object"
+    },
+    "Dato": {
+      "additionalProperties": false,
+      "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.\n\n`cita` es la frase de la transcripción que lo respalda, en el idioma original (SOP generado,\nADR-023); vacía en un SOP cargado y en la ficha de contexto.",
+      "properties": {
+        "valor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valor"
+        },
+        "confianza": {
+          "default": "alta",
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
+        },
+        "fuente": {
+          "default": "documento",
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        }
+      },
+      "title": "Dato",
+      "type": "object"
+    },
+    "Elemento": {
+      "additionalProperties": false,
+      "description": "Equipo de operación o rol del SOP.",
+      "properties": {
+        "nombre": {
+          "minLength": 1,
+          "title": "Nombre",
+          "type": "string"
+        },
+        "descripcion": {
+          "default": "",
+          "title": "Descripcion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nombre"
+      ],
+      "title": "Elemento",
+      "type": "object"
+    },
+    "Persona": {
+      "additionalProperties": false,
+      "description": "Persona identificada en el video (RF-12, §5.4).\n\n`nombre` es el que se dice o \"No identificado\"; `rol`, el que se dice o se infiere, o `None`.\n`t` y `cita` salen de la transcripción (regla 4): el segundo y la frase donde aparece. La cita\nsolo va vacía si la persona se identificó por un fotograma (entonces `t` es el del fotograma).",
+      "properties": {
+        "nombre": {
+          "default": "No identificado",
+          "minLength": 1,
+          "title": "Nombre",
+          "type": "string"
+        },
+        "rol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rol"
+        },
+        "participacion": {
+          "enum": [
+            "participa",
+            "mencionado"
+          ],
+          "title": "Participacion",
+          "type": "string"
+        },
+        "t": {
+          "description": "Segundos desde el inicio del video.",
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        }
+      },
+      "required": [
+        "participacion",
+        "t"
+      ],
+      "title": "Persona",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Ficha de contexto del video, en `videos.contexto` (JSONB). Entrada de la afinidad (RF-17)\ny del SOP generado.\n\nReusa `Dato`, pero solo con fuentes del video: nunca \"documento\". Un dato de audio o visual\nlleva `t` (el segundo de la transcripción o del fotograma, regla 4); uno inferido puede no\nllevarlo. Lo que no se dice ni se ve queda vacío, inferido y con confianza baja.\n\n`avisos` dice qué afecta a la ficha (p. ej. \"transcripcion_no_referencia\"); vacía, ninguno.",
+  "properties": {
+    "version_contrato": {
+      "const": 1,
+      "default": 1,
+      "title": "Version Contrato",
+      "type": "integer"
+    },
+    "actividad": {
+      "$ref": "#/$defs/Dato"
+    },
+    "tema": {
+      "$ref": "#/$defs/Dato"
+    },
+    "lugar": {
+      "$ref": "#/$defs/Dato"
+    },
+    "horario_mencionado": {
+      "$ref": "#/$defs/Dato"
+    },
+    "proposito": {
+      "$ref": "#/$defs/Dato"
+    },
+    "resumen": {
+      "$ref": "#/$defs/Dato"
+    },
+    "personas": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Persona"
+      },
+      "title": "Personas",
+      "type": "array"
+    },
+    "equipos": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Elemento"
+      },
+      "title": "Equipos",
+      "type": "array"
+    },
+    "avisos": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Aviso"
+      },
+      "title": "Avisos",
+      "type": "array"
+    }
+  },
+  "title": "Contexto",
+  "type": "object"
+}

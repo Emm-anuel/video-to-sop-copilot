@@ -1,4 +1,4 @@
-# Estado del proyecto · 7 nov 2026
+# Estado del proyecto · 10 nov 2026
 
 Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md).
 
@@ -12,6 +12,83 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
   calificación y seguir los entregables de Canvas.
 - **17 oct:** se reescribió el plan para la versión 1.0 del documento (validar video contra SOP,
   generar SOP y búsqueda exacta). Decisiones en [plan.md §2](plan.md#2-decisiones).
+
+## Semana 5 (9–15 nov)
+
+**Qué entró** (rama `feat/s5`):
+
+| RF | Qué | Dónde |
+|---|---|---|
+| RF-01, 02 | SOP en PDF y Word, también adjunto a `POST /videos`; si no sigue la plantilla, Gemma lo convierte con una cita verificada por paso (asíncrono: 202 y `GET /sops/{id}/estado`) | `lenguaje/lectura_sop.py`, ADR-015 |
+| RF-12 | Ficha de contexto con cita verificada por dato y por persona | `percepcion/contexto.py` |
+| RF-15, 17 | Personas y roles; afinidad de contexto, que detiene la validación si es < 60 (`?continuar=true` sigue) | `lenguaje/personas.py`, `lenguaje/afinidad.py`, ADR-020 |
+| RF-16 | Tiempo por paso (narrado o medido), total y horario | `lenguaje/tiempos.py`, ADR-021 |
+| RF-22 a 25, 27 | SOP generado desde el video, en español, con cuadro resumen, puntos y palabras clave con menciones, evidencia por dato, biblioteca y uso como referencia | `lenguaje/sop_generado.py`, ADR-023 |
+| RF-26 (parcial) | Solo el endpoint de edición; falta el editor con "Unir con el siguiente paso" | API |
+
+Además: el rescate de un *Falta* entre *Sobra* contiguos y la segmentación guardada para que
+repetir la validación dé el mismo porcentaje (ADR-022, RNF-07); la pantalla "No tengo SOP" y la
+vista del SOP generado (`0c2f470`).
+
+**Resultado A–E (10 nov, `scripts/medir_s5.py`;
+[informe](../adr/datos/s5/medicion-s5-20261110-1311.md)).** Cada corrida es de punta a punta y con
+segmentación nueva, en el commit `dab4132`.
+
+| Video | Criterio (§14) | GPU | Sin GPU |
+|---|---|---|---|
+| A | ≥ 90 % en verde, sin *Falta*, afinidad ≥ 60, sin *distinto* ni *excede* | **PASA 3/3** (100 / 100 / 91.67 %) | PASA 1/1 (100 %) |
+| B | *Falta* 2 y 6, la limpieza como *Sobra* (74.1 s), 66.67 % | **PASA 3/3** | — |
+| C | *Fuera de orden* 2 y 5, *distinto* 4, *excede* 1, afinidad ≥ 60 | **PASA 3/3** (75 %, afinidad 97, sin el *Sobra* de "compañera") | — |
+| D | Afinidad < 60, se detiene antes de segmentar; al continuar, 6 *Falta* | **PASA 3/3** (afinidad 18–20) | — |
+| E | Inglés → SOP en español completo, sin valores sin traducir, RNF-05 ≥ 80 % | **PASA 2/2** (RNF-05 100 %, 15 pasos) | FALLA 0/1 (un valor sin traducir; RNF-05 85.7 %, 7 pasos) |
+
+RNF-07: al regenerar A con su segmentación guardada, el porcentaje sale igual (100 % las tres
+veces). El rescate de ADR-022 no se activó en ninguna corrida.
+
+**Tiempos (RNF-01: 10 min de video en menos de 5 min).**
+
+| | Validar (A–D) | Generar (E) | 10 min estimados (peor caso) | RNF-01 |
+|---|---|---|---|---|
+| Con GPU (RTX 2070 SUPER) | 27–42 s por video de 2–3.5 min (factor 0.17–0.25) | 68–69 s (factor 0.30) | 3.0 min | **se cumple** |
+| Sin GPU (`LLM_DISPOSITIVO=cpu`, Whisper int8) | A: 206 s (factor 1.53) | E: 483 s (factor 2.12) | 21.2 min | **no se cumple** |
+
+Sin GPU, Gemma va a unos 15 tok/s, contra 100–118 en GPU. Con GPU, la VRAM llega a 6.9 de 8 GB.
+
+**Riesgos**
+
+1. **RNF-01 sin GPU no se cumple** (15–21 min estimados). Hay que acordar con el asesor y el
+   patrocinador que RNF-01 se mide con GPU y que, en CPU, el video se procese en segundo plano, o
+   bien reducir las llamadas a Gemma.
+2. **El resultado depende del dispositivo y de la corrida.** Gemma no es determinista y, en CPU,
+   la transcripción cambia la segmentación y el SOP generado (E: 7 pasos contra 15 y un valor sin
+   traducir). Para la demo conviene procesar antes y mostrar lo guardado.
+3. **El SOP generado sale con ~15 pasos para 6 reales y 16 elementos de equipo para 7.** Se
+   necesita el editor de RF-26 antes de guardarlo en la biblioteca. Además, A sigue con 5 a 8
+   *Sobra* falsos por corrida (ADR-013) y la VRAM queda al 86 %.
+
+**Decisiones de la semana**
+
+- [ADR-020](../adr/ADR-020-afinidad-personas-minilm.md): afinidad y personas solo con MiniLM y
+  código; la afinidad baja detiene antes de segmentar.
+- [ADR-021](../adr/ADR-021-tiempos.md): la duración narrada gana siempre; si no, la medida hasta el
+  inicio del siguiente paso del video; ±`TOLERANCIA_TIEMPO`.
+- [ADR-022](../adr/ADR-022-rescate-de-falta.md): rescate de *Falta* (siempre con el juez) y
+  segmentación guardada para RNF-07.
+- [ADR-023](../adr/ADR-023-sop-generado.md): Gemma agrupa los pasos del video eligiendo números
+  (v2, sin candado) y solo redacta; el código pone tiempos, fuentes, confianza y evidencia. RNF-05
+  se mide por tramos, como lo dice el documento.
+
+**Pendiente para S6**
+
+- PDF del reporte y del SOP con QR (RF-29, 30) y descargas TXT, SRT y JSON (RF-31).
+- Búsqueda exacta (RF-32 a 37).
+- Docker en máquina limpia.
+- Fotogramas en la ficha de contexto (P2.1), cuando Sara entregue RF-11.
+- Editor RF-26 con "Unir con el siguiente paso" (el SOP generado sale con ~15 pasos para 6 reales).
+- Guardar los juicios del juez para que el reporte regenerado salga idéntico (hoy coincide el
+  porcentaje, no siempre la redacción).
+- El rendimiento en CPU (RNF-01 sin GPU).
+- Regrabar E más despacio si los errores de transcripción en inglés siguen afectando el SOP.
 
 ## 7 de noviembre (MVP el domingo 8)
 
@@ -85,7 +162,7 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 | Dom 25 oct | Avance 4 |
 | Dom 1 nov | ✓ Avance 5 |
 | Dom 8 nov | **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)). La lógica cumple; falta la pantalla del reporte (RF-20) |
-| Dom 15 nov | ✓ SOP generado, personas, tiempos y afinidad: pasan los videos C, D y E |
+| Dom 15 nov | ✓ SOP generado, personas, tiempos y afinidad: pasan los videos C, D y E (medido el 10 nov con GPU: A–E pasan 14/14) |
 | Dom 22 nov | ✓ App completa en Docker en máquina limpia |
 
 ## Resumen en dos frases

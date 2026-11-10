@@ -69,9 +69,19 @@ describe('Cómo se obtuvo (funciones puras)', () => {
   });
 
   it('etapasConTiempo sigue el orden de las etapas, no el del objeto, y omite las ausentes', () => {
-    const etapas = etapasConTiempo({ emparejamiento: 1.9, segmentacion: 15.6, audio: 0.9 });
-    expect(etapas.map((e) => e.nombre)).toEqual(['Audio', 'Pasos del video', 'Emparejamiento']);
-    expect(totalSegundos(etapas)).toBeCloseTo(18.4);
+    const etapas = etapasConTiempo({
+      emparejamiento: 1.9,
+      segmentacion: 15.6,
+      contexto: 8.2,
+      audio: 0.9,
+    });
+    expect(etapas.map((e) => e.nombre)).toEqual([
+      'Audio',
+      'Ficha de contexto',
+      'Pasos del video',
+      'Emparejamiento',
+    ]);
+    expect(totalSegundos(etapas)).toBeCloseTo(26.6);
     expect(totalSegundos([])).toBe(0);
   });
 
@@ -315,7 +325,8 @@ describe('Reporte', () => {
     expect(el.querySelector('.semaforo-amarillo')).not.toBeNull();
     expect(el.querySelector('.semaforo-texto')?.textContent).toContain('Amarillo');
     expect(el.querySelector('.avisos')).toBeNull();
-    expect(texto()).not.toContain('Afinidad');
+    // Desde el contrato de S5 el ejemplo trae afinidad (objeto); en producción sigue en null.
+    expect(texto()).toContain(`Afinidad: ${NORMAL.afinidad!.valor}`);
 
     expect(texto()).toContain('5 de 7 pasos cumplen');
     expect(conteo('parcial')).toBe(String(NORMAL.conteo.parcial));
@@ -458,6 +469,68 @@ describe('Reporte', () => {
     expect(texto()).not.toContain('Tiempo de procesamiento');
     http.expectNone(ESTADO);
     http.expectNone(REPORTE);
+  });
+
+  describe('afinidad baja (ADR-020)', () => {
+    const AFINIDAD = {
+      valor: 19,
+      explicacion: 'actividad distinta del título; ningún equipo en común',
+      bajo_umbral: true,
+    };
+    const CONTINUAR = (r: { url: string; method: string }) =>
+      r.method === 'POST' && r.url === '/api/videos/7/validar';
+
+    function llegaAfinidadBaja(): void {
+      vi.advanceTimersByTime(0);
+      http
+        .expectOne(ESTADO)
+        .flush(estado('afinidad_baja', { etapa: 'afinidad', progreso: 50, afinidad: AFINIDAD }));
+    }
+
+    function boton(): HTMLButtonElement | undefined {
+      return Array.from(pantalla().querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Continuar de todos modos'),
+      );
+    }
+
+    it('advierte con la afinidad y su explicación, y deja de consultar', () => {
+      llegaAfinidadBaja();
+      expect(texto()).toContain('El video parece no corresponder a este SOP.');
+      expect(texto()).toContain('Afinidad: 19 de 100');
+      expect(texto()).toContain(AFINIDAD.explicacion);
+      expect(boton()).toBeDefined();
+      vi.advanceTimersByTime(INTERVALO_MS * 3);
+      http.expectNone(ESTADO);
+      http.expectNone(REPORTE);
+    });
+
+    it('"Continuar de todos modos" pide continuar y vuelve a consultar hasta el reporte', () => {
+      llegaAfinidadBaja();
+      boton()!.click();
+      const peticion = http.expectOne(CONTINUAR);
+      expect(peticion.request.params.get('continuar')).toBe('true');
+      expect(boton()!.disabled).toBe(true);
+      peticion.flush({ id: 7, proceso: 'en_cola' });
+
+      vi.advanceTimersByTime(0);
+      http.expectOne(ESTADO).flush(estado('procesando', { etapa: 'segmentacion' }));
+      expect(texto()).not.toContain('El video parece no corresponder');
+      vi.advanceTimersByTime(INTERVALO_MS);
+      http.expectOne(ESTADO).flush(estado('listo'));
+      http.expectOne(REPORTE).flush(NORMAL);
+      expect(filas()).toHaveLength(NORMAL.filas.length);
+    });
+
+    it('si continuar falla, muestra el error y deja el botón activo', () => {
+      llegaAfinidadBaja();
+      boton()!.click();
+      http
+        .expectOne(CONTINUAR)
+        .flush({ detail: 'el video está en proceso' }, { status: 409, statusText: 'Conflict' });
+      expect(pantalla().querySelector('.error')).not.toBeNull();
+      expect(boton()!.disabled).toBe(false);
+      http.expectNone(ESTADO);
+    });
   });
 
   it('deja de consultar al salir de la pantalla', () => {

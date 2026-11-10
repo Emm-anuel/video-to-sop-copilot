@@ -156,7 +156,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Salida del pipeline de video y entrada de la extracción de pasos.",
+  "description": "Salida del pipeline de video y entrada de la extracción de pasos.\n\n`modelo_transcripcion` es el modelo de Whisper con que se transcribió (nombre de\nfaster-whisper o carpeta); None en los análisis guardados antes de registrarlo.",
   "properties": {
     "version_contrato": {
       "const": 1,
@@ -191,6 +191,18 @@
       },
       "title": "Fotogramas",
       "type": "array"
+    },
+    "modelo_transcripcion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Modelo Transcripcion"
     }
   },
   "required": [

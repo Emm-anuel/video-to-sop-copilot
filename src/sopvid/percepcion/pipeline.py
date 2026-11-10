@@ -86,6 +86,7 @@ def analizar_video(
             "idioma": transcripcion.idioma.model_dump(),
             "transcripcion": segmentos,
             "fotogramas": [],
+            "modelo_transcripcion": transcripcion.modelo,
         }
     )
     logger.info(

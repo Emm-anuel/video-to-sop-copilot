@@ -15,12 +15,17 @@ lleva `version_contrato`, `t_inicio`/`t_fin` de cada paso pueden ser `None` (un 
 tiene tiempos; los llena el SOP generado desde el video) y todo el resumen tiene valores por
 defecto, para que un SOP mínimo (título y pasos) valide.
 
+`Contexto` es la ficha de contexto del video (RF-12), con `Persona` para quién aparece. El
+reporte lleva además, por fila, `ResponsableFila` y `TiempoFila` (RF-15, RF-16), y en la raíz
+`Afinidad` (RF-17), `RolReporte`, `TiempoTotal` y `Horario`; en los reportes guardados antes de
+su lógica (ADR-020, ADR-021) van en `None` o vacíos.
+
 Todo tiempo de estos contratos sale de la transcripción o del video, nunca del LLM (regla 4 de
 CLAUDE.md). Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fin ≥ inicio, y las
 listas vacías se escriben `[]`, nunca `null`. Los mensajes de error solo citan ids, números de
 paso y tiempos, nunca texto de la transcripción ni del SOP (puede ser material del cliente).
 
-Los JSON Schema se exportan a docs/contrato/ (analisis, sop y reporte .schema.json) con
+Los JSON Schema se exportan a docs/contrato/ (analisis, sop, contexto y reporte .schema.json) con
 `python scripts/exportar_contrato.py`; no se editan a mano.
 """
 
@@ -92,7 +97,11 @@ class Fotograma(_Modelo):
 
 
 class Analisis(_Modelo):
-    """Salida del pipeline de video y entrada de la extracción de pasos."""
+    """Salida del pipeline de video y entrada de la extracción de pasos.
+
+    `modelo_transcripcion` es el modelo de Whisper con que se transcribió (nombre de
+    faster-whisper o carpeta); None en los análisis guardados antes de registrarlo.
+    """
 
     version_contrato: Literal[1] = 1
     video_id: int
@@ -100,6 +109,7 @@ class Analisis(_Modelo):
     idioma: Idioma
     transcripcion: list[Segmento]
     fotogramas: list[Fotograma] = []
+    modelo_transcripcion: str | None = None
 
     @model_validator(mode="after")
     def _transcripcion_ordenada(self) -> Self:
@@ -136,6 +146,31 @@ class PasoVideo(_Modelo):
         return self
 
 
+class SegmentacionGuardada(_Modelo):
+    """Los pasos del video como los dejó la segmentación, antes de fusionar, en
+    `videos.pasos_video` (JSONB; RNF-07, ADR-022).
+
+    La segmentación de Gemma no es determinista (ADR-022): repetir la validación (ADR-019) la
+    reusa, así que los pasos, el emparejamiento y el porcentaje salen iguales (la redacción de las
+    justificaciones del juez puede variar, ADR-022); solo se vuelve a segmentar si se pide o si no
+    se puede reusar: la hizo la heurística de respaldo, quedaron pasos sin redactar, o es una
+    fila anterior a este contrato (una lista sin método).
+    """
+
+    version_contrato: Literal[1] = 1
+    metodo: Literal["llm", "heuristica"]
+    modelo: str | None = None
+    motivo_respaldo: str | None = None
+    pasos_sin_redactar: int = Field(default=0, ge=0)
+    motivo_sin_redaccion: str | None = None
+    pasos: list[PasoVideo]
+
+    @property
+    def reusable(self) -> bool:
+        """True si la hizo el LLM y quedó completa: repetir la validación puede reusarla."""
+        return self.metodo == "llm" and self.pasos_sin_redactar == 0
+
+
 class Fusion(_Modelo):
     """Registro de un paso del video tras la fusión (ADR-013): qué pasos originales lo forman.
 
@@ -145,6 +180,10 @@ class Fusion(_Modelo):
     `paso_sop`. `responsables_distintos` lista los responsables de los originales, en orden de
     aparición, cuando no coinciden (el paso fusionado se queda con el del más parecido); si
     coinciden, va vacía.
+
+    `rescate` es true si el paso se armó al rescatar un Falta (ADR-022): une fragmentos que habían
+    quedado como Sobra entre los pares vecinos, y el juez confirmó el par con el paso
+    `paso_sop`. Falso en los registros anteriores a ADR-022.
     """
 
     numero: int = Field(ge=1, description="Número del paso fusionado.")
@@ -153,6 +192,7 @@ class Fusion(_Modelo):
     citas: list[str]
     similitudes: list[Annotated[float, Field(ge=-1, le=1)]]
     responsables_distintos: list[str] = []
+    rescate: bool = False
 
     @model_validator(mode="after")
     def _listas_alineadas(self) -> Self:
@@ -216,6 +256,23 @@ RESULTADOS_JUEZ: tuple[ResultadoJuez, ...] = get_args(ResultadoJuez)
 MarcoOperador = Literal["intro", "cierre"]
 # Color del cumplimiento en el reporte (RF-19); los cortes viven en la configuración.
 Semaforo = Literal["verde", "amarillo", "rojo"]
+# Los estados que son un par SOP–video: los únicos con responsable y tiempo en el reporte.
+ESTADOS_PAR: tuple[EstadoPaso, ...] = ("Cumple", "Parcial", "zona_gris")
+
+# ── Personas y tiempos (SOP V1.0 §5.4 y §5.5) ───────────────────────────────────────────────
+
+# Una persona del video hace pasos ("participa") o solo se nombra ("mencionado").
+Participacion = Literal["participa", "mencionado"]
+# Quién hace un paso emparejado frente al responsable del SOP (RF-15).
+EstadoResponsable = Literal["coincide", "distinto", "no_identificado"]
+# Cada rol del SOP entre las personas del video (RF-15).
+EstadoRol = Literal["presente", "mencionado", "ausente"]
+# Duración frente al tiempo esperado del SOP, con la tolerancia de la configuración (RF-16).
+EstadoTiempo = Literal["en_tiempo", "excede", "menor", "sin_referencia"]
+# De dónde sale la duración observada: la que narra el operador o t_fin − t_inicio.
+OrigenTiempo = Literal["narrado", "medido"]
+# Horario o frecuencia del SOP frente a lo que se dice en el video.
+EstadoHorario = Literal["coincide", "distinto", "no_mencionado", "sin_referencia"]
 
 
 class Juicio(_Modelo):
@@ -365,6 +422,10 @@ class ResumenClasificacion(_Modelo):
     (punto 4 de ADR-012, diferida con RF-18) no cuenta aquí. `fuera_de_orden` cuenta aparte los
     pasos con esa marca (0 hasta que corre `orden`); no cambia el conteo por estado.
 
+    El rescate de un Falta (ADR-022) arma pares fuera del húngaro y todos pasan por el juez:
+    cada uno suma 1 a `pares`, a `pares_llm` y al veredicto del juez, aunque el juez lo rechace.
+    `rescatados` cuenta los que el juez confirmó (o dejó sin revisar) y quedaron como par.
+
     `juez` queda en `None` hasta que corre el juez de la zona gris; después cuenta qué decidió
     en cada par que le llegó (todos los `RESULTADOS_JUEZ`, aunque sea 0): su suma es
     `pares_llm` y "respaldo" es el conteo de zona_gris que quedó. Sin juez, `pares_llm` es el
@@ -385,9 +446,14 @@ class ResumenClasificacion(_Modelo):
     juez: dict[ResultadoJuez, Annotated[int, Field(ge=0)]] | None = None
     segundos_juez: float | None = Field(default=None, ge=0)
     marco_operador: int = Field(default=0, ge=0)
+    rescatados: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
+        if self.rescatados > self.pares:
+            raise ValueError(f"{self.rescatados} rescatados con solo {self.pares} pares")
+        if self.rescatados and self.juez is None:
+            raise ValueError("un par rescatado pasa siempre por el juez (ADR-022)")
         if (self.juez is None) != (self.segundos_juez is None):
             raise ValueError("juez y segundos_juez van juntos: los dos o ninguno")
         if set(self.conteo) != set(ESTADOS):
@@ -473,6 +539,16 @@ class ResultadoEmparejamiento(_Modelo):
                 f"{len(self.fusiones)} registros de fusión para {len(numeros)} pasos del video, "
                 "o con números distintos"
             )
+        rescatados = [i for i, f in enumerate(self.fusiones) if f.rescate]
+        if len(rescatados) != self.clasificacion.resumen.rescatados:
+            raise ValueError(
+                f"{len(rescatados)} pasos del video rescatados y el resumen cuenta "
+                f"{self.clasificacion.resumen.rescatados}"
+            )
+        en_pares = {p.indice_video for p in self.clasificacion.pasos if p.estado in ESTADOS_PAR}
+        for i in rescatados:
+            if i not in en_pares:
+                raise ValueError(f"el paso del video rescatado {i} no está en un par (ADR-022)")
         for paso in self.clasificacion.pasos:
             if paso.indice_video is None:
                 continue
@@ -496,12 +572,17 @@ FuenteSOP = Literal["documento", "audio", "visual", "inferido"]
 
 
 class Dato(_Modelo):
-    """Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo."""
+    """Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
+
+    `cita` es la frase de la transcripción que lo respalda, en el idioma original (SOP generado,
+    ADR-023); vacía en un SOP cargado y en la ficha de contexto.
+    """
 
     valor: str | None = None
     confianza: Confianza = "alta"
     fuente: FuenteSOP = "documento"
     t: Tiempo | None = None
+    cita: str = ""
 
 
 class Elemento(_Modelo):
@@ -511,19 +592,50 @@ class Elemento(_Modelo):
     descripcion: str = ""
 
 
+class Persona(_Modelo):
+    """Persona identificada en el video (RF-12, §5.4).
+
+    `nombre` es el que se dice o "No identificado"; `rol`, el que se dice o se infiere, o `None`.
+    `t` y `cita` salen de la transcripción (regla 4): el segundo y la frase donde aparece. La cita
+    solo va vacía si la persona se identificó por un fotograma (entonces `t` es el del fotograma).
+    """
+
+    nombre: str = Field(default="No identificado", min_length=1)
+    rol: str | None = None
+    participacion: Participacion
+    t: Tiempo
+    cita: str = ""
+
+
 class Riesgo(_Modelo):
+    """Punto de riesgo. `cita`, `fuente`, `confianza` y `t` son su evidencia en el SOP generado
+    (ADR-023); un SOP cargado los deja en "", "documento", "alta" y None."""
+
     descripcion: str
     nivel: Literal["alto", "medio", "bajo"]
     paso: int | None = None
     control: str = ""
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    confianza: Confianza = "alta"
+    t: Tiempo | None = None
 
 
 class Falla(_Modelo):
+    """Qué hacer en caso de falla, con su evidencia como en `Riesgo`."""
+
     situacion: str
     accion: str
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    confianza: Confianza = "alta"
+    t: Tiempo | None = None
 
 
 class Resumen(_Modelo):
+    """Cuadro resumen (RF-22). `version` es la del SOP ("1.0" en uno generado, §6)."""
+
+    version: str = "1.0"
     objetivo: Dato = Dato()
     alcance: Dato = Dato()
     responsable: Dato = Dato()
@@ -532,12 +644,46 @@ class Resumen(_Modelo):
     duracion_total_min: float | None = Field(default=None, ge=0)
     equipo_operacion: list[Elemento] = []
     roles: list[Elemento] = []
+    # Personas en el video (§6, SOP generado); un SOP cargado la deja vacía.
+    personas: list[Persona] = []
     riesgos: list[Riesgo] = []
     en_caso_de_falla: list[Falla] = []
 
 
+# Campos de un paso del SOP generado que llevan su propia evidencia (ADR-023).
+CampoEvidencia = Literal["equipo", "puntos_validacion", "tiempo_esperado_min", "responsable"]
+
+
+class Evidencia(_Modelo):
+    """De dónde sale un dato de un paso del SOP generado (RF-25, ADR-023): `valor` es el dato tal
+    como quedó en el paso (un elemento de `equipo` o de `puntos_validacion`, los minutos o el
+    responsable) y `cita`, la frase de la transcripción que lo respalda, en el idioma original.
+    Con fuente "audio" o "visual" lleva su segundo; "inferido", sin cita ni segundo."""
+
+    campo: CampoEvidencia
+    valor: str
+    cita: str = ""
+    fuente: FuenteSOP
+    confianza: Confianza
+    t: Tiempo | None = None
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.fuente in ("audio", "visual") and self.t is None:
+            raise ValueError(f"evidencia de {self.campo}: una fuente {self.fuente} lleva su t")
+        if self.fuente == "audio" and not self.cita.strip():
+            raise ValueError(f"evidencia de {self.campo}: una fuente audio lleva su cita")
+        return self
+
+
 class PasoSOP(_Modelo):
-    """Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video."""
+    """Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.
+
+    En el SOP generado (ADR-023), `cita` y `fuente` son la evidencia del paso (la cita de sus
+    pasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del
+    tiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que
+    la pantalla lo resalte. Un SOP cargado deja "", "documento" y [].
+    """
 
     numero: int = Field(ge=1)
     nombre: str = Field(min_length=1)
@@ -550,6 +696,9 @@ class PasoSOP(_Modelo):
     t_fin: Tiempo | None = None
     confianza: Confianza = "alta"
     campos_inferidos: list[str] = []
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    evidencia: list[Evidencia] = []
 
     @model_validator(mode="after")
     def _rango(self) -> Self:
@@ -559,13 +708,42 @@ class PasoSOP(_Modelo):
 
 
 class PuntoClave(_Modelo):
+    """Punto clave (RF-24). En el SOP generado, `t`, `cita`, `fuente` y `confianza` son su
+    evidencia (ADR-023)."""
+
     texto: str
     t: Tiempo | None = None
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    confianza: Confianza = "alta"
+
+
+CategoriaPalabra = Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
 
 
 class PalabraClave(_Modelo):
+    """Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio
+    (RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`.
+
+    `termino` va en español; `literal` es la forma en que se dijo en el video (en su idioma y como
+    la transcribió Whisper), con la que se cuentan las menciones (ADR-023). Vacía en un SOP
+    cargado.
+    """
+
     termino: str
-    categoria: Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
+    categoria: CategoriaPalabra
+    menciones: int = Field(default=0, ge=0)
+    t: list[Tiempo] = []
+    literal: str = ""
+
+    @model_validator(mode="after")
+    def _menciones(self) -> Self:
+        if len(self.t) != self.menciones:
+            raise ValueError(f"{self.menciones} menciones y {len(self.t)} segundos")
+        for a, b in pairwise(self.t):
+            if b < a:
+                raise ValueError(f"segundos de las menciones fuera de orden ({a} → {b})")
+        return self
 
 
 class SOP(_Modelo):
@@ -589,20 +767,120 @@ class SOP(_Modelo):
         return self
 
 
-# ── Reporte de validación (RF-14, RF-19, base de RF-20; ADR-019) ────────────────────────────
+# ── Estado de la conversión de un SOP cargado (POST /sops, ADR-015) ──────────────────────────
 
-# Por qué un reporte es provisional (ADR-019): Ollama falló después de la revisión inicial.
+EstadoConversionSop = Literal["en_cola", "convirtiendo", "listo", "error"]
+MetodoConversionSop = Literal["plantilla", "llm"]
+
+
+class AvisoConversion(_Modelo):
+    """Advertencia de la conversión que no la detiene. `tipo` es estable para agruparlas (RF-04);
+    `linea` solo la da la plantilla. El mensaje cita números de paso o de línea, nunca el SOP."""
+
+    tipo: str
+    linea: int | None = None
+    mensaje: str
+
+
+class EstadoSop(_Modelo):
+    """Respuesta de `POST /sops` (202) y de `GET /sops/{id}/estado`.
+
+    La conversión corre en el trabajador: "en_cola" → "convirtiendo" → "listo" o "error".
+    `titulo`, `metodo` y `advertencias` llegan con "listo" (`metodo` es None en un SOP generado o
+    anterior a la migración 0003); `mensaje`, con "error" (dice qué hacer: volver a subirlo, usar
+    la plantilla…). Mientras no esté listo, `GET /sops/{id}` da 409.
+
+    `origen` es "cargado" o "generado" (desde un video, ADR-023); `en_biblioteca`, si el SOP se
+    puede usar como referencia en otro video (RF-27): los cargados entran solos y un generado, al
+    guardarlo. Un SOP generado usa los mismos estados ("convirtiendo" mientras se redacta).
+    """
+
+    id: int
+    codigo: str
+    estado: EstadoConversionSop
+    origen: Literal["cargado", "generado"] = "cargado"
+    en_biblioteca: bool = True
+    titulo: str | None = None
+    metodo: MetodoConversionSop | None = None
+    mensaje: str | None = None
+    advertencias: list[AvisoConversion] = []
+
+    @model_validator(mode="after")
+    def _segun_estado(self) -> Self:
+        if self.estado == "listo" and self.titulo is None:
+            raise ValueError("un SOP listo lleva título")
+        if self.estado == "error" and not self.mensaje:
+            raise ValueError("un SOP en error lleva mensaje")
+        return self
+
+
+# ── Avisos: fallas del sistema que vuelven provisional un resultado (ADR-019) ────────────────
+
 # "segmentacion_heuristica": los pasos del video salieron de la heurística de respaldo;
 # "juez_sin_revisar": quedaron pares en zona_gris; "pasos_sin_redactar": respondió la llamada de
-# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja).
-TipoAviso = Literal["segmentacion_heuristica", "juez_sin_revisar", "pasos_sin_redactar"]
+# fronteras pero no la de redacción, y esos pasos van sin cita ni descripción (confianza baja);
+# "contexto_sin_generar": la ficha de contexto (RF-12) quedó vacía porque Ollama no respondió, se
+# cortó por tiempo, no dio un JSON válido o la transcripción estaba vacía;
+# "transcripcion_no_referencia": Whisper no fue el modelo de referencia (large-v3-turbo, ADR-018),
+# así que la transcripción, y lo que se cita de ella, puede traer errores de reconocimiento.
+TipoAviso = Literal[
+    "segmentacion_heuristica",
+    "juez_sin_revisar",
+    "pasos_sin_redactar",
+    "contexto_sin_generar",
+    "transcripcion_no_referencia",
+]
 
 
 class Aviso(_Modelo):
-    """Falla del sistema que afecta al reporte. `detalle` no lleva texto del video ni del SOP."""
+    """Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP."""
 
     tipo: TipoAviso
     detalle: str
+
+
+# ── Ficha de contexto del video (RF-12; SOP V1.0 §6) ────────────────────────────────────────
+
+
+def _sin_evidencia() -> Dato:
+    """Dato vacío: sin evidencia, inferido con confianza baja (regla 4)."""
+    return Dato(valor=None, confianza="baja", fuente="inferido")
+
+
+class Contexto(_Modelo):
+    """Ficha de contexto del video, en `videos.contexto` (JSONB). Entrada de la afinidad (RF-17)
+    y del SOP generado.
+
+    Reusa `Dato`, pero solo con fuentes del video: nunca "documento". Un dato de audio o visual
+    lleva `t` (el segundo de la transcripción o del fotograma, regla 4); uno inferido puede no
+    llevarlo. Lo que no se dice ni se ve queda vacío, inferido y con confianza baja.
+
+    `avisos` dice qué afecta a la ficha (p. ej. "transcripcion_no_referencia"); vacía, ninguno.
+    """
+
+    version_contrato: Literal[1] = 1
+    actividad: Dato = Field(default_factory=_sin_evidencia)
+    tema: Dato = Field(default_factory=_sin_evidencia)
+    lugar: Dato = Field(default_factory=_sin_evidencia)
+    horario_mencionado: Dato = Field(default_factory=_sin_evidencia)
+    proposito: Dato = Field(default_factory=_sin_evidencia)
+    resumen: Dato = Field(default_factory=_sin_evidencia)
+    personas: list[Persona] = []
+    equipos: list[Elemento] = []
+    avisos: list[Aviso] = []
+
+    @model_validator(mode="after")
+    def _fuentes_del_video(self) -> Self:
+        for campo in ("actividad", "tema", "lugar", "horario_mencionado", "proposito", "resumen"):
+            dato: Dato = getattr(self, campo)
+            if dato.fuente == "documento":
+                raise ValueError(f"{campo}: la ficha de contexto no tiene fuente 'documento'")
+            if dato.fuente in ("audio", "visual") and dato.t is None:
+                raise ValueError(f"{campo}: un dato de {dato.fuente} lleva su segundo (t)")
+        return self
+
+
+# ── Reporte de validación (RF-14, RF-19, base de RF-20; ADR-019) ────────────────────────────
 
 
 class Umbrales(_Modelo):
@@ -613,6 +891,17 @@ class Umbrales(_Modelo):
     fusion: float = Field(ge=0, le=1)
     semaforo_verde: float = Field(ge=0, le=100)
     semaforo_amarillo: float = Field(ge=0, le=100)
+    # None en los reportes guardados antes de S5, que no los registraban.
+    afinidad_min: float | None = Field(default=None, ge=0, le=100)
+    tolerancia_tiempo: float | None = Field(default=None, ge=0, le=1)
+    umbral_rol: float | None = Field(default=None, ge=0, le=1)
+    # None en los reportes guardados antes de ADR-020.
+    afinidad_cos_cero: float | None = Field(default=None, ge=-1, le=1)
+    afinidad_cos_cien: float | None = Field(default=None, ge=-1, le=1)
+    afinidad_umbral_equipo: float | None = Field(default=None, ge=0, le=1)
+    umbral_rol_complemento: float | None = Field(default=None, ge=0, le=1)
+    # None en los reportes guardados antes de ADR-021.
+    umbral_horario: float | None = Field(default=None, ge=0, le=1)
 
 
 # Dónde corrió un modelo (ADR-018). "gpu": al menos una parte en la GPU (Ollama no informa de
@@ -653,13 +942,178 @@ class MetadatosValidacion(_Modelo):
     avisos: list[Aviso] = []
     # None en los reportes guardados antes del 27 oct, que no lo registraban.
     dispositivos: Dispositivos | None = None
+    # True si los pasos del video se reusaron de la validación anterior (RNF-07), sin llamar a
+    # Gemma para segmentar; entonces `segundos` no trae "segmentacion".
+    segmentacion_reusada: bool = False
+
+
+class ResponsableFila(_Modelo):
+    """Responsable del paso del SOP frente a quien lo hace en el video (§5.4, RF-15).
+
+    `esperado` es el del SOP; `observado`, quien lo hace en el video ("Nombre (rol)" o el rol;
+    `None` si no se sabe, y entonces el estado es "no_identificado" y no hay similitud).
+    `similitud` es la de los roles comparados (ADR-020: la menor entre núcleo y complemento).
+    `nota` dice cómo se identificó a la persona y los casos especiales (paso fusionado con varios
+    responsables, un solo narrador sin nombre…); vacía en los reportes anteriores a ADR-020.
+    """
+
+    esperado: str = Field(min_length=1)
+    observado: str | None = None
+    estado: EstadoResponsable
+    similitud: float | None = Field(default=None, ge=-1, le=1)
+    nota: str = ""
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.observado is None) != (self.estado == "no_identificado"):
+            raise ValueError(
+                f"responsable {self.estado}: sin observado si y solo si es no_identificado"
+            )
+        if self.estado == "no_identificado" and self.similitud is not None:
+            raise ValueError("responsable no_identificado: sin similitud")
+        return self
+
+
+class RolReporte(_Modelo):
+    """Un rol del SOP entre las personas del video (§5.4, RF-15; ADR-020).
+
+    Presente o mencionado llevan el segundo (y la frase, si se dijo) donde aparece la persona
+    (regla 4), `persona` ("Nombre (rol)" o el rol), la `similitud` de los roles y la `confianza`
+    del rol de la persona ("baja" si no aparece en su cita: lo infirió el LLM); ausente no lleva
+    nada de eso.
+
+    `con_pasos` es true si el rol es responsable de algún paso del SOP. Solo un rol ausente con
+    pasos cuenta en `personas_con_diferencias`: uno de apoyo o de escalamiento (p. ej. un
+    supervisor que solo atiende si algo falla) se muestra, pero no suma (decisión del 8 nov,
+    ADR-020). Por defecto true: los reportes anteriores conservan su conteo.
+    """
+
+    rol: str = Field(min_length=1)
+    estado: EstadoRol
+    t: Tiempo | None = None
+    cita: str = ""
+    persona: str | None = None
+    similitud: float | None = Field(default=None, ge=-1, le=1)
+    confianza: Confianza | None = None
+    con_pasos: bool = True
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.estado == "ausente":
+            if (
+                self.t is not None
+                or self.cita
+                or self.persona is not None
+                or self.similitud is not None
+                or self.confianza is not None
+            ):
+                raise ValueError("rol ausente: sin t, cita, persona, similitud ni confianza")
+        elif self.t is None:
+            raise ValueError(f"rol {self.estado}: lleva el segundo donde aparece (t)")
+        return self
+
+
+class Afinidad(_Modelo):
+    """¿El video es de este SOP? (§5.2, RF-17, ADR-020). `valor` entero de 0 a 100, como la
+    columna `reportes.afinidad`; `bajo_umbral` es `valor < AFINIDAD_MIN` (la app advierte).
+
+    `explicacion` la arma el código con lo que comparó. `componentes` lleva el valor 0–100 de cada
+    componente que se pudo calcular ("global", "actividad", "objetivo", "equipos"); vacío en las
+    afinidades anteriores a ADR-020.
+    """
+
+    valor: int = Field(ge=0, le=100)
+    explicacion: str
+    bajo_umbral: bool
+    componentes: dict[str, Annotated[int, Field(ge=0, le=100)]] = {}
+
+
+class TiempoFila(_Modelo):
+    """Duración del paso en el video frente al tiempo esperado del SOP (§5.5, RF-16).
+
+    `observado_min` es la que narra el operador ("narrado", con la frase en `cita`, regla 4) o
+    la medida del paso del video ya fusionado ("medido", sin cita): de su inicio al inicio del
+    siguiente paso del video, con la pausa (el último, hasta el final del video); si el operador
+    narra la duración, esa gana siempre (§5.5, ADR-021). Sin tiempo esperado en el SOP, el estado es
+    "sin_referencia". Solo "excede" cuenta como fuera de tiempo; "menor" se muestra, pero no es
+    un incumplimiento.
+    """
+
+    esperado_min: float | None = Field(default=None, ge=0)
+    observado_min: float = Field(ge=0)
+    origen: OrigenTiempo
+    estado: EstadoTiempo
+    cita: str = ""
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.esperado_min is None) != (self.estado == "sin_referencia"):
+            raise ValueError(f"tiempo {self.estado}: sin esperado si y solo si es sin_referencia")
+        if (self.origen == "narrado") != bool(self.cita.strip()):
+            raise ValueError(f"tiempo {self.origen}: la cita va si y solo si es narrado")
+        return self
+
+
+class TiempoTotal(_Modelo):
+    """Duración total del procedimiento frente a la del SOP (§5.5, ADR-021): la suma de lo
+    observado en los pares (Falta y Sobra no suman) frente a `resumen.duracion_total_min` o, si
+    el SOP no lo trae, la suma de los esperados cuando todos los pasos lo tienen."""
+
+    esperado_min: float | None = Field(default=None, ge=0)
+    observado_min: float = Field(ge=0)
+    estado: EstadoTiempo
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.esperado_min is None) != (self.estado == "sin_referencia"):
+            raise ValueError(
+                f"tiempo total {self.estado}: sin esperado si y solo si es sin_referencia"
+            )
+        return self
+
+
+class Horario(_Modelo):
+    """Horario o frecuencia del SOP frente a lo que se dice en el video (§5.5).
+
+    Sin horario en el SOP, "sin_referencia". Si el SOP lo define y el video no lo menciona,
+    "no_mencionado". Lo observado lleva su segundo y su frase de la transcripción (regla 4).
+    """
+
+    esperado: str | None = None
+    observado: str | None = None
+    estado: EstadoHorario
+    t: Tiempo | None = None
+    cita: str = ""
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if (self.esperado is None) != (self.estado == "sin_referencia"):
+            raise ValueError(f"horario {self.estado}: sin esperado si y solo si es sin_referencia")
+        if self.esperado is not None and (self.observado is None) != (
+            self.estado == "no_mencionado"
+        ):
+            raise ValueError(f"horario {self.estado}: sin observado si y solo si no_mencionado")
+        if (self.observado is None) != (self.t is None):
+            raise ValueError("horario: lo observado lleva su segundo (t), y sin observado no hay t")
+        if self.observado is None and self.cita:
+            raise ValueError("horario: sin observado no hay cita")
+        return self
 
 
 class ResultadoValidacion(_Modelo):
     """Lo que se guarda en `reportes.resultado` (JSONB).
 
     `cumplimiento` va sin redondear (la columna `reportes.cumplimiento` guarda el valor a dos
-    decimales) y `semaforo` se calculó con él, nunca con el redondeado.
+    decimales) y `semaforo` se calculó con él, nunca con el redondeado. `afinidad` (RF-17,
+    ADR-020) es None sin ficha de contexto y en los reportes guardados antes de ADR-020.
+
+    `roles` y `responsables` (RF-15, ADR-020): un `RolReporte` por rol del SOP y un responsable
+    por resultado de la clasificación, en su mismo orden (None fuera de los pares). Los dos van
+    vacíos en los reportes guardados antes de ADR-020, que se siguen leyendo.
+
+    `tiempos`, `tiempo_total` y `horario` (RF-16, ADR-021): un tiempo por resultado de la
+    clasificación, en su orden (None fuera de los pares), el total y el horario. Vacíos o None en
+    los reportes guardados antes de ADR-021, que se siguen leyendo.
     """
 
     version_contrato: Literal[1] = 1
@@ -667,6 +1121,36 @@ class ResultadoValidacion(_Modelo):
     cumplimiento: float = Field(ge=0, le=100)
     semaforo: Semaforo
     metadatos: MetadatosValidacion
+    afinidad: Afinidad | None = None
+    roles: list[RolReporte] = []
+    responsables: list[ResponsableFila | None] = []
+    tiempos: list[TiempoFila | None] = []
+    tiempo_total: TiempoTotal | None = None
+    horario: Horario | None = None
+
+    @model_validator(mode="after")
+    def _tiempos_alineados(self) -> Self:
+        if not self.tiempos:
+            return self
+        pasos = self.resultado.clasificacion.pasos
+        if len(self.tiempos) != len(pasos):
+            raise ValueError(f"{len(self.tiempos)} tiempos para {len(pasos)} resultados")
+        for paso, tiempo in zip(pasos, self.tiempos, strict=True):
+            if tiempo is not None and paso.estado not in ESTADOS_PAR:
+                raise ValueError(f"{paso.estado}: el tiempo solo va en un par")
+        return self
+
+    @model_validator(mode="after")
+    def _responsables_alineados(self) -> Self:
+        if not self.responsables:
+            return self
+        pasos = self.resultado.clasificacion.pasos
+        if len(self.responsables) != len(pasos):
+            raise ValueError(f"{len(self.responsables)} responsables para {len(pasos)} resultados")
+        for paso, responsable in zip(pasos, self.responsables, strict=True):
+            if responsable is not None and paso.estado not in ESTADOS_PAR:
+                raise ValueError(f"{paso.estado}: el responsable solo va en un par")
+        return self
 
 
 class PasoSOPReporte(_Modelo):
@@ -689,6 +1173,13 @@ class FilaReporte(_Modelo):
     número del paso del video ya fusionado, sin él en un Falta. `t_inicio` y `cita` salen solo de
     la transcripción (regla 4). Un zona_gris se muestra como "sin revisar". `justificacion` es la
     del juez cuando decidió el par.
+
+    `responsable` y `tiempo` (RF-15, RF-16) solo van en un par (Cumple, Parcial, zona_gris): un
+    Falta no tiene paso del video y un Sobra no tiene paso del SOP. Quedan en `None` en los
+    reportes guardados antes de ADR-020 y ADR-021.
+
+    `rescatado` (ADR-022) es true si el paso del video del par se armó con varios fragmentos al
+    rescatar un Falta, y el juez lo confirmó: la pantalla lo marca para que se vea.
     """
 
     estado: EstadoPaso
@@ -702,10 +1193,27 @@ class FilaReporte(_Modelo):
     fuera_de_orden: bool = False
     marco_operador: MarcoOperador | None = None
     justificacion: str | None = None
+    responsable: ResponsableFila | None = None
+    tiempo: TiempoFila | None = None
+    rescatado: bool = False
+
+    @model_validator(mode="after")
+    def _personas_y_tiempo_solo_en_pares(self) -> Self:
+        if self.estado not in ESTADOS_PAR and (
+            self.responsable is not None or self.tiempo is not None or self.rescatado
+        ):
+            raise ValueError(f"{self.estado}: responsable, tiempo y rescate solo van en un par")
+        return self
 
 
 class ConteoReporte(_Modelo):
-    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016)."""
+    """Conteo de la clasificación. `sobra` no incluye los de `marco_operador` (ADR-016).
+
+    `personas_con_diferencias` y `pasos_fuera_de_tiempo` van junto al porcentaje (§5.6): las
+    filas con responsable "distinto" más los roles "ausente" que son responsables de algún paso
+    (`RolReporte.con_pasos`, ADR-020), y las filas con tiempo "excede" (ADR-021: "menor" es más
+    rápido de lo esperado, no un incumplimiento). 0 en los reportes que no los calculaban.
+    """
 
     cumple: int = Field(ge=0)
     parcial: int = Field(ge=0)
@@ -714,14 +1222,47 @@ class ConteoReporte(_Modelo):
     sobra: int = Field(ge=0)
     sin_revisar: int = Field(ge=0)
     marco_operador: int = Field(ge=0)
+    personas_con_diferencias: int = Field(default=0, ge=0)
+    pasos_fuera_de_tiempo: int = Field(default=0, ge=0)
+
+
+class DetencionAfinidad(_Modelo):
+    """Lo que se guarda en `reportes.resultado` cuando la validación se detiene por afinidad baja
+    (ADR-020): el video queda en `proceso="afinidad_baja"`, sin reporte de pasos y con
+    `reportes.cumplimiento` en NULL, hasta que quien carga decide continuar
+    (`POST /videos/{id}/validar?continuar=true`).
+
+    `segundos` lleva lo que tardó cada etapa hasta la afinidad; `avisos`, los que ya se sabían
+    (p. ej. "transcripcion_no_referencia"). `afinidad.bajo_umbral` siempre es true.
+    """
+
+    version_contrato: Literal[1] = 1
+    afinidad: Afinidad
+    umbrales: Umbrales
+    embedder: str
+    segundos: dict[str, Annotated[float, Field(ge=0)]] = {}
+    avisos: list[Aviso] = []
+    dispositivos: Dispositivos | None = None
+
+    @model_validator(mode="after")
+    def _bajo_umbral(self) -> Self:
+        if not self.afinidad.bajo_umbral:
+            raise ValueError("una detención por afinidad lleva una afinidad bajo el umbral")
+        minimo = self.umbrales.afinidad_min
+        if minimo is not None and self.afinidad.valor >= minimo:
+            raise ValueError(f"afinidad {self.afinidad.valor} no está bajo AFINIDAD_MIN {minimo}")
+        return self
 
 
 class ReporteValidacion(_Modelo):
     """Respuesta de `GET /videos/{id}/reporte`.
 
     `cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin
-    redondear. `provisional` es true si hay avisos (ADR-019). `afinidad` queda en `None` hasta
-    RF-17 (post-MVP).
+    redondear. `provisional` es true si hay avisos (ADR-019).
+
+    `afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10
+    del documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,
+    igual que `responsable` y `tiempo` de cada fila.
     """
 
     version_contrato: Literal[1] = 1
@@ -730,9 +1271,12 @@ class ReporteValidacion(_Modelo):
     cumplimiento: float = Field(ge=0, le=100)
     semaforo: Semaforo
     provisional: bool
-    afinidad: int | None = Field(default=None, ge=0, le=100)
+    afinidad: Afinidad | None = None
     conteo: ConteoReporte
     filas: list[FilaReporte]
+    roles: list[RolReporte] = []
+    tiempo_total: TiempoTotal | None = None
+    horario: Horario | None = None
     metadatos: MetadatosValidacion
     creado: datetime
 
@@ -740,6 +1284,17 @@ class ReporteValidacion(_Modelo):
     def _coherente(self) -> Self:
         if self.provisional != bool(self.metadatos.avisos):
             raise ValueError("provisional va en true si y solo si hay avisos")
+        minimo = self.metadatos.umbrales.afinidad_min
+        afinidad = self.afinidad
+        if (
+            afinidad is not None
+            and minimo is not None
+            and afinidad.bajo_umbral != (afinidad.valor < minimo)
+        ):
+            raise ValueError(
+                f"afinidad {afinidad.valor}: bajo_umbral debe ser "
+                f"{afinidad.valor < minimo} con AFINIDAD_MIN {minimo}"
+            )
         filas = self.filas
         esperado = ConteoReporte(
             cumple=sum(f.estado == "Cumple" for f in filas),
@@ -749,13 +1304,117 @@ class ReporteValidacion(_Modelo):
             sobra=sum(f.estado == "Sobra" and f.marco_operador is None for f in filas),
             sin_revisar=sum(f.estado == "zona_gris" for f in filas),
             marco_operador=sum(f.marco_operador is not None for f in filas),
+            personas_con_diferencias=(
+                sum(f.responsable is not None and f.responsable.estado == "distinto" for f in filas)
+                + sum(r.estado == "ausente" and r.con_pasos for r in self.roles)
+            ),
+            pasos_fuera_de_tiempo=sum(
+                f.tiempo is not None and f.tiempo.estado == "excede" for f in filas
+            ),
         )
         if self.conteo != esperado:
-            raise ValueError("el conteo no coincide con las filas")
+            raise ValueError("el conteo no coincide con las filas y los roles")
         n_sop = len(self.sop.pasos)
         for fila in filas:
             if fila.paso_sop is not None and fila.paso_sop > n_sop:
                 raise ValueError(f"paso_sop {fila.paso_sop} fuera de los {n_sop} pasos del SOP")
+        return self
+
+
+# ── Generación del SOP desde el video (RF-22 a RF-25; ADR-023) ───────────────────────────────
+
+# Las llamadas a Gemma de la generación, en orden: agrupar los pasos del video en pasos del SOP,
+# redactar los pasos (una llamada por lote), el cuadro resumen y los puntos y palabras clave.
+EtapaGeneracion = Literal["agrupar", "pasos", "resumen", "claves"]
+# Por qué un paso del video no entra al SOP: la presentación, el cierre, una pregunta del
+# entrevistador o un comentario que no es una acción del procedimiento.
+TipoFuera = Literal["introduccion", "cierre", "entrevistador", "comentario"]
+# La etiqueta de cada paso del video en la agrupación v2 (ADR-023): "nuevo" empieza un paso del
+# SOP, "continua" sigue el del paso del video anterior y las demás lo dejan fuera (`TipoFuera`).
+EtiquetaAgrupacion = Literal[
+    "nuevo", "continua", "introduccion", "cierre", "entrevistador", "comentario"
+]
+# Por qué falló una llamada (no se reintenta un Ollama caído ni un corte por tiempo).
+MotivoLlamada = Literal["llm_no_disponible", "tiempo_excedido", "respuesta_invalida"]
+
+
+class LlamadaLLM(_Modelo):
+    """Una llamada a Gemma de la generación, con sus reintentos. Las métricas son las del intento
+    válido (None si no lo hubo); `segundos`, los de todos los intentos. `motivo` va si y solo si
+    la llamada no dio una respuesta válida (`ok` false)."""
+
+    etapa: EtapaGeneracion
+    prompt: str = Field(min_length=1)
+    ok: bool
+    motivo: MotivoLlamada | None = None
+    intentos: int = Field(ge=0)
+    segundos: float = Field(ge=0)
+    tokens_entrada: int | None = Field(default=None, ge=0)
+    tokens_salida: int | None = Field(default=None, ge=0)
+    tokens_por_s: float | None = Field(default=None, ge=0)
+    primer_token_s: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _motivo_si_falla(self) -> Self:
+        if self.ok == (self.motivo is not None):
+            raise ValueError(f"llamada {self.etapa}: motivo si y solo si no fue válida")
+        return self
+
+
+class PasoFuera(_Modelo):
+    """Un paso del video que no entra al SOP generado, y por qué."""
+
+    paso_video: int = Field(ge=1)
+    tipo: TipoFuera
+
+
+class GeneracionSOP(_Modelo):
+    """Cómo se generó un SOP desde el video, en `sops.generacion` (JSONB; ADR-023).
+
+    `grupos` tiene, por cada paso del SOP y en su orden, los números de los pasos del video que lo
+    forman (consecutivos); `fuera`, los que no entran. Entre los dos aparece cada paso del video
+    una sola vez. `agrupacion` es "uno_a_uno" si la llamada de agrupación falló y cada paso del
+    video quedó como un paso del SOP. `segundos` es lo que tardó la generación (sin la ficha ni
+    la segmentación); `dispositivo_llm`, dónde corrió Gemma (ADR-018).
+
+    Con la agrupación v2, `etiquetas` guarda la que puso Gemma a cada paso del video, en orden
+    (vacía con la v1 o si falló). `candado` dice si se aplicó el candado por coseno y
+    `cortes_candado`, los pasos del video que Gemma marcó "continua" y el candado volvió a
+    poner como inicio de un paso del SOP.
+    """
+
+    version_contrato: Literal[1] = 1
+    video_id: int
+    modelo: str | None = None
+    pasos_video: int = Field(ge=0)
+    agrupacion: Literal["llm", "uno_a_uno"]
+    grupos: list[list[Annotated[int, Field(ge=1)]]]
+    fuera: list[PasoFuera] = []
+    etiquetas: list[EtiquetaAgrupacion] = []
+    candado: bool = False
+    cortes_candado: list[Annotated[int, Field(ge=1)]] = []
+    llamadas: list[LlamadaLLM] = []
+    # La duración total que dijo el operador (minutos en `valor`, con su cita y su segundo), si
+    # la dijo: entonces es `resumen.duracion_total_min`. None: la duración total es la suma.
+    duracion_narrada: Dato | None = None
+    segundos: float = Field(default=0.0, ge=0)
+    dispositivo_llm: Dispositivo = "desconocido"
+    contexto_reusado: bool = False
+    segmentacion_reusada: bool = False
+
+    @model_validator(mode="after")
+    def _cada_paso_una_vez(self) -> Self:
+        vistos = [n for g in self.grupos for n in g] + [f.paso_video for f in self.fuera]
+        if sorted(vistos) != list(range(1, self.pasos_video + 1)):
+            raise ValueError(
+                f"grupos y fuera deben cubrir los {self.pasos_video} pasos del video una vez"
+            )
+        for grupo in self.grupos:
+            if not grupo or grupo != list(range(grupo[0], grupo[0] + len(grupo))):
+                raise ValueError("cada grupo es una lista no vacía de pasos del video consecutivos")
+        primeros = [g[0] for g in self.grupos]
+        if primeros != sorted(primeros):
+            raise ValueError("los grupos van en el orden del video")
         return self
 
 
@@ -767,6 +1426,16 @@ def esquema_analisis() -> dict[str, Any]:
 def esquema_sop() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `SOP`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **SOP.model_json_schema()}
+
+
+def esquema_estado_sop() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `EstadoSop`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **EstadoSop.model_json_schema()}
+
+
+def esquema_contexto() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `Contexto`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **Contexto.model_json_schema()}
 
 
 def esquema_reporte() -> dict[str, Any]:
