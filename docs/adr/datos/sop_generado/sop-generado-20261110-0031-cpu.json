@@ -1,0 +1,189 @@
+{
+  "fecha": "2026-11-10 00:31",
+  "git": {
+    "commit": "95d7d404096528607a0da720bcc5a82f5c4c9542",
+    "rama": "feat/s5",
+    "cambios_sin_commit": 10
+  },
+  "configuracion": {
+    "llm": "gemma4:e4b-it-q4_K_M",
+    "llm_dispositivo": "cpu",
+    "whisper": "large-v3-turbo",
+    "gpu": "NVIDIA GeForce RTX 2070 SUPER"
+  },
+  "corridas": [
+    {
+      "video": "video_e",
+      "n": 1,
+      "dispositivo": "cpu",
+      "vram_mib": 1806,
+      "pasos_video": 18,
+      "pasos_sop": 5,
+      "segundos": {
+        "contexto": 60.39,
+        "segmentacion": 155.06,
+        "sop": 213.29,
+        "total_gemma": 428.75
+      },
+      "llamadas": [
+        {
+          "etapa": "contexto",
+          "s": 60.39,
+          "tokens": 369,
+          "tok_s": 14.1
+        },
+        {
+          "etapa": "segmentacion",
+          "s": 45.77,
+          "tokens": 550,
+          "tok_s": 17.2
+        },
+        {
+          "etapa": "segmentacion",
+          "s": 109.28,
+          "tokens": 1414,
+          "tok_s": 15.5
+        },
+        {
+          "etapa": "agrupar",
+          "s": 31.8,
+          "tokens": 137,
+          "tok_s": 13.25,
+          "intentos": 1
+        },
+        {
+          "etapa": "pasos",
+          "s": 75.94,
+          "tokens": 754,
+          "tok_s": 13.2,
+          "intentos": 1
+        },
+        {
+          "etapa": "resumen",
+          "s": 49.2,
+          "tokens": 377,
+          "tok_s": 14.7,
+          "intentos": 1
+        },
+        {
+          "etapa": "claves",
+          "s": 56.34,
+          "tokens": 586,
+          "tok_s": 15.54,
+          "intentos": 1
+        }
+      ],
+      "advertencias": [],
+      "archivo_sop": "video_e-1-cpu.json"
+    }
+  ],
+  "idiomas": {
+    "video_e": {
+      "codigo": "en",
+      "confianza": 0.999,
+      "fijado_a_mano": false
+    }
+  },
+  "completitud": {
+    "video_e": {
+      "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+      "objetivo": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo.",
+      "alcance": "Cubre solo el filtro de cartucho montado en la pared en la línea de enjuague. No incluye reemplazar la carcasa del filtro o la válvula de corte.",
+      "lugar": "Línea de enjuague",
+      "horario": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+      "responsable": "Técnico de mantenimiento",
+      "roles": [
+        "Técnico de mantenimiento"
+      ],
+      "equipo": 15,
+      "riesgos": 2,
+      "en_caso_de_falla": 1,
+      "duracion_total_min": 3.0,
+      "pasos_en_infinitivo": 5,
+      "pasos": 5,
+      "puntos_clave": 7,
+      "palabras_clave": 10,
+      "inferidos": 5
+    }
+  },
+  "rnf05": {
+    "video_e [1]": {
+      "pasos_generados": 5,
+      "correctos": 3,
+      "pct": 60.0,
+      "referencia_cubierta": 4,
+      "referencia_faltan": [
+        4,
+        5
+      ],
+      "filas": [
+        {
+          "paso": 1,
+          "nombre": "Poner equipo de protección personal",
+          "t_inicio": 52.46,
+          "t_fin": 75.53,
+          "referencia": 1,
+          "nombre_referencia": "Ponerse guantes y lentes",
+          "estado": "Cumple",
+          "similitud": 0.792,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true
+        },
+        {
+          "paso": 2,
+          "nombre": "Cerrar válvula de corte antes filtro",
+          "t_inicio": 77.32,
+          "t_fin": 100.44,
+          "referencia": 2,
+          "nombre_referencia": "Cerrar la llave de paso",
+          "estado": "Cumple",
+          "similitud": 0.719,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true
+        },
+        {
+          "paso": 3,
+          "nombre": "Liberar presión y reemplazar cartucho",
+          "t_inicio": 102.12,
+          "t_fin": 187.36,
+          "referencia": 3,
+          "nombre_referencia": "Liberar la presión",
+          "estado": "Parcial",
+          "similitud": 0.565,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false
+        },
+        {
+          "paso": 4,
+          "nombre": "Abrir válvula lentamente y verificar fugas",
+          "t_inicio": 188.44,
+          "t_fin": 219.77,
+          "referencia": 6,
+          "nombre_referencia": "Abrir la llave y revisar fugas",
+          "estado": "Cumple",
+          "similitud": 0.8,
+          "fuera_de_orden": false,
+          "en_tramo": true,
+          "correcto": true
+        },
+        {
+          "paso": 5,
+          "nombre": "Finalizar reemplazo de cartucho",
+          "t_inicio": 221.35,
+          "t_fin": 225.03,
+          "referencia": null,
+          "nombre_referencia": null,
+          "estado": "Sobra",
+          "similitud": null,
+          "fuera_de_orden": false,
+          "en_tramo": false,
+          "correcto": false
+        }
+      ]
+    }
+  },
+  "ollama_ps": "NAME                    ID              SIZE      PROCESSOR    CONTEXT    RUNNER      UNTIL               \ngemma4:e4b-it-q4_K_M    dc35e8d9c606    1.9 GB    100% CPU     8192       llamacpp    29 minutes from now"
+}

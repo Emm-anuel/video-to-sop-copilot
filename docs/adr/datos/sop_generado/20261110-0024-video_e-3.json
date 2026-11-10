@@ -1,0 +1,513 @@
+{
+  "sop": {
+    "version_contrato": 1,
+    "titulo": "Reemplazo de cartucho de filtro de agua en línea de enjuague",
+    "resumen": {
+      "version": "1.0",
+      "objetivo": {
+        "valor": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo.",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 9.28,
+        "cita": "The goal is to change the cartridge with no leaks and get the working pressure back."
+      },
+      "alcance": {
+        "valor": "Cubre solo el filtro de cartucho montado en la pared en la línea de enjuague. No incluye reemplazar la carcasa del filtro o la válvula de corte.",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 14.94,
+        "cita": "This covers only the wall-mounted cartridge filter at the rinse line in length. It does not include replacing the filter housing or the"
+      },
+      "responsable": {
+        "valor": "Técnico de mantenimiento",
+        "confianza": "media",
+        "fuente": "audio",
+        "t": 0.14,
+        "cita": "Good morning, I'm Emmanuel, the maintenance technician."
+      },
+      "lugar": {
+        "valor": "Línea de enjuague",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 14.94,
+        "cita": ""
+      },
+      "horario_frecuencia": {
+        "valor": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 27.18,
+        "cita": ""
+      },
+      "duracion_total_min": 3.0,
+      "equipo_operacion": [
+        {
+          "nombre": "guantes neutros gafas de seguridad",
+          "descripcion": ""
+        },
+        {
+          "nombre": "sniff supervisor",
+          "descripcion": ""
+        },
+        {
+          "nombre": "guantes neutros",
+          "descripcion": ""
+        },
+        {
+          "nombre": "gafas de seguridad",
+          "descripcion": ""
+        },
+        {
+          "nombre": "cubo",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave de ajuste",
+          "descripcion": ""
+        },
+        {
+          "nombre": "manómetro",
+          "descripcion": ""
+        },
+        {
+          "nombre": "cartucho de filtro",
+          "descripcion": ""
+        },
+        {
+          "nombre": "bolsa de desecho",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave de tubo",
+          "descripcion": ""
+        },
+        {
+          "nombre": "guantes de protección de mano",
+          "descripcion": ""
+        },
+        {
+          "nombre": "válvula de corte",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave de extensión",
+          "descripcion": ""
+        },
+        {
+          "nombre": "supervisor SNP",
+          "descripcion": ""
+        },
+        {
+          "nombre": "herramienta de soporte de carcasa",
+          "descripcion": ""
+        },
+        {
+          "nombre": "toalla de papel",
+          "descripcion": ""
+        }
+      ],
+      "roles": [
+        {
+          "nombre": "Técnico de mantenimiento",
+          "descripcion": ""
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "Emmanuel",
+          "rol": "Técnico de mantenimiento",
+          "participacion": "participa",
+          "t": 0.14,
+          "cita": "Good morning, I'm Emmanuel, the maintenance technician."
+        }
+      ],
+      "riesgos": [
+        {
+          "descripcion": "Salpicadura de agua al liberar la presión",
+          "nivel": "medio",
+          "paso": 1,
+          "control": "I put on safety glasses because the water can splash when I release the pressure.",
+          "cita": "water can splash when I release the pressure.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 52.46
+        },
+        {
+          "descripcion": "Agua bajo presión al abrir la carcasa",
+          "nivel": "alto",
+          "paso": 2,
+          "control": "I place the bucket under the filter because the floor can get wet.",
+          "cita": "water under pressure when the housing is opened.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 102.12
+        },
+        {
+          "descripcion": "El suelo puede mojarse",
+          "nivel": "bajo",
+          "paso": 2,
+          "control": "I place the bucket under the filter because the floor can get wet.",
+          "cita": "the floor can get wet.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 111.36
+        }
+      ],
+      "en_caso_de_falla": [
+        {
+          "situacion": "Si hay una fuga en la unión del perno, cerrar la válvula, liberar la presión y revisar el anillo O.",
+          "accion": "close the valve, release the pressure and check the o-ring.",
+          "cita": "If there is a leak at the bolt joint, close the valve, release the pressure and check the o-ring.",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 205.47
+        }
+      ]
+    },
+    "pasos": [
+      {
+        "numero": 1,
+        "nombre": "Poner equipo de protección personal",
+        "descripcion": "Poner guantes neutros para proteger las manos y ponerse gafas de seguridad porque el agua puede salpicar al liberar la presión antes de tocar el filtro.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "guantes neutros gafas de seguridad"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.41,
+        "t_inicio": 52.46,
+        "t_fin": 75.53,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "I put on neutral gloves to protect my hands, and I put on safety glasses",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "guantes neutros gafas de seguridad",
+            "cita": "I put on neutral gloves to protect my hands, and I put on safety glasses because the water can splash when I release the pressure.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 52.46
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.41",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 2,
+        "nombre": "Cerrar válvula antes del filtro",
+        "descripcion": "Cerrar la válvula de corte antes del filtro girándola completamente hacia la derecha, y si la válvula no cierra o está demasiado apretada, no usar una barra de extensión llamada el sniff supervisor.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "sniff supervisor"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 2.5,
+        "t_inicio": 77.32,
+        "t_fin": 225.03,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Next I close the shove off valve before the filter, it turns it to the",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "sniff supervisor",
+            "cita": "an extension bar called the sniff supervisor",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 91.88
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician.",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 0.14
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "2.5",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      }
+    ],
+    "puntos_clave": [
+      {
+        "texto": "Poner guantes neutros y gafas de seguridad.",
+        "t": 52.46,
+        "cita": "I put on neutral gloves to protect my hands, and I put on safety glasses because the water can splash when I release the pressure.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Cerrar la válvula de corte antes del filtro.",
+        "t": 77.32,
+        "cita": "Next I close the shove off valve before the filter, it turns it to the right all the way.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "No usar barra de extensión si la válvula no cierra correctamente.",
+        "t": 91.88,
+        "cita": "If the valve doesn't close or it's too sniffed, don't use an extension bar called the sniff supervisor.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Liberar la presión con precaución, es el mayor riesgo.",
+        "t": 102.12,
+        "cita": "Now I release the pressure, this is the highest risk, water under pressure when the housing is opened.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Verificar la junta de goma para detectar daños.",
+        "t": 153.23,
+        "cita": "I check the rubber or ring, it's now flutter or crack so it stays, if it were damaged I would replace it.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Si hay fuga en la unión del perno, cerrar válvula y revisar junta O-ring.",
+        "t": 205.47,
+        "cita": "If there is a leak at the bolt joint, close the valve, release the pressure and check the o-ring.",
+        "fuente": "audio",
+        "confianza": "alta"
+      }
+    ],
+    "palabras_clave": [
+      {
+        "termino": "guantes neutral",
+        "categoria": "seguridad",
+        "menciones": 1,
+        "t": [
+          58.42
+        ],
+        "literal": "neutral gloves"
+      },
+      {
+        "termino": "gafas",
+        "categoria": "seguridad",
+        "menciones": 1,
+        "t": [
+          66.07
+        ],
+        "literal": "safety glasses"
+      },
+      {
+        "termino": "válvula",
+        "categoria": "equipo",
+        "menciones": 2,
+        "t": [
+          25.4,
+          79.68
+        ],
+        "literal": "shove off valve"
+      },
+      {
+        "termino": "filtro",
+        "categoria": "material",
+        "menciones": 1,
+        "t": [
+          5.9
+        ],
+        "literal": "water filter cartridge"
+      },
+      {
+        "termino": "presure gage",
+        "categoria": "equipo",
+        "menciones": 1,
+        "t": [
+          32.5
+        ],
+        "literal": "pressure gauge"
+      },
+      {
+        "termino": "caja",
+        "categoria": "equipo",
+        "menciones": 5,
+        "t": [
+          23.82,
+          109.52,
+          121.58,
+          134.9,
+          136.02
+        ],
+        "literal": "housing"
+      },
+      {
+        "termino": "botella",
+        "categoria": "equipo",
+        "menciones": 1,
+        "t": [
+          112.76
+        ],
+        "literal": "bucket"
+      },
+      {
+        "termino": "perno",
+        "categoria": "equipo",
+        "menciones": 4,
+        "t": [
+          139.0,
+          173.72,
+          178.18,
+          211.15
+        ],
+        "literal": "bolt"
+      },
+      {
+        "termino": "junta",
+        "categoria": "material",
+        "menciones": 1,
+        "t": [
+          154.77
+        ],
+        "literal": "rubber or ring"
+      },
+      {
+        "termino": "llave",
+        "categoria": "equipo",
+        "menciones": 1,
+        "t": [
+          184.22
+        ],
+        "literal": "wrench"
+      },
+      {
+        "termino": "tubería",
+        "categoria": "lugar",
+        "menciones": 1,
+        "t": [
+          88.62
+        ],
+        "literal": "pipe"
+      }
+    ]
+  },
+  "advertencias": [],
+  "generacion": {
+    "version_contrato": 1,
+    "video_id": 0,
+    "modelo": "gemma4:e4b-it-q4_K_M",
+    "pasos_video": 17,
+    "agrupacion": "llm",
+    "grupos": [
+      [
+        3
+      ],
+      [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ]
+    ],
+    "fuera": [
+      {
+        "paso_video": 1,
+        "tipo": "introduccion"
+      },
+      {
+        "paso_video": 2,
+        "tipo": "comentario"
+      }
+    ],
+    "llamadas": [
+      {
+        "etapa": "agrupar",
+        "prompt": "sop_generado_agrupar_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 2,
+        "segundos": 3.98,
+        "tokens_entrada": 1258,
+        "tokens_salida": 116,
+        "tokens_por_s": 84.27,
+        "primer_token_s": 0.12
+      },
+      {
+        "etapa": "pasos",
+        "prompt": "sop_generado_pasos_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 10.02,
+        "tokens_entrada": 1044,
+        "tokens_salida": 741,
+        "tokens_por_s": 79.98,
+        "primer_token_s": 0.75
+      },
+      {
+        "etapa": "resumen",
+        "prompt": "sop_generado_resumen_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 6.28,
+        "tokens_entrada": 1314,
+        "tokens_salida": 422,
+        "tokens_por_s": 75.89,
+        "primer_token_s": 0.72
+      },
+      {
+        "etapa": "claves",
+        "prompt": "sop_generado_claves_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 6.88,
+        "tokens_entrada": 1018,
+        "tokens_salida": 529,
+        "tokens_por_s": 85.24,
+        "primer_token_s": 0.67
+      }
+    ],
+    "duracion_narrada": {
+      "valor": "3",
+      "confianza": "alta",
+      "fuente": "audio",
+      "t": 27.18,
+      "cita": "the whole job takes about 3 minutes, if something goes wrong, the SNP supervisor is the person to call, ..."
+    },
+    "segundos": 27.17,
+    "dispositivo_llm": "desconocido",
+    "contexto_reusado": false,
+    "segmentacion_reusada": false
+  }
+}

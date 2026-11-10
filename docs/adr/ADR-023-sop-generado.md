@@ -161,6 +161,65 @@ en vez de pisarlo.
   el uso cruzado (A validado contra el SOP de E) y el SOP generado desde A; resultados en
   `docs/adr/datos/sop_generado/` y en este ADR.
 
+## Medición con Gemma real (10 nov 2026): la prueba de aceptación E **no pasa**
+
+`scripts/medir_sop_generado.py`, commit `95d7d40`, `gemma4:e4b-it-q4_K_M` en la RTX 2070 SUPER
+(punto 0 confirmado: `ollama ps` dice "100% GPU" antes de medir y `dispositivo_cargado` dice
+"gpu" en cada corrida), Whisper `large-v3-turbo` en GPU. Datos en
+[`datos/sop_generado/`](datos/sop_generado/): informes `sop-generado-<fecha>.md` y cada SOP
+generado (`<fecha>-video_e-<n>.json`, con sus advertencias y `generacion`).
+
+**Lo que sí sale bien.** Idioma `en` con confianza 1.00. El SOP sale en español, con el cuadro
+resumen completo en las 4 corridas de E: título, objetivo, alcance, lugar, horario o frecuencia,
+responsable ("Técnico de mantenimiento", el rol, nunca el nombre), roles, 15 elementos de equipo,
+2–3 riesgos, 1 falla, duración total narrada (3 min, de "The whole job takes about 3 minutes"),
+5 de 5 nombres en infinitivo, 7 puntos clave y 10–12 palabras clave con sus menciones. Ninguna
+corrida dejó advertencias.
+
+**RNF-05 (≥ 80 % de los pasos generados correctos) no se cumple.** Comparado con
+`tests/fixtures/sop_filtro_agua.md` (MiniLM, húngaro, umbrales y juez, sin fusión ni rescate;
+correcto = *Cumple* o *Parcial*, en orden y con el punto medio en el tramo anotado de `video_e`):
+
+| Corrida | Pasos del video | Pasos del SOP | Correctos | Referencia cubierta |
+|---|---|---|---|---|
+| E 1 (GPU) | 18 | 5 | 3 (60 %) | 4 de 6 (faltan 4 y 5) |
+| E 2 (GPU) | 18 | 5 | 3 (60 %) | 4 de 6 (faltan 4 y 5) |
+| E 3 (GPU) | 17 | 2 | 1 (50 %) | 2 de 6 |
+| E (CPU) | 18 | 5 | 3 (60 %) | 4 de 6 (faltan 4 y 5) |
+
+**Por qué.** La agrupación junta de más. En las corridas 1, 2 y CPU, Gemma unió los pasos del
+video 5 a 13 (liberar la presión, retirar la carcasa y el cartucho, colocar el cartucho nuevo:
+tres pasos de la referencia) en uno, "Liberar presión y reemplazar cartucho" (102–187 s); en la 3
+unió del 4 al 17 en uno solo. Además, en E 2 dejó el cierre ("Done…") como un paso y en E 1
+partió el paso 6 en dos (abrir la llave / verificar la junta). La redacción de cada paso, sus
+citas y el cuadro resumen son correctos: el problema es la granularidad de la agrupación, no la
+segmentación (los 17–18 pasos del video separan bien las acciones).
+
+**Segunda falla: en A, la agrupación no salió en 3 intentos.** Gemma puso el último paso del
+video a la vez en un grupo y fuera como cierre ("pasos del video repetidos: [14]") y, con
+temperatura 0, repitió la misma respuesta en los 3 intentos; el SOP de A quedó con un paso por
+paso del video (14) y la advertencia `sop_incompleto`. En E 3 pasó lo mismo una vez y el
+reintento lo corrigió. El formato de dos listas (grupos y fuera) permite poner un paso en las dos.
+
+**Uso cruzado (RF-27).** A validado contra el SOP generado de E 1: 80 % amarillo (3 *Cumple*, 2
+*Parcial*, 6 *Sobra*, 0 *Falta*). No sale verde por la misma causa: el paso 3 del SOP de E junta
+tres pasos de A, así que los fragmentos de A de retirar y colocar el cartucho quedan como
+*Sobra*, y los dos *Parcial* son pasos del SOP de E más amplios que su par en A.
+
+**Tiempos (E, 3 min 47 s de video).** GPU: 51.6, 55.3 y 57.3 s de Gemma (ficha 10–13 s,
+segmentación 17–20 s, SOP 22–27 s; agrupar 2.3–4.0 s, pasos 7.9–10.0 s, resumen 5.7–6.3 s, claves
+6.1–6.9 s), 80–130 tokens/s, 6 652–6 689 MiB de VRAM. CPU (`LLM_DISPOSITIVO=cpu`): 428.8 s de
+Gemma (ficha 60 s, segmentación 155 s, SOP 213 s), 13–17 tokens/s. En CPU el modo generar es unas
+8 veces más lento: para un video de 10 min serían ~15–20 min solo de Gemma, lejos de RNF-01; sirve
+como respaldo (ADR-018), no para la demo.
+
+**Regresión del MVP** (`scripts/medir_mvp.py`, A y B ×3, mismo commit;
+[`datos/mvp/mvp-20261110-0039.md`](datos/mvp/mvp-20261110-0039.md)): A 3/3 verde (91.67–100 %),
+B 3/3 (66.67 %, *Falta* 2 y 6). Sin regresión.
+
+**Siguiente (pendiente de decisión del equipo, sin tocar código todavía):** cambiar la agrupación
+a una decisión por paso del video (ver el informe de esta sesión) y volver a medir E ×3 y A.
+
 ## Referencias
 
 - Documento SOP V1.0, §6, §10 y §14; RF-22 a RF-27, RNF-05 y RNF-06.
