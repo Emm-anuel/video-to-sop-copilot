@@ -116,7 +116,7 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 7 nov 2026 (resumen semanal en `docs/plan/estado.md`):
+> Estado al 10 nov 2026 (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -205,8 +205,13 @@ docs/
 >   determinista: `videos.pasos_video` la guarda (`SegmentacionGuardada`) y repetir la validación la
 >   reusa (`?segmentar=true` la vuelve a pedir). Con la misma segmentación el porcentaje se
 >   reproduce; la redacción del juez puede variar. A: 91.67–100 % con segmentaciones nuevas (ADR-018).
-> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); SOP generado, PDF del reporte y búsqueda (`lenguaje/`); pantallas fuera del
->   MVP.
+> - **Cierre de S5 (10 nov, `scripts/medir_s5.py`,
+>   [informe](docs/adr/datos/s5/medicion-s5-20261110-1311.md)):** con GPU, A–E pasan la §14 en
+>   14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por
+>   un valor sin traducir y RNF-01 no se cumple (15–21 min). SOP generado (RF-22 a 25, 27) en
+>   `lenguaje/sop_generado.py` (ADR-023); RF-26 solo el endpoint.
+> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6); editor
+>   de RF-26; pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
