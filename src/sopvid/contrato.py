@@ -1375,6 +1375,9 @@ class GeneracionSOP(_Modelo):
     grupos: list[list[Annotated[int, Field(ge=1)]]]
     fuera: list[PasoFuera] = []
     llamadas: list[LlamadaLLM] = []
+    # La duración total que dijo el operador (minutos en `valor`, con su cita y su segundo), si
+    # la dijo: entonces es `resumen.duracion_total_min`. None: la duración total es la suma.
+    duracion_narrada: Dato | None = None
     segundos: float = Field(default=0.0, ge=0)
     dispositivo_llm: Dispositivo = "desconocido"
     contexto_reusado: bool = False

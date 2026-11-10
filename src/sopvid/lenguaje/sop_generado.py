@@ -50,6 +50,7 @@ from sopvid.contrato import (
     Dato,
     Elemento,
     Evidencia,
+    Falla,
     FuenteSOP,
     GeneracionSOP,
     LlamadaLLM,
@@ -59,6 +60,7 @@ from sopvid.contrato import (
     PasoVideo,
     Persona,
     Resumen,
+    Riesgo,
     Segmento,
     TipoFuera,
 )
@@ -80,7 +82,12 @@ from sopvid.lenguaje.personas import (
     quien_hizo,
 )
 from sopvid.lenguaje.sop_markdown import empieza_con_infinitivo
-from sopvid.lenguaje.tiempos import duracion_narrada, fin_del_paso, segmentos_del_tramo
+from sopvid.lenguaje.tiempos import (
+    duracion_en_texto,
+    duracion_narrada,
+    fin_del_paso,
+    segmentos_del_tramo,
+)
 from sopvid.percepcion.contexto import PALABRAS_CITA, ubicar_cita
 from sopvid.percepcion.segmentacion import _sin_refs
 from sopvid.plataforma.config import get_settings
@@ -90,6 +97,7 @@ logger = logging.getLogger(__name__)
 
 PROMPT_AGRUPAR = "sop_generado_agrupar_v1"  # archivos en lenguaje/prompts/; uno nuevo por versión
 PROMPT_PASOS = "sop_generado_pasos_v1"
+PROMPT_RESUMEN = "sop_generado_resumen_v1"
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es un JSON del esquema
 PASOS_POR_LOTE = 8  # pasos del SOP por llamada de redacción
 VERSION_SOP = "1.0"  # §6: el SOP generado nace en la versión 1.0
@@ -151,9 +159,56 @@ class _PasoVisual(_PasoLibre):
     puntos_validacion: list[_ItemVisual]  # type: ignore[assignment]
 
 
+class _DatoCita(_Libre):
+    cita: str
+    valor: str | None
+
+
+class _DatoCitaVisual(_DatoCita):
+    f: int | None = Field(default=None, ge=1)
+
+
+class _SoloCita(_Libre):
+    cita: str
+
+
+class _RiesgoLibre(_Libre):
+    cita: str
+    descripcion: str
+    nivel: Literal["alto", "medio", "bajo"]
+    control: str
+
+
+class _RiesgoVisual(_RiesgoLibre):
+    f: int | None = Field(default=None, ge=1)
+
+
+class _FallaLibre(_Libre):
+    cita: str
+    situacion: str
+    accion: str
+
+
+class _ResumenLibre(_Libre):
+    titulo: str
+    objetivo: _DatoCita
+    alcance: _DatoCita
+    duracion_total: _SoloCita
+    riesgos: list[_RiesgoLibre]
+    en_caso_de_falla: list[_FallaLibre]
+
+
+class _ResumenVisual(_ResumenLibre):
+    objetivo: _DatoCitaVisual  # type: ignore[assignment]
+    alcance: _DatoCitaVisual  # type: ignore[assignment]
+    riesgos: list[_RiesgoVisual]  # type: ignore[assignment]
+
+
 ESQUEMA_AGRUPAR: dict[str, Any] = _sin_refs(_Agrupacion.model_json_schema())
 ESQUEMA_PASOS: dict[str, Any] = _sin_refs(TypeAdapter(list[_PasoLibre]).json_schema())
 ESQUEMA_PASOS_FOTOGRAMAS: dict[str, Any] = _sin_refs(TypeAdapter(list[_PasoVisual]).json_schema())
+ESQUEMA_RESUMEN: dict[str, Any] = _sin_refs(_ResumenLibre.model_json_schema())
+ESQUEMA_RESUMEN_FOTOGRAMAS: dict[str, Any] = _sin_refs(_ResumenVisual.model_json_schema())
 
 _MARCADORES_AGRUPAR = {
     "sistema": frozenset(),
@@ -169,10 +224,24 @@ _MARCADORES_PASOS = {
 }
 
 
+_MARCADORES_RESUMEN = {
+    "sistema": frozenset(),
+    "sistema_fotogramas": frozenset(),
+    "usuario": frozenset({"idioma", "ficha", "transcripcion", "pasos"}),
+    "usuario_fotogramas": frozenset({"fotogramas"}),
+    "correccion": frozenset({"motivo"}),
+}
+
+
 @cache
 def cargar_prompt(version: str) -> Prompt:
     """Lee `prompts/<version>.md` con los marcadores de su etapa."""
-    marcadores = _MARCADORES_AGRUPAR if "agrupar" in version else _MARCADORES_PASOS
+    if "agrupar" in version:
+        marcadores = _MARCADORES_AGRUPAR
+    elif "resumen" in version:
+        marcadores = _MARCADORES_RESUMEN
+    else:
+        marcadores = _MARCADORES_PASOS
     return leer_prompt(version, texto_del_prompt(version), marcadores)
 
 
@@ -730,6 +799,160 @@ def resumen_por_codigo(
     )
 
 
+# ── 3. Cuadro resumen con Gemma ──────────────────────────────────────────────────────────────
+
+
+def _ficha_completa(contexto: Contexto | None) -> str:
+    """La ficha como texto: los datos con valor y las personas con su rol."""
+    if contexto is None:
+        return "(sin ficha de contexto)"
+    datos = [
+        f"{nombre}: {dato.valor}"
+        for nombre, dato in (
+            ("actividad", contexto.actividad),
+            ("tema", contexto.tema),
+            ("lugar", contexto.lugar),
+            ("horario", contexto.horario_mencionado),
+            ("proposito", contexto.proposito),
+            ("resumen", contexto.resumen),
+        )
+        if dato.valor
+    ]
+    personas = [
+        p.nombre + (f" ({p.rol})" if p.rol else "") + f", {p.participacion}"
+        for p in contexto.personas
+    ]
+    if personas:
+        datos.append("personas: " + "; ".join(personas))
+    return "\n".join(datos) or "(sin datos)"
+
+
+def _transcripcion(analisis: Analisis) -> str:
+    """La transcripción, una frase por línea, sin tiempos ni números de segmento."""
+    return "\n".join(t for s in analisis.transcripcion if (t := " ".join(s.texto.split())))
+
+
+def _lista_de_pasos(pasos: Sequence[PasoSOP]) -> str:
+    return "\n".join(f"{p.numero}. {p.nombre}" for p in pasos)
+
+
+@dataclass(frozen=True)
+class TramoPaso:
+    """Dónde cae un paso del SOP en el video: de su inicio al inicio del siguiente paso del
+    video (como la medida de ADR-021)."""
+
+    numero: int
+    inicio: float
+    fin: float
+
+
+def paso_en(t: float | None, tramos: Sequence[TramoPaso]) -> int | None:
+    """El paso del SOP en cuyo tramo cae el segundo `t`; None si cae fuera de todos (p. ej. en la
+    presentación) o si no hay segundo."""
+    if t is None:
+        return None
+    return next((x.numero for x in tramos if x.inicio <= t < x.fin), None)
+
+
+def _dato_con_cita(d: _DatoCita, evidencias: _Evidencias) -> Dato:
+    valor = limpiar(d.valor, _VACIOS)
+    if not valor:
+        return _dato_vacio()
+    u = evidencias.ubicar(d.cita, f=getattr(d, "f", None))
+    return Dato(valor=valor, confianza=u.confianza, fuente=u.fuente, t=u.t, cita=u.cita)
+
+
+def aplicar_resumen(
+    r: _ResumenLibre,
+    base: Resumen,
+    tramos: Sequence[TramoPaso],
+    evidencias: _Evidencias,
+) -> tuple[Resumen, Dato | None]:
+    """Completa el resumen por código con lo que redactó Gemma: objetivo y alcance con su
+    evidencia, riesgos (con el paso en cuyo tramo cae su cita) y fallas. La duración total
+    narrada reemplaza a la suma de los pasos si su cita aparece en la transcripción y dice una
+    duración (`tiempos.duracion_en_texto`); se devuelve aparte, como `Dato`, para
+    `GeneracionSOP`."""
+    riesgos = []
+    for x in r.riesgos:
+        if not (descripcion := limpiar(x.descripcion, _VACIOS)):
+            continue
+        u = evidencias.ubicar(x.cita, f=getattr(x, "f", None))
+        riesgos.append(
+            Riesgo(
+                descripcion=descripcion,
+                nivel=x.nivel,
+                paso=paso_en(u.t, tramos),
+                control=limpiar(x.control, _VACIOS),
+                cita=u.cita,
+                fuente=u.fuente,
+                confianza=u.confianza,
+                t=u.t,
+            )
+        )
+    fallas = []
+    for x in r.en_caso_de_falla:
+        if not (situacion := limpiar(x.situacion, _VACIOS)):
+            continue
+        u = evidencias.ubicar(x.cita)
+        fallas.append(
+            Falla(
+                situacion=situacion,
+                accion=limpiar(x.accion, _VACIOS),
+                cita=u.cita,
+                fuente=u.fuente,
+                confianza=u.confianza,
+                t=u.t,
+            )
+        )
+    narrada = _duracion_total_narrada(r.duracion_total.cita, evidencias)
+    cambios: dict[str, Any] = {
+        "objetivo": _dato_con_cita(r.objetivo, evidencias),
+        "alcance": _dato_con_cita(r.alcance, evidencias),
+        "riesgos": riesgos,
+        "en_caso_de_falla": fallas,
+    }
+    if narrada is not None and narrada.valor is not None:
+        cambios["duracion_total_min"] = float(narrada.valor)
+    return base.model_copy(update=cambios), narrada
+
+
+def _duracion_total_narrada(cita: str, evidencias: _Evidencias) -> Dato | None:
+    """La duración total que dice el operador: la cita debe aparecer en la transcripción y decir
+    una duración que entienda `duracion_en_texto` (ADR-021). Los minutos los saca el código."""
+    if not limpiar(cita, _VACIOS):
+        return None
+    u = evidencias.ubicar(cita)
+    if u.fuente != "audio":
+        return None
+    hallada = duracion_en_texto(u.cita)
+    if hallada is None:
+        return None
+    minutos = round(hallada[0], 2)
+    return Dato(valor=f"{minutos:g}", confianza=u.confianza, fuente="audio", t=u.t, cita=u.cita)
+
+
+def _resumir(
+    analisis: Analisis,
+    pasos: Sequence[PasoSOP],
+    contexto: Contexto | None,
+    llm: ClienteLLM,
+    plazos: _Plazos,
+) -> tuple[_ResumenLibre | None, LlamadaLLM]:
+    prompt = cargar_prompt(PROMPT_RESUMEN)
+    con_fotogramas = bool(analisis.fotogramas)
+    modelo = _ResumenVisual if con_fotogramas else _ResumenLibre
+    mensajes = _mensajes(
+        prompt,
+        analisis,
+        ficha=_ficha_completa(contexto),
+        transcripcion=_transcripcion(analisis),
+        pasos=_lista_de_pasos(pasos),
+    )
+    esquema = ESQUEMA_RESUMEN_FOTOGRAMAS if con_fotogramas else ESQUEMA_RESUMEN
+    return _llamar(llm, "resumen", prompt, mensajes, esquema, modelo.model_validate, plazos)
+
+
 # ── Orquestación ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -800,7 +1023,25 @@ def generar_sop(
             )
 
     resumen = resumen_por_codigo(pasos, contexto, armado.comparador)
-    sop = SOP(titulo=titulo_de(None, contexto, analisis.video_id), resumen=resumen, pasos=pasos)
+    avanzar("sop_resumen")
+    redactado, llamada = _resumir(analisis, pasos, contexto, llm, plazos)
+    llamadas.append(llamada)
+    narrada: Dato | None = None
+    if redactado is not None:
+        tramos = [
+            TramoPaso(p.numero, p.t_inicio or 0.0, armado.fin_medida(numeros))
+            for p, numeros in zip(pasos, agrupacion.grupos, strict=True)
+        ]
+        resumen, narrada = aplicar_resumen(redactado, resumen, tramos, armado.evidencias)
+    else:
+        advertencias.append(
+            _incompleto(
+                f"cuadro resumen ({llamada.motivo}): faltan título, objetivo, alcance, riesgos y "
+                "qué hacer en caso de falla"
+            )
+        )
+    titulo = titulo_de(redactado.titulo if redactado else None, contexto, analisis.video_id)
+    sop = SOP(titulo=titulo, resumen=resumen, pasos=pasos)
     generacion = GeneracionSOP(
         video_id=analisis.video_id,
         modelo=llm.modelo,
@@ -809,6 +1050,7 @@ def generar_sop(
         grupos=agrupacion.grupos,
         fuera=agrupacion.fuera,
         llamadas=llamadas,
+        duracion_narrada=narrada,
         segundos=round(reloj() - plazos.inicio, 2),
     )
     logger.info(

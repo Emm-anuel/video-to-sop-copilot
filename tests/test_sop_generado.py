@@ -147,6 +147,34 @@ PASOS = [
 ]
 
 
+RESUMEN = {
+    "titulo": "Lubricación de la cadena del transportador",
+    "objetivo": {
+        "cita": "Today I lubricate the conveyor chain",
+        "valor": "Lubricar la cadena del transportador",
+    },
+    "alcance": {"cita": "", "valor": None},
+    "duracion_total": {"cita": ""},
+    "riesgos": [
+        {
+            "cita": "I stop the conveyor with the red stop button",
+            "descripcion": "Atrapamiento con la cadena en movimiento",
+            "nivel": "alto",
+            "control": "Detener el transportador con el botón de paro",
+        },
+        {
+            "cita": "the oil is very slippery on the floor",
+            "descripcion": "Piso resbaloso",
+            "nivel": "medio",
+            "control": "",
+        },
+    ],
+    "en_caso_de_falla": [
+        {"cita": "", "situacion": "La luz verde no se apaga", "accion": "Avisar al supervisor"}
+    ],
+}
+
+
 class LLMGuionado:
     """Cliente del LLM falso: responde a cada esquema con la siguiente respuesta de su lista (la
     última se repite). Una respuesta puede ser un objeto (JSON), una excepción que se lanza o una
@@ -192,11 +220,12 @@ def _etapa(esquema: dict[str, Any]) -> str:
 ESQUEMAS: dict[str, tuple[dict[str, Any], ...]] = {
     "agrupar": (gen.ESQUEMA_AGRUPAR,),
     "pasos": (gen.ESQUEMA_PASOS, gen.ESQUEMA_PASOS_FOTOGRAMAS),
+    "resumen": (gen.ESQUEMA_RESUMEN, gen.ESQUEMA_RESUMEN_FOTOGRAMAS),
 }
 
 
 def guion(**cambios: list[Any]) -> dict[str, list[Any]]:
-    return {"agrupar": [AGRUPACION], "pasos": [PASOS]} | cambios
+    return {"agrupar": [AGRUPACION], "pasos": [PASOS], "resumen": [RESUMEN]} | cambios
 
 
 @pytest.fixture
@@ -444,7 +473,7 @@ def test_los_pasos_se_redactan_por_lotes(embedder, monkeypatch):
 
     llm = LLMGuionado(guion(pasos=[lote]))
     r = generar(llm, embedder)
-    assert llm.etapas() == ["agrupar", "pasos", "pasos"]
+    assert llm.etapas() == ["agrupar", "pasos", "pasos", "resumen"]
     assert [p.numero for p in r.sop.pasos] == [1, 2, 3]
 
 
@@ -526,3 +555,112 @@ def test_sin_responsable_conocido_el_del_resumen_queda_vacio(embedder):
     sop = generar(LLMGuionado(guion()), embedder, pasos=pasos, contexto=None).sop
     assert sop.resumen.responsable.valor is None
     assert all(p.responsable == NO_IDENTIFICADO for p in sop.pasos)
+
+
+# ── Cuadro resumen con Gemma (RF-22) ─────────────────────────────────────────────────────────
+
+
+def test_el_resumen_lleva_titulo_objetivo_riesgos_y_fallas_con_su_evidencia(embedder):
+    r = generar(LLMGuionado(guion()), embedder)
+    sop = r.sop
+    assert sop.titulo == "Lubricación de la cadena del transportador"
+    objetivo = sop.resumen.objetivo
+    assert (objetivo.valor, objetivo.fuente, objetivo.confianza, objetivo.t, objetivo.cita) == (
+        "Lubricar la cadena del transportador",
+        "audio",
+        "alta",
+        0.0,
+        "Today I lubricate the conveyor chain",
+    )
+    assert sop.resumen.alcance == gen._dato_vacio()  # no se dice: vacío e inferido
+    atrapamiento, piso = sop.resumen.riesgos
+    # El paso del riesgo lo pone el código: su cita cae en el tramo del paso 2 (30 a 50 s).
+    assert (atrapamiento.nivel, atrapamiento.paso, atrapamiento.t, atrapamiento.fuente) == (
+        "alto",
+        2,
+        30.0,
+        "audio",
+    )
+    assert (piso.paso, piso.fuente, piso.confianza, piso.t, piso.cita) == (
+        None,
+        "inferido",
+        "baja",
+        None,
+        "",
+    )
+    [falla] = sop.resumen.en_caso_de_falla
+    assert (falla.situacion, falla.fuente, falla.confianza) == (
+        "La luz verde no se apaga",
+        "inferido",
+        "baja",
+    )
+    assert r.generacion.duracion_narrada is None
+    assert [x.etapa for x in r.generacion.llamadas] == ["agrupar", "pasos", "resumen"]
+
+
+def test_el_resumen_no_pide_lo_que_sale_de_la_ficha():
+    propiedades = set(gen.ESQUEMA_RESUMEN["properties"])
+    assert propiedades == {
+        "titulo",
+        "objetivo",
+        "alcance",
+        "duracion_total",
+        "riesgos",
+        "en_caso_de_falla",
+    }
+    riesgo = gen.ESQUEMA_RESUMEN["properties"]["riesgos"]["items"]["properties"]
+    assert "paso" not in riesgo  # el número de paso lo pone el código
+
+
+def test_un_riesgo_dicho_en_la_presentacion_no_tiene_paso(embedder):
+    riesgos = [dict(RESUMEN["riesgos"][0], cita="I'm Ana, the line operator")]
+    llm = LLMGuionado(guion(resumen=[dict(RESUMEN, riesgos=riesgos)]))
+    [riesgo] = generar(llm, embedder).sop.resumen.riesgos
+    assert (riesgo.t, riesgo.paso) == (0.0, None)
+
+
+def test_la_duracion_total_narrada_gana_a_la_suma(embedder):
+    textos = ["Hello, I'm Ana, the line operator. The whole job takes about five minutes."]
+    textos += TEXTOS[1:]
+    resumen = dict(RESUMEN, duracion_total={"cita": "The whole job takes about five minutes"})
+    r = generar(LLMGuionado(guion(resumen=[resumen])), embedder, analisis=analisis_ingles(textos))
+    assert r.sop.resumen.duracion_total_min == 5.0
+    narrada = r.generacion.duracion_narrada
+    assert narrada is not None
+    assert (narrada.valor, narrada.fuente, narrada.t) == ("5", "audio", 0.0)
+
+
+@pytest.mark.parametrize(
+    "cita",
+    [
+        "The whole job takes about ten minutes",  # no aparece en la transcripción
+        "Today I lubricate the conveyor chain",  # aparece, pero no dice una duración
+    ],
+)
+def test_una_duracion_total_sin_evidencia_deja_la_suma_de_los_pasos(embedder, cita):
+    resumen = dict(RESUMEN, duracion_total={"cita": cita})
+    r = generar(LLMGuionado(guion(resumen=[resumen])), embedder)
+    sop = r.sop
+    assert sop.resumen.duracion_total_min == round(
+        sum(p.tiempo_esperado_min or 0 for p in sop.pasos), 2
+    )
+    assert r.generacion.duracion_narrada is None
+
+
+def test_si_falla_el_resumen_el_sop_sale_con_el_titulo_de_la_ficha_y_el_aviso(embedder):
+    r = generar(LLMGuionado(guion(resumen=[LLMNoDisponible("caído")])), embedder)
+    assert r.sop.titulo == "Lubricar la cadena del transportador"
+    assert r.sop.resumen.riesgos == [] and r.sop.resumen.objetivo.valor is None
+    assert len(r.sop.pasos) == 3
+    assert r.sop.resumen.lugar == CONTEXTO.lugar  # lo de la ficha se conserva
+    [aviso] = r.advertencias
+    assert aviso.tipo == "sop_incompleto" and "cuadro resumen (llm_no_disponible)" in aviso.mensaje
+
+
+def test_el_resumen_recibe_la_transcripcion_la_ficha_y_los_pasos_sin_tiempos(embedder):
+    llm = LLMGuionado(guion())
+    generar(llm, embedder)
+    [usuario] = [m["content"] for e, ms in llm.pedidos if e == "resumen" for m in ms[1:]]
+    assert "1. Colocarse el equipo de protección" in usuario
+    assert "Ana (Operadora de línea), participa" in usuario
+    assert TEXTOS[3] in usuario
