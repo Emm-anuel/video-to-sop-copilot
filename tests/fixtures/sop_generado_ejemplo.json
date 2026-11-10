@@ -2,35 +2,41 @@
   "version_contrato": 1,
   "titulo": "Cambio del cartucho del filtro de agua",
   "resumen": {
+    "version": "1.0",
     "objetivo": {
       "valor": "Cambiar el cartucho del filtro de agua de la línea de enjuague",
       "confianza": "alta",
       "fuente": "audio",
-      "t": 6.36
+      "t": 6.36,
+      "cita": ""
     },
     "alcance": {
       "valor": "Filtro de cartucho de la línea de enjuague; incluye revisar el anillo de hule.",
       "confianza": "media",
       "fuente": "inferido",
-      "t": null
+      "t": null,
+      "cita": ""
     },
     "responsable": {
       "valor": "Técnica de mantenimiento",
       "confianza": "alta",
       "fuente": "audio",
-      "t": 0.4
+      "t": 0.4,
+      "cita": ""
     },
     "lugar": {
       "valor": "Línea de enjuague",
       "confianza": "alta",
       "fuente": "audio",
-      "t": 0.4
+      "t": 0.4,
+      "cita": ""
     },
     "horario_frecuencia": {
       "valor": "Cada tres meses o cuando el manómetro marca menos de dos bar",
       "confianza": "alta",
       "fuente": "audio",
-      "t": 12.53
+      "t": 12.53,
+      "cita": ""
     },
     "duracion_total_min": 2.17,
     "equipo_operacion": [
@@ -94,29 +100,49 @@
         "descripcion": "Salpicadura de agua al liberar la presión",
         "nivel": "alto",
         "paso": 3,
-        "control": "Lentes de seguridad; liberar la presión hasta que el manómetro marque cero."
+        "control": "Lentes de seguridad; liberar la presión hasta que el manómetro marque cero.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       },
       {
         "descripcion": "Piso mojado",
         "nivel": "medio",
         "paso": 3,
-        "control": "Cubeta debajo del filtro."
+        "control": "Cubeta debajo del filtro.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       },
       {
         "descripcion": "Rosca barrida por apretar de más",
         "nivel": "bajo",
         "paso": 5,
-        "control": "Enroscar a mano y dar solo un cuarto de vuelta con la llave."
+        "control": "Enroscar a mano y dar solo un cuarto de vuelta con la llave.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       }
     ],
     "en_caso_de_falla": [
       {
         "situacion": "La llave de paso está muy dura",
-        "accion": "No usar extensión; avisar al supervisor de turno."
+        "accion": "No usar extensión; avisar al supervisor de turno.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       },
       {
         "situacion": "El anillo de hule está aplastado o cuarteado",
-        "accion": "Cambiar el anillo antes de colocar el vaso."
+        "accion": "Cambiar el anillo antes de colocar el vaso.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       }
     ]
   },
@@ -139,7 +165,10 @@
       "confianza": "media",
       "campos_inferidos": [
         "puntos_validacion"
-      ]
+      ],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 2,
@@ -156,7 +185,10 @@
       "t_inicio": 33.44,
       "t_fin": 53.91,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 3,
@@ -174,7 +206,10 @@
       "t_inicio": 55.51,
       "t_fin": 73.56,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 4,
@@ -192,7 +227,10 @@
       "t_inicio": 74.76,
       "t_fin": 103.4,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 5,
@@ -210,7 +248,10 @@
       "t_inicio": 104.9,
       "t_fin": 125.62,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 6,
@@ -229,25 +270,40 @@
       "t_inicio": 127.32,
       "t_fin": 150.86,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     }
   ],
   "puntos_clave": [
     {
       "texto": "Los lentes son obligatorios porque al liberar la presión puede salpicar agua.",
-      "t": 25.94
+      "t": 25.94,
+      "cita": "",
+      "fuente": "documento",
+      "confianza": "alta"
     },
     {
       "texto": "Si la llave de paso está muy dura, no usar extensión: avisar al supervisor de turno.",
-      "t": 47.68
+      "t": 47.68,
+      "cita": "",
+      "fuente": "documento",
+      "confianza": "alta"
     },
     {
       "texto": "Revisar el anillo de hule; si está aplastado o cuarteado, se cambia.",
-      "t": 91.42
+      "t": 91.42,
+      "cita": "",
+      "fuente": "documento",
+      "confianza": "alta"
     },
     {
       "texto": "No apretar el vaso de más porque se barre la rosca.",
-      "t": 121.83
+      "t": 121.83,
+      "cita": "",
+      "fuente": "documento",
+      "confianza": "alta"
     }
   ],
   "palabras_clave": [
@@ -259,7 +315,8 @@
         16.53,
         66.22,
         148.14
-      ]
+      ],
+      "literal": ""
     },
     {
       "termino": "cartucho",
@@ -271,7 +328,8 @@
         86.73,
         106.05,
         155.16
-      ]
+      ],
+      "literal": ""
     },
     {
       "termino": "llave de paso",
@@ -280,7 +338,8 @@
       "t": [
         34.7,
         128.74
-      ]
+      ],
+      "literal": ""
     },
     {
       "termino": "presión",
@@ -289,7 +348,8 @@
       "t": [
         29.65,
         56.88
-      ]
+      ],
+      "literal": ""
     },
     {
       "termino": "cubeta",
@@ -297,7 +357,8 @@
       "menciones": 1,
       "t": [
         69.57
-      ]
+      ],
+      "literal": ""
     },
     {
       "termino": "fugas",
@@ -305,7 +366,8 @@
       "menciones": 1,
       "t": [
         146.95
-      ]
+      ],
+      "literal": ""
     },
     {
       "termino": "purgar",
@@ -313,7 +375,8 @@
       "menciones": 1,
       "t": [
         136.27
-      ]
+      ],
+      "literal": ""
     }
   ]
 }

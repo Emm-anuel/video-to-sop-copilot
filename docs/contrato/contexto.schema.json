@@ -30,7 +30,7 @@
     },
     "Dato": {
       "additionalProperties": false,
-      "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.",
+      "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.\n\n`cita` es la frase de la transcripción que lo respalda, en el idioma original (SOP generado,\nADR-023); vacía en un SOP cargado y en la ficha de contexto.",
       "properties": {
         "valor": {
           "anyOf": [
@@ -78,6 +78,11 @@
           ],
           "default": null,
           "title": "T"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
         }
       },
       "title": "Dato",

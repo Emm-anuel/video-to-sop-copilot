@@ -911,7 +911,12 @@ def test_persona_sin_segundo_o_con_participacion_desconocida_falla():
 
 def test_palabra_clave_cuenta_sus_menciones():
     base = {"termino": "manómetro", "categoria": "equipo"}
-    assert PalabraClave.model_validate(base).model_dump() == {**base, "menciones": 0, "t": []}
+    assert PalabraClave.model_validate(base).model_dump() == {
+        **base,
+        "menciones": 0,
+        "t": [],
+        "literal": "",
+    }
     assert PalabraClave.model_validate({**base, "menciones": 2, "t": [1.0, 4.5]}).menciones == 2
     _falla(PalabraClave, {**base, "menciones": 2, "t": [1.0]}, "2 menciones y 1 segundos")
     _falla(PalabraClave, {**base, "menciones": 0, "t": [1.0]}, "0 menciones")

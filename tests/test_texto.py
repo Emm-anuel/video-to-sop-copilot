@@ -3,7 +3,7 @@
 import pytest
 
 from sopvid.percepcion import segmentacion
-from sopvid.texto import NO_IDENTIFICADO, limpiar, normalizar
+from sopvid.texto import NO_IDENTIFICADO, forma_busqueda, limpiar, normalizar
 
 
 @pytest.mark.parametrize(
@@ -85,3 +85,30 @@ def test_limpiar_colapsa_espacios_y_vacia_los_marcadores_de_vacio(texto, esperad
 def test_limpiar_con_vacios_propios():
     assert limpiar("No se menciona", frozenset({"no se menciona"})) == ""
     assert limpiar("No se menciona") == "No se menciona"
+
+
+# ── forma_busqueda: menciones y búsqueda exacta (RF-24, ADR-023) ──────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("palabra", "esperado"),
+    [
+        ("Presiones", "presion"),
+        ("presión", "presion"),
+        ("VALORES", "valor"),
+        ("filtros", "filtro"),
+        ("valves", "valve"),
+        ("Gauges", "gauge"),
+        ("glass", "glass"),
+        ("gas", "gas"),
+        ("bar", "bar"),
+        ("O-rings", "o ring"),
+    ],
+)
+def test_forma_busqueda_quita_acentos_mayusculas_y_plural_simple(palabra, esperado):
+    assert forma_busqueda(palabra) == esperado
+
+
+def test_forma_busqueda_iguala_singular_y_plural():
+    assert forma_busqueda("llave de paso") == forma_busqueda("Llaves de paso")
+    assert forma_busqueda("shut-off valve") == forma_busqueda("Shut-off valves")

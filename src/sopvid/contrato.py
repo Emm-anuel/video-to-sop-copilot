@@ -572,12 +572,17 @@ FuenteSOP = Literal["documento", "audio", "visual", "inferido"]
 
 
 class Dato(_Modelo):
-    """Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo."""
+    """Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
+
+    `cita` es la frase de la transcripción que lo respalda, en el idioma original (SOP generado,
+    ADR-023); vacía en un SOP cargado y en la ficha de contexto.
+    """
 
     valor: str | None = None
     confianza: Confianza = "alta"
     fuente: FuenteSOP = "documento"
     t: Tiempo | None = None
+    cita: str = ""
 
 
 class Elemento(_Modelo):
@@ -603,18 +608,34 @@ class Persona(_Modelo):
 
 
 class Riesgo(_Modelo):
+    """Punto de riesgo. `cita`, `fuente`, `confianza` y `t` son su evidencia en el SOP generado
+    (ADR-023); un SOP cargado los deja en "", "documento", "alta" y None."""
+
     descripcion: str
     nivel: Literal["alto", "medio", "bajo"]
     paso: int | None = None
     control: str = ""
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    confianza: Confianza = "alta"
+    t: Tiempo | None = None
 
 
 class Falla(_Modelo):
+    """Qué hacer en caso de falla, con su evidencia como en `Riesgo`."""
+
     situacion: str
     accion: str
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    confianza: Confianza = "alta"
+    t: Tiempo | None = None
 
 
 class Resumen(_Modelo):
+    """Cuadro resumen (RF-22). `version` es la del SOP ("1.0" en uno generado, §6)."""
+
+    version: str = "1.0"
     objetivo: Dato = Dato()
     alcance: Dato = Dato()
     responsable: Dato = Dato()
@@ -629,8 +650,40 @@ class Resumen(_Modelo):
     en_caso_de_falla: list[Falla] = []
 
 
+# Campos de un paso del SOP generado que llevan su propia evidencia (ADR-023).
+CampoEvidencia = Literal["equipo", "puntos_validacion", "tiempo_esperado_min", "responsable"]
+
+
+class Evidencia(_Modelo):
+    """De dónde sale un dato de un paso del SOP generado (RF-25, ADR-023): `valor` es el dato tal
+    como quedó en el paso (un elemento de `equipo` o de `puntos_validacion`, los minutos o el
+    responsable) y `cita`, la frase de la transcripción que lo respalda, en el idioma original.
+    Con fuente "audio" o "visual" lleva su segundo; "inferido", sin cita ni segundo."""
+
+    campo: CampoEvidencia
+    valor: str
+    cita: str = ""
+    fuente: FuenteSOP
+    confianza: Confianza
+    t: Tiempo | None = None
+
+    @model_validator(mode="after")
+    def _coherente(self) -> Self:
+        if self.fuente in ("audio", "visual") and self.t is None:
+            raise ValueError(f"evidencia de {self.campo}: una fuente {self.fuente} lleva su t")
+        if self.fuente == "audio" and not self.cita.strip():
+            raise ValueError(f"evidencia de {self.campo}: una fuente audio lleva su cita")
+        return self
+
+
 class PasoSOP(_Modelo):
-    """Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video."""
+    """Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.
+
+    En el SOP generado (ADR-023), `cita` y `fuente` son la evidencia del paso (la cita de sus
+    pasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del
+    tiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que
+    la pantalla lo resalte. Un SOP cargado deja "", "documento" y [].
+    """
 
     numero: int = Field(ge=1)
     nombre: str = Field(min_length=1)
@@ -643,6 +696,9 @@ class PasoSOP(_Modelo):
     t_fin: Tiempo | None = None
     confianza: Confianza = "alta"
     campos_inferidos: list[str] = []
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    evidencia: list[Evidencia] = []
 
     @model_validator(mode="after")
     def _rango(self) -> Self:
@@ -652,18 +708,33 @@ class PasoSOP(_Modelo):
 
 
 class PuntoClave(_Modelo):
+    """Punto clave (RF-24). En el SOP generado, `t`, `cita`, `fuente` y `confianza` son su
+    evidencia (ADR-023)."""
+
     texto: str
     t: Tiempo | None = None
+    cita: str = ""
+    fuente: FuenteSOP = "documento"
+    confianza: Confianza = "alta"
+
+
+CategoriaPalabra = Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
 
 
 class PalabraClave(_Modelo):
     """Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio
-    (RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`."""
+    (RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`.
+
+    `termino` va en español; `literal` es la forma en que se dijo en el video (en su idioma y como
+    la transcribió Whisper), con la que se cuentan las menciones (ADR-023). Vacía en un SOP
+    cargado.
+    """
 
     termino: str
-    categoria: Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
+    categoria: CategoriaPalabra
     menciones: int = Field(default=0, ge=0)
     t: list[Tiempo] = []
+    literal: str = ""
 
     @model_validator(mode="after")
     def _menciones(self) -> Self:
@@ -1241,6 +1312,87 @@ class ReporteValidacion(_Modelo):
         for fila in filas:
             if fila.paso_sop is not None and fila.paso_sop > n_sop:
                 raise ValueError(f"paso_sop {fila.paso_sop} fuera de los {n_sop} pasos del SOP")
+        return self
+
+
+# ── Generación del SOP desde el video (RF-22 a RF-25; ADR-023) ───────────────────────────────
+
+# Las llamadas a Gemma de la generación, en orden: agrupar los pasos del video en pasos del SOP,
+# redactar los pasos (una llamada por lote), el cuadro resumen y los puntos y palabras clave.
+EtapaGeneracion = Literal["agrupar", "pasos", "resumen", "claves"]
+# Por qué un paso del video no entra al SOP: la presentación, el cierre, una pregunta del
+# entrevistador o un comentario que no es una acción del procedimiento.
+TipoFuera = Literal["introduccion", "cierre", "entrevistador", "comentario"]
+# Por qué falló una llamada (no se reintenta un Ollama caído ni un corte por tiempo).
+MotivoLlamada = Literal["llm_no_disponible", "tiempo_excedido", "respuesta_invalida"]
+
+
+class LlamadaLLM(_Modelo):
+    """Una llamada a Gemma de la generación, con sus reintentos. Las métricas son las del intento
+    válido (None si no lo hubo); `segundos`, los de todos los intentos. `motivo` va si y solo si
+    la llamada no dio una respuesta válida (`ok` false)."""
+
+    etapa: EtapaGeneracion
+    prompt: str = Field(min_length=1)
+    ok: bool
+    motivo: MotivoLlamada | None = None
+    intentos: int = Field(ge=0)
+    segundos: float = Field(ge=0)
+    tokens_entrada: int | None = Field(default=None, ge=0)
+    tokens_salida: int | None = Field(default=None, ge=0)
+    tokens_por_s: float | None = Field(default=None, ge=0)
+    primer_token_s: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _motivo_si_falla(self) -> Self:
+        if self.ok == (self.motivo is not None):
+            raise ValueError(f"llamada {self.etapa}: motivo si y solo si no fue válida")
+        return self
+
+
+class PasoFuera(_Modelo):
+    """Un paso del video que no entra al SOP generado, y por qué."""
+
+    paso_video: int = Field(ge=1)
+    tipo: TipoFuera
+
+
+class GeneracionSOP(_Modelo):
+    """Cómo se generó un SOP desde el video, en `sops.generacion` (JSONB; ADR-023).
+
+    `grupos` tiene, por cada paso del SOP y en su orden, los números de los pasos del video que lo
+    forman (consecutivos); `fuera`, los que no entran. Entre los dos aparece cada paso del video
+    una sola vez. `agrupacion` es "uno_a_uno" si la llamada de agrupación falló y cada paso del
+    video quedó como un paso del SOP. `segundos` es lo que tardó la generación (sin la ficha ni
+    la segmentación); `dispositivo_llm`, dónde corrió Gemma (ADR-018).
+    """
+
+    version_contrato: Literal[1] = 1
+    video_id: int
+    modelo: str | None = None
+    pasos_video: int = Field(ge=0)
+    agrupacion: Literal["llm", "uno_a_uno"]
+    grupos: list[list[Annotated[int, Field(ge=1)]]]
+    fuera: list[PasoFuera] = []
+    llamadas: list[LlamadaLLM] = []
+    segundos: float = Field(default=0.0, ge=0)
+    dispositivo_llm: Dispositivo = "desconocido"
+    contexto_reusado: bool = False
+    segmentacion_reusada: bool = False
+
+    @model_validator(mode="after")
+    def _cada_paso_una_vez(self) -> Self:
+        vistos = [n for g in self.grupos for n in g] + [f.paso_video for f in self.fuera]
+        if sorted(vistos) != list(range(1, self.pasos_video + 1)):
+            raise ValueError(
+                f"grupos y fuera deben cubrir los {self.pasos_video} pasos del video una vez"
+            )
+        for grupo in self.grupos:
+            if not grupo or grupo != list(range(grupo[0], grupo[0] + len(grupo))):
+                raise ValueError("cada grupo es una lista no vacía de pasos del video consecutivos")
+        primeros = [g[0] for g in self.grupos]
+        if primeros != sorted(primeros):
+            raise ValueError("los grupos van en el orden del video")
         return self
 
 

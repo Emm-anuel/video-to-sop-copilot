@@ -44,6 +44,25 @@ def contar_palabras(texto: str) -> int:
     return len(comparable(texto).split())
 
 
+def forma_busqueda(palabra: str) -> str:
+    """Forma de una palabra para contar menciones y buscar (RF-24, ADR-023): `comparable` (sin
+    acentos ni mayúsculas) y en singular por un plural simple: "-es" se quita tras r, l, n, d, z
+    o j ("presiones" → "presion", "valores" → "valor") y "-s" tras cualquier otra letra
+    ("valves" → "valve", "filtros" → "filtro"), en palabras de más de 3 letras y sin tocar "-ss"
+    ("glass"). Es un recorte de terminaciones, no un lematizador: es la misma regla de plural de
+    `personas.forma_base`, sin quitar el género. Una frase da sus palabras unidas por espacios.
+    """
+    return " ".join(_singular(p) for p in comparable(palabra).split())
+
+
+def _singular(p: str) -> str:
+    if len(p) > 4 and p.endswith("es") and p[-3] in "rlndzj":
+        return p[:-2]
+    if len(p) > 3 and p.endswith("s") and not p.endswith("ss"):
+        return p[:-1]
+    return p
+
+
 def recortar_palabras(texto: str, max_palabras: int) -> str:
     """Primeros tokens de `texto` que suman a lo más `max_palabras` palabras (contadas como en
     `contar_palabras`). Si el texto era una cita literal, el recorte también lo es."""

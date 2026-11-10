@@ -253,8 +253,9 @@ def emparejar_roles(
 
 
 @dataclass(frozen=True)
-class _Quien:
-    """Quién hizo el paso: una persona de la ficha, un rol suelto o los dos."""
+class Quien:
+    """Quién hizo el paso: una persona de la ficha, un rol suelto o los dos; `camino` dice cómo
+    se encontró (para la nota del reporte)."""
 
     persona: Persona | None = None
     rol_suelto: str | None = None
@@ -314,7 +315,7 @@ def asignar_responsables(
                 )
             )
             continue
-        quien = _quien(
+        quien = quien_hizo(
             paso_video.responsable, tramo, personas, participantes, transcripcion, comparador
         )
         filas.append(_estado(esperado, quien, distinguibles, notas, comparador))
@@ -336,24 +337,29 @@ def _original_citado(
     return paso
 
 
-def _quien(
+def quien_hizo(
     responsable: str,
     paso: PasoVideo,
     personas: Sequence[Persona],
     participantes: Sequence[Persona],
     transcripcion: Sequence[Segmento],
     comparador: ComparadorRoles,
-) -> _Quien:
+) -> Quien:
+    """Quién hizo `paso` (ADR-020 sección 4): el `responsable` que escribió el LLM si es el nombre
+    de una persona de la ficha o un rol que coincide con el de una sola; si viene vacío, el único
+    nombre de la ficha que aparece en la narración del paso; si la ficha tiene una sola persona
+    que participa (`participantes`), esa. La usan el reporte (`asignar_responsables`) y el SOP
+    generado (ADR-023)."""
     con_nombre = [p for p in personas if p.nombre != NO_IDENTIFICADO]
     rol_suelto = None
     if es_responsable_conocido(responsable):
         r = limpiar(responsable)
         por_nombre = [p for p in con_nombre if contiene_cita(r, p.nombre)]
         if len(por_nombre) == 1:
-            return _Quien(persona=por_nombre[0], camino="responsable del paso (nombre)")
+            return Quien(persona=por_nombre[0], camino="responsable del paso (nombre)")
         por_rol = [p for p in personas if p.rol and comparador.coinciden(r, p.rol)]
         if len(por_rol) == 1:
-            return _Quien(persona=por_rol[0], rol_suelto=r, camino="responsable del paso (rol)")
+            return Quien(persona=por_rol[0], rol_suelto=r, camino="responsable del paso (rol)")
         rol_suelto = r
     else:
         narracion = narracion_de(paso, transcripcion)
@@ -362,17 +368,15 @@ def _quien(
         }
         if len(nombrados) == 1:
             [persona] = nombrados.values()
-            return _Quien(persona=persona, camino="nombre en la narración del paso")
+            return Quien(persona=persona, camino="nombre en la narración del paso")
     if len(participantes) == 1:
-        return _Quien(persona=participantes[0], rol_suelto=rol_suelto, camino="narrador único")
-    return _Quien(
-        rol_suelto=rol_suelto, camino="rol del responsable del paso" if rol_suelto else ""
-    )
+        return Quien(persona=participantes[0], rol_suelto=rol_suelto, camino="narrador único")
+    return Quien(rol_suelto=rol_suelto, camino="rol del responsable del paso" if rol_suelto else "")
 
 
 def _estado(
     esperado: str,
-    quien: _Quien,
+    quien: Quien,
     distinguibles: bool,
     notas: list[str],
     comparador: ComparadorRoles,
@@ -408,7 +412,7 @@ def _fila(
     observado: str | None,
     estado: str,
     sim: float | None,
-    quien: _Quien,
+    quien: Quien,
     notas: list[str],
 ) -> ResponsableFila:
     partes = ([quien.camino] if quien.camino else []) + notas

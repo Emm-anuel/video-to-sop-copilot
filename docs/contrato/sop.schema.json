@@ -3,7 +3,7 @@
   "$defs": {
     "Dato": {
       "additionalProperties": false,
-      "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.",
+      "description": "Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.\n\n`cita` es la frase de la transcripción que lo respalda, en el idioma original (SOP generado,\nADR-023); vacía en un SOP cargado y en la ficha de contexto.",
       "properties": {
         "valor": {
           "anyOf": [
@@ -51,6 +51,11 @@
           ],
           "default": null,
           "title": "T"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
         }
       },
       "title": "Dato",
@@ -77,8 +82,75 @@
       "title": "Elemento",
       "type": "object"
     },
+    "Evidencia": {
+      "additionalProperties": false,
+      "description": "De dónde sale un dato de un paso del SOP generado (RF-25, ADR-023): `valor` es el dato tal\ncomo quedó en el paso (un elemento de `equipo` o de `puntos_validacion`, los minutos o el\nresponsable) y `cita`, la frase de la transcripción que lo respalda, en el idioma original.\nCon fuente \"audio\" o \"visual\" lleva su segundo; \"inferido\", sin cita ni segundo.",
+      "properties": {
+        "campo": {
+          "enum": [
+            "equipo",
+            "puntos_validacion",
+            "tiempo_esperado_min",
+            "responsable"
+          ],
+          "title": "Campo",
+          "type": "string"
+        },
+        "valor": {
+          "title": "Valor",
+          "type": "string"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "fuente": {
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "confianza": {
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
+        }
+      },
+      "required": [
+        "campo",
+        "valor",
+        "fuente",
+        "confianza"
+      ],
+      "title": "Evidencia",
+      "type": "object"
+    },
     "Falla": {
       "additionalProperties": false,
+      "description": "Qué hacer en caso de falla, con su evidencia como en `Riesgo`.",
       "properties": {
         "situacion": {
           "title": "Situacion",
@@ -87,6 +159,46 @@
         "accion": {
           "title": "Accion",
           "type": "string"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "fuente": {
+          "default": "documento",
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "confianza": {
+          "default": "alta",
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
         }
       },
       "required": [
@@ -98,7 +210,7 @@
     },
     "PalabraClave": {
       "additionalProperties": false,
-      "description": "Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio\n(RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`.",
+      "description": "Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio\n(RF-24), en orden, y `menciones` es cuántas hay; en uno cargado, 0 y `[]`.\n\n`termino` va en español; `literal` es la forma en que se dijo en el video (en su idioma y como\nla transcribió Whisper), con la que se cuentan las menciones (ADR-023). Vacía en un SOP\ncargado.",
       "properties": {
         "termino": {
           "title": "Termino",
@@ -132,6 +244,11 @@
           },
           "title": "T",
           "type": "array"
+        },
+        "literal": {
+          "default": "",
+          "title": "Literal",
+          "type": "string"
         }
       },
       "required": [
@@ -143,7 +260,7 @@
     },
     "PasoSOP": {
       "additionalProperties": false,
-      "description": "Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.",
+      "description": "Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.\n\nEn el SOP generado (ADR-023), `cita` y `fuente` son la evidencia del paso (la cita de sus\npasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del\ntiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que\nla pantalla lo resalte. Un SOP cargado deja \"\", \"documento\" y [].",
       "properties": {
         "numero": {
           "minimum": 1,
@@ -238,6 +355,30 @@
           },
           "title": "Campos Inferidos",
           "type": "array"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "fuente": {
+          "default": "documento",
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "evidencia": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Evidencia"
+          },
+          "title": "Evidencia",
+          "type": "array"
         }
       },
       "required": [
@@ -299,6 +440,7 @@
     },
     "PuntoClave": {
       "additionalProperties": false,
+      "description": "Punto clave (RF-24). En el SOP generado, `t`, `cita`, `fuente` y `confianza` son su\nevidencia (ADR-023).",
       "properties": {
         "texto": {
           "title": "Texto",
@@ -317,6 +459,32 @@
           ],
           "default": null,
           "title": "T"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "fuente": {
+          "default": "documento",
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "confianza": {
+          "default": "alta",
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
         }
       },
       "required": [
@@ -327,14 +495,21 @@
     },
     "Resumen": {
       "additionalProperties": false,
+      "description": "Cuadro resumen (RF-22). `version` es la del SOP (\"1.0\" en uno generado, §6).",
       "properties": {
+        "version": {
+          "default": "1.0",
+          "title": "Version",
+          "type": "string"
+        },
         "objetivo": {
           "$ref": "#/$defs/Dato",
           "default": {
             "valor": null,
             "confianza": "alta",
             "fuente": "documento",
-            "t": null
+            "t": null,
+            "cita": ""
           }
         },
         "alcance": {
@@ -343,7 +518,8 @@
             "valor": null,
             "confianza": "alta",
             "fuente": "documento",
-            "t": null
+            "t": null,
+            "cita": ""
           }
         },
         "responsable": {
@@ -352,7 +528,8 @@
             "valor": null,
             "confianza": "alta",
             "fuente": "documento",
-            "t": null
+            "t": null,
+            "cita": ""
           }
         },
         "lugar": {
@@ -361,7 +538,8 @@
             "valor": null,
             "confianza": "alta",
             "fuente": "documento",
-            "t": null
+            "t": null,
+            "cita": ""
           }
         },
         "horario_frecuencia": {
@@ -370,7 +548,8 @@
             "valor": null,
             "confianza": "alta",
             "fuente": "documento",
-            "t": null
+            "t": null,
+            "cita": ""
           }
         },
         "duracion_total_min": {
@@ -432,6 +611,7 @@
     },
     "Riesgo": {
       "additionalProperties": false,
+      "description": "Punto de riesgo. `cita`, `fuente`, `confianza` y `t` son su evidencia en el SOP generado\n(ADR-023); un SOP cargado los deja en \"\", \"documento\", \"alta\" y None.",
       "properties": {
         "descripcion": {
           "title": "Descripcion",
@@ -462,6 +642,46 @@
           "default": "",
           "title": "Control",
           "type": "string"
+        },
+        "cita": {
+          "default": "",
+          "title": "Cita",
+          "type": "string"
+        },
+        "fuente": {
+          "default": "documento",
+          "enum": [
+            "documento",
+            "audio",
+            "visual",
+            "inferido"
+          ],
+          "title": "Fuente",
+          "type": "string"
+        },
+        "confianza": {
+          "default": "alta",
+          "enum": [
+            "alta",
+            "media",
+            "baja"
+          ],
+          "title": "Confianza",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "description": "Segundos desde el inicio del video.",
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T"
         }
       },
       "required": [
@@ -489,31 +709,37 @@
     "resumen": {
       "$ref": "#/$defs/Resumen",
       "default": {
+        "version": "1.0",
         "objetivo": {
+          "cita": "",
           "confianza": "alta",
           "fuente": "documento",
           "t": null,
           "valor": null
         },
         "alcance": {
+          "cita": "",
           "confianza": "alta",
           "fuente": "documento",
           "t": null,
           "valor": null
         },
         "responsable": {
+          "cita": "",
           "confianza": "alta",
           "fuente": "documento",
           "t": null,
           "valor": null
         },
         "lugar": {
+          "cita": "",
           "confianza": "alta",
           "fuente": "documento",
           "t": null,
           "valor": null
         },
         "horario_frecuencia": {
+          "cita": "",
           "confianza": "alta",
           "fuente": "documento",
           "t": null,

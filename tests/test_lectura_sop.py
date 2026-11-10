@@ -163,6 +163,12 @@ def _guardar(documento: Any) -> bytes:
     return salida.getvalue()
 
 
+# Lo que pide el esquema de la conversión: la evidencia de un riesgo o una falla es del SOP
+# generado (ADR-023), no se le pide al LLM.
+_CAMPOS_RIESGO = {"descripcion", "nivel", "paso", "control"}
+_CAMPOS_FALLA = {"situacion", "accion"}
+
+
 def respuesta_llm(sop: SOP = SOP_MD, **cambios: Any) -> dict[str, Any]:
     """Lo que respondería Gemma 4 por `ESQUEMA_SOP_LIBRE` (v3, recortado) para `sop`."""
     r = sop.resumen
@@ -176,8 +182,8 @@ def respuesta_llm(sop: SOP = SOP_MD, **cambios: Any) -> dict[str, Any]:
             "horario_frecuencia": r.horario_frecuencia.valor,
             "duracion_total_min": r.duracion_total_min,
             "roles": [e.model_dump() for e in r.roles],
-            "riesgos": [x.model_dump() for x in r.riesgos],
-            "en_caso_de_falla": [f.model_dump() for f in r.en_caso_de_falla],
+            "riesgos": [x.model_dump(include=_CAMPOS_RIESGO) for x in r.riesgos],
+            "en_caso_de_falla": [f.model_dump(include=_CAMPOS_FALLA) for f in r.en_caso_de_falla],
         },
         "pasos": [
             {

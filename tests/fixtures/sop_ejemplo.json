@@ -2,35 +2,41 @@
   "version_contrato": 1,
   "titulo": "Cambio del cartucho del filtro de agua",
   "resumen": {
+    "version": "1.0",
     "objetivo": {
       "valor": "Reemplazar el cartucho del filtro de agua de la línea de enjuague sin fugas y con la presión de trabajo restablecida.",
       "confianza": "alta",
       "fuente": "documento",
-      "t": null
+      "t": null,
+      "cita": ""
     },
     "alcance": {
       "valor": "Filtro de cartucho montado en pared, antes de la línea de enjuague. No incluye cambiar la carcasa ni la llave de paso.",
       "confianza": "alta",
       "fuente": "documento",
-      "t": null
+      "t": null,
+      "cita": ""
     },
     "responsable": {
       "valor": "Técnico de mantenimiento",
       "confianza": "alta",
       "fuente": "documento",
-      "t": null
+      "t": null,
+      "cita": ""
     },
     "lugar": {
       "valor": "Línea de enjuague, filtro de agua de entrada",
       "confianza": "alta",
       "fuente": "documento",
-      "t": null
+      "t": null,
+      "cita": ""
     },
     "horario_frecuencia": {
       "valor": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
       "confianza": "alta",
       "fuente": "documento",
-      "t": null
+      "t": null,
+      "cita": ""
     },
     "duracion_total_min": 3.0,
     "equipo_operacion": [
@@ -79,23 +85,39 @@
         "descripcion": "Agua a presión al abrir la carcasa",
         "nivel": "alto",
         "paso": 3,
-        "control": "Liberar la presión hasta que el manómetro marque cero."
+        "control": "Liberar la presión hasta que el manómetro marque cero.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       },
       {
         "descripcion": "Piso mojado",
         "nivel": "medio",
         "paso": 4,
-        "control": "Cubeta debajo del filtro."
+        "control": "Cubeta debajo del filtro.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       }
     ],
     "en_caso_de_falla": [
       {
         "situacion": "La llave de paso no cierra o está muy dura",
-        "accion": "No usar extensión; avisar al supervisor de turno."
+        "accion": "No usar extensión; avisar al supervisor de turno.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       },
       {
         "situacion": "Hay fuga en la unión del vaso",
-        "accion": "Cerrar la llave, liberar la presión y revisar el anillo de hule."
+        "accion": "Cerrar la llave, liberar la presión y revisar el anillo de hule.",
+        "cita": "",
+        "fuente": "documento",
+        "confianza": "alta",
+        "t": null
       }
     ]
   },
@@ -116,7 +138,10 @@
       "t_inicio": null,
       "t_fin": null,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 2,
@@ -133,7 +158,10 @@
       "t_inicio": null,
       "t_fin": null,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 3,
@@ -151,7 +179,10 @@
       "t_inicio": null,
       "t_fin": null,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 4,
@@ -169,7 +200,10 @@
       "t_inicio": null,
       "t_fin": null,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 5,
@@ -188,7 +222,10 @@
       "t_inicio": null,
       "t_fin": null,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     },
     {
       "numero": 6,
@@ -207,7 +244,10 @@
       "t_inicio": null,
       "t_fin": null,
       "confianza": "alta",
-      "campos_inferidos": []
+      "campos_inferidos": [],
+      "cita": "",
+      "fuente": "documento",
+      "evidencia": []
     }
   ],
   "puntos_clave": [],
