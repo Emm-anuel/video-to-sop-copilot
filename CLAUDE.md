@@ -69,7 +69,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
 | Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
 | ML académico | pandas, scikit-learn, LightGBM |
-| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` con proxy `/api` → `localhost:8000` (la API no tiene CORS). MVP: `frontend/README.md` |
+| Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` en el servicio `web` de compose (puerto 4200) con proxy `/api` → la API según `API_URL` (`frontend/proxy.conf.js`; la API no tiene CORS). MVP: `frontend/README.md` |
 | Calidad | pytest, ruff, GitHub Actions |
 
 Hardware de referencia (ADR-014): RTX 2070 SUPER de 8 GB, i7-10700K, 32 GB de RAM. faster-whisper y

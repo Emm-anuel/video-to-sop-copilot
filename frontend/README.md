@@ -242,9 +242,27 @@ reordenar pasos) sobre el mismo componente.
 **Requisito:** Node 24 LTS (`^24.15.0`, en `package.json` › `engines`; `.nvmrc` dice `24`) y npm.
 Angular 22 se usa con `npx`, sin instalar nada global.
 
-La API no tiene CORS. `ng serve` usa el proxy de `proxy.conf.json` (ya configurado en
-`angular.json`): reenvía `/api` a `http://localhost:8000` sin el prefijo. El código siempre llama
-a `/api/...` (`src/app/api/api.service.ts`).
+La API no tiene CORS. `ng serve` usa el proxy de `proxy.conf.js` (ya configurado en
+`angular.json`): reenvía `/api` a la API sin el prefijo. El destino sale de la variable `API_URL`
+(por defecto `http://localhost:8000`). El código siempre llama a `/api/...`
+(`src/app/api/api.service.ts`).
+
+**En Docker (sin Node en el host ni otra terminal).** `docker compose up -d` (o `make up`) levanta
+también el servicio `web`: `ng serve` en <http://localhost:4200>, con `./frontend` montado y
+recarga en caliente al guardar. El proxy apunta a la API de compose (`http://api:8000`). Con
+`make up-gpu` la API corre en el host y el proxy apunta a `http://host.docker.internal:8000`.
+
+- Logs y errores de compilación: `docker compose logs -f web`.
+- `node_modules` y `.angular` del contenedor viven en volúmenes propios (Linux), separados de los
+  de Windows. `npm ci` corre solo si cambió `package-lock.json`.
+- Tras `npm install <paquete>` en el host, `docker compose restart web` lo instala en el
+  contenedor. Si algo queda raro: `docker compose down` y `docker volume rm sopvid_web_node_modules`.
+- Los cambios se detectan por sondeo (`--poll`, 2 s por defecto; `WEB_POLL_MS` en `.env`): los
+  archivos montados desde Windows no avisan al contenedor.
+- Tests, build y `npm run tipos` siguen en el host o con
+  `docker compose exec web npx ng test --watch=false`.
+
+**En el host (Node 24 instalado):**
 
 ```powershell
 # API en el host (con GPU si hay), desde la raíz del repo; ver docs/dev/api.md

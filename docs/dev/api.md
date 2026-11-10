@@ -30,17 +30,19 @@ Todas las rutas con `{id}` responden 404 si el video (o el SOP) no existe.
 
 ### Para la pantalla del reporte (RF-20)
 
-La API no tiene CORS. En desarrollo, Angular pasa por un proxy (`proxy.conf.json`, con
-`ng serve --proxy-config proxy.conf.json`) que reenvía `/api` a la API sin el prefijo:
+La API no tiene CORS. En desarrollo, Angular pasa por un proxy (`frontend/proxy.conf.js`, ya
+configurado en `angular.json`) que reenvía `/api` a la API sin el prefijo. El destino sale de
+`API_URL`: `http://localhost:8000` con `ng serve` en el host, `http://api:8000` en el servicio
+`web` de compose y `http://host.docker.internal:8000` con `make up-gpu` (API en el host):
 
-```json
-{
+```js
+module.exports = {
   "/api": {
-    "target": "http://localhost:8000",
-    "secure": false,
-    "pathRewrite": { "^/api": "" }
-  }
-}
+    target: process.env.API_URL || "http://localhost:8000",
+    secure: false,
+    pathRewrite: { "^/api": "" },
+  },
+};
 ```
 
 El reproductor apunta a la ruta del video y salta al segundo de cada hallazgo con el `t_inicio`

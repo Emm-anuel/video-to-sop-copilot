@@ -86,13 +86,13 @@ Paquete Python instalable `sopvid` (src layout). Estado al 17 oct 2026: **fase F
 
 Requisitos: Docker Desktop (con Compose v2) y Git. Para desarrollo y notebooks, además Python 3.11.
 
-### Opción A: Docker (API + base)
+### Opción A: Docker (API + base + frontend)
 
 ```bash
 git clone <URL-del-repo>
 cd video-to-sop-copilot
 cp .env.example .env                     # PowerShell: Copy-Item .env.example .env
-docker compose up -d --build             # levanta Postgres y la API (la API espera a que la base esté sana)
+docker compose up -d --build             # levanta Postgres, la API y el frontend (la API espera a que la base esté sana)
 docker compose exec api alembic upgrade head   # migraciones (habilita pgvector)
 curl http://localhost:8000/health        # {"status":"ok","db":"ok","llm":"no_disponible"}
 ```
@@ -101,6 +101,8 @@ LLM local opcional (Ollama con GPU NVIDIA): `docker compose --profile llm up -d`
 `/health` informa `"llm":"ok"`. Detalles en [docs/dev/llm.md](docs/dev/llm.md).
 
 En PowerShell, la comprobación equivalente es `Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en <http://localhost:8000/docs>.
+
+El frontend (Angular con `ng serve`, servicio `web`) queda en <http://localhost:4200> y se recarga solo al guardar un archivo de `frontend/`: no hace falta otra terminal ni Node instalado. El primer arranque tarda unos minutos (`npm ci`); los siguientes solo reinstalan si cambia `package-lock.json`. Los errores de compilación se ven con `docker compose logs -f web`. Detalles en [frontend/README.md](frontend/README.md).
 
 > **Puerto 5432.** La base se publica en `POSTGRES_PORT` (5432 por defecto). Si tienes otro Postgres local, apágalo antes o cambia `POSTGRES_PORT` en tu `.env`. Los datos viven en el volumen `sopvid_pgdata`: `docker compose down` los conserva y `docker compose down -v` los borra.
 
@@ -148,7 +150,7 @@ El archivo se lee en UTF-8. Las advertencias (numeración, claves desconocidas, 
 | `make` | PowerShell (desde la raíz, con el `.venv` activo para test/lint) |
 |---|---|
 | `make up` | `docker compose up -d --build` |
-| `make up-gpu` | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama` (la API en el host con la GPU, `docs/dev/api.md`) |
+| `make up-gpu` | `$env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web; Remove-Item Env:API_URL_WEB` (la API en el host con la GPU, `docs/dev/api.md`) |
 | `make down` | `docker compose down` |
 | `make logs` | `docker compose logs -f` |
 | `make migrate` | `docker compose exec api alembic upgrade head` |

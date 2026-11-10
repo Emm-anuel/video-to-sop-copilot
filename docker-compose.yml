@@ -1,5 +1,6 @@
-# Fase F0: API + PostgreSQL 16 con pgvector (base vacía).
+# Fase F0: API + PostgreSQL 16 con pgvector (base vacía) + Angular en modo desarrollo.
 # Uso: copiar .env.example a .env y luego `docker compose up -d --build`.
+# El frontend queda en http://localhost:4200; sus errores de compilación, en `docker compose logs -f web`.
 # LLM local (opcional): `docker compose --profile llm up -d`. Corre en CPU en cualquier equipo.
 # Con GPU NVIDIA, para acelerarlo (ADR-018):
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d
@@ -69,6 +70,37 @@ services:
       retries: 5
       start_period: 10s
 
+  # Angular con `ng serve` y recarga en caliente: monta ./frontend, así que lo que se edita en
+  # el host se ve al guardar. Sin imagen propia: usa node tal cual (la .dockerignore excluye frontend/).
+  web:
+    image: node:24-bookworm-slim
+    working_dir: /app
+    # npm ci solo si cambió package-lock.json (o en el primer arranque); si no, arranca directo.
+    # --poll: los cambios de archivos montados desde Windows no llegan como eventos al contenedor.
+    command:
+      - sh
+      - -c
+      - >-
+        if [ ! -f node_modules/.instalado ] || [ package-lock.json -nt node_modules/.instalado ];
+        then npm ci --no-audit --no-fund && touch node_modules/.instalado;
+        fi &&
+        npx ng serve --host 0.0.0.0 --poll ${WEB_POLL_MS:-2000}
+    environment:
+      # Destino del proxy /api (frontend/proxy.conf.js). Con la API en el host (make up-gpu):
+      # API_URL_WEB=http://host.docker.internal:8000
+      API_URL: ${API_URL_WEB:-http://api:8000}
+      NG_CLI_ANALYTICS: "false"
+    extra_hosts:
+      # host.docker.internal también en Docker de Linux (Docker Desktop ya lo trae).
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./frontend:/app
+      # node_modules y la caché de Angular de Linux, aparte de los de Windows en ./frontend.
+      - web_node_modules:/app/node_modules
+      - web_angular_cache:/app/.angular
+    ports:
+      - "${WEB_PORT:-4200}:4200"
+
   # ── LLM local (profile "llm"); la API y la base no dependen de estos servicios ──
   ollama:
     image: ollama/ollama:0.40.2
@@ -122,3 +154,5 @@ volumes:
   ollama:
   modelos:
   media:
+  web_node_modules:
+  web_angular_cache:
