@@ -11,9 +11,14 @@ contexto (RF-12) y el reporte (RF-14, RF-19). Código: `sopvid.plataforma.api` (
 |---|---|
 | `POST /sops` | Multipart: `archivo` (.md, .txt, .pdf o .docx; texto hasta 1 MB, PDF y Word hasta 20 MB). Revisa que se pueda leer y responde **202** con el `EstadoSop` (`docs/contrato/sop_estado.schema.json`, `estado: "en_cola"`) y `Location: /sops/<id>/estado`; la conversión (plantilla o Gemma 4, ADR-015) corre en el trabajador. 415 si la extensión no está permitida, 413 si pasa del límite, 422 si no se puede leer (PDF escaneado, archivo dañado, texto que no es UTF-8) |
 | `GET /sops/{id}/estado` | `EstadoSop`: `estado` (`en_cola`, `convirtiendo`, `listo`, `error`), `titulo`, `metodo` (`plantilla` o `llm`) y `advertencias` al terminar, `mensaje` si falló (título de más de 300 caracteres, Ollama caído, conversión que pasó de `LLM_TIMEOUT_SOP_S`…). Consultarlo cada 2 s |
-| `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "metodo", "advertencias", "sop"}` con el `SOP` del contrato; **409** con `{"mensaje", "estado", "error"}` mientras no esté listo |
-| `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`), en modo validar `sop_id` **o** `sop` (archivo del SOP, RF-02; prohibidos con `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola", "sop_id"}` y `Location: /videos/<id>`. Con `sop`, el SOP se crea en cola como en `POST /sops` y su estado se consulta en `GET /sops/{sop_id}/estado`; el video lo espera y, si la conversión falla, queda en error con el mensaje del SOP. 415 si la extensión no está permitida, 422 si el formulario no es válido, si el SOP adjunto no se puede leer o si `sop_id` es de un SOP en error, 404 si el SOP no existe, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
-| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`, `contexto`; en modo validar también `segmentacion`, `emparejamiento`, `reporte`; al final `listo`), `progreso` (0–100), duración, idioma, `error` y `sop_id` |
+| `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "metodo", "advertencias", "en_biblioteca", "generacion", "sop"}` con el `SOP` del contrato (`generacion`: cómo se generó desde el video, ADR-023; null en un SOP cargado); **409** con `{"mensaje", "estado", "error"}` mientras no esté listo |
+| `PUT /sops/{id}` | Guarda la versión corregida (RF-04, RF-26): el cuerpo es el `SOP` completo del contrato. **422** si no lo cumple (sin pasos, numeración rota, un campo de más) o si el título pasa de 300 caracteres, sin tocar el guardado; **409** si no está listo |
+| `POST /sops/{id}/biblioteca` | Guarda el SOP en la biblioteca (RF-27): desde ahí sirve como `sop_id` en `POST /videos`, sin conversión. Responde el `EstadoSop` (`en_biblioteca: true`); idempotente; **409** si no está listo. Los SOP cargados ya están |
+| `GET /sops/{id}.md` | El SOP en la plantilla Markdown (`text/markdown`, `sop_a_markdown`); `convertir_sop` lo vuelve a leer con el mismo contenido de la plantilla (la evidencia, los tiempos del video y los puntos y palabras clave solo van en el JSON). **409** si no está listo |
+| `POST /videos` | Multipart: `archivo` (mp4, mov, mkv o webm), `titulo`, `modo` (`validar` o `generar`), en modo validar `sop_id` **o** `sop` (archivo del SOP, RF-02; prohibidos con `generar`) e `idioma` opcional (ISO 639-1, lo fija). Responde **202** con `{"id", "proceso": "en_cola", "sop_id"}` y `Location: /videos/<id>`. Un `sop_id` de un SOP generado que no está en la biblioteca da **422**. Con `sop`, el SOP se crea en cola como en `POST /sops` y su estado se consulta en `GET /sops/{sop_id}/estado`; el video lo espera y, si la conversión falla, queda en error con el mensaje del SOP. 415 si la extensión no está permitida, 422 si el formulario no es válido, si el SOP adjunto no se puede leer o si `sop_id` es de un SOP en error, 404 si el SOP no existe, 413 si pasa de `SUBIDA_MAX_MB` (1024 por defecto) |
+| `GET /videos/{id}` | `proceso` (`en_cola`, `procesando`, `listo`, `error`), `etapa` (`duracion`, `audio`, `transcripcion`, `contexto`, `segmentacion`; en modo validar también `emparejamiento`, `reporte`; en modo generar `sop_pasos`, `sop_resumen`, `sop_claves`; al final `listo`), `progreso` (0–100), duración, idioma, `error` y `sop_id` (en modo generar, el SOP generado) |
+| `GET /videos/{id}/sop` | El SOP generado (modo generar, RF-22 a RF-25; `SOP` del contrato con la evidencia de cada dato). **409** con `{"mensaje", "proceso", "estado", "error"}` mientras no esté listo; **422** si el video es de modo validar. Las advertencias (`sop_incompleto`…) y `generacion`, en `GET /sops/{sop_id}` |
+| `POST /videos/{id}/generar` | Repite la generación del SOP con la transcripción guardada, sin Whisper (ADR-023); reusa la ficha y los pasos del video guardados (RNF-07), salvo `?segmentar=true`. Reescribe el SOP del video salvo que ya esté en la biblioteca: entonces crea uno nuevo. **202**; 422 si el video no es de modo generar; 409 si está en cola o procesando, o si no tiene análisis guardado |
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
 | `GET /videos/{id}/contexto` | La ficha de contexto (`Contexto`, esquema en `docs/contrato/contexto.schema.json`; ejemplo en `tests/fixtures/contexto_ejemplo.json`). **409** con `{"mensaje", "proceso"}` mientras no se genere: el video sigue en proceso, Ollama falló (en modo validar el reporte lleva el aviso `contexto_sin_generar`) o el video se procesó antes de que existiera la ficha |
@@ -62,9 +67,22 @@ de la zona gris (ADR-012, ADR-013) → orden y marco del operador (ADR-016) → 
 (RF-19). La ficha, los pasos y el juez usan la misma carga de Gemma. El reporte se guarda en
 `reportes`, los pasos del video en `videos.pasos_video` y la ficha en `videos.contexto` (solo si
 se generó). El avance: el análisis va de 0 a 40, `contexto` 40, `segmentacion` 50,
-`emparejamiento` 80, `reporte` 95 y `listo` 100. En modo generar, el análisis va de 0 a 85 y
-`contexto` 85, con la ficha en su propia carga de Gemma; si Ollama no responde, el video queda
-listo sin ficha.
+`emparejamiento` 80, `reporte` 95 y `listo` 100.
+
+## Generación del SOP (modo generar, ADR-023)
+
+Después de guardar el `Analisis` (0 a 40), en una sola carga de Gemma: ficha de contexto
+(`contexto` 40) → pasos del video (`segmentacion` 50, en `videos.pasos_video`) → agrupar y
+redactar los pasos (`sop_pasos` 65) → cuadro resumen (`sop_resumen` 85) → puntos y palabras
+clave (`sop_claves` 92) → `listo` 100. El SOP queda en `sops` con `origen="generado"`,
+`en_biblioteca=false`, sus advertencias y `generacion` (llamadas con segundos, tokens de salida y
+tokens/s, grupos de pasos del video y dónde corrió Gemma), y `videos.sop_id` apunta a él.
+
+- **Ollama no responde al empezar** o **no hay pasos del video:** `proceso="error"` con un mensaje
+  que dice qué hacer; el análisis queda guardado y `POST /videos/{id}/generar` lo repite.
+- **Una llamada falla a medias:** el SOP sale con lo que se pudo y la advertencia `sop_incompleto`
+  dice qué faltó (la agrupación, pasos sin redactar, el cuadro resumen o las claves). Nunca sin
+  pasos.
 
 - **Ollama no responde al empezar:** `proceso="error"` con "LLM no disponible: el análisis quedó
   guardado…". Cuando Ollama responda, `POST /videos/{id}/validar` (ADR-019).

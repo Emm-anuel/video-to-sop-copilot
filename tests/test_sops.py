@@ -97,6 +97,8 @@ def test_carga_markdown_en_cola_y_luego_listo(
         "metodo": "plantilla",
         "mensaje": None,
         "advertencias": [],
+        "origen": "cargado",
+        "en_biblioteca": True,  # un SOP cargado entra solo a la biblioteca (RF-27)
     }
     assert ollama.eventos == []  # con plantilla, sin LLM
     entorno.session.refresh(fila)

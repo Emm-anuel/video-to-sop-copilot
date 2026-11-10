@@ -789,11 +789,17 @@ class EstadoSop(_Modelo):
     `titulo`, `metodo` y `advertencias` llegan con "listo" (`metodo` es None en un SOP generado o
     anterior a la migración 0003); `mensaje`, con "error" (dice qué hacer: volver a subirlo, usar
     la plantilla…). Mientras no esté listo, `GET /sops/{id}` da 409.
+
+    `origen` es "cargado" o "generado" (desde un video, ADR-023); `en_biblioteca`, si el SOP se
+    puede usar como referencia en otro video (RF-27): los cargados entran solos y un generado, al
+    guardarlo. Un SOP generado usa los mismos estados ("convirtiendo" mientras se redacta).
     """
 
     id: int
     codigo: str
     estado: EstadoConversionSop
+    origen: Literal["cargado", "generado"] = "cargado"
+    en_biblioteca: bool = True
     titulo: str | None = None
     metodo: MetodoConversionSop | None = None
     mensaje: str | None = None

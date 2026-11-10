@@ -22,7 +22,7 @@ from dobles import SEGMENTOS, Entorno, guardar_sop
 from sopvid.contrato import Analisis, Contexto, Idioma, ReporteValidacion
 from sopvid.plataforma.api.main import create_app
 from sopvid.plataforma.modelos import Video
-from sopvid.plataforma.procesamiento import ERROR_REINICIO, FIN_ANALISIS_GENERAR
+from sopvid.plataforma.procesamiento import ERROR_LLM_GENERAR, ERROR_REINICIO, FIN_ANALISIS_GENERAR
 
 RAIZ = Path(__file__).resolve().parents[1]
 ESQUEMA = RAIZ / "docs" / "contrato" / "analisis.schema.json"
@@ -158,7 +158,7 @@ def test_sop_id_invalido(client: TestClient, entorno: Entorno, datos: dict, codi
     assert entorno.pendientes == []
 
 
-def test_modo_generar_solo_genera_la_ficha_de_contexto(
+def test_modo_generar_genera_ficha_pasos_y_sop_en_una_carga_de_gemma(
     client: TestClient, entorno: Entorno, generar_video
 ) -> None:
     video_id = subir(client, generar_video().read_bytes()).json()["id"]
@@ -166,14 +166,27 @@ def test_modo_generar_solo_genera_la_ficha_de_contexto(
 
     video = entorno.video(video_id)
     assert (video.proceso, video.etapa, video.progreso) == ("listo", "listo", 100)
-    # Gemma se carga después de Whisper, solo para la ficha, y se descarga al terminar.
-    assert entorno.eventos == ["whisper_liberado", "tags", "chat:contexto", "descargar"]
+    # Gemma se carga después de Whisper, una sola vez: ficha, pasos del video y SOP (ADR-023).
+    assert entorno.eventos == [
+        "whisper_liberado",
+        "tags",
+        "chat:contexto",
+        "chat:fronteras",
+        "chat:redaccion",
+        "chat:agrupar",
+        "chat:pasos",
+        "chat:resumen",
+        "chat:claves",
+        "descargar",
+    ]
     assert [c._http.is_closed for c in entorno.clientes] == [True]
     assert Contexto.model_validate(video.contexto).actividad.fuente == "audio"
+    assert video.pasos_video["metodo"] == "llm"
     assert video.reporte is None
+    assert video.sop is not None and video.sop.origen == "generado"
 
 
-def test_modo_generar_sin_ollama_queda_listo_sin_ficha(
+def test_modo_generar_sin_ollama_queda_en_error_reprocesable(
     client: TestClient, entorno: Entorno, generar_video
 ) -> None:
     entorno.ollama.disponible = False
@@ -181,7 +194,10 @@ def test_modo_generar_sin_ollama_queda_listo_sin_ficha(
     entorno.correr_pendientes()
 
     video = entorno.video(video_id)
-    assert (video.proceso, video.error, video.contexto) == ("listo", None, None)
+    assert video.proceso == "error"
+    assert video.error == ERROR_LLM_GENERAR.format(id=video_id)
+    assert (video.contexto, video.sop_id) == (None, None)
+    assert video.transcripcion is not None  # el análisis quedó guardado
     assert entorno.eventos == ["whisper_liberado"]
     assert [c._http.is_closed for c in entorno.clientes] == [True]
 

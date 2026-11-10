@@ -88,6 +88,11 @@ class Sop(Base):
     advertencias: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, default=list, server_default=text("'[]'::jsonb")
     )
+    # Biblioteca (RF-27, migración 0006): si se puede usar como referencia en otro video. Los
+    # cargados entran solos; un generado, al guardarlo. `generacion`: cómo se generó desde el
+    # video (`GeneracionSOP`, ADR-023); NULL en un SOP cargado.
+    en_biblioteca: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    generacion: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     creado: Mapped[datetime] = _creado()
 
     # passive_deletes="all": el ORM no pone videos.sop_id = NULL al borrar el SOP; la base

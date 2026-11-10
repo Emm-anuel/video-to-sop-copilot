@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from sopvid.contrato import SOP, Idioma, Juicio, Palabra, PasoSOP, PasoVideo, Segmento
 from sopvid.lenguaje import emparejamiento as emp
+from sopvid.lenguaje import sop_generado as gen
 from sopvid.lenguaje.juez import respaldo
 from sopvid.lenguaje.lectura_sop import ESQUEMA_SOP_LIBRE
 from sopvid.lenguaje.llm import ClienteLLM
@@ -165,6 +166,49 @@ CONTEXTO = {
 }
 
 
+# Lo que respondería Gemma 4 a las cuatro llamadas del SOP generado (ADR-023) para SEGMENTOS
+# segmentados con FRONTERAS: un paso del SOP por paso del video, ninguno fuera.
+AGRUPACION_SOP = {
+    "grupos": [{"pasos_video": [1]}, {"pasos_video": [2]}, {"pasos_video": [3]}],
+    "fuera": [],
+}
+PASOS_SOP = [
+    {
+        "numero": 1,
+        "nombre": "Revisar el manómetro",
+        "descripcion": "Revisar la lectura del manómetro.",
+        "equipo": [{"cita": "reviso el manómetro", "valor": "Manómetro"}],
+        "puntos_validacion": [],
+    },
+    {
+        "numero": 2,
+        "nombre": "Cerrar la válvula",
+        "descripcion": "Cerrar la válvula de la línea.",
+        "equipo": [{"cita": "cierro la válvula", "valor": "Válvula"}],
+        "puntos_validacion": [],
+    },
+    {
+        "numero": 3,
+        "nombre": "Anotar la lectura",
+        "descripcion": "Anotar la lectura en la bitácora.",
+        "equipo": [],
+        "puntos_validacion": [{"cita": "anoto la lectura", "valor": "Lectura anotada"}],
+    },
+]
+RESUMEN_SOP = {
+    "titulo": "Revisión de la línea de agua",
+    "objetivo": {"cita": "", "valor": None},
+    "alcance": {"cita": "", "valor": None},
+    "duracion_total": {"cita": ""},
+    "riesgos": [],
+    "en_caso_de_falla": [],
+}
+CLAVES_SOP = {
+    "puntos_clave": [{"cita": "Después cierro la válvula", "texto": "Cerrar la válvula."}],
+    "palabras_clave": [{"termino": "manómetro", "literal": "manómetro", "categoria": "equipo"}],
+}
+
+
 class OllamaFalso:
     """Ollama simulado. `disponible=False`: no responde a nada; `caido_en_chat=True`: responde
     `/api/tags` pero se cae en `/api/chat` y `/api/generate` (Ollama cae a medias).
@@ -180,6 +224,11 @@ class OllamaFalso:
 
     `respuestas_sop` es lo que responde cada conversión de un SOP sin plantilla, en orden (la
     última se repite): un objeto se manda como JSON y un `str`, tal cual (p. ej. JSON roto).
+
+    Las cuatro llamadas del SOP generado (ADR-023) se registran como "chat:agrupar",
+    "chat:pasos", "chat:resumen" y "chat:claves" y responden `respuestas_generado[etapa]` (por
+    defecto, `AGRUPACION_SOP`, `PASOS_SOP`, `RESUMEN_SOP` y `CLAVES_SOP`); `mensajes_generado`
+    guarda los mensajes de cada una, en orden.
     `mensajes_sop` y `opciones_sop` guardan los mensajes y las opciones (`num_ctx`) de cada una.
     """
 
@@ -200,6 +249,13 @@ class OllamaFalso:
         self.pausa_contexto_s = 0.0
         # Bytes del modelo en VRAM que informa /api/ps, sobre un total de 100.
         self.vram = 100
+        self.respuestas_generado: dict[str, Any] = {
+            "agrupar": AGRUPACION_SOP,
+            "pasos": PASOS_SOP,
+            "resumen": RESUMEN_SOP,
+            "claves": CLAVES_SOP,
+        }
+        self.mensajes_generado: list[tuple[str, list[dict[str, str]]]] = []
 
     def cliente(self) -> ClienteLLM:
         return ClienteLLM(
@@ -242,6 +298,10 @@ class OllamaFalso:
             self.opciones_sop.append(cuerpo["options"])
             i = min(len(self.mensajes_sop), len(self.respuestas_sop)) - 1
             contenido = self.respuestas_sop[i] if self.respuestas_sop else None
+        elif (etapa := _ETAPA_GENERADO.get(json.dumps(cuerpo.get("format")))) is not None:
+            self.eventos.append(f"chat:{etapa}")
+            self.mensajes_generado.append((etapa, cuerpo["messages"]))
+            contenido = self.respuestas_generado[etapa]
         elif cuerpo.get("format") == ESQUEMA_FRONTERAS:
             self.eventos.append("chat:fronteras")
             contenido = FRONTERAS
@@ -257,6 +317,18 @@ class OllamaFalso:
         return httpx.Response(
             200, json={"model": MODELO, "message": {"role": "assistant", "content": texto}}
         )
+
+
+_ETAPA_GENERADO = {
+    json.dumps(esquema): etapa
+    for etapa, esquemas in (
+        ("agrupar", (gen.ESQUEMA_AGRUPAR,)),
+        ("pasos", (gen.ESQUEMA_PASOS, gen.ESQUEMA_PASOS_FOTOGRAMAS)),
+        ("resumen", (gen.ESQUEMA_RESUMEN, gen.ESQUEMA_RESUMEN_FOTOGRAMAS)),
+        ("claves", (gen.ESQUEMA_CLAVES,)),
+    )
+    for esquema in esquemas
+}
 
 
 def flujo_ndjson(

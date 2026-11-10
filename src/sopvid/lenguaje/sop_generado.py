@@ -914,7 +914,8 @@ def aplicar_resumen(
     `GeneracionSOP`."""
     riesgos = []
     for x in r.riesgos:
-        if not (descripcion := limpiar(x.descripcion, _VACIOS)):
+        # Sin punto final, como la lee la plantilla (ADR-015): así vuelve igual del Markdown.
+        if not (descripcion := limpiar(x.descripcion, _VACIOS).rstrip(". ")):
             continue
         u = evidencias.ubicar(x.cita, f=getattr(x, "f", None))
         riesgos.append(
@@ -931,7 +932,8 @@ def aplicar_resumen(
         )
     fallas = []
     for x in r.en_caso_de_falla:
-        if not (situacion := limpiar(x.situacion, _VACIOS)):
+        # Sin ":", que en la plantilla separa la situación de la acción.
+        if not (situacion := limpiar(x.situacion.replace(":", " "), _VACIOS)):
             continue
         u = evidencias.ubicar(x.cita)
         fallas.append(

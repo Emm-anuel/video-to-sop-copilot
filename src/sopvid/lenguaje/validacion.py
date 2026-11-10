@@ -353,13 +353,14 @@ def umbrales_de(settings: Settings) -> Umbrales:
 
 def avisos_de(
     segmentacion: Segmentacion,
-    resultado: ResultadoEmparejamiento,
+    resultado: ResultadoEmparejamiento | None,
     resultado_contexto: ResultadoContexto | None = None,
     analisis: Analisis | None = None,
 ) -> list[Aviso]:
     """Lo que vuelve provisional al reporte (ADR-019), en el orden de las etapas: Whisper que no
     es el de referencia (ADR-018) y las fallas del LLM. Sin `resultado_contexto` (ficha
-    reusada), no hay aviso de la ficha."""
+    reusada), no hay aviso de la ficha; sin `resultado` (el SOP generado, ADR-023, no empareja),
+    no hay aviso del juez."""
     avisos = []
     if analisis is not None and (aviso := aviso_transcripcion(analisis)):
         avisos.append(aviso)
@@ -381,7 +382,8 @@ def avisos_de(
                 f"descripción: {segmentacion.motivo_sin_redaccion}",
             )
         )
-    sin_revisar = [p for p in resultado.clasificacion.pasos if p.estado == "zona_gris"]
+    pasos = resultado.clasificacion.pasos if resultado is not None else []
+    sin_revisar = [p for p in pasos if p.estado == "zona_gris"]
     if sin_revisar:
         motivos = Counter(
             (p.juicio.motivo if p.juicio else None) or "sin juez" for p in sin_revisar

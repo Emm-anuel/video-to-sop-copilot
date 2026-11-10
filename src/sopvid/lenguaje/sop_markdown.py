@@ -584,7 +584,7 @@ def sop_a_markdown(sop: SOP) -> str:
         "En caso de falla", [f"- {f.situacion}: {f.accion}".rstrip() for f in r.en_caso_de_falla]
     )
     bloques.append("## Pasos")
-    bloques += [_escribir_paso(p) for p in sop.pasos]
+    bloques += [_escribir_paso(p, r.responsable.valor) for p in sop.pasos]
     return "\n\n".join(bloques) + "\n"
 
 
@@ -614,11 +614,14 @@ def _escribir_riesgo(r: Riesgo) -> str:
     return f"- {r.nivel.capitalize()}: {' '.join(piezas)}".rstrip()
 
 
-def _escribir_paso(p: PasoSOP) -> str:
+def _escribir_paso(p: PasoSOP, responsable_resumen: str | None) -> str:
     lineas = [f"### {p.numero}. {p.nombre}"]
     if p.descripcion:
         lineas.append(p.descripcion)
-    heredado = "responsable" in p.campos_inferidos
+    # Heredado del resumen: el parser lo vuelve a heredar. En un SOP generado, "responsable" en
+    # `campos_inferidos` dice que no tiene evidencia (ADR-023), no que sea el del resumen: si es
+    # otro, se escribe para que vuelva igual.
+    heredado = "responsable" in p.campos_inferidos and p.responsable == responsable_resumen
     no_identificado = p.responsable == NO_IDENTIFICADO and p.confianza == "baja"
     if not (heredado or no_identificado):
         lineas.append(f"- Responsable: {p.responsable}")

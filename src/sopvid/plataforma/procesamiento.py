@@ -33,9 +33,15 @@ con `continuar=True` repite la validación sin Whisper ni ficha y sin detenerse.
 
 Ficha de contexto (RF-12): `videos.contexto` solo se llena si se generó; si quedó vacía (Ollama
 cayó a media validación, corte por tiempo, JSON inválido o transcripción vacía) se deja en NULL y
-el reporte lleva el aviso "contexto_sin_generar", así que `revalidar` la vuelve a intentar. En
-modo generar (sin SOP) la ficha corre sola tras el análisis (0–85, luego "contexto"), en su
-propia ventana de Gemma; si Ollama no responde, el video queda listo sin ficha.
+el reporte lleva el aviso "contexto_sin_generar", así que `revalidar` la vuelve a intentar.
+
+Modo generar (sin SOP, ADR-023): tras el análisis (0–40), en una sola carga de Gemma, ficha de
+contexto → pasos del video (`videos.pasos_video`, como en modo validar) → SOP generado
+(`sopvid.lenguaje.sop_generado`). El SOP se guarda en `sops` con `origen="generado"`, fuera de la
+biblioteca, con sus advertencias y `sops.generacion`, y `videos.sop_id` apunta a él (§10). Si
+Ollama no responde al empezar, o no hay pasos del video, el video queda en error con el análisis
+guardado y `regenerar` lo repite sin Whisper; reusa la ficha y la segmentación guardadas (RNF-07),
+salvo `segmentar=True`. Un SOP generado que ya está en la biblioteca no se pisa: se crea otro.
 
 Dónde corrió cada modelo (ADR-018) va en los metadatos del reporte: la GPU que ve la API, el
 dispositivo con que transcribió Whisper (se toma de su `Transcripcion`) y, desde la validación,
@@ -73,7 +79,14 @@ from typing import Any
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Analisis, Contexto, Dispositivos, SegmentacionGuardada
+from sopvid.contrato import (
+    SOP,
+    Analisis,
+    AvisoConversion,
+    Contexto,
+    Dispositivos,
+    SegmentacionGuardada,
+)
 from sopvid.lenguaje.lectura_sop import (
     AjustesConversion,
     ErrorConversionLLM,
@@ -82,11 +95,13 @@ from sopvid.lenguaje.lectura_sop import (
     extraer_texto,
 )
 from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible, LLMTiempoExcedido
+from sopvid.lenguaje.sop_generado import SinPasosDelVideo, generar_sop
 from sopvid.lenguaje.validacion import (
     INICIO_ETAPA,
     Detenida,
     FabricaValidacion,
     Validacion,
+    avisos_de,
     segmentacion_de,
     segmentacion_guardada,
     validar,
@@ -94,7 +109,7 @@ from sopvid.lenguaje.validacion import (
 from sopvid.percepcion.contexto import ResultadoContexto, generar_contexto
 from sopvid.percepcion.medios import ErrorMedios
 from sopvid.percepcion.pipeline import analizar_video
-from sopvid.percepcion.segmentacion import Segmentacion
+from sopvid.percepcion.segmentacion import Segmentacion, segmentar
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.hardware import CANDADO_MODELO_PESADO, CandadoModeloPesado, get_hardware
@@ -112,6 +127,10 @@ ERROR_LLM = (
     "LLM no disponible: el análisis quedó guardado; repite la validación con "
     "POST /videos/{id}/validar cuando Ollama responda"
 )
+ERROR_LLM_GENERAR = (
+    "LLM no disponible: el análisis quedó guardado; repite la generación con "
+    "POST /videos/{id}/generar cuando Ollama responda"
+)
 ERROR_SIN_SOP = "el video es de modo validar y no tiene SOP de referencia"
 TITULO_SOP_MAX = 300  # largo de `sops.titulo`
 # Estados de `sops.estado` (CHECK de modelos.py).
@@ -123,6 +142,10 @@ MENSAJE_SOP_SIN_LLM = (
 MENSAJE_SOP_REINICIO = (
     "La conversión se interrumpió por un reinicio del servidor; vuelve a subirlo."
 )
+MENSAJE_SOP_GENERADO_REINICIO = (
+    "La generación se interrumpió por un reinicio del servidor; repítela con "
+    "POST /videos/{id}/generar."
+)
 # Prioridad en la cola: menor va antes.
 PRIORIDAD_SOP, PRIORIDAD_VIDEO = 0, 1
 # Crea el cliente del LLM para una conversión (la API inyecta Gemma 4 por Ollama).
@@ -131,8 +154,15 @@ Trabajo = Callable[[], None]
 # En modo validar el análisis llega hasta aquí; la validación (desde la ficha de contexto)
 # sigue hasta 100.
 FIN_ANALISIS_VALIDAR = INICIO_ETAPA["contexto"]
-# En modo generar el análisis llega hasta aquí y la ficha de contexto empieza.
-FIN_ANALISIS_GENERAR = 85
+# En modo generar el análisis llega hasta aquí; después, el avance de cada etapa de Gemma.
+FIN_ANALISIS_GENERAR = 40
+INICIO_GENERAR = {
+    "contexto": 40,
+    "segmentacion": 50,
+    "sop_pasos": 65,
+    "sop_resumen": 85,
+    "sop_claves": 92,
+}
 
 
 def guardar_analisis(video: Video, analisis: Analisis) -> None:
@@ -269,16 +299,21 @@ def error_de_sop(sop: Sop) -> str:
 
 
 def marcar_sops_interrumpidos(session: Session) -> int:
-    """Pasa a error los SOP que quedaron en cola o convirtiendo (la cola vive en memoria)."""
-    resultado = session.execute(
-        update(Sop)
-        .where(Sop.estado.in_((SOP_EN_COLA, SOP_CONVIRTIENDO)))
-        .values(estado=SOP_ERROR, error=MENSAJE_SOP_REINICIO)
-    )
+    """Pasa a error los SOP que quedaron en cola o convirtiendo (la cola vive en memoria). Un
+    SOP generado se repite desde su video; uno cargado, subiéndolo otra vez."""
+    interrumpido = Sop.estado.in_((SOP_EN_COLA, SOP_CONVIRTIENDO))
+    total = 0
+    for generado, mensaje in ((False, MENSAJE_SOP_REINICIO), (True, MENSAJE_SOP_GENERADO_REINICIO)):
+        resultado = session.execute(
+            update(Sop)
+            .where(interrumpido, (Sop.origen == "generado") == generado)
+            .values(estado=SOP_ERROR, error=mensaje)
+        )
+        total += resultado.rowcount
     session.commit()
-    if resultado.rowcount:
-        logger.warning("SOP interrumpidos por el reinicio, ahora en error: %d", resultado.rowcount)
-    return resultado.rowcount
+    if total:
+        logger.warning("SOP interrumpidos por el reinicio, ahora en error: %d", total)
+    return total
 
 
 def marcar_interrumpidos(session: Session) -> int:
@@ -403,6 +438,13 @@ class Procesador:
             )
         )
 
+    def regenerar(
+        self, video_id: int, fabrica: FabricaValidacion, *, segmentar: bool = False
+    ) -> None:
+        """Encola solo la generación del SOP, sobre el análisis guardado (ADR-023, criterio de
+        ADR-019). Reusa la ficha y la segmentación guardadas (RNF-07), salvo con `segmentar`."""
+        self._cola.poner(lambda: self.procesar_generacion(video_id, fabrica, segmentar=segmentar))
+
     def encolar_sop(self, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion) -> None:
         """Encola la conversión del SOP, antes que el siguiente video."""
         self._cola.poner(lambda: self.procesar_sop(sop_id, fabrica_llm, ajustes), PRIORIDAD_SOP)
@@ -458,6 +500,19 @@ class Procesador:
                 "Video %d: no se pudo registrar la validación (%s)", video_id, type(exc).__name__
             )
 
+    def procesar_generacion(
+        self, video_id: int, fabrica: FabricaValidacion, *, segmentar: bool = False
+    ) -> None:
+        """Repite la generación con el análisis guardado, con el candado de modelo pesado; nunca
+        deja escapar una excepción."""
+        try:
+            with self._candado.tomar(), self._sesiones() as session:
+                self._regenerar(session, video_id, fabrica, segmentar)
+        except Exception as exc:
+            logger.error(
+                "Video %d: no se pudo registrar la generación (%s)", video_id, type(exc).__name__
+            )
+
     def _procesar(
         self,
         session: Session,
@@ -504,11 +559,11 @@ class Procesador:
             self._fallar(session, video_id, f"falló la etapa {etapa} ({type(exc).__name__})")
             return
         guardar_analisis(video, analisis)
-        if not valida:
-            if validacion is not None:
-                session.commit()  # el análisis queda guardado aunque falle la ficha
-                self._contexto_sin_sop(session, video_id, analisis, validacion)
-                video = session.get(Video, video_id)
+        if not valida and validacion is not None:
+            session.commit()  # el análisis queda guardado aunque falle la generación
+            self._generar(session, video_id, analisis, validacion)
+            return
+        if not valida:  # sin dependencias del LLM: solo el análisis
             video.etapa, video.progreso = "listo", 100
             video.proceso, video.error = LISTO, None
             session.commit()
@@ -572,36 +627,141 @@ class Procesador:
             segmentacion=segmentacion,
         )
 
-    def _contexto_sin_sop(
-        self, session: Session, video_id: int, analisis: Analisis, fabrica: FabricaValidacion
+    def _regenerar(
+        self, session: Session, video_id: int, fabrica: FabricaValidacion, segmentar: bool
     ) -> None:
-        """Modo generar: la ficha de contexto en su propia ventana de Gemma (se descarga al
-        terminar). Si Ollama no responde o la ficha queda vacía, el video sigue sin ficha (NULL):
-        no hay reporte donde poner el aviso. Nunca lanza."""
         video = session.get(Video, video_id)
-        video.etapa, video.progreso = "contexto", FIN_ANALISIS_GENERAR
+        if video is None:
+            logger.warning("Video %d: ya no existe; se omite", video_id)
+            return
+        contexto = _contexto_guardado(video)
+        guardada = None if segmentar else leer_segmentacion(video)
+        segmentacion = segmentacion_de(guardada) if guardada and guardada.reusable else None
+        logger.info(
+            "Video %d: genera el SOP; %s",
+            video_id,
+            "reusa la segmentación guardada"
+            if segmentacion is not None
+            else "vuelve a segmentar" + (" (pedido)" if segmentar else ""),
+        )
+        try:
+            analisis = leer_analisis(video)
+        except Exception as exc:
+            self._fallar(session, video_id, f"no se pudo leer el análisis ({type(exc).__name__})")
+            return
+        self._generar(
+            session, video_id, analisis, fabrica, contexto=contexto, segmentacion=segmentacion
+        )
+
+    def _generar(
+        self,
+        session: Session,
+        video_id: int,
+        analisis: Analisis,
+        fabrica: FabricaValidacion,
+        *,
+        contexto: Contexto | None = None,
+        segmentacion: Segmentacion | None = None,
+    ) -> None:
+        """Modo generar (ADR-023): ficha → pasos del video → SOP generado, en una sola carga de
+        Gemma, y guarda el SOP. Con `contexto` o `segmentacion` (guardados) no se vuelven a pedir.
+        Sin Ollama al empezar o sin pasos del video, el video queda en error (y el SOP también, si
+        ya se había creado). Nunca lanza."""
+        video = session.get(Video, video_id)
+        video.proceso, video.error = PROCESANDO, None
+        primera = "contexto" if contexto is None else "segmentacion"
+        if contexto is not None and segmentacion is not None:
+            primera = "sop_pasos"
+        video.etapa, video.progreso = primera, INICIO_GENERAR[primera]
         session.commit()
+
+        def avanzar(etapa: str) -> None:
+            video.etapa, video.progreso = etapa, INICIO_GENERAR[etapa]
+            session.commit()
+
+        contexto_reusado, segmentacion_reusada = contexto is not None, segmentacion is not None
+        resultado_contexto: ResultadoContexto | None = None
+        fila: Sop | None = None
         deps = None
         try:
             deps = fabrica()
-            if not deps.llm.disponible(get_settings().llm_health_timeout_s):
-                logger.warning(
-                    "Video %d: Ollama no responde; queda sin ficha de contexto", video_id
-                )
+            llm = deps.llm
+            if not llm.disponible(get_settings().llm_health_timeout_s):
+                self._fallar(session, video_id, ERROR_LLM_GENERAR.format(id=video_id))
                 return
             try:
-                generada = generar_contexto(analisis, deps.llm)
-            finally:
-                deps.llm.descargar()
-            if generada.generado:
-                video.contexto = generada.contexto.model_dump(mode="json")
+                if contexto is None:
+                    avanzar("contexto")
+                    resultado_contexto = generar_contexto(analisis, llm)
+                    if resultado_contexto.generado:
+                        contexto = resultado_contexto.contexto
+                        video.contexto = contexto.model_dump(mode="json")
+                        session.commit()
+                if segmentacion is None:
+                    avanzar("segmentacion")
+                    segmentacion = segmentar(analisis, llm)
+                    guardada = segmentacion_guardada(segmentacion)
+                    video.pasos_video = guardada.model_dump(mode="json")
+                    session.commit()
+                if not segmentacion.pasos:
+                    raise SinPasosDelVideo(
+                        "No hay pasos del video para redactar el SOP: la transcripción quedó "
+                        "vacía o sin pasos. Revisa el audio y vuelve a generar."
+                    )
+                fila = _fila_generada(session, video)
                 session.commit()
+                generado = generar_sop(
+                    analisis,
+                    segmentacion.pasos,
+                    llm,
+                    contexto,
+                    embedder=deps.embedder,
+                    al_avanzar=avanzar,
+                )
+            finally:
+                # Antes de descargar: después Ollama ya no lo lista (ADR-018).
+                dispositivo = llm.dispositivo_cargado()
+                llm.descargar()
+        except SinPasosDelVideo as exc:
+            self._fallar(session, video_id, str(exc), sop_id=fila.id if fila else None)
+            return
         except Exception as exc:
             session.rollback()
-            logger.error("Video %d: falló la ficha de contexto (%s)", video_id, type(exc).__name__)
+            etapa = session.get(Video, video_id).etapa or "generacion"
+            mensaje = f"falló la etapa {etapa} ({type(exc).__name__})"
+            self._fallar(session, video_id, mensaje, sop_id=fila.id if fila else None)
+            return
         finally:
             if deps is not None:
                 deps.cerrar()
+
+        avisos = [
+            AvisoConversion(tipo=a.tipo, mensaje=a.detalle)
+            for a in avisos_de(segmentacion, None, resultado_contexto, analisis)
+        ]
+        fila = session.get(Sop, fila.id)
+        fila.titulo = generado.sop.titulo
+        fila.contenido = generado.sop.model_dump(mode="json")
+        fila.advertencias = [a.model_dump() for a in (*avisos, *generado.advertencias)]
+        fila.generacion = generado.generacion.model_copy(
+            update={
+                "dispositivo_llm": dispositivo,
+                "contexto_reusado": contexto_reusado,
+                "segmentacion_reusada": segmentacion_reusada,
+            }
+        ).model_dump(mode="json")
+        fila.estado, fila.error = SOP_LISTO, None
+        video = session.get(Video, video_id)
+        video.etapa, video.progreso = "listo", 100
+        video.proceso, video.error = LISTO, None
+        session.commit()
+        logger.info(
+            "Video %d listo con SOP generado %d: %d pasos, %d advertencias",
+            video_id,
+            fila.id,
+            len(generado.sop.pasos),
+            len(fila.advertencias),
+        )
 
     def _validar(
         self,
@@ -734,8 +894,13 @@ class Procesador:
         logger.error("SOP %d: %s", sop_id, mensaje)
 
     @staticmethod
-    def _fallar(session: Session, video_id: int, mensaje: str) -> None:
+    def _fallar(
+        session: Session, video_id: int, mensaje: str, *, sop_id: int | None = None
+    ) -> None:
+        """Deja el video en error con `mensaje` (y su SOP generado, si se pasa)."""
         session.rollback()
+        if sop_id is not None and (fila := session.get(Sop, sop_id)) is not None:
+            fila.estado, fila.error = SOP_ERROR, mensaje
         video = session.get(Video, video_id)
         video.proceso, video.error = ERROR, mensaje
         session.commit()
@@ -754,6 +919,22 @@ class _TranscriptorRegistrado:
     ) -> Transcripcion:
         self.ultima = self._base.transcribir(audio, idioma, al_segmento=al_segmento)
         return self.ultima
+
+
+def _fila_generada(session: Session, video: Video) -> Sop:
+    """La fila del SOP generado del video, en "convirtiendo": la que ya tenía si es generada y
+    no está en la biblioteca; si no, una nueva (un SOP de la biblioteca puede ser la referencia de
+    otros videos y no se pisa). `videos.sop_id` apunta a ella. No hace commit."""
+    previa = session.get(Sop, video.sop_id) if video.sop_id is not None else None
+    if previa is not None and previa.origen == "generado" and not previa.en_biblioteca:
+        fila = previa
+    else:
+        fila = Sop(origen="generado", en_biblioteca=False)
+        session.add(fila)
+    fila.estado, fila.error = SOP_CONVIRTIENDO, None
+    session.flush()
+    video.sop_id = fila.id
+    return fila
 
 
 def _contexto_guardado(video: Video) -> Contexto | None:

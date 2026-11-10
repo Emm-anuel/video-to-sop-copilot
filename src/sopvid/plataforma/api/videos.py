@@ -77,6 +77,7 @@ from sopvid.plataforma.procesamiento import (
     LISTO,
     PROCESANDO,
     SOP_ERROR,
+    SOP_LISTO,
     Procesador,
     crear_sop_en_cola,
     error_de_sop,
@@ -194,6 +195,12 @@ def subir_video(
             raise HTTPException(404, "SOP no encontrado")
         if referencia.estado == SOP_ERROR:
             raise HTTPException(422, error_de_sop(referencia))
+        if not referencia.en_biblioteca:
+            raise HTTPException(
+                422,
+                f"El SOP {referencia.codigo} se generó desde un video y no está en la biblioteca: "
+                "guárdalo con POST /sops/{id}/biblioteca para usarlo como referencia",
+            )
     # Del SOP adjunto se revisa aquí que se pueda leer; lo convierte el trabajador.
     adjunto = leer_archivo_sop(sop) if sop is not None else None
 
@@ -274,6 +281,61 @@ def revalidar_video(
     session.commit()
     procesador.revalidar(video.id, validacion, continuar=continuar, segmentar=segmentar)
     return VideoCreado(id=video.id, proceso=video.proceso)
+
+
+@router.post("/videos/{video_id}/generar", status_code=202, response_model=VideoCreado)
+def regenerar_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    procesador: Annotated[Procesador, Depends(get_procesador)],
+    validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
+    segmentar: Annotated[
+        bool,
+        Query(description="true: volver a segmentar con Gemma en lugar de reusar los pasos"),
+    ] = False,
+) -> VideoCreado:
+    """Repite la generación del SOP con la transcripción guardada, sin Whisper (ADR-023,
+    criterio de ADR-019).
+
+    Reusa la ficha de contexto y los pasos del video guardados (RNF-07); con `segmentar=true` los
+    pasos se vuelven a pedir a Gemma (una segmentación de la heurística o incompleta siempre se
+    repite). Reescribe el SOP generado del video, salvo que ya esté en la biblioteca: entonces
+    crea uno nuevo. Se acepta en "listo" y "error"; 422 si el video no es de modo generar, 409 si
+    está en proceso o no tiene análisis guardado.
+    """
+    video = _buscar(session, video_id)
+    if video.modo != "generar":
+        raise HTTPException(422, "solo un video de modo generar genera un SOP")
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(409, {"mensaje": "el video está en proceso", "proceso": video.proceso})
+    if video.transcripcion is None:
+        raise HTTPException(409, "el video no tiene análisis guardado: vuelve a subirlo")
+    video.proceso, video.error = EN_COLA, None
+    session.commit()
+    procesador.regenerar(video.id, validacion, segmentar=segmentar)
+    return VideoCreado(id=video.id, proceso=video.proceso, sop_id=video.sop_id)
+
+
+@router.get("/videos/{video_id}/sop", response_model=SOP)
+def sop_generado(video_id: int, session: Annotated[Session, Depends(get_session)]) -> SOP:
+    """El SOP generado desde el video (modo generar, RF-22 a RF-25). 409 mientras no esté listo
+    (con el proceso del video y el estado del SOP); 422 si el video es de modo validar. Sus
+    advertencias, si quedó incompleto, y cómo se generó: `GET /sops/{sop_id}`."""
+    video = _buscar(session, video_id)
+    if video.modo != "generar":
+        raise HTTPException(422, "el video es de modo validar: su SOP es el de referencia")
+    fila = session.get(Sop, video.sop_id) if video.sop_id is not None else None
+    if fila is None or fila.estado != SOP_LISTO:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el SOP generado no está listo",
+                "proceso": video.proceso,
+                "estado": fila.estado if fila is not None else None,
+                "error": video.error or (fila.error if fila is not None else None),
+            },
+        )
+    return SOP.model_validate(fila.contenido)
 
 
 @router.get("/videos/{video_id}", response_model=EstadoVideo)
