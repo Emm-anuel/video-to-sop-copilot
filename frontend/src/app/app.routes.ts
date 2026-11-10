@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Nuevo } from './nuevo/nuevo';
 import { Reporte } from './reporte/reporte';
+import { SopGenerado } from './sop/sop-generado';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'nuevo' },
@@ -12,4 +13,5 @@ export const routes: Routes = [
     data: { ancho: true },
     title: 'Reporte de validación · SOPVID',
   },
+  { path: 'videos/:id/sop', component: SopGenerado, title: 'SOP generado · SOPVID' },
 ];

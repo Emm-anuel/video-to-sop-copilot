@@ -18,6 +18,9 @@ export const SONDEO_SOP_MS = 2000;
  * reporte cuando el video ya subió y el SOP quedó listo sin advertencias; con advertencias, las
  * muestra y espera a "Ver el reporte". Si la conversión falla, cancela la subida y pide otro SOP.
  * Si falla el video, el SOP ya guardado se reutiliza al reintentar.
+ *
+ * Con "No tengo SOP" (ADR-023) no se pide SOP: el video sube con `modo=generar` y, al aceptarlo
+ * la API, se va a la vista del SOP generado (`/videos/:id/sop`), que sigue el avance.
  */
 @Component({
   selector: 'app-nuevo',
@@ -39,6 +42,8 @@ export class Nuevo {
     idioma: new FormControl<'' | 'es' | 'en'>('', { nonNullable: true }),
   });
 
+  /** "No tengo SOP": el SOP se genera desde el video. */
+  protected readonly sinSop = signal(false);
   protected readonly archivoSop = signal<File | null>(null);
   protected readonly archivoVideo = signal<File | null>(null);
   /** El SOP ya guardado, con su último estado: si falla el video, el reintento no lo vuelve a subir. */
@@ -87,7 +92,16 @@ export class Nuevo {
     }
   }
 
+  protected cambiarSinSop(evento: Event): void {
+    this.sinSop.set((evento.target as HTMLInputElement).checked);
+    this.error.set(null);
+  }
+
   protected validar(): void {
+    if (this.sinSop()) {
+      this.generar();
+      return;
+    }
     this.intentado.set(true);
     const archivoSop = this.archivoSop();
     const video = this.archivoVideo();
@@ -121,6 +135,39 @@ export class Nuevo {
     if (video) {
       void this.router.navigate(['/videos', video.id, 'reporte']);
     }
+  }
+
+  /** "No tengo SOP": sube el video en modo generar y va a la vista del SOP generado. */
+  private generar(): void {
+    this.intentado.set(true);
+    const video = this.archivoVideo();
+    if (this.enviando() || !video || this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    const { titulo, idioma } = this.form.getRawValue();
+    this.enviando.set(true);
+    this.error.set(null);
+    this.progreso.set(0);
+    this.subida = this.api
+      .subirVideo({ archivo: video, titulo: titulo.trim(), idioma: idioma || undefined })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (evento) => {
+          if (evento.type === HttpEventType.UploadProgress) {
+            const total = evento.total ?? video.size;
+            this.progreso.set(total ? Math.round((100 * evento.loaded) / total) : 0);
+          } else if (evento.type === HttpEventType.Response && evento.body) {
+            this.subida = null;
+            this.enviando.set(false);
+            void this.router.navigate(['/videos', evento.body.id, 'sop']);
+          }
+        },
+        error: (e: unknown) => {
+          this.subida = null;
+          this.fallo(`No se pudo subir el video. ${mensajeDeError(e)}`);
+        },
+      });
   }
 
   /** Sigue la conversión del SOP (si no terminó) y sube el video (si no subió), en paralelo. */

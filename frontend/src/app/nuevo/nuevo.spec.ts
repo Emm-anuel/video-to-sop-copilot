@@ -99,6 +99,26 @@ describe('Nuevo', () => {
     return fixture.nativeElement.querySelector('button');
   }
 
+  it('con "No tengo SOP" sube el video en modo generar, sin SOP, y va a la vista del SOP', async () => {
+    const casilla = fixture.nativeElement.querySelector('#sin-sop') as HTMLInputElement;
+    casilla.checked = true;
+    casilla.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('#sop')).toBeNull();
+    expect(boton().textContent).toContain('Generar SOP');
+
+    elegir('#video', new File(['video'], 'video_e.mp4', { type: 'video/mp4' }));
+    await validar();
+    http.expectNone({ method: 'POST', url: '/api/sops' });
+    const video = http.expectOne({ method: 'POST', url: '/api/videos' });
+    const datos = video.request.body as FormData;
+    expect(datos.get('modo')).toBe('generar');
+    expect(datos.has('sop_id')).toBe(false);
+    expect(datos.get('titulo')).toBe('video_e');
+    await flush(video, VIDEO_CREADO);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'sop']);
+  });
+
   it('acepta SOP en Markdown, texto, PDF y Word', () => {
     const input = fixture.nativeElement.querySelector('#sop') as HTMLInputElement;
     expect(input.accept).toBe('.md,.txt,.pdf,.docx');

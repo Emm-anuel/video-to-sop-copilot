@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "tipos": "json2ts --input ../docs/contrato/reporte.schema.json --output src/app/api/reporte-validacion.ts --bannerComment \"/* Generado desde docs/contrato/reporte.schema.json con `npm run tipos`. No editar a mano. */\" --additionalProperties false"
+    "tipos": "json2ts --input ../docs/contrato/reporte.schema.json --output src/app/api/reporte-validacion.ts --bannerComment \"/* Generado desde docs/contrato/reporte.schema.json con `npm run tipos`. No editar a mano. */\" --additionalProperties false && npm run tipos:sop",
+    "tipos:sop": "json2ts --input ../docs/contrato/sop.schema.json --output src/app/api/sop.ts --bannerComment \"/* Generado desde docs/contrato/sop.schema.json con `npm run tipos:sop`. No editar a mano. */\" --additionalProperties false"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

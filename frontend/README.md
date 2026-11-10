@@ -17,7 +17,8 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov (sección siguiente) |
+| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
+| `/videos/:id/sop` | **SOP generado (mínima, solo lectura):** avance, cuadro resumen, tabla de pasos, puntos y palabras clave con menciones, lo inferido resaltado y "Guardar en la biblioteca" | Emmanuel (base) · Sara (RF-26) | Hecho (9 nov): `src/app/sop/`. Sin edición: la pule Sara con RF-26 |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -32,7 +33,7 @@ Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 
 | Qué falta | RF | Semana |
 |---|---|---|
-| Elegir el modo: SOP de la biblioteca, subir uno nuevo o sin SOP (modo `generar`) | RF-07, RF-02 | S5 |
+| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP") | RF-07, RF-02 | S5 |
 | Mostrar el SOP convertido para corregirlo antes de validar | RF-04 | S5 |
 | Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | S5 |
 | Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | S5 |
@@ -193,6 +194,35 @@ otro SOP" a `/nuevo`, mostrar la afinidad con `bajo_umbral` junto al porcentaje 
 4. `componentes` es para depurar y para el paper; no hace falta mostrarlo.
 5. Con `listo`, `GET /videos/{id}` también trae la `afinidad` del reporte (o `null` si el video no
    tuvo ficha de contexto: entonces la validación siguió sin advertir).
+
+## SOP generado: "No tengo SOP" y `/videos/:id/sop` (9 nov, ADR-023)
+
+Pantalla mínima para probar el modo generar; **Sara la pule con RF-26** (editar, agregar, quitar y
+reordenar pasos) sobre el mismo componente.
+
+- **`/nuevo`:** la casilla "No tengo SOP" oculta el campo del SOP y el botón dice "Generar SOP".
+  Sube solo el video con `modo=generar` (`ApiService.subirVideo` sin `sopId`) y, con el 202,
+  navega a `/videos/:id/sop`.
+- **`/videos/:id/sop` (`src/app/sop/`):** consulta `GET /videos/{id}` cada 3 s y muestra la etapa
+  (contexto, pasos del video, redacción de los pasos, del cuadro resumen, de las claves). Con
+  `listo`, pide `GET /videos/{id}/sop` (el `SOP`) y `GET /sops/{sop_id}` (código, advertencias y
+  `en_biblioteca`). Muestra:
+  - el cuadro resumen (objetivo, alcance, responsable, lugar, horario, duración total, versión,
+    equipo, roles, personas, riesgos y qué hacer en caso de falla);
+  - la tabla de pasos (N.º, nombre, descripción, responsable, equipo, puntos de validación,
+    tiempo y el tramo del video);
+  - los puntos clave con su segundo y las palabras clave con sus menciones y sus segundos.
+  - **Lo inferido va resaltado** (fondo amarillo y borde punteado): un dato del resumen, riesgo o
+    falla con `fuente: "inferido"`, un campo del paso en `campos_inferidos` o un elemento de
+    equipo o de validación cuya `evidencia` es inferida. Al pasar el cursor se ve la fuente, la
+    confianza, el segundo y la cita (en el idioma del video).
+  - "Guardar en la biblioteca" llama a `POST /sops/{id}/biblioteca`; desde ahí el SOP sirve como
+    `sop_id` en otro `POST /videos` (antes, la API responde 422).
+- Tipos: `src/app/api/sop.ts` se genera desde `docs/contrato/sop.schema.json` con
+  `npm run tipos:sop` (`npm run tipos` genera los dos). No se edita a mano.
+- Pendiente (RF-26): edición con `PUT /sops/{id}` (la API ya valida el SOP completo y responde
+  422 si no cumple el contrato), descargar el Markdown (`GET /sops/{id}.md`) y repetir la
+  generación (`POST /videos/{id}/generar`).
 
 ## Desarrollo
 
