@@ -175,6 +175,23 @@ RESUMEN = {
 }
 
 
+CLAVES = {
+    "puntos_clave": [
+        {
+            "cita": "I stop the conveyor with the red stop button",
+            "texto": "Detener el transportador antes de lubricar.",
+        },
+        {"cita": "", "texto": "Usar aceite limpio."},
+    ],
+    "palabras_clave": [
+        {"termino": "guante", "literal": "glove", "categoria": "seguridad"},
+        {"termino": "transportador", "literal": "Conveyor", "categoria": "equipo"},
+        {"termino": "aceitera", "literal": "oil can", "categoria": "equipo"},
+        {"termino": "manómetro", "literal": "pressure gauge", "categoria": "equipo"},
+    ],
+}
+
+
 class LLMGuionado:
     """Cliente del LLM falso: responde a cada esquema con la siguiente respuesta de su lista (la
     última se repite). Una respuesta puede ser un objeto (JSON), una excepción que se lanza o una
@@ -221,11 +238,13 @@ ESQUEMAS: dict[str, tuple[dict[str, Any], ...]] = {
     "agrupar": (gen.ESQUEMA_AGRUPAR,),
     "pasos": (gen.ESQUEMA_PASOS, gen.ESQUEMA_PASOS_FOTOGRAMAS),
     "resumen": (gen.ESQUEMA_RESUMEN, gen.ESQUEMA_RESUMEN_FOTOGRAMAS),
+    "claves": (gen.ESQUEMA_CLAVES,),
 }
 
 
 def guion(**cambios: list[Any]) -> dict[str, list[Any]]:
-    return {"agrupar": [AGRUPACION], "pasos": [PASOS], "resumen": [RESUMEN]} | cambios
+    base = {"agrupar": [AGRUPACION], "pasos": [PASOS], "resumen": [RESUMEN], "claves": [CLAVES]}
+    return base | cambios
 
 
 @pytest.fixture
@@ -473,7 +492,7 @@ def test_los_pasos_se_redactan_por_lotes(embedder, monkeypatch):
 
     llm = LLMGuionado(guion(pasos=[lote]))
     r = generar(llm, embedder)
-    assert llm.etapas() == ["agrupar", "pasos", "pasos", "resumen"]
+    assert llm.etapas() == ["agrupar", "pasos", "pasos", "resumen", "claves"]
     assert [p.numero for p in r.sop.pasos] == [1, 2, 3]
 
 
@@ -595,7 +614,7 @@ def test_el_resumen_lleva_titulo_objetivo_riesgos_y_fallas_con_su_evidencia(embe
         "baja",
     )
     assert r.generacion.duracion_narrada is None
-    assert [x.etapa for x in r.generacion.llamadas] == ["agrupar", "pasos", "resumen"]
+    assert [x.etapa for x in r.generacion.llamadas] == ["agrupar", "pasos", "resumen", "claves"]
 
 
 def test_el_resumen_no_pide_lo_que_sale_de_la_ficha():
@@ -664,3 +683,109 @@ def test_el_resumen_recibe_la_transcripcion_la_ficha_y_los_pasos_sin_tiempos(emb
     assert "1. Colocarse el equipo de protección" in usuario
     assert "Ana (Operadora de línea), participa" in usuario
     assert TEXTOS[3] in usuario
+
+
+# ── Puntos y palabras clave (RF-24) ──────────────────────────────────────────────────────────
+
+
+def _t_palabra(analisis: Analisis, segmento: int, palabra: int) -> float:
+    return analisis.transcripcion[segmento].palabras[palabra].t
+
+
+def test_las_menciones_se_cuentan_con_la_forma_literal_y_sus_segundos(embedder):
+    analisis = analisis_ingles()
+    sop = generar(LLMGuionado(guion()), embedder, analisis=analisis).sop
+    por_termino = {p.termino: p for p in sop.palabras_clave}
+    guante = por_termino["guante"]
+    # "glove" encuentra "gloves" (plural simple) en los segmentos 1 y 2.
+    assert (guante.menciones, guante.t, guante.literal) == (
+        2,
+        [_t_palabra(analisis, 1, 6), _t_palabra(analisis, 2, 1)],
+        "glove",
+    )
+    # Sin mayúsculas: "Conveyor" encuentra las tres veces que se dice "conveyor".
+    assert por_termino["transportador"].menciones == 3
+    # Varias palabras: el segundo es el de la primera ("oil" de "oil can").
+    assert por_termino["aceitera"].t == [_t_palabra(analisis, 5, 10)]
+
+
+def test_un_termino_sin_menciones_se_descarta(embedder):
+    sop = generar(LLMGuionado(guion()), embedder).sop
+    assert "manómetro" not in {p.termino for p in sop.palabras_clave}
+    assert all(p.menciones == len(p.t) > 0 for p in sop.palabras_clave)
+
+
+def test_un_termino_repetido_se_junta_sin_duplicar_segundos(embedder):
+    claves = dict(
+        CLAVES,
+        palabras_clave=[
+            {"termino": "transportador", "literal": "conveyor", "categoria": "equipo"},
+            {"termino": "Transportador", "literal": "conveyors", "categoria": "equipo"},
+        ],
+    )
+    [palabra] = generar(LLMGuionado(guion(claves=[claves])), embedder).sop.palabras_clave
+    assert (palabra.termino, palabra.menciones) == ("transportador", 3)
+
+
+def test_video_en_ingles_termino_en_espanol_y_literal_en_ingles(embedder):
+    sop = generar(LLMGuionado(guion()), embedder).sop
+    aceitera = next(p for p in sop.palabras_clave if p.termino == "aceitera")
+    assert (aceitera.termino, aceitera.literal, aceitera.categoria) == (
+        "aceitera",
+        "oil can",
+        "equipo",
+    )
+
+
+def test_en_espanol_las_dos_formas_pueden_ser_iguales_y_cuentan_acentos_y_plural():
+    analisis = Analisis(
+        video_id=3,
+        duracion_s=20.0,
+        idioma=Idioma(codigo="es", confianza=0.99),
+        transcripcion=[
+            _segmento(0, "Primero reviso el manómetro de la línea."),
+            _segmento(1, "Los MANOMETROS marcan cero."),
+        ],
+    )
+    claves = gen._ClavesLibre.model_validate(
+        {
+            "puntos_clave": [],
+            "palabras_clave": [
+                {"termino": "manómetro", "literal": "manómetro", "categoria": "equipo"}
+            ],
+        }
+    )
+    _, [palabra], descartadas = gen.aplicar_claves(claves, analisis, gen._Evidencias(analisis))
+    assert (palabra.menciones, palabra.t, descartadas) == (
+        2,
+        [_t_palabra(analisis, 0, 3), _t_palabra(analisis, 1, 1)],
+        0,
+    )
+
+
+def test_los_puntos_clave_llevan_su_evidencia(embedder):
+    detener, aceite = generar(LLMGuionado(guion()), embedder).sop.puntos_clave
+    assert (detener.t, detener.fuente, detener.confianza) == (30.0, "audio", "alta")
+    assert (aceite.t, aceite.fuente, aceite.confianza, aceite.cita) == (
+        None,
+        "inferido",
+        "baja",
+        "",
+    )
+
+
+def test_menciones_sin_tiempos_por_palabra_usan_el_inicio_del_segmento():
+    analisis = Analisis(
+        video_id=3,
+        duracion_s=20.0,
+        idioma=Idioma(codigo="en", confianza=0.9),
+        transcripcion=[Segmento(id=0, t_inicio=4.0, t_fin=8.0, texto="Check the O-rings.")],
+    )
+    assert gen.menciones("o-ring", gen.palabras_con_tiempo(analisis)) == [4.0]
+
+
+def test_si_fallan_las_claves_el_sop_sale_sin_ellas_y_con_el_aviso(embedder):
+    r = generar(LLMGuionado(guion(claves=[LLMNoDisponible("caído")])), embedder)
+    assert (r.sop.puntos_clave, r.sop.palabras_clave) == ([], [])
+    [aviso] = r.advertencias
+    assert aviso.tipo == "sop_incompleto" and "puntos y palabras clave" in aviso.mensaje

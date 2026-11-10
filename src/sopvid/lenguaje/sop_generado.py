@@ -45,6 +45,7 @@ from sopvid.contrato import (
     SOP,
     Analisis,
     AvisoConversion,
+    CategoriaPalabra,
     Confianza,
     Contexto,
     Dato,
@@ -55,10 +56,12 @@ from sopvid.contrato import (
     GeneracionSOP,
     LlamadaLLM,
     MotivoLlamada,
+    PalabraClave,
     PasoFuera,
     PasoSOP,
     PasoVideo,
     Persona,
+    PuntoClave,
     Resumen,
     Riesgo,
     Segmento,
@@ -91,17 +94,27 @@ from sopvid.lenguaje.tiempos import (
 from sopvid.percepcion.contexto import PALABRAS_CITA, ubicar_cita
 from sopvid.percepcion.segmentacion import _sin_refs
 from sopvid.plataforma.config import get_settings
-from sopvid.texto import NO_IDENTIFICADO, VACIOS, comparable, limpiar, recortar_palabras
+from sopvid.texto import (
+    NO_IDENTIFICADO,
+    VACIOS,
+    comparable,
+    forma_busqueda,
+    limpiar,
+    recortar_palabras,
+)
 
 logger = logging.getLogger(__name__)
 
 PROMPT_AGRUPAR = "sop_generado_agrupar_v1"  # archivos en lenguaje/prompts/; uno nuevo por versión
 PROMPT_PASOS = "sop_generado_pasos_v1"
 PROMPT_RESUMEN = "sop_generado_resumen_v1"
+PROMPT_CLAVES = "sop_generado_claves_v1"
 MAX_INTENTOS = 3  # una llamada más dos reintentos si la respuesta no es un JSON del esquema
 PASOS_POR_LOTE = 8  # pasos del SOP por llamada de redacción
 VERSION_SOP = "1.0"  # §6: el SOP generado nace en la versión 1.0
 TITULO_MAX = 300  # como `sops.titulo`
+MAX_PUNTOS_CLAVE = 8
+MAX_PALABRAS_CLAVE = 15
 _RANGO_CONFIANZA: dict[Confianza, int] = {"baja": 0, "media": 1, "alta": 2}
 # Lo que el modelo escribe a veces en lugar de dejar vacío un valor.
 _VACIOS = VACIOS | {"no se menciona", "no mencionado", "no se dice", "no especificado", "n/a"}
@@ -204,11 +217,28 @@ class _ResumenVisual(_ResumenLibre):
     riesgos: list[_RiesgoVisual]  # type: ignore[assignment]
 
 
+class _PuntoLibre(_Libre):
+    cita: str
+    texto: str
+
+
+class _PalabraLibre(_Libre):
+    termino: str
+    literal: str
+    categoria: CategoriaPalabra
+
+
+class _ClavesLibre(_Libre):
+    puntos_clave: list[_PuntoLibre]
+    palabras_clave: list[_PalabraLibre]
+
+
 ESQUEMA_AGRUPAR: dict[str, Any] = _sin_refs(_Agrupacion.model_json_schema())
 ESQUEMA_PASOS: dict[str, Any] = _sin_refs(TypeAdapter(list[_PasoLibre]).json_schema())
 ESQUEMA_PASOS_FOTOGRAMAS: dict[str, Any] = _sin_refs(TypeAdapter(list[_PasoVisual]).json_schema())
 ESQUEMA_RESUMEN: dict[str, Any] = _sin_refs(_ResumenLibre.model_json_schema())
 ESQUEMA_RESUMEN_FOTOGRAMAS: dict[str, Any] = _sin_refs(_ResumenVisual.model_json_schema())
+ESQUEMA_CLAVES: dict[str, Any] = _sin_refs(_ClavesLibre.model_json_schema())
 
 _MARCADORES_AGRUPAR = {
     "sistema": frozenset(),
@@ -233,6 +263,13 @@ _MARCADORES_RESUMEN = {
 }
 
 
+_MARCADORES_CLAVES = {
+    "sistema": frozenset(),
+    "usuario": frozenset({"idioma", "transcripcion", "pasos"}),
+    "correccion": frozenset({"motivo"}),
+}
+
+
 @cache
 def cargar_prompt(version: str) -> Prompt:
     """Lee `prompts/<version>.md` con los marcadores de su etapa."""
@@ -240,6 +277,8 @@ def cargar_prompt(version: str) -> Prompt:
         marcadores = _MARCADORES_AGRUPAR
     elif "resumen" in version:
         marcadores = _MARCADORES_RESUMEN
+    elif "claves" in version:
+        marcadores = _MARCADORES_CLAVES
     else:
         marcadores = _MARCADORES_PASOS
     return leer_prompt(version, texto_del_prompt(version), marcadores)
@@ -953,6 +992,92 @@ def _resumir(
     return _llamar(llm, "resumen", prompt, mensajes, esquema, modelo.model_validate, plazos)
 
 
+# ── 4. Puntos y palabras clave (RF-24) ───────────────────────────────────────────────────────
+
+
+def palabras_con_tiempo(analisis: Analisis) -> list[tuple[str, float]]:
+    """Cada palabra de la transcripción en `forma_busqueda`, con el segundo en que empieza. Una
+    palabra que se parte en dos al normalizar ("O-ring") da dos con el mismo segundo; un segmento
+    sin tiempos por palabra da sus palabras con el inicio del segmento."""
+    tokens: list[tuple[str, float]] = []
+    for segmento in analisis.transcripcion:
+        if segmento.palabras:
+            for palabra in segmento.palabras:
+                tokens += [(x, palabra.t) for x in forma_busqueda(palabra.w).split()]
+        else:
+            tokens += [(x, segmento.t_inicio) for x in forma_busqueda(segmento.texto).split()]
+    return tokens
+
+
+def menciones(literal: str, tokens: Sequence[tuple[str, float]]) -> list[float]:
+    """Los segundos en que aparece `literal` (una o varias palabras seguidas), comparando en
+    `forma_busqueda`: sin acentos ni mayúsculas y con plural simple, el criterio de la búsqueda
+    exacta. Cada aparición da el segundo de su primera palabra, en orden."""
+    buscada = forma_busqueda(literal).split()
+    n = len(buscada)
+    if not n:
+        return []
+    formas = [forma for forma, _ in tokens]
+    return [tokens[i][1] for i in range(len(tokens) - n + 1) if formas[i : i + n] == buscada]
+
+
+def aplicar_claves(
+    r: _ClavesLibre, analisis: Analisis, evidencias: _Evidencias
+) -> tuple[list[PuntoClave], list[PalabraClave], int]:
+    """Los puntos clave con su evidencia y las palabras clave con sus menciones contadas por
+    código sobre las palabras con tiempo de la transcripción, con la forma literal (si viene
+    vacía, el término). Un término sin menciones se descarta (se devuelve cuántos); los términos
+    repetidos se juntan. Topes: `MAX_PUNTOS_CLAVE` y `MAX_PALABRAS_CLAVE`."""
+    puntos: list[PuntoClave] = []
+    vistos: set[str] = set()
+    for x in r.puntos_clave:
+        texto = limpiar(x.texto, _VACIOS)
+        if not texto or (clave := comparable(texto)) in vistos:
+            continue
+        vistos.add(clave)
+        u = evidencias.ubicar(x.cita)
+        puntos.append(
+            PuntoClave(texto=texto, t=u.t, cita=u.cita, fuente=u.fuente, confianza=u.confianza)
+        )
+    tokens = palabras_con_tiempo(analisis)
+    palabras: dict[str, PalabraClave] = {}
+    descartadas = 0
+    for x in r.palabras_clave:
+        termino = limpiar(x.termino, _VACIOS)
+        if not termino:
+            continue
+        literal = limpiar(x.literal, _VACIOS) or termino
+        segundos = menciones(literal, tokens)
+        if not segundos:
+            descartadas += 1
+            continue
+        clave = comparable(termino)
+        previa = palabras.get(clave)
+        if previa is not None:
+            segundos = sorted(set(previa.t) | set(segundos))
+            literal = previa.literal
+        palabras[clave] = PalabraClave(
+            termino=previa.termino if previa else termino,
+            categoria=previa.categoria if previa else x.categoria,
+            menciones=len(segundos),
+            t=segundos,
+            literal=literal,
+        )
+    return puntos[:MAX_PUNTOS_CLAVE], list(palabras.values())[:MAX_PALABRAS_CLAVE], descartadas
+
+
+def _claves(
+    analisis: Analisis, pasos: Sequence[PasoSOP], llm: ClienteLLM, plazos: _Plazos
+) -> tuple[_ClavesLibre | None, LlamadaLLM]:
+    prompt = cargar_prompt(PROMPT_CLAVES)
+    mensajes = _mensajes(
+        prompt, analisis, transcripcion=_transcripcion(analisis), pasos=_lista_de_pasos(pasos)
+    )
+    return _llamar(
+        llm, "claves", prompt, mensajes, ESQUEMA_CLAVES, _ClavesLibre.model_validate, plazos
+    )
+
+
 # ── Orquestación ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -1041,7 +1166,24 @@ def generar_sop(
             )
         )
     titulo = titulo_de(redactado.titulo if redactado else None, contexto, analisis.video_id)
-    sop = SOP(titulo=titulo, resumen=resumen, pasos=pasos)
+
+    avanzar("sop_claves")
+    claves, llamada = _claves(analisis, pasos, llm, plazos)
+    llamadas.append(llamada)
+    puntos: list[PuntoClave] = []
+    palabras: list[PalabraClave] = []
+    descartadas = 0
+    if claves is not None:
+        puntos, palabras, descartadas = aplicar_claves(claves, analisis, armado.evidencias)
+    else:
+        advertencias.append(_incompleto(f"puntos y palabras clave ({llamada.motivo})"))
+    sop = SOP(
+        titulo=titulo,
+        resumen=resumen,
+        pasos=pasos,
+        puntos_clave=puntos,
+        palabras_clave=palabras,
+    )
     generacion = GeneracionSOP(
         video_id=analisis.video_id,
         modelo=llm.modelo,
@@ -1055,13 +1197,14 @@ def generar_sop(
     )
     logger.info(
         "SOP generado del video %d: %d pasos (de %d pasos del video, %d fuera), %d llamadas, "
-        "%d datos sin evidencia, %d advertencias, %.1f s",
+        "%d datos sin evidencia, %d palabras clave sin menciones, %d advertencias, %.1f s",
         analisis.video_id,
         len(pasos),
         len(pasos_video),
         len(agrupacion.fuera),
         len(llamadas),
         armado.evidencias.sin_evidencia,
+        descartadas,
         len(advertencias),
         generacion.segundos,
     )
