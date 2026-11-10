@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from dobles import embedder_palabras
 from sopvid.contrato import (
@@ -29,6 +30,7 @@ from sopvid.contrato import (
 from sopvid.lenguaje import sop_generado as gen
 from sopvid.lenguaje.llm import LLMNoDisponible, LLMRespuestaInvalida, RespuestaLLM
 from sopvid.lenguaje.sop_markdown import empieza_con_infinitivo
+from sopvid.plataforma.config import Settings, get_settings
 from sopvid.texto import NO_IDENTIFICADO
 
 # ── Video inventado: lubricar una cadena de transporte, narrado en inglés ────────────────────
@@ -112,10 +114,16 @@ CONTEXTO = Contexto(
     ],
 )
 
-AGRUPACION = {
+# Agrupación v2: una etiqueta por paso del video; el código arma [2, 3], [4, 5] y [6].
+ETIQUETAS = ["introduccion", "nuevo", "continua", "nuevo", "continua", "nuevo", "cierre"]
+AGRUPACION = {"pasos": [{"paso_video": n, "etiqueta": e} for n, e in enumerate(ETIQUETAS, 1)]}
+# La misma agrupación en el formato de la v1 (grupos completos), que se conserva.
+AGRUPACION_V1 = {
     "grupos": [{"pasos_video": [2, 3]}, {"pasos_video": [4, 5]}, {"pasos_video": [6]}],
     "fuera": [{"paso_video": 1, "tipo": "introduccion"}, {"paso_video": 7, "tipo": "cierre"}],
 }
+# Una agrupación v2 que no cubre todos los pasos del video (se reintenta).
+AGRUPACION_INCOMPLETA = {"pasos": AGRUPACION["pasos"][:5]}
 PASOS = [
     {
         "numero": 1,
@@ -235,7 +243,7 @@ def _etapa(esquema: dict[str, Any]) -> str:
 
 
 ESQUEMAS: dict[str, tuple[dict[str, Any], ...]] = {
-    "agrupar": (gen.ESQUEMA_AGRUPAR,),
+    "agrupar": (gen.ESQUEMA_AGRUPAR, gen.ESQUEMA_AGRUPAR_V1),
     "pasos": (gen.ESQUEMA_PASOS, gen.ESQUEMA_PASOS_FOTOGRAMAS),
     "resumen": (gen.ESQUEMA_RESUMEN, gen.ESQUEMA_RESUMEN_FOTOGRAMAS),
     "claves": (gen.ESQUEMA_CLAVES,),
@@ -259,8 +267,10 @@ def generar(
     analisis: Analisis | None = None,
     pasos: list[PasoVideo] | None = None,
     contexto: Contexto | None = CONTEXTO,
+    candado: bool | None = False,
     **kwargs: Any,
 ) -> gen.SOPGenerado:
+    """Sin candado salvo que se pida: las pruebas del candado tienen su propio vectorizador."""
     plazos = {"primer_token_s": 5, "inactividad_s": 5, "tope_s": 60} | kwargs
     return gen.generar_sop(
         analisis or analisis_ingles(),
@@ -268,6 +278,7 @@ def generar(
         llm,  # type: ignore[arg-type]
         contexto,
         embedder=embedder,
+        candado=candado,
         **plazos,
     )
 
@@ -290,6 +301,7 @@ def test_el_sop_tiene_un_paso_por_grupo_con_numero_y_tiempos_del_video(embedder)
         (7, "cierre"),
     ]
     assert r.generacion.agrupacion == "llm"
+    assert r.generacion.etiquetas == ETIQUETAS
     assert r.advertencias == []
 
 
@@ -445,27 +457,77 @@ def test_un_campo_de_tiempo_en_la_respuesta_deja_el_paso_sin_redactar(embedder):
         ({"grupos": [], "fuera": [{"paso_video": 1, "tipo": "cierre"}]}, "ningún grupo"),
     ],
 )
-def test_validar_agrupacion_rechaza_lo_que_no_cubre_cada_paso_una_vez(respuesta, motivo):
+def test_validar_agrupacion_v1_rechaza_lo_que_no_cubre_cada_paso_una_vez(respuesta, motivo):
     with pytest.raises(gen.RespuestaInvalida, match=motivo):
         gen.validar_agrupacion(respuesta, 7)
 
 
+def test_la_agrupacion_v1_se_conserva(embedder, monkeypatch):
+    monkeypatch.setattr(gen, "PROMPT_AGRUPAR", "sop_generado_agrupar_v1")
+    llm = LLMGuionado(guion(agrupar=[AGRUPACION_V1]))
+    r = generar(llm, embedder)
+    assert r.generacion.grupos == [[2, 3], [4, 5], [6]]
+    assert r.generacion.etiquetas == []
+    assert r.generacion.llamadas[0].prompt == "sop_generado_agrupar_v1"
+
+
+def _etiquetas(*pares: tuple[int, str]) -> dict[str, Any]:
+    return {"pasos": [{"paso_video": n, "etiqueta": e} for n, e in pares]}
+
+
+@pytest.mark.parametrize(
+    ("respuesta", "motivo"),
+    [
+        (_etiquetas(*((n, "nuevo") for n in range(1, 9))), "no existen"),
+        (_etiquetas(*((n, "nuevo") for n in range(1, 8)), (3, "continua")), "más de una"),
+        (_etiquetas(*((n, "nuevo") for n in range(1, 6))), r"sin etiqueta: \[6, 7\]"),
+        (_etiquetas(*((n, "comentario") for n in range(1, 8))), "ningún paso es una acción"),
+    ],
+)
+def test_validar_etiquetas_exige_una_por_paso_del_video_y_alguna_accion(respuesta, motivo):
+    with pytest.raises(gen.RespuestaInvalida, match=motivo):
+        gen.validar_etiquetas(respuesta, 7)
+
+
+def test_las_etiquetas_se_ordenan_por_paso_del_video():
+    desordenadas = {"pasos": list(reversed(AGRUPACION["pasos"]))}
+    assert gen.validar_etiquetas(desordenadas, 7) == ETIQUETAS
+
+
+def test_una_etiqueta_desconocida_no_valida():
+    with pytest.raises(ValidationError):
+        gen.validar_etiquetas(_etiquetas((1, "nuevo"), (2, "repetido")), 2)
+
+
+def test_el_codigo_arma_los_grupos_con_las_etiquetas():
+    a = gen.agrupar_por_etiquetas(ETIQUETAS)
+    assert a.grupos == [[2, 3], [4, 5], [6]]
+    assert [(f.paso_video, f.tipo) for f in a.fuera] == [(1, "introduccion"), (7, "cierre")]
+    assert a.etiquetas == ETIQUETAS
+
+
+def test_un_continua_sin_grupo_abierto_empieza_uno():
+    # El primero y el que sigue a una pregunta del entrevistador: cada grupo, de pasos seguidos.
+    a = gen.agrupar_por_etiquetas(["continua", "continua", "entrevistador", "continua", "nuevo"])
+    assert a.grupos == [[1, 2], [4], [5]]
+    assert [(f.paso_video, f.tipo) for f in a.fuera] == [(3, "entrevistador")]
+
+
 def test_una_agrupacion_invalida_se_corrige_al_reintentar(embedder):
-    invalida = {"grupos": [{"pasos_video": [1, 3]}, {"pasos_video": [2, 4, 5, 6, 7]}], "fuera": []}
-    llm = LLMGuionado(guion(agrupar=[invalida, AGRUPACION]))
+    llm = LLMGuionado(guion(agrupar=[AGRUPACION_INCOMPLETA, AGRUPACION]))
     r = generar(llm, embedder)
     assert r.generacion.llamadas[0].intentos == 2
     assert len(r.sop.pasos) == 3
     correccion = llm.pedidos[1][1][-1]["content"]
-    assert "no es de pasos consecutivos" in correccion
+    assert "pasos del video sin etiqueta: [6, 7]" in correccion
 
 
 def test_si_la_agrupacion_falla_queda_un_paso_del_sop_por_paso_del_video(embedder):
-    invalida = {"grupos": [{"pasos_video": [1, 3]}, {"pasos_video": [2, 4, 5, 6, 7]}], "fuera": []}
     pasos7 = [dict(PASOS[0], numero=n) for n in range(1, 8)]
-    llm = LLMGuionado(guion(agrupar=[invalida], pasos=[pasos7]))
-    r = generar(llm, embedder)
+    llm = LLMGuionado(guion(agrupar=[AGRUPACION_INCOMPLETA], pasos=[pasos7]))
+    r = generar(llm, embedder, candado=True)
     assert r.generacion.agrupacion == "uno_a_uno"
+    assert r.generacion.cortes_candado == []  # el candado solo revisa lo que agrupó Gemma
     assert r.generacion.llamadas[0].intentos == gen.MAX_INTENTOS
     assert len(r.sop.pasos) == 7
     assert r.advertencias[0].tipo == "sop_incompleto"
@@ -478,6 +540,83 @@ def test_un_json_roto_se_reintenta_y_ollama_caido_no(embedder):
     llm = LLMGuionado(guion(agrupar=[LLMNoDisponible("caído")]))
     llamada = generar(llm, embedder).generacion.llamadas[0]
     assert (llamada.ok, llamada.motivo, llamada.intentos) == (False, "llm_no_disponible", 1)
+
+
+# ── Candado por coseno (ADR-023) ─────────────────────────────────────────────────────────────
+
+
+class VectorizadorPorPaso:
+    """Embedder falso: cada paso del video es un vector unitario en el plano; los pasos 2 y 3
+    forman un ángulo con coseno `coseno_2_3`, y 4 y 5, uno con coseno 0.9. Guarda los textos
+    que recibe para revisar que van en minúsculas y con la cita."""
+
+    def __init__(self, coseno_2_3: float):
+        import math
+
+        angulo = math.acos(coseno_2_3)
+        self.vectores = {
+            1: (1.0, 0.0),
+            2: (1.0, 0.0),
+            3: (math.cos(angulo), math.sin(angulo)),
+            4: (0.0, 1.0),
+            5: (math.sin(math.acos(0.9)), 0.9),
+            6: (1.0, 0.0),
+            7: (1.0, 0.0),
+        }
+        self.textos: list[str] = []
+
+    def embed(self, textos: list[str]) -> Any:
+        import numpy as np
+
+        self.textos = list(textos)
+        return np.array([self.vectores[i] for i in range(1, len(textos) + 1)])
+
+
+def test_el_candado_parte_un_continua_poco_parecido_al_anterior(embedder):
+    vectorizador = VectorizadorPorPaso(coseno_2_3=0.30)
+    r = generar(
+        LLMGuionado(guion(pasos=[PASOS + [dict(PASOS[2], numero=4)]])), vectorizador, candado=True
+    )
+    assert r.generacion.grupos == [[2], [3], [4, 5], [6]]
+    assert (r.generacion.candado, r.generacion.cortes_candado) == (True, [3])
+    assert r.generacion.etiquetas == ETIQUETAS  # lo que dijo Gemma queda tal cual
+    assert len(r.sop.pasos) == 4
+    assert (
+        vectorizador.textos[1]
+        == "colocación de guantes. descripción del paso 2. i put on my nitrile gloves"
+    )
+
+
+def test_el_candado_respeta_un_continua_parecido(embedder):
+    r = generar(LLMGuionado(guion()), VectorizadorPorPaso(coseno_2_3=0.80), candado=True)
+    assert r.generacion.grupos == [[2, 3], [4, 5], [6]]
+    assert (r.generacion.candado, r.generacion.cortes_candado) == (True, [])
+
+
+def test_el_candado_usa_umbral_fusion():
+    a = gen.agrupar_por_etiquetas(ETIQUETAS)
+    vectorizador = VectorizadorPorPaso(coseno_2_3=0.60)
+    assert gen.aplicar_candado(a, PASOS_VIDEO, vectorizador, 0.55).cortes == []  # type: ignore[arg-type]
+    assert gen.aplicar_candado(a, PASOS_VIDEO, vectorizador, 0.65).cortes == [3]  # type: ignore[arg-type]
+
+
+def test_sin_grupos_de_mas_de_un_paso_el_candado_no_vectoriza():
+    class SinUso:
+        def embed(self, textos: list[str]) -> Any:
+            raise AssertionError("no debía vectorizar")
+
+    a = gen.agrupar_por_etiquetas(["nuevo", "nuevo", "cierre"])
+    assert gen.aplicar_candado(a, PASOS_VIDEO[:3], SinUso()).grupos == [[1], [2]]  # type: ignore[arg-type]
+
+
+def test_el_candado_sale_de_la_configuracion(embedder, monkeypatch):
+    monkeypatch.setenv("SOP_CANDADO", "false")
+    get_settings.cache_clear()
+    try:
+        r = generar(LLMGuionado(guion()), VectorizadorPorPaso(coseno_2_3=0.30), candado=None)
+    finally:
+        get_settings.cache_clear()
+    assert (r.generacion.candado, r.generacion.grupos) == (False, [[2, 3], [4, 5], [6]])
 
 
 # ── Lotes y fallas ───────────────────────────────────────────────────────────────────────────
@@ -789,3 +928,16 @@ def test_si_fallan_las_claves_el_sop_sale_sin_ellas_y_con_el_aviso(embedder):
     assert (r.sop.puntos_clave, r.sop.palabras_clave) == ([], [])
     [aviso] = r.advertencias
     assert aviso.tipo == "sop_incompleto" and "puntos y palabras clave" in aviso.mensaje
+
+
+@pytest.mark.parametrize("version", ["sop_generado_agrupar_v2", "sop_generado_agrupar_v3"])
+def test_la_v2_y_la_v3_usan_las_mismas_etiquetas(embedder, monkeypatch, version):
+    monkeypatch.setattr(gen, "PROMPT_AGRUPAR", version)
+    llm = LLMGuionado(guion())
+    r = generar(llm, embedder)
+    assert r.generacion.grupos == [[2, 3], [4, 5], [6]]
+    assert r.generacion.llamadas[0].prompt == version
+
+
+def test_el_candado_esta_apagado_por_defecto():
+    assert Settings.model_fields["sop_candado"].default is False

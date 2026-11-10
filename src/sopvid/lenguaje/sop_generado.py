@@ -4,11 +4,16 @@ En modo "No tengo SOP", con el análisis, la ficha de contexto (RF-12) y los pas
 extraídos sin SOP, regla 5), arma un `SOP` en español con el mismo esquema que el de referencia.
 Gemma solo redacta valores y copia citas; el código pone todo lo demás (regla 4):
 
-1. **Agrupar** (`sop_generado_agrupar_v1`): Gemma recibe los pasos del video numerados con su
-   narración y responde qué pasos del video forman cada paso del SOP (números consecutivos) y
-   cuáles quedan fuera (presentación, cierre, preguntas del entrevistador, comentarios). Sin SOP
-   no hay fusión (ADR-013) y `gemma4:e4b` sobre-segmenta: sin agrupar, un SOP tendría el doble de
-   pasos. Si falla, un paso del SOP por paso del video.
+1. **Agrupar** (`sop_generado_agrupar_v3`, criterio de resultado): Gemma recibe los pasos del
+   video numerados con su narración y pone a cada uno una etiqueta: "nuevo" (empieza un paso del
+   SOP), "continua" (sigue el del paso del video anterior) o por qué queda fuera (presentación,
+   cierre, preguntas del entrevistador, comentarios); el código arma los grupos
+   (`agrupar_por_etiquetas`). Sin SOP no hay fusión (ADR-013) y `gemma4:e4b` sobre-segmenta: sin
+   agrupar, un SOP tendría el doble de pasos. **Candado** (`SOP_CANDADO`, apagado por defecto;
+   `aplicar_candado`): un "continua" cuyo coseno MiniLM con el paso del video anterior es menor
+   que `UMBRAL_FUSION` empieza un paso nuevo. La v1 (Gemma devolvía los grupos completos,
+   `validar_agrupacion`) y la v2 (mismas etiquetas, sin criterio de resultado) se conservan. Si
+   falla, un paso del SOP por paso del video.
 2. **Pasos** (`sop_generado_pasos_v1`, por lotes de `PASOS_POR_LOTE`): nombre en infinitivo,
    descripción, y equipo y puntos de validación con su cita. Número, tiempos, responsable (la
    ficha, `personas.quien_hizo`) y tiempo esperado (`tiempos.duracion_narrada` o la medida de
@@ -37,6 +42,7 @@ from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from functools import cache
+from itertools import pairwise
 from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -50,6 +56,7 @@ from sopvid.contrato import (
     Contexto,
     Dato,
     Elemento,
+    EtiquetaAgrupacion,
     Evidencia,
     Falla,
     FuenteSOP,
@@ -67,7 +74,7 @@ from sopvid.contrato import (
     Segmento,
     TipoFuera,
 )
-from sopvid.lenguaje.emparejamiento import Embedder
+from sopvid.lenguaje.emparejamiento import Embedder, get_embedder, similitud, texto_para_embeber
 from sopvid.lenguaje.juez import Prompt, leer_prompt, narracion_de, texto_del_prompt
 from sopvid.lenguaje.llm import (
     ClienteLLM,
@@ -105,7 +112,7 @@ from sopvid.texto import (
 
 logger = logging.getLogger(__name__)
 
-PROMPT_AGRUPAR = "sop_generado_agrupar_v1"  # archivos en lenguaje/prompts/; uno nuevo por versión
+PROMPT_AGRUPAR = "sop_generado_agrupar_v3"  # archivos en lenguaje/prompts/; uno nuevo por versión
 PROMPT_PASOS = "sop_generado_pasos_v1"
 PROMPT_RESUMEN = "sop_generado_resumen_v1"
 PROMPT_CLAVES = "sop_generado_claves_v1"
@@ -148,6 +155,15 @@ class _Fuera(_Libre):
 class _Agrupacion(_Libre):
     grupos: list[_Grupo]
     fuera: list[_Fuera]
+
+
+class _Etiqueta(_Libre):
+    paso_video: int
+    etiqueta: EtiquetaAgrupacion
+
+
+class _Etiquetas(_Libre):
+    pasos: list[_Etiqueta]
 
 
 class _Item(_Libre):
@@ -233,7 +249,8 @@ class _ClavesLibre(_Libre):
     palabras_clave: list[_PalabraLibre]
 
 
-ESQUEMA_AGRUPAR: dict[str, Any] = _sin_refs(_Agrupacion.model_json_schema())
+ESQUEMA_AGRUPAR_V1: dict[str, Any] = _sin_refs(_Agrupacion.model_json_schema())
+ESQUEMA_AGRUPAR: dict[str, Any] = _sin_refs(_Etiquetas.model_json_schema())
 ESQUEMA_PASOS: dict[str, Any] = _sin_refs(TypeAdapter(list[_PasoLibre]).json_schema())
 ESQUEMA_PASOS_FOTOGRAMAS: dict[str, Any] = _sin_refs(TypeAdapter(list[_PasoVisual]).json_schema())
 ESQUEMA_RESUMEN: dict[str, Any] = _sin_refs(_ResumenLibre.model_json_schema())
@@ -444,6 +461,8 @@ class Agrupacion:
     grupos: list[list[int]]
     fuera: list[PasoFuera] = field(default_factory=list)
     metodo: Literal["llm", "uno_a_uno"] = "llm"
+    etiquetas: list[EtiquetaAgrupacion] = field(default_factory=list)  # v2: una por paso
+    cortes: list[int] = field(default_factory=list)  # pasos del video que partió el candado
 
 
 def uno_a_uno(pasos_video: Sequence[PasoVideo]) -> Agrupacion:
@@ -479,6 +498,88 @@ def validar_agrupacion(datos: Any, n_pasos: int) -> Agrupacion:
         key=lambda f: f.paso_video,
     )
     return Agrupacion(grupos, fuera, "llm")
+
+
+_ACCIONES: frozenset[str] = frozenset({"nuevo", "continua"})
+
+
+def validar_etiquetas(datos: Any, n_pasos: int) -> list[EtiquetaAgrupacion]:
+    """Valida la respuesta de la agrupación v2: una etiqueta por paso del video, del 1 a
+    `n_pasos`, una sola vez (el orden de la lista no importa: se ordena por número) y al menos
+    una acción. Devuelve las etiquetas en el orden del video. Lanza `ValidationError` o
+    `RespuestaInvalida` (se reintenta)."""
+    r = _Etiquetas.model_validate(datos)
+    vistos = Counter(x.paso_video for x in r.pasos)
+    fuera_de_rango = sorted(n for n in vistos if not 1 <= n <= n_pasos)
+    if fuera_de_rango:
+        raise RespuestaInvalida(f"pasos del video que no existen: {fuera_de_rango}")
+    repetidos = sorted(n for n, veces in vistos.items() if veces > 1)
+    if repetidos:
+        raise RespuestaInvalida(f"pasos del video con más de una etiqueta: {repetidos}")
+    faltan = sorted(set(range(1, n_pasos + 1)) - set(vistos))
+    if faltan:
+        raise RespuestaInvalida(f"pasos del video sin etiqueta: {faltan}")
+    etiquetas = [x.etiqueta for x in sorted(r.pasos, key=lambda x: x.paso_video)]
+    if not _ACCIONES & set(etiquetas):
+        raise RespuestaInvalida("ningún paso es una acción: el procedimiento tiene al menos uno")
+    return etiquetas
+
+
+def agrupar_por_etiquetas(etiquetas: Sequence[EtiquetaAgrupacion]) -> Agrupacion:
+    """Arma los grupos con las etiquetas, en orden: "nuevo" empieza un grupo y "continua" se une
+    al grupo abierto si el paso del video anterior está en él. Un "continua" sin grupo abierto
+    (el primero, o después de un paso que quedó fuera) empieza uno: así cada grupo es de pasos
+    consecutivos (`GeneracionSOP`) y una pregunta del entrevistador a media acción la parte en
+    dos. Las demás etiquetas dejan el paso fuera con ese tipo."""
+    grupos: list[list[int]] = []
+    fuera: list[PasoFuera] = []
+    for numero, etiqueta in enumerate(etiquetas, start=1):
+        if etiqueta == "continua" and grupos and grupos[-1][-1] == numero - 1:
+            grupos[-1].append(numero)
+        elif etiqueta in _ACCIONES:
+            grupos.append([numero])
+        else:
+            fuera.append(PasoFuera(paso_video=numero, tipo=etiqueta))  # type: ignore[arg-type]
+    return Agrupacion(grupos, fuera, "llm", list(etiquetas))
+
+
+def aplicar_candado(
+    agrupacion: Agrupacion,
+    pasos_video: Sequence[PasoVideo],
+    embedder: Embedder | None = None,
+    umbral: float | None = None,
+) -> Agrupacion:
+    """Candado por código (ADR-023): dentro de cada grupo, un paso del video cuyo coseno MiniLM
+    con el anterior del grupo es menor que `umbral` (por defecto `UMBRAL_FUSION`) empieza un
+    grupo nuevo. El texto es el de la fusión (`texto_para_embeber`: nombre, descripción y cita),
+    en minúsculas. Los pasos partidos quedan en `cortes`. Si ningún grupo tiene más de un paso,
+    no carga MiniLM."""
+    if umbral is None:
+        umbral = get_settings().umbral_fusion
+    if all(len(g) < 2 for g in agrupacion.grupos):
+        return agrupacion
+    indice = {p.numero: i for i, p in enumerate(pasos_video)}
+    vectores = (embedder or get_embedder()).embed(
+        [texto_para_embeber(p).lower() for p in pasos_video]
+    )
+    grupos: list[list[int]] = []
+    cortes: list[int] = []
+    for grupo in agrupacion.grupos:
+        grupos.append([grupo[0]])
+        for anterior, numero in pairwise(grupo):
+            coseno = float(similitud(vectores[indice[anterior]], vectores[indice[numero]])[0, 0])
+            if coseno < umbral:
+                grupos.append([numero])
+                cortes.append(numero)
+                logger.info(
+                    "SOP generado, candado: el paso del video %d no sigue al %d (coseno %.2f)",
+                    numero,
+                    anterior,
+                    coseno,
+                )
+            else:
+                grupos[-1].append(numero)
+    return Agrupacion(grupos, agrupacion.fuera, agrupacion.metodo, agrupacion.etiquetas, cortes)
 
 
 def _bloques_agrupar(pasos_video: Sequence[PasoVideo], analisis: Analisis) -> str:
@@ -1090,6 +1191,7 @@ def generar_sop(
     contexto: Contexto | None = None,
     *,
     embedder: Embedder | None = None,
+    candado: bool | None = None,
     primer_token_s: float | None = None,
     inactividad_s: float | None = None,
     tope_s: float | None = None,
@@ -1099,7 +1201,8 @@ def generar_sop(
     """Genera el SOP del video (ver el docstring del módulo).
 
     `pasos_video` son los de la segmentación, antes de fusionar (la guardada o una nueva).
-    `contexto` es la ficha (None si no se generó). Los plazos que no se pasan salen de la
+    `contexto` es la ficha (None si no se generó). `candado` (por defecto `SOP_CANDADO`) aplica
+    el candado por coseno a la agrupación de Gemma. Los plazos que no se pasan salen de la
     configuración: `LLM_TIMEOUT_S` (primer token), `LLM_INACTIVIDAD_S` y `LLM_TIMEOUT_SOP_S`, el
     tope de toda la generación. `al_avanzar(etapa)` avisa cada llamada ("sop_pasos",
     "sop_resumen", "sop_claves"). Lanza `SinPasosDelVideo` si no hay pasos; nunca por el LLM.
@@ -1126,6 +1229,9 @@ def generar_sop(
     avanzar("sop_pasos")
     agrupacion, llamada = _agrupar(analisis, pasos_video, llm, plazos)
     llamadas.append(llamada)
+    candado = settings.sop_candado if candado is None else candado
+    if candado and agrupacion.metodo == "llm":
+        agrupacion = aplicar_candado(agrupacion, pasos_video, embedder, settings.umbral_fusion)
     if agrupacion.metodo == "uno_a_uno":
         advertencias.append(
             _incompleto(f"agrupación ({llamada.motivo}): un paso del SOP por paso del video")
@@ -1193,6 +1299,9 @@ def generar_sop(
         agrupacion=agrupacion.metodo,
         grupos=agrupacion.grupos,
         fuera=agrupacion.fuera,
+        etiquetas=agrupacion.etiquetas,
+        candado=candado,
+        cortes_candado=agrupacion.cortes,
         llamadas=llamadas,
         duracion_narrada=narrada,
         segundos=round(reloj() - plazos.inicio, 2),
@@ -1216,18 +1325,23 @@ def generar_sop(
 def _agrupar(
     analisis: Analisis, pasos_video: Sequence[PasoVideo], llm: ClienteLLM, plazos: _Plazos
 ) -> tuple[Agrupacion, LlamadaLLM]:
+    """La agrupación de Gemma con la versión de `PROMPT_AGRUPAR` (v1: grupos completos; desde la
+    v2: una etiqueta por paso del video); si falla, un paso del SOP por paso del video."""
     prompt = cargar_prompt(PROMPT_AGRUPAR)
     mensajes = _mensajes(prompt, analisis, pasos=_bloques_agrupar(pasos_video, analisis))
     n = len(pasos_video)
-    agrupacion, llamada = _llamar(
-        llm,
-        "agrupar",
-        prompt,
-        mensajes,
-        ESQUEMA_AGRUPAR,
-        lambda datos: validar_agrupacion(datos, n),
-        plazos,
-    )
+    if PROMPT_AGRUPAR.endswith("_v1"):
+        esquema = ESQUEMA_AGRUPAR_V1
+
+        def convertir(datos: Any) -> Agrupacion:
+            return validar_agrupacion(datos, n)
+    else:
+        esquema = ESQUEMA_AGRUPAR
+
+        def convertir(datos: Any) -> Agrupacion:
+            return agrupar_por_etiquetas(validar_etiquetas(datos, n))
+
+    agrupacion, llamada = _llamar(llm, "agrupar", prompt, mensajes, esquema, convertir, plazos)
     return agrupacion or uno_a_uno(pasos_video), llamada
 
 

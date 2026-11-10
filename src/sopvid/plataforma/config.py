@@ -109,6 +109,10 @@ class Settings(BaseSettings):
     umbral_bajo: float = Field(default=0.55, ge=0, le=1)
     umbral_alto: float = Field(default=0.75, ge=0, le=1)
     umbral_fusion: float = Field(default=0.55, ge=0, le=1)
+    # Candado del SOP generado (ADR-023): si Gemma dice que un paso del video "continua" el
+    # anterior pero su coseno MiniLM (minúsculas, nombre, descripción y cita) es menor que
+    # `umbral_fusion`, el código lo parte ahí en un paso nuevo.
+    sop_candado: bool = False
 
     # Cortes del semáforo de cumplimiento (RF-19, RNF-14; SOP V1.0 §5.6): verde desde
     # `semaforo_verde`, amarillo desde `semaforo_amarillo`, rojo por debajo.

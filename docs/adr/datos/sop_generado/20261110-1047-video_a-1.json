@@ -1,0 +1,1051 @@
+{
+  "sop": {
+    "version_contrato": 1,
+    "titulo": "Cambio de cartucho de filtro de agua",
+    "resumen": {
+      "version": "1.0",
+      "objetivo": {
+        "valor": "Cambiar el filtro porque el manómetro marca menos de 2 bar",
+        "confianza": "baja",
+        "fuente": "inferido",
+        "t": null,
+        "cita": ""
+      },
+      "alcance": {
+        "valor": null,
+        "confianza": "baja",
+        "fuente": "inferido",
+        "t": null,
+        "cita": ""
+      },
+      "responsable": {
+        "valor": "Técnico de mantenimiento",
+        "confianza": "alta",
+        "fuente": "audio",
+        "t": 1.36,
+        "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague"
+      },
+      "lugar": {
+        "valor": null,
+        "confianza": "baja",
+        "fuente": "inferido",
+        "t": null,
+        "cita": ""
+      },
+      "horario_frecuencia": {
+        "valor": null,
+        "confianza": "baja",
+        "fuente": "inferido",
+        "t": null,
+        "cita": ""
+      },
+      "duracion_total_min": 1.94,
+      "equipo_operacion": [
+        {
+          "nombre": "guantes de nitrilo",
+          "descripcion": ""
+        },
+        {
+          "nombre": "equipo de protección",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave de paso",
+          "descripcion": ""
+        },
+        {
+          "nombre": "cubeta",
+          "descripcion": ""
+        },
+        {
+          "nombre": "botón rojo",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave de la carcasa",
+          "descripcion": ""
+        },
+        {
+          "nombre": "llave",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Toalla de papel",
+          "descripcion": ""
+        },
+        {
+          "nombre": "Manómetro",
+          "descripcion": ""
+        },
+        {
+          "nombre": "lentes de seguridad",
+          "descripcion": ""
+        },
+        {
+          "nombre": "cartucho de filtro de agua",
+          "descripcion": ""
+        },
+        {
+          "nombre": "bolsa de residuos",
+          "descripcion": ""
+        }
+      ],
+      "roles": [
+        {
+          "nombre": "Técnico de mantenimiento",
+          "descripcion": ""
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "No identificado",
+          "rol": "técnico de mantenimiento",
+          "participacion": "participa",
+          "t": 1.36,
+          "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague"
+        }
+      ],
+      "riesgos": [
+        {
+          "descripcion": "Riesgo de contacto con sustancias",
+          "nivel": "medio",
+          "paso": 1,
+          "control": "me pongo los guantes de nitrilo y los lentes de seguridad",
+          "cita": "me pongo los guantes de nitrilo y los lentes de seguridad",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 15.5
+        },
+        {
+          "descripcion": "Riesgo de caída de agua",
+          "nivel": "bajo",
+          "paso": 7,
+          "control": "Pongo la cubeta debajo del filtro",
+          "cita": "Lo bajo con cuidado porque trae agua",
+          "fuente": "audio",
+          "confianza": "alta",
+          "t": 72.1
+        }
+      ],
+      "en_caso_de_falla": []
+    },
+    "pasos": [
+      {
+        "numero": 1,
+        "nombre": "Poner equipo de protección completo",
+        "descripcion": "Poner los guantes de nitrilo y los lentes de seguridad antes de tocar el filtro.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "guantes de nitrilo",
+          "equipo de protección"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.26,
+        "t_inicio": 15.5,
+        "t_fin": 25.1,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "me pongo los guantes de nitrilo y los lentes de seguridad",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "guantes de nitrilo",
+            "cita": "me pongo los guantes de nitrilo y los lentes de seguridad",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 15.5
+          },
+          {
+            "campo": "equipo",
+            "valor": "equipo de protección",
+            "cita": "me pongo el equipo de protección",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 15.5
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.26",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 2,
+        "nombre": "Cerrar llave de paso antes filtro",
+        "descripcion": "Cerrar la llave de paso que está antes del filtro girándola a la derecha hasta el tope.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "llave de paso"
+        ],
+        "puntos_validacion": [
+          "cerrada"
+        ],
+        "tiempo_esperado_min": 0.3,
+        "t_inicio": 31.28,
+        "t_fin": 42.36,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "ahora cierro la llave de paso que está antes del filtro",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "llave de paso",
+            "cita": "la llave de paso que está antes del filtro",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 31.28
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "cerrada",
+            "cita": "Ya la manija quedó atravesada a la tubería",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 37.92
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.3",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 3,
+        "nombre": "Liberar presión del sistema",
+        "descripcion": "Liberar la presión del sistema.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.04,
+        "t_inicio": 49.24,
+        "t_fin": 51.14,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Siguiente. Libero la presión.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.04",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 4,
+        "nombre": "Colocar cubeta debajo del filtro",
+        "descripcion": "Poner la cubeta debajo del filtro.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "cubeta"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.05,
+        "t_inicio": 51.48,
+        "t_fin": 53.9,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Primero pongo la cubeta debajo del filtro.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "cubeta",
+            "cita": "la cubeta debajo del filtro",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 51.48
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.05",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 5,
+        "nombre": "Mantener botón rojo y verificar",
+        "descripcion": "Mantener presionado el botón rojo de la carcasa hasta que deje de salir aire y el manómetro marque cero.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "botón rojo"
+        ],
+        "puntos_validacion": [
+          "cero"
+        ],
+        "tiempo_esperado_min": 0.21,
+        "t_inicio": 54.18,
+        "t_fin": 61.2,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Ya dejó de salir. El manómetro marca cero.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "botón rojo",
+            "cita": "el botón rojo de la carcasa",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 54.18
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "cero",
+            "cita": "El manómetro marca cero",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 59.82
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.21",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 6,
+        "nombre": "Retirar la carcasa del filtro",
+        "descripcion": "Retirar la carcasa.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.03,
+        "t_inicio": 66.86,
+        "t_fin": 68.18,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Ahora retiro la carcasa.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.03",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 7,
+        "nombre": "Aflojar vaso, sacar cartucho usado",
+        "descripcion": "Aflojar el vaso girando a la izquierda con la llave de la carcasa, bajarlo con cuidado, sacar el cartucho usado y meterlo a la bolsa de residuos, revisando el anillo de hule para asegurar que no esté aplastando ni cuarteado.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "llave de la carcasa"
+        ],
+        "puntos_validacion": [
+          "no está aplastando ni cuarteado está bien no hay que cambiarlo"
+        ],
+        "tiempo_esperado_min": 0.38,
+        "t_inicio": 68.54,
+        "t_fin": 84.36,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Con la llave de la carcasa aflojo el vaso girando a la izquierda.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "llave de la carcasa",
+            "cita": "la llave de la carcasa",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 68.54
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "no está aplastando ni cuarteado está bien no hay que cambiarlo",
+            "cita": "reviso el anillo de hule, no está aplastando ni cuarteado, está bien, no hay que cambiarlo",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 72.1
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.38",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 8,
+        "nombre": "Colocar y enroscar cartucho nuevo",
+        "descripcion": "Colocar el cartucho nuevo, quitarle el plástico y meterlo concentrado en el vaso con la ranura hacia arriba, enroscar el vaso a mano y darle un cuarto de vuelta con la llave sin apretar de más.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "llave"
+        ],
+        "puntos_validacion": [],
+        "tiempo_esperado_min": 0.31,
+        "t_inicio": 91.3,
+        "t_fin": 104.24,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "llave",
+            "cita": "la llave",
+            "fuente": "audio",
+            "confianza": "media",
+            "t": 91.3
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.31",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 9,
+        "nombre": "Abrir llave de paso despacio",
+        "descripcion": "Abrir la llave de paso despacio.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [],
+        "puntos_validacion": [
+          "Llave de paso abierta"
+        ],
+        "tiempo_esperado_min": 0.04,
+        "t_inicio": 110.0,
+        "t_fin": 112.14,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "por último abro la llave de paso despacio.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "puntos_validacion",
+            "valor": "Llave de paso abierta",
+            "cita": "por último abro la llave de paso despacio.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 110.0
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.04",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 10,
+        "nombre": "Purgar aire con botón rojo",
+        "descripcion": "Purgar el aire con el botón rojo hasta que solo salga agua, y luego soltar el botón.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Botón rojo"
+        ],
+        "puntos_validacion": [
+          "Solo sale agua"
+        ],
+        "tiempo_esperado_min": 0.12,
+        "t_inicio": 112.46,
+        "t_fin": 118.94,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Purgo el aire con el botón rojo.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Botón rojo",
+            "cita": "Purgo el aire con el botón rojo.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 112.46
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "Solo sale agua",
+            "cita": "Ya sale solo agua.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 115.82
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.12",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 11,
+        "nombre": "Revisar unión vaso y conexión",
+        "descripcion": "Revisar la unión del vaso y la conexión con la toalla de papel para asegurar que esté seca y no haya fugas.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Toalla de papel"
+        ],
+        "puntos_validacion": [
+          "Seca y sin fugas"
+        ],
+        "tiempo_esperado_min": 0.1,
+        "t_inicio": 119.66,
+        "t_fin": 125.24,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "Reviso la unión del vaso y la conexión es con la toalla de papel.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Toalla de papel",
+            "cita": "la conexión es con la toalla de papel.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 119.66
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "Seca y sin fugas",
+            "cita": "Está seca. No hay fugas.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 123.54
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.1",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      },
+      {
+        "numero": 12,
+        "nombre": "Verificar manómetro marca 4 bar",
+        "descripcion": "Verificar que el manómetro marque 4 bar.",
+        "responsable": "Técnico de mantenimiento",
+        "equipo": [
+          "Manómetro"
+        ],
+        "puntos_validacion": [
+          "4 bar"
+        ],
+        "tiempo_esperado_min": 0.1,
+        "t_inicio": 125.48,
+        "t_fin": 127.42,
+        "confianza": "media",
+        "campos_inferidos": [
+          "tiempo_esperado_min"
+        ],
+        "cita": "El manómetro marca 4 bar.",
+        "fuente": "audio",
+        "evidencia": [
+          {
+            "campo": "equipo",
+            "valor": "Manómetro",
+            "cita": "El manómetro marca 4 bar.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 125.48
+          },
+          {
+            "campo": "puntos_validacion",
+            "valor": "4 bar",
+            "cita": "El manómetro marca 4 bar.",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 125.48
+          },
+          {
+            "campo": "responsable",
+            "valor": "Técnico de mantenimiento",
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague",
+            "fuente": "audio",
+            "confianza": "alta",
+            "t": 1.36
+          },
+          {
+            "campo": "tiempo_esperado_min",
+            "valor": "0.1",
+            "cita": "",
+            "fuente": "inferido",
+            "confianza": "media",
+            "t": null
+          }
+        ]
+      }
+    ],
+    "puntos_clave": [
+      {
+        "texto": "Siempre usar equipo de protección completo antes de tocar el filtro.",
+        "t": 15.5,
+        "cita": "primero me pongo el equipo de protección, me pongo los guantes de nitrilo y los lentes de seguridad, listo, tengo el equipo completo antes de",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Cerrar la llave de paso antes del filtro girándola hasta el tope.",
+        "t": 31.28,
+        "cita": "ahora cierro la llave de paso que está antes del filtro, la giro a la derecha hasta el tope",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Mantener presionado el botón rojo de la carcasa durante la liberación de presión.",
+        "t": 54.18,
+        "cita": "mantengo presionado el botón rojo de la carcasa",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Verificar que el anillo de hule no esté aplastado ni cuarteado.",
+        "t": 72.1,
+        "cita": "reviso el anillo de hule, no está aplastando ni cuarteado, está bien, no hay que cambiarlo",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Enroscar el vaso a mano y darle solo un cuarto de vuelta con la llave, sin apretar en exceso.",
+        "t": 91.3,
+        "cita": "enrosco el vaso a mano y le doy un cuarto de vuelta con la llave, sin apretar de más",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Purgar el aire utilizando el botón rojo.",
+        "t": 112.46,
+        "cita": "Purgo el aire con el botón rojo.",
+        "fuente": "audio",
+        "confianza": "alta"
+      },
+      {
+        "texto": "Revisar la unión del vaso y la conexión con toalla de papel para asegurar que no haya fugas.",
+        "t": null,
+        "cita": "",
+        "fuente": "inferido",
+        "confianza": "baja"
+      },
+      {
+        "texto": "Confirmar que el manómetro marque 4 bar al finalizar.",
+        "t": 125.48,
+        "cita": "El manómetro marca 4 bar.",
+        "fuente": "audio",
+        "confianza": "alta"
+      }
+    ],
+    "palabras_clave": [
+      {
+        "termino": "equipo de protección",
+        "categoria": "seguridad",
+        "menciones": 1,
+        "t": [
+          16.36
+        ],
+        "literal": "equipo de protección"
+      },
+      {
+        "termino": "guante",
+        "categoria": "material",
+        "menciones": 1,
+        "t": [
+          18.2
+        ],
+        "literal": "guantes de nitrilo"
+      },
+      {
+        "termino": "lente",
+        "categoria": "seguridad",
+        "menciones": 1,
+        "t": [
+          20.16
+        ],
+        "literal": "lentes de seguridad"
+      },
+      {
+        "termino": "llave de paso",
+        "categoria": "equipo",
+        "menciones": 2,
+        "t": [
+          32.0,
+          110.98
+        ],
+        "literal": "llave de paso"
+      },
+      {
+        "termino": "cubeta",
+        "categoria": "material",
+        "menciones": 1,
+        "t": [
+          52.58
+        ],
+        "literal": "cubeta"
+      },
+      {
+        "termino": "botón rojo",
+        "categoria": "equipo",
+        "menciones": 2,
+        "t": [
+          55.7,
+          113.62
+        ],
+        "literal": "botón rojo"
+      },
+      {
+        "termino": "carcasa",
+        "categoria": "equipo",
+        "menciones": 3,
+        "t": [
+          56.42,
+          67.74,
+          69.26
+        ],
+        "literal": "carcasa"
+      },
+      {
+        "termino": "vaso",
+        "categoria": "equipo",
+        "menciones": 4,
+        "t": [
+          70.16,
+          95.96,
+          99.2,
+          120.6
+        ],
+        "literal": "vaso"
+      },
+      {
+        "termino": "cartucho",
+        "categoria": "material",
+        "menciones": 4,
+        "t": [
+          4.94,
+          75.68,
+          92.04,
+          132.99
+        ],
+        "literal": "cartucho"
+      },
+      {
+        "termino": "manómetro",
+        "categoria": "equipo",
+        "menciones": 3,
+        "t": [
+          8.0,
+          60.12,
+          125.82
+        ],
+        "literal": "manómetro"
+      },
+      {
+        "termino": "tubería",
+        "categoria": "lugar",
+        "menciones": 1,
+        "t": [
+          40.58
+        ],
+        "literal": "tubería"
+      },
+      {
+        "termino": "toalla de papel",
+        "categoria": "material",
+        "menciones": 1,
+        "t": [
+          122.08
+        ],
+        "literal": "toalla de papel"
+      }
+    ]
+  },
+  "advertencias": [],
+  "generacion": {
+    "version_contrato": 1,
+    "video_id": 0,
+    "modelo": "gemma4:e4b-it-q4_K_M",
+    "pasos_video": 17,
+    "agrupacion": "llm",
+    "grupos": [
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8,
+        9
+      ],
+      [
+        10
+      ],
+      [
+        11
+      ],
+      [
+        12,
+        13,
+        14
+      ],
+      [
+        15
+      ],
+      [
+        16
+      ]
+    ],
+    "fuera": [
+      {
+        "paso_video": 1,
+        "tipo": "introduccion"
+      },
+      {
+        "paso_video": 17,
+        "tipo": "cierre"
+      }
+    ],
+    "etiquetas": [
+      "introduccion",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "continua",
+      "nuevo",
+      "nuevo",
+      "nuevo",
+      "continua",
+      "continua",
+      "nuevo",
+      "nuevo",
+      "cierre"
+    ],
+    "candado": false,
+    "cortes_candado": [],
+    "llamadas": [
+      {
+        "etapa": "agrupar",
+        "prompt": "sop_generado_agrupar_v2",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 4.19,
+        "tokens_entrada": 1136,
+        "tokens_salida": 328,
+        "tokens_por_s": 96.22,
+        "primer_token_s": 0.78
+      },
+      {
+        "etapa": "pasos",
+        "prompt": "sop_generado_pasos_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 8.5,
+        "tokens_entrada": 911,
+        "tokens_salida": 721,
+        "tokens_por_s": 92.08,
+        "primer_token_s": 0.67
+      },
+      {
+        "etapa": "pasos",
+        "prompt": "sop_generado_pasos_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 4.38,
+        "tokens_entrada": 699,
+        "tokens_salida": 362,
+        "tokens_por_s": 87.91,
+        "primer_token_s": 0.27
+      },
+      {
+        "etapa": "resumen",
+        "prompt": "sop_generado_resumen_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 4.2,
+        "tokens_entrada": 1217,
+        "tokens_salida": 219,
+        "tokens_por_s": 64.86,
+        "primer_token_s": 0.83
+      },
+      {
+        "etapa": "claves",
+        "prompt": "sop_generado_claves_v1",
+        "ok": true,
+        "motivo": null,
+        "intentos": 1,
+        "segundos": 7.45,
+        "tokens_entrada": 961,
+        "tokens_salida": 657,
+        "tokens_por_s": 96.73,
+        "primer_token_s": 0.66
+      }
+    ],
+    "duracion_narrada": null,
+    "segundos": 28.73,
+    "dispositivo_llm": "desconocido",
+    "contexto_reusado": false,
+    "segmentacion_reusada": false
+  }
+}

@@ -220,6 +220,121 @@ B 3/3 (66.67 %, *Falta* 2 y 6). Sin regresión.
 **Siguiente (pendiente de decisión del equipo, sin tocar código todavía):** cambiar la agrupación
 a una decisión por paso del video (ver el informe de esta sesión) y volver a medir E ×3 y A.
 
+## Agrupación v2 y candado por coseno (aprobados por el equipo el 10 nov; medidos el mismo día)
+
+**Qué cambia (decisión 2, "Agrupar").** `sop_generado_agrupar_v2`: Gemma ya no devuelve grupos;
+pone **una etiqueta por paso del video**, comparándolo solo con el anterior:
+`{"pasos":[{"paso_video":n,"etiqueta":…}]}`, con `etiqueta` ∈ `nuevo`, `continua`,
+`introduccion`, `cierre`, `entrevistador` o `comentario`. El código exige una etiqueta por paso
+del video (del 1 al último, una vez) y al menos una acción, y arma los grupos
+(`agrupar_por_etiquetas`): `nuevo` abre un paso del SOP, `continua` se une al abierto si el paso
+del video anterior está en él (si no, abre uno: un `continua` tras una pregunta del entrevistador
+parte la acción en dos y cada grupo sigue siendo de pasos consecutivos) y las otras cuatro lo
+dejan fuera. Un paso del video ya no puede quedar en un grupo y fuera a la vez (la falla de A con
+la v1). La v1 se conserva (`validar_agrupacion`, `ESQUEMA_AGRUPAR_V1`): basta con poner
+`PROMPT_AGRUPAR = "sop_generado_agrupar_v1"`.
+
+**Candado general por código (`SOP_CANDADO`, `aplicar_candado`).** Dentro de cada grupo, si el
+coseno MiniLM entre un paso del video y el anterior del grupo es menor que `UMBRAL_FUSION`, el
+código lo parte ahí en un paso nuevo, aunque Gemma haya dicho `continua`. El texto es el de la
+fusión (`texto_para_embeber`: nombre, descripción y cita) en minúsculas. No toca la agrupación de
+respaldo (uno a uno) y solo carga MiniLM si hay algún grupo de más de un paso. `GeneracionSOP`
+guarda `etiquetas` (las de Gemma, tal cual), `candado` y `cortes_candado` (campos con valor por
+defecto: lo ya guardado valida igual).
+
+**Medición** (`scripts/medir_sop_generado.py --candado no|si`, GPU, Gemma "100% GPU" en el punto
+0, mismos `analisis.json` de E y A que la medición anterior; informes
+[`sop-generado-20261110-1047.md`](datos/sop_generado/sop-generado-20261110-1047.md) sin candado
+y [`sop-generado-20261110-1056.md`](datos/sop_generado/sop-generado-20261110-1056.md) con él).
+RNF-05 contra `tests/fixtures/sop_filtro_agua.md` (6 pasos); la anotación de A usa los mismos 6
+pasos, así que A también se compara. Uso cruzado: A validado contra el SOP de E 1 después de pasar
+por JSON, como lo guarda la biblioteca (`sops.contenido`) y lo lee la validación.
+
+| Variante | Corrida | Pasos del video | Pasos del SOP | Correctos (RNF-05) | Referencia cubierta |
+|---|---|---|---|---|---|
+| v2 sola | E 1 | 18 | 15 | 6 (40.0 %) | 6 de 6 |
+| v2 sola | E 2 | 18 | 15 | 6 (40.0 %) | 6 de 6 |
+| v2 sola | E 3 | 17 | 14 | 6 (42.9 %) | 6 de 6 |
+| v2 sola | A 1 / 2 / 3 | 17 / 15 / 15 | 12 / 11 / 10 | 50.0 / 54.5 / 60.0 % | 6 de 6 |
+| v2 + candado | E 1 | 17 | 14 | 6 (42.9 %) | 6 de 6 |
+| v2 + candado | E 2 | 18 | 15 | 6 (40.0 %) | 6 de 6 |
+| v2 + candado | E 3 | 17 | 14 | 6 (42.9 %) | 6 de 6 |
+| v2 + candado | A 1 / 2 / 3 | 14 / 15 / 15 | 12 / 12 / 13 | 50.0 / 50.0 / 46.2 % | 6 de 6 |
+
+Uso cruzado (A contra el SOP de E 1): v2 sola, 70.0 % amarillo (10 *Cumple*, 1 *Parcial*, 4
+*Falta*); v2 + candado, 57.14 % rojo (7 *Cumple*, 2 *Parcial*, 5 *Falta*, 3 *Sobra*). Ninguna
+corrida dejó advertencias ni reintentó la agrupación. Tiempos de Gemma por corrida: 53–72 s
+(dos corridas de A tardaron 127–129 s por una llamada lenta de la redacción, no de la
+agrupación).
+
+**Ninguna variante llega a la meta (E ≥ 80 % en las 3, A cerca de 6 pasos, uso cruzado en
+verde).** La v2 falla al revés que la v1:
+
+1. **Gemma casi no usa `continua`.** En E marcó `nuevo` en los 14–15 pasos de acción de las 6
+   corridas (cero `continua`); en A, 1–3 por corrida. El prompt pide "nuevo" si cambia la
+   herramienta, la pieza o el fin, y en un video segmentado fino casi cada pedazo nombra otra pieza.
+2. **Las fronteras son todas correctas.** En las 12 corridas, cada paso generado cae dentro del
+   tramo anotado de un solo paso de referencia y en orden (E: 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5,
+   6, 6, 6[, 6]); los 6 pasos de referencia quedan cubiertos siempre. La v1 cruzaba fronteras
+   (juntaba 3 pasos de referencia en uno); la v2 no cruza ninguna, solo no junta.
+3. **La métrica es uno a uno.** RNF-05 empareja con el húngaro: con 6 pasos de referencia, cada
+   paso generado de más es *Sobra*. Con 14–15 pasos el techo es 6/14 = 42.9 %; para 80 % hacen
+   falta 7 pasos o menos.
+4. **El candado no puede ayudar y en A estorbó.** Solo parte grupos, y en E no había ningún grupo
+   que partir. En A partió 4 `continua` (pasos del video 9, 9, 9 y 13) que Gemma había puesto
+   bien: los dos pedazos caen en el mismo paso de referencia. Por eso el uso cruzado baja de 70 %
+   a 57 %. Dentro de un mismo paso del procedimiento, el coseno entre pedazos seguidos puede ser
+   menor que 0.55 (cambian la pieza y el verbo), así que el candado corta justo lo que hay que
+   juntar.
+
+**Decisión del equipo (10 nov):** el candado queda apagado por defecto (`SOP_CANDADO=false`; el
+código se conserva) y se hace un último intento con el prompt.
+
+## Agrupación v3: criterio de resultado (10 nov) y limitación que queda
+
+**Qué cambia.** `sop_generado_agrupar_v3`, mismo esquema de etiquetas que la v2 (la v1 y la v2 se
+conservan). Criterio de resultado: preparar, hacer y revisar una misma cosa son un paso
+(`continua`); un paso nuevo empieza cuando el operador pasa a otro resultado, no cuando nombra otra
+pieza u otra herramienta. Trae un ejemplo resuelto de un procedimiento inventado sin relación con
+los videos de prueba (cambiar la llanta de un auto: 13 pedazos, 4 pasos).
+
+**Medición** (mismo método y mismos `analisis.json`; candado apagado;
+[`sop-generado-20261110-1113.md`](datos/sop_generado/sop-generado-20261110-1113.md)). El informe
+agrega un dato secundario, para el paper: la **cobertura en orden**, los pasos de referencia con
+un paso generado emparejado *Cumple* o *Parcial* que no está fuera de orden (no penaliza los
+pasos de más). RNF-05 sigue siendo uno a uno.
+
+| Variante | E: pasos del SOP | E: RNF-05 | E: cobertura en orden | A: pasos del SOP | A: RNF-05 | A: cobertura | Uso cruzado |
+|---|---|---|---|---|---|---|---|
+| v1 (0024) | 5 / 5 / 2 | 60 / 60 / 50 % | 4 / 4 / 2 de 6 | 14 (falló la agrupación) | — | — | 80.0 % amarillo |
+| v2 sola (1047) | 15 / 15 / 14 | 40 / 40 / 42.9 % | 6 / 6 / 6 de 6 | 12 / 11 / 10 | 50 / 54.5 / 60 % | 6 / 6 / 6 de 6 | 70.0 % amarillo |
+| v2 + candado (1056) | 14 / 15 / 14 | 42.9 / 40 / 42.9 % | 6 / 6 / 6 de 6 | 12 / 12 / 13 | 50 / 50 / 46.2 % | 6 / 6 / 6 de 6 | 57.1 % rojo |
+| **v3 (1113)** | 12 / 12 / 5 | 50 / 50 / 60 % | 6 / 6 / 4 de 6 | 8 / 4 / 5 | 50 / 75 / 60 % | 5 / 4 / 4 de 6 | **79.2 % amarillo** |
+
+La v3 sí junta: E 1 y E 2 bajan de 15 a 12 pasos y A, de 10–12 a 4–8. Pero junta de forma
+desigual y vuelve a cruzar fronteras: en E 3 un paso cubre de "liberar la presión" a "retirar el
+cartucho" y otro, de "colocar el cartucho nuevo" a "revisar fugas"; en A 2 y A 3, "retirar" y
+"colocar" o "colocar" y "abrir la llave" quedan juntos. El uso cruzado (79.2 %: 8 *Cumple*, 3
+*Parcial*, 1 *Falta*, 1 *Sobra*) es el mejor de la familia de etiquetas, pero no llega a verde.
+
+**Ninguna variante llega a la meta** (E ≥ 80 % en las 3 corridas, A cerca de 6 pasos, uso cruzado
+en verde). Por decisión del equipo no se itera más el prompt.
+
+**Predeterminada: v3** (`PROMPT_AGRUPAR = "sop_generado_agrupar_v3"`, candado apagado), por tener
+el mejor uso cruzado de las variantes con etiquetas. La v1 dio 80.0 % en su único uso cruzado
+(0.8 puntos más, menos de un paso), pero en A no logró agrupar en 3 intentos y el SOP salió
+incompleto (14 pasos y `sop_incompleto`); por eso no se toma.
+
+**Limitación conocida (RF-26).** La segmentación del video encuentra las fronteras reales de los
+pasos (con la v2, en las 12 corridas cada paso generado cae dentro de un solo paso de referencia y
+los 6 quedan cubiertos en orden), pero `gemma4:e4b` no agrupa los pedazos de forma estable: sin
+criterio de resultado no junta nada (v2); con él junta, a veces de más (v3). Con temperatura 0,
+dos corridas iguales pueden dar 12 o 5 pasos. La granularidad del SOP generado queda pendiente: la
+corrige quien revisa con RF-26 (editar, juntar o partir pasos antes de guardarlo en la
+biblioteca). Cada SOP guarda en `sops.generacion` las etiquetas de Gemma y los grupos, para que la
+pantalla pueda mostrar de dónde salió cada paso. E en CPU no se volvió a medir con la v3: la
+medición en CPU de la v1 (arriba) sigue siendo la referencia de tiempos.
+
 ## Referencias
 
 - Documento SOP V1.0, §6, §10 y §14; RF-22 a RF-27, RNF-05 y RNF-06.

@@ -59,3 +59,18 @@ def test_la_completitud_cuenta_lo_que_quedo_lleno():
     )
     c = medir.completitud(sop)
     assert (c["pasos"], c["pasos_en_infinitivo"], c["objetivo"], c["riesgos"]) == (1, 1, None, 0)
+
+
+def test_la_cobertura_cuenta_cada_paso_de_referencia_cumplido_en_orden_una_vez():
+    def fila(ref, estado, fuera=False):
+        return {"referencia": ref, "estado": estado, "fuera_de_orden": fuera}
+
+    filas = [
+        fila(1, "Cumple"),
+        fila(None, "Sobra"),
+        fila(2, "Parcial"),
+        fila(3, "Cumple", fuera=True),  # fuera de orden: no cuenta
+        fila(4, "zona_gris"),  # sin decidir: no cuenta
+        fila(2, "Cumple"),  # repetido: cuenta una vez
+    ]
+    assert medir.cobertura_en_orden(filas) == [1, 2]

@@ -167,11 +167,9 @@ CONTEXTO = {
 
 
 # Lo que respondería Gemma 4 a las cuatro llamadas del SOP generado (ADR-023) para SEGMENTOS
-# segmentados con FRONTERAS: un paso del SOP por paso del video, ninguno fuera.
-AGRUPACION_SOP = {
-    "grupos": [{"pasos_video": [1]}, {"pasos_video": [2]}, {"pasos_video": [3]}],
-    "fuera": [],
-}
+# segmentados con FRONTERAS: un paso del SOP por paso del video, ninguno fuera (agrupación v2:
+# una etiqueta por paso del video).
+AGRUPACION_SOP = {"pasos": [{"paso_video": n, "etiqueta": "nuevo"} for n in (1, 2, 3)]}
 PASOS_SOP = [
     {
         "numero": 1,
@@ -322,7 +320,7 @@ class OllamaFalso:
 _ETAPA_GENERADO = {
     json.dumps(esquema): etapa
     for etapa, esquemas in (
-        ("agrupar", (gen.ESQUEMA_AGRUPAR,)),
+        ("agrupar", (gen.ESQUEMA_AGRUPAR, gen.ESQUEMA_AGRUPAR_V1)),
         ("pasos", (gen.ESQUEMA_PASOS, gen.ESQUEMA_PASOS_FOTOGRAMAS)),
         ("resumen", (gen.ESQUEMA_RESUMEN, gen.ESQUEMA_RESUMEN_FOTOGRAMAS)),
         ("claves", (gen.ESQUEMA_CLAVES,)),

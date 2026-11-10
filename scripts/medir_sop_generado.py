@@ -19,7 +19,11 @@ su par es *Cumple* o *Parcial* (nombre y lo esencial de la descripción, a juici
 juez), no está fuera de orden y su punto medio cae en el tramo anotado de ese paso de referencia.
 
 Con `--validar clave=ruta`, valida ese video contra el SOP generado en la primera corrida del
-primer video (uso cruzado, RF-27), con `validar` de producción.
+primer video (uso cruzado, RF-27), con `validar` de producción. El SOP pasa antes por JSON, como
+lo guarda la biblioteca (`sops.contenido`) y lo vuelve a leer la validación.
+
+`--candado si|no` fija el candado de la agrupación (ADR-023; por defecto, `SOP_CANDADO`). El
+informe trae, por corrida, las etiquetas de Gemma, los grupos y los pasos que partió el candado.
 
 Uso (desde la raíz, con el entorno activado, `make up-gpu` y la API detenida):
 
@@ -60,7 +64,7 @@ from sopvid.lenguaje.emparejamiento import (
 )
 from sopvid.lenguaje.juez import JuezGemma, aplicar_juez
 from sopvid.lenguaje.llm import ClienteLLM, RespuestaLLM, tokens_por_segundo
-from sopvid.lenguaje.sop_generado import SOPGenerado, generar_sop
+from sopvid.lenguaje.sop_generado import PROMPT_AGRUPAR, SOPGenerado, generar_sop
 from sopvid.lenguaje.sop_markdown import convertir_sop, empieza_con_infinitivo
 from sopvid.lenguaje.validacion import DependenciasValidacion, validar
 from sopvid.percepcion.contexto import generar_contexto
@@ -171,12 +175,19 @@ class Corrida:
     pasos_sop: int = 0
     segundos: dict[str, float] = field(default_factory=dict)
     llamadas: list[dict[str, Any]] = field(default_factory=list)
+    agrupacion: dict[str, Any] = field(default_factory=dict)
     advertencias: list[str] = field(default_factory=list)
     archivo_sop: str = ""
 
 
 def generar(
-    clave: str, n: int, analisis: Analisis, llm: ClienteLLM, registro: Registro, pedido_cpu: bool
+    clave: str,
+    n: int,
+    analisis: Analisis,
+    llm: ClienteLLM,
+    registro: Registro,
+    pedido_cpu: bool,
+    candado: bool,
 ) -> tuple[Corrida, SOPGenerado]:
     llm.descargar()  # carga en frío, como la API
     registro.llamadas.clear()
@@ -199,6 +210,7 @@ def generar(
         segmentacion.pasos,
         llm,
         contexto.contexto if contexto.generado else None,
+        candado=candado,
         al_avanzar=avanzar,
     )
     segundos["sop"] = round(time.perf_counter() - t, 2)
@@ -237,6 +249,15 @@ def generar(
         llamadas,
         [f"{a.tipo}: {a.mensaje}" for a in generado.advertencias],
     )
+    g = generado.generacion
+    corrida.agrupacion = {
+        "metodo": g.agrupacion,
+        "etiquetas": list(g.etiquetas),
+        "grupos": g.grupos,
+        "fuera": [f"{f.paso_video} {f.tipo}" for f in g.fuera],
+        "candado": g.candado,
+        "cortes_candado": g.cortes_candado,
+    }
     return corrida, generado
 
 
@@ -268,6 +289,21 @@ def tramos_anotados(anotacion: dict[str, Any], duracion: float) -> dict[int, tup
         if a.get("sop") is not None:
             tramos[a["sop"]] = (a["t"], b["t"])
     return tramos
+
+
+def cobertura_en_orden(filas: list[dict[str, Any]]) -> list[int]:
+    """Dato secundario de RNF-05 (para el paper): los pasos de referencia cubiertos en orden, es
+    decir, con un paso generado emparejado como *Cumple* o *Parcial* que no está fuera de orden.
+    No exige que caiga en el tramo anotado ni penaliza los pasos generados de más."""
+    return sorted(
+        {
+            f["referencia"]
+            for f in filas
+            if f["referencia"] is not None
+            and f["estado"] in ("Cumple", "Parcial")
+            and not f["fuera_de_orden"]
+        }
+    )
 
 
 def comparar(
@@ -318,12 +354,16 @@ def comparar(
         if r.estado == "Falta" and r.indice_sop is not None
     ]
     correctos = sum(f["correcto"] for f in filas)
+    cubiertos = cobertura_en_orden(filas)
     return {
         "pasos_generados": len(filas),
         "correctos": correctos,
         "pct": round(100 * correctos / len(filas), 1) if filas else 0.0,
         "referencia_cubierta": len(referencia.pasos) - len(faltan),
         "referencia_faltan": faltan,
+        "referencia_total": len(referencia.pasos),
+        "cobertura_en_orden": cubiertos,
+        "cobertura_pct": round(100 * len(cubiertos) / len(referencia.pasos), 1),
         "filas": filas,
     }
 
@@ -367,6 +407,10 @@ def informe(datos: dict[str, Any]) -> str:
         + f" · LLM `{datos['configuracion']['llm']}` · `LLM_DISPOSITIVO="
         f"{datos['configuracion']['llm_dispositivo']}` · GPU {datos['configuracion']['gpu']}",
         "",
+        f"Agrupación `{datos['configuracion']['prompt_agrupar']}` · candado "
+        f"{'sí' if datos['configuracion']['candado'] else 'no'} (`UMBRAL_FUSION="
+        f"{datos['configuracion']['umbral_fusion']}`)",
+        "",
         "## Punto 0: dónde quedó Gemma",
         "",
         "```",
@@ -387,6 +431,35 @@ def informe(datos: dict[str, Any]) -> str:
             f"{s.get('segmentacion')} | {s.get('sop')} | {s.get('total_gemma')} | "
             f"{len(c['advertencias'])} |"
         )
+    lineas += [
+        "",
+        "## Agrupación (etiqueta de Gemma por paso del video → grupos)",
+        "",
+        "| Video | n | Etiquetas | Grupos | Fuera | Cortes del candado |",
+        "|---|---|---|---|---|---|",
+    ]
+    abreviada = {
+        "nuevo": "N",
+        "continua": "c",
+        "introduccion": "i",
+        "cierre": "x",
+        "entrevistador": "e",
+        "comentario": "o",
+    }
+    for c in datos["corridas"]:
+        a = c.get("agrupacion") or {}
+        etiquetas = " ".join(abreviada.get(e, e) for e in a.get("etiquetas", [])) or "—"
+        grupos = " ".join(
+            f"{g[0]}" if len(g) == 1 else f"{g[0]}–{g[-1]}" for g in a.get("grupos", [])
+        )
+        lineas.append(
+            f"| {c['video']} | {c['n']} | `{etiquetas}` | {grupos} | "
+            f"{', '.join(a.get('fuera', [])) or '—'} | {a.get('cortes_candado') or '—'} |"
+        )
+    lineas += [
+        "",
+        "Etiquetas: N nuevo, c continua, i introducción, x cierre, e entrevistador, o comentario.",
+    ]
     lineas += ["", "## Llamadas (segundos · tokens de salida · tokens/s)", ""]
     for c in datos["corridas"]:
         partes = [f"{x['etapa']} {x['s']} s · {x['tokens']} · {x['tok_s']}" for x in c["llamadas"]]
@@ -398,12 +471,28 @@ def informe(datos: dict[str, Any]) -> str:
     for clave, comp in datos.get("completitud", {}).items():
         lineas += ["", f"## Cuadro resumen y tabla de pasos · {clave}", ""]
         lineas += [f"- {k}: {v}" for k, v in comp.items()]
+    if datos.get("rnf05"):
+        lineas += [
+            "",
+            "## Resumen RNF-05 (uno a uno) y cobertura en orden (dato secundario)",
+            "",
+            "| Corrida | Pasos generados | Correctos | RNF-05 | Cobertura en orden |",
+            "|---|---|---|---|---|",
+        ]
+        for clave, rnf in datos["rnf05"].items():
+            total = rnf.get("referencia_total", 6)
+            cubiertos = rnf.get("cobertura_en_orden", [])
+            lineas.append(
+                f"| {clave} | {rnf['pasos_generados']} | {rnf['correctos']} | {rnf['pct']} % | "
+                f"{len(cubiertos)} de {total} ({rnf.get('cobertura_pct')} %) |"
+            )
     for clave, rnf in datos.get("rnf05", {}).items():
         lineas += [
             "",
             f"## RNF-05 · {clave}: {rnf['correctos']} de {rnf['pasos_generados']} pasos "
             f"generados correctos ({rnf['pct']} %); referencia cubierta "
-            f"{rnf['referencia_cubierta']} de 6, faltan {rnf['referencia_faltan']}",
+            f"{rnf['referencia_cubierta']} de {rnf.get('referencia_total', 6)}, faltan "
+            f"{rnf['referencia_faltan']}; cubierta en orden {rnf.get('cobertura_en_orden')}",
             "",
             "| Paso | Nombre | Tramo s | Referencia | Estado | Coseno | Fuera de orden | "
             "En su tramo | Correcto |",
@@ -419,7 +508,8 @@ def informe(datos: dict[str, Any]) -> str:
     if cruzado := datos.get("uso_cruzado"):
         lineas += [
             "",
-            f"## Uso cruzado: {cruzado['video']} contra el SOP generado de {cruzado['sop_de']}",
+            f"## Uso cruzado: {cruzado['video']} contra el SOP generado de {cruzado['sop_de']} "
+            f"({cruzado['pasos_sop']} pasos, leído de JSON como en la biblioteca)",
             "",
             f"{cruzado['cumplimiento']} % · {cruzado['semaforo']} · conteo {cruzado['conteo']}",
             "",
@@ -442,9 +532,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--anotacion", type=Path, help="JSON de la anotación (tramos)")
     parser.add_argument("--validar", help="clave=ruta: video a validar contra el SOP generado")
     parser.add_argument("--docs", action="store_true", help="copia a docs/adr/datos/sop_generado/")
+    parser.add_argument(
+        "--candado", choices=("si", "no"), help="candado de la agrupación (por defecto SOP_CANDADO)"
+    )
     args = parser.parse_args(argv)
 
     settings = get_settings()
+    candado = settings.sop_candado if args.candado is None else args.candado == "si"
     pedido_cpu = settings.llm_dispositivo == "cpu"
     marca = datetime.now().strftime("%Y%m%d-%H%M")
     carpeta = SALIDA / marca
@@ -463,6 +557,9 @@ def main(argv: list[str] | None = None) -> int:
             "llm_dispositivo": settings.llm_dispositivo,
             "whisper": settings.whisper_modelo,
             "gpu": None if gpu is None else gpu.nombre,
+            "prompt_agrupar": PROMPT_AGRUPAR,
+            "candado": candado,
+            "umbral_fusion": settings.umbral_fusion,
         },
         "corridas": [],
         "idiomas": {},
@@ -485,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             datos["idiomas"][clave] = analisis.idioma.model_dump()
             for n in range(1, args.repeticiones + 1):
-                corrida, generado = generar(clave, n, analisis, llm, registro, pedido_cpu)
+                corrida, generado = generar(clave, n, analisis, llm, registro, pedido_cpu, candado)
                 nombre = f"{clave}-{n}{'-cpu' if pedido_cpu else ''}.json"
                 (carpeta / nombre).write_text(
                     json.dumps(
@@ -505,7 +602,9 @@ def main(argv: list[str] | None = None) -> int:
                 datos["corridas"].append(corrida.__dict__)
                 print(
                     f"{clave} [{n}]: {corrida.pasos_video} pasos del video → {corrida.pasos_sop} "
-                    f"del SOP, {corrida.segundos['total_gemma']} s ({corrida.dispositivo})",
+                    f"del SOP, {corrida.segundos['total_gemma']} s ({corrida.dispositivo}), "
+                    f"grupos {corrida.agrupacion['grupos']}, cortes "
+                    f"{corrida.agrupacion['cortes_candado']}",
                     file=sys.stderr,
                 )
                 if n == 1:
@@ -519,9 +618,11 @@ def main(argv: list[str] | None = None) -> int:
             clave, _, ruta = args.validar.partition("=")
             analisis, segundos, dispositivos = preparar(clave, Path(ruta), settings, carpeta)
             llm.descargar()
+            # Como lo guarda la biblioteca (`sops.contenido`) y lo lee la validación.
+            de_biblioteca = SOP.model_validate(primero[1].model_dump(mode="json"))
             validacion = validar(
                 analisis,
-                primero[1],
+                de_biblioteca,
                 DependenciasValidacion(llm, JuezGemma(llm)),
                 segundos_analisis=segundos,
                 dispositivos=dispositivos or Dispositivos(),
@@ -531,6 +632,7 @@ def main(argv: list[str] | None = None) -> int:
             datos["uso_cruzado"] = {
                 "video": clave,
                 "sop_de": primero[0],
+                "pasos_sop": len(de_biblioteca.pasos),
                 "cumplimiento": round(r.cumplimiento, 2),
                 "semaforo": r.semaforo,
                 "conteo": dict(r.resultado.clasificacion.resumen.conteo),

@@ -1329,6 +1329,11 @@ EtapaGeneracion = Literal["agrupar", "pasos", "resumen", "claves"]
 # Por qué un paso del video no entra al SOP: la presentación, el cierre, una pregunta del
 # entrevistador o un comentario que no es una acción del procedimiento.
 TipoFuera = Literal["introduccion", "cierre", "entrevistador", "comentario"]
+# La etiqueta de cada paso del video en la agrupación v2 (ADR-023): "nuevo" empieza un paso del
+# SOP, "continua" sigue el del paso del video anterior y las demás lo dejan fuera (`TipoFuera`).
+EtiquetaAgrupacion = Literal[
+    "nuevo", "continua", "introduccion", "cierre", "entrevistador", "comentario"
+]
 # Por qué falló una llamada (no se reintenta un Ollama caído ni un corte por tiempo).
 MotivoLlamada = Literal["llm_no_disponible", "tiempo_excedido", "respuesta_invalida"]
 
@@ -1371,6 +1376,11 @@ class GeneracionSOP(_Modelo):
     una sola vez. `agrupacion` es "uno_a_uno" si la llamada de agrupación falló y cada paso del
     video quedó como un paso del SOP. `segundos` es lo que tardó la generación (sin la ficha ni
     la segmentación); `dispositivo_llm`, dónde corrió Gemma (ADR-018).
+
+    Con la agrupación v2, `etiquetas` guarda la que puso Gemma a cada paso del video, en orden
+    (vacía con la v1 o si falló). `candado` dice si se aplicó el candado por coseno y
+    `cortes_candado`, los pasos del video que Gemma marcó "continua" y el candado volvió a
+    poner como inicio de un paso del SOP.
     """
 
     version_contrato: Literal[1] = 1
@@ -1380,6 +1390,9 @@ class GeneracionSOP(_Modelo):
     agrupacion: Literal["llm", "uno_a_uno"]
     grupos: list[list[Annotated[int, Field(ge=1)]]]
     fuera: list[PasoFuera] = []
+    etiquetas: list[EtiquetaAgrupacion] = []
+    candado: bool = False
+    cortes_candado: list[Annotated[int, Field(ge=1)]] = []
     llamadas: list[LlamadaLLM] = []
     # La duración total que dijo el operador (minutos en `valor`, con su cita y su segundo), si
     # la dijo: entonces es `resumen.duracion_total_min`. None: la duración total es la suma.
