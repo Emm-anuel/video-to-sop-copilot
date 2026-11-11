@@ -63,6 +63,20 @@ deja esos temas fuera de la versión 1.0; se cita como esa aprobación.
 **Modelo de lenguaje.** El NDA (cl. 1) nombra a Gemma 4. `qwen3.5:9b` segmentó mejor en ADR-010, pero
 usarlo en el producto requiere aprobación escrita; se mide solo como comparación en los experimentos.
 
+### Registro de decisiones
+
+Decisiones del equipo sin ADR propio, la más reciente arriba. Lo que se decide fuera del
+repositorio (juntas, chats, documentos compartidos) se anota aquí el mismo día.
+
+| Fecha | Decisión | Detalle |
+|---|---|---|
+| 10 nov | El repositorio de desarrollo se mantiene público; el del patrocinador es otro y es privado. Decisión de Emmanuel | Se conserva la cl. 5: nada del cliente entra al repositorio. La propiedad del código sigue siendo del patrocinador (cl. 3.1) |
+| 10 nov | Reparto: Emmanuel toma RF-04, 05, 06 (partes), 07, 08, 11 y 26, que estaban a nombre de Sara. Sara conserva la búsqueda (RF-32 a 37) y las descargas (RF-31) en S6 | §5.2 y §6 |
+| 10 nov | Fotogramas (RF-11): la miniatura se extrae siempre, con ffmpeg y sin modelo | Se pide por segundo con `GET /videos/{id}/thumb?t=`. No vive en `Fotograma` (su `descripcion` es obligatoria) ni agrega campos a `PasoVideo` o `FilaReporte` |
+| 10 nov | Fotogramas (RF-11): la descripción con Gemma 4 es opcional y viene apagada | Apagada, `Analisis.fotogramas` va vacía y la ficha de contexto sigue solo con la voz, como hoy |
+| 10 nov | Fotogramas (RF-11): se describen N imágenes repartidas de forma pareja, antes de la ficha de contexto; no una por paso | N = pasos estimados: los del SOP en modo validar, por duración en modo generar; tope de 20 (ADR-002). Una por paso exigiría segmentar antes, y la ficha va primero |
+| 10 nov | Fotogramas (RF-11): sin GPU se avisa y no se bloquea | Con la descripción encendida en un equipo sin GPU, Gemma describe igual, más lento, con un aviso; no se salta la descripción (ADR-018: la GPU solo acelera) |
+
 ---
 
 ## 3. Arquitectura
@@ -180,14 +194,14 @@ agrega la redacción; la búsqueda exacta no usa IA.
 | Ingesta de audio (ffmpeg: duración y mp3) | RF-06 (simple), etapa de ffmpeg | Emmanuel (tomada el 25 oct; hecha) | S2 |
 | Subida simple | RF-06 (simple), subida | Emmanuel (tomada el 25 oct; hecha) | S2 |
 | Idioma y transcripción | RF-09, 10 | Emmanuel (tomados el 25 oct) | S2 |
-| Subida por partes y avance en vivo | RF-06 (partes), 08 | Sara | S5 |
-| Fotogramas | RF-11 | Sara | S5 |
-| SOP de referencia | ✓ RF-03 (TXT/MD, ADR-015) · ✓ RF-01, 02 (PDF/Word, 7 nov) · RF-04, 05 | Emmanuel · Emmanuel · Sara | S2 · S5 · S5 |
+| Subida por partes y avance en vivo | RF-06 (partes), 08 | Emmanuel (tomados de Sara el 10 nov) | S5 |
+| Fotogramas | RF-11 (miniatura siempre; descripción opcional, §2 registro de decisiones) | Emmanuel (tomado de Sara el 10 nov) | S5 |
+| SOP de referencia | ✓ RF-03 (TXT/MD, ADR-015) · ✓ RF-01, 02 (PDF/Word, 7 nov) · RF-04, 05, 07 (corregir la conversión, biblioteca y elegir un SOP de ella) | Emmanuel · Emmanuel · Emmanuel (tomados de Sara el 10 nov) | S2 · S5 · S5 |
 | Pasos del video y contexto | ✓ RF-13 · ✓ RF-12 (7 nov) | Emmanuel | S2–S3 · S5 |
 | Validación | ✓ RF-14, 19 · ✓ RF-15, 16, 17 (8–9 nov) | Emmanuel | S3–S4 · S5 |
 | Evidencia y revisión | RF-20 · RF-21 | Sara | S3–S4 · S7 |
 | Base de Angular y pantalla para subir SOP y video (MVP, opcional) | — | Emmanuel (7 nov) | S4 |
-| SOP generado | ✓ RF-22 a 25, 27 (10 nov) · RF-26 (parcial: solo el endpoint de edición; falta el editor con "Unir con el siguiente paso") | Emmanuel · Sara | S5 · S5–S6 |
+| SOP generado | ✓ RF-22 a 25, 27 (10 nov) · RF-26 (parcial: solo el endpoint de edición; falta el editor con "Unir con el siguiente paso") | Emmanuel · Emmanuel (tomado de Sara el 10 nov) | S5 · S5–S6 |
 | PDF y descargas | RF-29, 30 · RF-31 | Emmanuel · Sara | S6 |
 | Búsqueda | RF-32 a 37 | Sara | S6 |
 
@@ -240,11 +254,11 @@ MiniLM del texto de cada paso de CaptainCook4D (plan §8).
 | Semana | Emmanuel | Sara | Compartido / checkpoint | Académico |
 |---|---|---|---|---|
 | S1 · 12–18 oct | Avance 3 | Guion de los videos de prueba | Revisión del documento SOP V1.0 | **Avance 3 (18 oct)** |
-| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct); ✓ **ingesta de audio y transcripción**, tomadas de Sara (rama `feat/percepcion-transcripcion`, 25 oct): `medios.py` (duración, mp3 mono 16 kHz) y `transcripcion.py` (RF-09, RF-10: idioma, tiempo por palabra, TXT en vivo); GPU en el host, Docker solo CPU (ADR-014); ✓ **subida simple** (RF-06 del MVP), tomada de Sara (25 oct): `POST /videos`, cola de análisis de un trabajador y consulta de estado, TXT en vivo y `Analisis` | Grabar videos A–E | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown; repo privado | Avance 4 (25 oct) |
+| S2 · 19–25 oct | Pasos del video con el esquema extendido de ADR-010; ✓ conversión del SOP en Markdown (ADR-015, 19 oct); ✓ fixture del contrato (18 oct); ✓ **MiniLM:** dependencia, `Embedder` y `similitud` con pruebas (ca82b10, 19 oct); ✓ **ingesta de audio y transcripción**, tomadas de Sara (rama `feat/percepcion-transcripcion`, 25 oct): `medios.py` (duración, mp3 mono 16 kHz) y `transcripcion.py` (RF-09, RF-10: idioma, tiempo por palabra, TXT en vivo); GPU en el host, Docker solo CPU (ADR-014); ✓ **subida simple** (RF-06 del MVP), tomada de Sara (25 oct): `POST /videos`, cola de análisis de un trabajador y consulta de estado, TXT en vivo y `Analisis` | Grabar videos A–E | Junta lun 19 oct; ✓ tablas `videos`, `sops`, `reportes` (y también `palabras`, `busquedas`; migración `0002`, 21 oct); SOP de referencia en Markdown | Avance 4 (25 oct) |
 | S3 · 26 oct–1 nov | **MiniLM:** `fusionar`, `asignar` (húngaro), `clasificar` y `orden` con sus pruebas | Pantalla del reporte con reproductor al segundo | Anotación a mano de A–E; script de métricas | Avance 5 (1 nov) |
 | S4 · 2–8 nov | ✓ **juez Gemma 4 en la zona gris** (`lenguaje/juez.py`, adelantado al 27 oct; falta medirlo con A y B); porcentaje; **calibrar umbrales MiniLM** con A y B | Pantalla del reporte con la API (RF-20; base de Angular y `/nuevo` por Emmanuel el 7 nov; `GET /videos/{id}/video` listo) | **MVP de validación** (videos A y B; la lógica cumple desde el 27 oct) | — |
-| S5 · 9–15 nov | ✓ SOP generado (RF-22 a 25, 27; ADR-023); ✓ **MiniLM:** `afinidad` y `emparejar_roles` (RF-15, 17; ADR-020); ✓ tiempos (RF-16, ADR-021); ✓ contexto (RF-12); ✓ PDF y Word (RF-01, 02); ✓ rescate de *Falta* y segmentación guardada (ADR-022); RF-26 parcial (solo el endpoint) | Fotogramas; subida por partes; avance en vivo; biblioteca y SOP editable | ✓ Videos C, D y E grabados; ✓ **medición de cierre (10 nov, [informe](../adr/datos/s5/medicion-s5-20261110-1311.md)):** con GPU A–E pasan la §14 en 14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por un valor sin traducir y RNF-01 no se cumple (21.2 min) | — |
-| S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta (tablas `palabras` y `busquedas` ya existen desde S2: solo falta la lógica de publicar y buscar); pantallas restantes; descargas | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
+| S5 · 9–15 nov | ✓ SOP generado (RF-22 a 25, 27; ADR-023); ✓ **MiniLM:** `afinidad` y `emparejar_roles` (RF-15, 17; ADR-020); ✓ tiempos (RF-16, ADR-021); ✓ contexto (RF-12); ✓ PDF y Word (RF-01, 02); ✓ rescate de *Falta* y segmentación guardada (ADR-022); RF-26 parcial (solo el endpoint); **tomados de Sara (10 nov):** fotogramas (RF-11), subida por partes y avance en vivo (RF-06, 08), biblioteca, elegir y corregir el SOP (RF-04, 05, 07) y editor del SOP generado (RF-26) | — (sus tareas de S5 pasan a Emmanuel el 10 nov; §2) | ✓ Videos C, D y E grabados; ✓ **medición de cierre (10 nov, [informe](../adr/datos/s5/medicion-s5-20261110-1311.md)):** con GPU A–E pasan la §14 en 14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por un valor sin traducir y RNF-01 no se cumple (21.2 min) | — |
+| S6 · 16–22 nov | PDF de reporte y SOP | Búsqueda exacta (tablas `palabras` y `busquedas` ya existen desde S2: solo falta la lógica de publicar y buscar) y su pantalla `/buscar`; descargas TXT, SRT y JSON (RF-31) | ✓ **App completa**; Docker en máquina limpia; RNF-01 a 07; video de demo | — |
 | S7 · 23–29 nov | Experimentos del paper; si da tiempo RF-18 | Ajustes; si da tiempo RF-21 | Demo con el patrocinador (*Por confirmar*) | Resumen ejecutivo (*Por confirmar*) |
 | S8 · 30 nov–6 dic | Borrador del paper | Informe de pruebas y README | Documento de requerimientos actualizado | Presentación final (*Por confirmar*) |
 | S9 · 7–13 dic | — | — | Imagen 1.0 y release (NDA cl. 8) | Cierre |
@@ -300,14 +314,14 @@ en `tests/test_emparejamiento.py`, incluida la de MiniLM real (`-m lento`).
 | Riesgo | Impacto | Prob. | Mitigación |
 |---|---|---|---|
 | `gemma4:e4b` sobre-segmenta (ADR-010) y genera *Sobra* falsos | Alto | Alta | Fusión previa (ADR-013); cada *Sobra* exige cita; medir con video B |
-| Carga de avances y modelos en Emmanuel hasta el 1 nov | Alto | Alta | PDF y SOP generado después del 1 nov; Sara toma pantallas y búsqueda |
+| Carga de avances y modelos en Emmanuel hasta el 1 nov | Alto | Alta | PDF y SOP generado después del 1 nov. Desde el 10 nov la carga se invierte: Emmanuel toma RF-04 a 08, 11 y 26 y Sara se queda con la búsqueda y las descargas (§2, registro de decisiones) |
 | 8 GB de VRAM no alcanzan para dos modelos | Medio | Media | Etapas en secuencia; un modelo cargado a la vez |
 | Gemma 4 E4B describe mal los fotogramas | Medio | Media | La voz manda; la imagen solo confirma equipos, EPP y riesgos |
 | Angular consume la ruta crítica | Alto | Media | Pantallas sencillas; la API se prueba sola desde `/docs` |
 | Ruido o varias voces en el audio | Medio | Media | Guion de grabación, micrófono cerca, VAD; video C con dos personas |
 | Whisper corta segmentos a media frase y las fronteras de paso de ADR-010 (que el LLM elige entre segmentos) quedan desplazadas o mezclan dos pasos | Alto | Ocurrió (26 oct) | Con habla real (videos A y B) Whisper juntó intro y pasos 1–2 en un segmento de 35 s y marcó pausas de 4–7 s solo con coma. Mitigado con `resegmentar` (frases y pausas ≥ 1.5 s con los tiempos por palabra, antes de segmentar): F1 de inicios a ±2 s de 0.46 → 0.67 en A y 0.40 → 0.91 en B, sin inicios perdidos (`docs/dev/transcripcion.md`). Queda la sobre-segmentación de Gemma 4 en A (fila de ADR-010) |
 | Solo una PC del equipo tiene GPU | Medio | Media | Sara usa el perfil CPU; Ollama compartido por red privada para pruebas |
-| Repositorio público con material bajo NDA | Alto | Por confirmar | Pasarlo a privado en S2 |
+| Repositorio público con material bajo NDA | Alto | Por confirmar | El repositorio de desarrollo se queda público (10 nov, §2); el del patrocinador es privado. Nada del cliente entra (regla 1 de CLAUDE.md) y los issues, commits y PR citan la sección del documento del patrocinador en lugar de copiarla |
 
 ---
 

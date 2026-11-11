@@ -83,7 +83,11 @@ Sin GPU, Gemma va a unos 15 tok/s, contra 100–118 en GPU. Con GPU, la VRAM lle
 - PDF del reporte y del SOP con QR (RF-29, 30) y descargas TXT, SRT y JSON (RF-31).
 - Búsqueda exacta (RF-32 a 37).
 - Docker en máquina limpia.
-- Fotogramas en la ficha de contexto (P2.1), cuando Sara entregue RF-11.
+- Fotogramas en la ficha de contexto (P2.1), con RF-11 (Emmanuel desde el 10 nov).
+
+**Reparto del 10 nov:** Emmanuel toma RF-04, 05, 06 (partes), 07, 08, 11 y 26, que estaban a
+nombre de Sara; Sara conserva la búsqueda (RF-32 a 37) y las descargas (RF-31) en S6. Esto y las
+decisiones de los fotogramas, en el [registro de decisiones](plan.md#registro-de-decisiones).
 - Editor RF-26 con "Unir con el siguiente paso" (el SOP generado sale con ~15 pasos para 6 reales).
 - Guardar los juicios del juez para que el reporte regenerado salga idéntico (hoy coincide el
   porcentaje, no siempre la redacción).
@@ -117,7 +121,7 @@ Sin GPU, Gemma va a unos 15 tok/s, contra 100–118 en GPU. Con GPU, la VRAM lle
   en la otra corrida Gemma dejó un paso sin redactar, el paso 6 salió *Falta* y el reporte quedó
   provisional (83.3 %, amarillo). A trae 4–6 *Sobra* falsos en cada corrida (absorción de
   ADR-013). Para la demo, mostrar reportes ya procesados.
-- **Pendiente:** repositorio privado (NDA) antes del push, confirmar el CI tras el merge, grabar C–E
+- **Pendiente:** confirmar el CI tras el merge, grabar C–E
   (checkpoint del 15 nov) y correr `scripts/calibrar_umbrales.py` con ellos.
 
 ## 31 de octubre
@@ -158,7 +162,7 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 |---|---|
 | **Dom 18 oct, 23:59** | **Avance 3** (baseline) desde `build_features` |
 | Lun 19 oct | Junta con Jorge: informar decisiones y preguntar la fecha de la demo ([plan §10](plan.md#10-para-la-junta-del-lunes-19-oct)) |
-| S2 | ✓ `feat/llm-spike` fusionada a `main` (merge `936af6f`); repo privado; tablas `videos`, `sops`, `reportes`; grabar videos A–E |
+| S2 | ✓ `feat/llm-spike` fusionada a `main` (merge `936af6f`); tablas `videos`, `sops`, `reportes`; grabar videos A–E |
 | Dom 25 oct | Avance 4 |
 | Dom 1 nov | ✓ Avance 5 |
 | Dom 8 nov | **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)). La lógica cumple; falta la pantalla del reporte (RF-20) |

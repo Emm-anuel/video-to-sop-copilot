@@ -18,7 +18,7 @@ son de S5 y S6.
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
 | `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
-| `/videos/:id/sop` | **SOP generado (mínima, solo lectura):** avance, cuadro resumen, tabla de pasos, puntos y palabras clave con menciones, lo inferido resaltado y "Guardar en la biblioteca" | Emmanuel (base) · Sara (RF-26) | Hecho (9 nov): `src/app/sop/`. Sin edición: la pule Sara con RF-26 |
+| `/videos/:id/sop` | **SOP generado (mínima, solo lectura):** avance, cuadro resumen, tabla de pasos, puntos y palabras clave con menciones, lo inferido resaltado y "Guardar en la biblioteca" | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov): `src/app/sop/`. Sin edición: llega con RF-26 |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -31,12 +31,14 @@ base de la pantalla **"Nuevo análisis"** del documento SOP V1.0 y en S5 se ampl
 componente, sin rehacerlo. Hoy cubre el camino del MVP: un SOP nuevo en Markdown, TXT, PDF o
 Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 
-| Qué falta | RF | Semana |
-|---|---|---|
-| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP") | RF-07, RF-02 | S5 |
-| Mostrar el SOP convertido para corregirlo antes de validar | RF-04 | S5 |
-| Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | S5 |
-| Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | S5 |
+| Qué falta | RF | Responsable | Semana |
+|---|---|---|---|
+| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP") | RF-07, RF-02 | Emmanuel | S5 |
+| Mostrar el SOP convertido para corregirlo (sin detener el video: si se corrige, se revalida con `POST /videos/{id}/validar`) | RF-04 | Emmanuel | S5 |
+| Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | Emmanuel | S5 |
+| Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | Emmanuel | S5 |
+
+Responsables desde el reparto del 10 nov ([registro de decisiones](../docs/plan/plan.md#registro-de-decisiones)).
 
 ## Subir un SOP: flujo asíncrono (desde el 7 nov, rama `feat/sop-pdf-word`)
 
@@ -197,7 +199,7 @@ otro SOP" a `/nuevo`, mostrar la afinidad con `bajo_umbral` junto al porcentaje 
 
 ## SOP generado: "No tengo SOP" y `/videos/:id/sop` (9 nov, ADR-023)
 
-Pantalla mínima para probar el modo generar; **Sara la pule con RF-26** (editar, agregar, quitar y
+Pantalla mínima para probar el modo generar; **se pule con RF-26** (Emmanuel desde el 10 nov) (editar, agregar, quitar y
 reordenar pasos) sobre el mismo componente.
 
 - **`/nuevo`:** la casilla "No tengo SOP" oculta el campo del SOP y el botón dice "Generar SOP".
@@ -223,7 +225,7 @@ reordenar pasos) sobre el mismo componente.
 - Pendiente (RF-26): edición con `PUT /sops/{id}` (la API ya valida el SOP completo y responde
   422 si no cumple el contrato), descargar el Markdown (`GET /sops/{id}.md`) y repetir la
   generación (`POST /videos/{id}/generar`).
-- **Para Sara (RF-26, 10 nov): el editor necesita "Unir con el siguiente paso".** La agrupación
+- **Para RF-26 (10 nov): el editor necesita "Unir con el siguiente paso".** La agrupación
   predeterminada (v2, ADR-023) encuentra bien dónde empieza y termina cada paso y no inventa ni
   mezcla pasos, pero el SOP sale más detallado que uno escrito a mano (unos 15 pasos contra 6 en
   el video E): quien revisa junta pasos. En cada fila (menos la última), un botón que una el paso
@@ -296,5 +298,6 @@ arriba (ver `docs/dev/llm.md`); sin él, el video termina en `error` con "LLM no
 - No subas `node_modules`, `dist` ni `.angular`.
 - Antes de empezar una pantalla, toma su issue y revisa `main`, para no hacer dos veces el mismo
   trabajo.
-- Commits en español con Conventional Commits (`feat(frontend): …`). Push solo cuando el repo esté
-  privado.
+- Commits en español con Conventional Commits (`feat(frontend): …`). El repositorio de
+  desarrollo es público (10 nov): ni material del cliente ni texto literal del documento del
+  patrocinador en commits, issues o PR.
