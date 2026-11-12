@@ -36,6 +36,16 @@ export interface EstadoSop {
   en_biblioteca?: boolean;
 }
 
+/**
+ * Lo que la pantalla usa de `generacion` (`GeneracionSOP`, ADR-023): el video del que salió.
+ * `grupos` registra lo que hizo el modelo y no refleja las ediciones (ADR-025).
+ */
+export interface GeneracionSop {
+  video_id: number;
+  /** La duración total que dijo el operador, en minutos como texto (ADR-021); gana al editar. */
+  duracion_narrada?: { valor: string | null } | null;
+}
+
 /** `GET /sops/{id}`: el SOP del contrato con su código y sus advertencias. */
 export interface SopDetalle {
   id: number;
@@ -45,6 +55,8 @@ export interface SopDetalle {
   metodo: 'plantilla' | 'llm' | null;
   advertencias: AdvertenciaSOP[];
   en_biblioteca: boolean;
+  /** Solo en un SOP generado desde un video; null en uno cargado. */
+  generacion?: GeneracionSop | null;
   sop: SOP;
 }
 

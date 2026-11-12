@@ -170,9 +170,53 @@ describe('Nuevo', () => {
 
     await flush(http.expectOne('/api/videos'), VIDEO_CREADO);
     expect(navegar).not.toHaveBeenCalled();
+    // RF-04: se puede revisar el SOP sin detener el video; desde ahí se revalida.
+    const revisar = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      '.revisar a',
+    )!;
+    expect(revisar.getAttribute('href')).toBe('/sops/3?video=12');
     expect(boton().textContent).toContain('Ver el reporte');
     boton().click();
     expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+  });
+
+  describe('con ?sop=ID ("Usar para validar" del editor)', () => {
+    async function conSop(estado: EstadoSop): Promise<void> {
+      fixture = TestBed.createComponent(Nuevo);
+      fixture.componentRef.setInput('sop', String(estado.id));
+      await fixture.whenStable();
+      await flush(http.expectOne({ method: 'GET', url: `/api/sops/${estado.id}/estado` }), estado);
+    }
+
+    it('no pide el archivo del SOP: sube solo el video con ese sop_id', async () => {
+      await conSop({ ...SOP_LISTO, en_biblioteca: true });
+      expect(fixture.nativeElement.querySelector('#sop')).toBeNull();
+      expect(texto()).toContain('SOP de referencia: SOP-0003 · Cambio del cartucho');
+
+      elegir('#video', new File(['video'], 'video_e.mp4', { type: 'video/mp4' }));
+      await validar();
+      http.expectNone({ method: 'POST', url: '/api/sops' });
+      const video = http.expectOne({ method: 'POST', url: '/api/videos' });
+      expect((video.request.body as FormData).get('sop_id')).toBe('3');
+      await flush(video, VIDEO_CREADO);
+      expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+    });
+
+    it('"Usar otro archivo" vuelve a pedir el SOP', async () => {
+      await conSop(SOP_LISTO);
+      const otro = Array.from(
+        fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+      ).find((b) => b.textContent?.includes('Usar otro archivo'))!;
+      otro.click();
+      await fixture.whenStable();
+      expect(fixture.nativeElement.querySelector('#sop')).not.toBeNull();
+    });
+
+    it('un SOP generado fuera de la biblioteca no se puede usar', async () => {
+      await conSop({ ...SOP_LISTO, origen: 'generado', en_biblioteca: false });
+      expect(texto()).toContain('no está en la biblioteca');
+      expect(fixture.nativeElement.querySelector('#sop')).not.toBeNull();
+    });
   });
 
   it('si la conversión falla, muestra el mensaje, cancela la subida y pide otro SOP', async () => {

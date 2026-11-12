@@ -35,6 +35,85 @@ export function mensajeDeError(error: unknown): string {
   }
 }
 
+/** Un error del 422 ubicado en el SOP: la ruta sin `body`, cómo se llama en pantalla y qué pasa. */
+export interface ErrorCampo {
+  ruta: (string | number)[];
+  etiqueta: string;
+  mensaje: string;
+}
+
+const NOMBRES: Record<string, string> = {
+  titulo: 'Título',
+  resumen: 'Cuadro resumen',
+  version: 'versión',
+  objetivo: 'objetivo',
+  alcance: 'alcance',
+  responsable: 'responsable',
+  lugar: 'lugar',
+  horario_frecuencia: 'horario o frecuencia',
+  valor: 'valor',
+  nombre: 'nombre',
+  descripcion: 'descripción',
+  equipo: 'equipo',
+  puntos_validacion: 'puntos de validación',
+  tiempo_esperado_min: 'tiempo (min)',
+  situacion: 'situación',
+  accion: 'acción',
+  control: 'control',
+  nivel: 'nivel',
+  texto: 'texto',
+};
+
+const LISTAS: Record<string, string> = {
+  pasos: 'Paso',
+  riesgos: 'Riesgo',
+  en_caso_de_falla: 'Falla',
+  equipo_operacion: 'Equipo de operación',
+  roles: 'Rol',
+  puntos_clave: 'Punto clave',
+  palabras_clave: 'Palabra clave',
+};
+
+/** "pasos.3.nombre" → "Paso 4 · nombre" (los índices se muestran desde 1, como en pantalla). */
+export function etiquetaDeRuta(ruta: readonly (string | number)[]): string {
+  const partes: string[] = [];
+  for (let i = 0; i < ruta.length; i++) {
+    const p = ruta[i];
+    const siguiente = ruta[i + 1];
+    if (typeof p === 'string' && LISTAS[p] && typeof siguiente === 'number') {
+      partes.push(`${LISTAS[p]} ${siguiente + 1}`);
+      i++;
+    } else if (typeof p === 'string' && p !== 'resumen') {
+      partes.push(NOMBRES[p] ?? p);
+    }
+  }
+  return partes.join(' · ');
+}
+
+/**
+ * El 422 de `PUT /sops/{id}` campo por campo. Un `detail` de texto (p. ej. el título demasiado
+ * largo) llega como un solo error sin ruta. Cualquier otro error: lista vacía.
+ */
+export function erroresPorCampo(error: unknown): ErrorCampo[] {
+  if (!(error instanceof HttpErrorResponse) || error.status !== 422) {
+    return [];
+  }
+  const cuerpo = error.error as { detail?: unknown } | null;
+  const detail = cuerpo && typeof cuerpo === 'object' ? cuerpo.detail : undefined;
+  if (typeof detail === 'string') {
+    return [{ ruta: [], etiqueta: '', mensaje: detail }];
+  }
+  if (!Array.isArray(detail)) {
+    return [];
+  }
+  return (detail as ErrorValidacion[])
+    .filter((d) => d?.msg)
+    .map((d) => {
+      const ruta = (d.loc ?? []).filter((p) => p !== 'body');
+      return { ruta, etiqueta: etiquetaDeRuta(ruta), mensaje: d.msg! };
+    });
+}
+
 function conDetalle(titulo: string, detalle: string | undefined): string {
   return detalle ? `${titulo}: ${detalle}.` : `${titulo}.`;
 }

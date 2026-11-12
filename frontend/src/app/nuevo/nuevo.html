@@ -12,7 +12,12 @@
     <label for="sin-sop">No tengo SOP: generarlo desde el video</label>
   </div>
 
-  @if (!sinSop()) {
+  @if (!sinSop() && sopElegido()) {
+    <div class="campo">
+      <p class="nota" role="status">SOP de referencia: {{ sop()?.codigo }} · {{ sop()?.titulo }}</p>
+      <button type="button" (click)="otroSop()" [disabled]="enviando()">Usar otro archivo</button>
+    </div>
+  } @else if (!sinSop()) {
     <div class="campo">
       <label for="sop">SOP de referencia (.md, .txt, .pdf o .docx)</label>
       <input
@@ -22,7 +27,7 @@
         (change)="elegirSop($event)"
         [disabled]="enviando()"
       />
-      @if (intentado() && !archivoSop()) {
+      @if (intentado() && !archivoSop() && !sop()) {
         <p class="campo-error">Elige el archivo del SOP.</p>
       }
       @if (convirtiendo()) {
@@ -87,6 +92,15 @@
         }
       </ul>
     </div>
+  }
+
+  @if (conviene() && video(); as v) {
+    <p class="nota revisar">
+      <a [routerLink]="['/sops', sop()!.id]" [queryParams]="{ video: v.id }"
+        >Revisar y corregir el SOP</a
+      >. El video se valida igual; si corriges el SOP, lo revalidas desde ahí sin repetir la
+      transcripción.
+    </p>
   }
 
   @if (progreso() !== null && !video()) {

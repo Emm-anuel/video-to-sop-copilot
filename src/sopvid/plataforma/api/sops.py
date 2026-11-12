@@ -36,6 +36,7 @@ from sopvid.lenguaje.lectura_sop import (
 )
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.sop_markdown import sop_a_markdown
+from sopvid.lenguaje.tiempos import con_duracion_recalculada
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import Sop
@@ -184,10 +185,12 @@ def corregir_sop(
 ) -> SopDetalle:
     """Guarda la versión corregida del SOP, cargado o generado (RF-04, RF-26): el cuerpo es el
     `SOP` del contrato completo y uno que no lo cumple da 422 sin tocar el guardado. 409 si
-    todavía no está listo."""
+    todavía no está listo. La duración total se pone al día (`tiempos.con_duracion_recalculada`):
+    la narrada por el operador si la hay; si no, la suma de los pasos (ADR-025)."""
     fila = _listo(session, sop_id)
     if len(sop.titulo) > TITULO_SOP_MAX:
         raise HTTPException(422, f"el título pasa de {TITULO_SOP_MAX} caracteres")
+    sop = con_duracion_recalculada(sop, _duracion_narrada(fila))
     fila.titulo, fila.contenido = sop.titulo, sop.model_dump(mode="json")
     session.commit()
     logger.info("SOP %d corregido: %d pasos", sop_id, len(sop.pasos))
@@ -206,6 +209,17 @@ def guardar_en_biblioteca(
         session.commit()
         logger.info("SOP %d guardado en la biblioteca", sop_id)
     return estado_sop(fila)
+
+
+def _duracion_narrada(fila: Sop) -> float | None:
+    """Los minutos que dijo el operador como duración total (`generacion.duracion_narrada`,
+    ADR-021, ADR-023), o None si no la dijo o el SOP no se generó desde un video."""
+    if not fila.generacion:
+        return None
+    narrada = GeneracionSOP.model_validate(fila.generacion).duracion_narrada
+    if narrada is None or narrada.valor is None:
+        return None
+    return float(narrada.valor)
 
 
 def detalle(fila: Sop) -> SopDetalle:

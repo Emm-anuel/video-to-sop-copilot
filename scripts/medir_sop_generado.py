@@ -27,13 +27,30 @@ Con `--referencia` (el SOP escrito a mano) y una anotación con la clave del vid
 Además, la cobertura en orden (pasos de referencia con un par *Cumple* o *Parcial* en orden).
 
 Con `--validar clave=ruta`, valida ese video contra el SOP generado en la primera corrida del
-primer video (uso cruzado, RF-27), con `validar` de producción. El SOP pasa antes por JSON, como
-lo guarda la biblioteca (`sops.contenido`) y lo vuelve a leer la validación.
+primer video, o contra el primer SOP de `--sop-editado` (uso cruzado, RF-27), con `validar` de
+producción. El SOP pasa antes por JSON, como lo guarda la biblioteca (`sops.contenido`) y lo
+vuelve a leer la validación.
+
+Con `--sop-editado clave=ORIGEN` (se repite por video), ese video no genera un SOP nuevo: mide
+RNF-05 sobre el SOP que alguien corrigió en el editor (RF-26, ADR-025), el número que va al
+informe final. ORIGEN es un `sop_id` (se lee de `sops.contenido` en la base del `.env`) o un
+archivo JSON: el `SOP` del contrato, la respuesta de `GET /sops/{id}` (`{"sop": ...}`) o el
+archivo que deja este script por corrida. El video se sigue pasando como argumento (su
+`analisis.json` o el video) para los tramos y el juez. Un paso agregado a mano sin tiempos no
+cae en ningún tramo: cuenta como incorrecto. Unir pasos es válido; quitar pasos baja el
+denominador (ADR-025), así que el informe trae también la referencia cubierta.
 
 `--candado si|no` fija el candado de la agrupación (ADR-023; por defecto, `SOP_CANDADO`). El
 informe trae, por corrida, las etiquetas de Gemma, los grupos y los pasos que partió el candado.
 
-Uso (desde la raíz, con el entorno activado, `make up-gpu` y la API detenida):
+Uso (desde la raíz, con el entorno activado, `make up-gpu` y la API detenida). Con un SOP
+editado (sop_id 42), sin generar:
+
+    python scripts/medir_sop_generado.py --referencia tests/fixtures/sop_filtro_agua.md \
+        --anotacion media/anotacion_ab.json --sop-editado video_e=42 \
+        video_e=data/interim/sop_generado/<fecha>/video_e/analisis.json
+
+Generando:
 
     python scripts/medir_sop_generado.py --repeticiones 3 \
         --referencia tests/fixtures/sop_filtro_agua.md --anotacion media/anotacion_ab.json \
@@ -78,7 +95,9 @@ from sopvid.lenguaje.validacion import DependenciasValidacion, validar
 from sopvid.percepcion.contexto import generar_contexto
 from sopvid.percepcion.segmentacion import segmentar
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
+from sopvid.plataforma.db import get_sessionmaker
 from sopvid.plataforma.hardware import get_hardware
+from sopvid.plataforma.modelos import Sop
 
 SALIDA = PROJECT_ROOT / "data" / "interim" / "sop_generado"
 DOCS = PROJECT_ROOT / "docs" / "adr" / "datos" / "sop_generado"
@@ -323,16 +342,20 @@ def paso_del_tramo(
 
 
 def correctos_por_tramos(
-    pasos: list[tuple[float, float]],
+    pasos: list[tuple[float | None, float | None]],
     tramos: dict[int, tuple[float, float]],
     tolerancia: float = TOLERANCIA_TRAMO_S,
 ) -> list[tuple[int | None, bool]]:
     """RNF-05 por tramos: por cada paso generado (inicio, fin), en orden, su paso de referencia y
     si es correcto: cae dentro del tramo de un solo paso de referencia y ese paso no es anterior
-    al de un paso correcto previo."""
+    al de un paso correcto previo. Un paso sin tiempos (agregado a mano en el editor) no cae en
+    ningún tramo: incorrecto."""
     resultado: list[tuple[int | None, bool]] = []
     ultimo = 0
     for t_inicio, t_fin in pasos:
+        if t_inicio is None or t_fin is None:
+            resultado.append((None, False))
+            continue
         ref = paso_del_tramo(t_inicio, t_fin, tramos, tolerancia)
         correcto = ref is not None and ref >= ultimo
         if ref is not None and correcto:
@@ -374,16 +397,15 @@ def comparar(
     clasificacion = orden(clasificacion)
     llm.descargar()
     tramos = tramos_anotados(anotacion, analisis.duracion_s)
-    por_tramos = correctos_por_tramos(
-        [(p.t_inicio or 0.0, p.t_fin or 0.0) for p in generado.pasos], tramos
-    )
+    por_tramos = correctos_por_tramos([(p.t_inicio, p.t_fin) for p in generado.pasos], tramos)
     por_video = {r.indice_video: r for r in clasificacion.pasos if r.indice_video is not None}
     filas = []
     for i, p in enumerate(generado.pasos):
         r = por_video.get(i)
         ref = r.indice_sop + 1 if r and r.indice_sop is not None else None
+        con_tiempos = p.t_inicio is not None and p.t_fin is not None
         medio = ((p.t_inicio or 0) + (p.t_fin or 0)) / 2
-        en_tramo = ref is not None and tramos[ref][0] <= medio < tramos[ref][1]
+        en_tramo = con_tiempos and ref is not None and tramos[ref][0] <= medio < tramos[ref][1]
         estado = r.estado if r else "?"
         correcto = estado in ("Cumple", "Parcial") and not r.fuera_de_orden and en_tramo
         filas.append(
@@ -426,6 +448,34 @@ def comparar(
     }
 
 
+def leer_sop_editado(origen: str) -> SOP:
+    """El SOP corregido en el editor: por `sop_id` (de `sops.contenido`) o desde un archivo JSON
+    con el `SOP` del contrato, la respuesta de `GET /sops/{id}` o el archivo de una corrida (los
+    dos últimos lo traen en `"sop"`)."""
+    if origen.isdigit():
+        with get_sessionmaker()() as session:
+            fila = session.get(Sop, int(origen))
+            if fila is None or fila.contenido is None:
+                raise SystemExit(f"el SOP {origen} no existe o no está listo")
+            return SOP.model_validate(fila.contenido)
+    ruta = Path(origen)
+    if not ruta.is_file():
+        raise SystemExit(f"--sop-editado: {origen} no es un sop_id ni un archivo")
+    datos = json.loads(ruta.read_text("utf-8"))
+    return SOP.model_validate(datos["sop"] if "pasos" not in datos and "sop" in datos else datos)
+
+
+def ediciones(pares: list[str]) -> dict[str, str]:
+    """`clave=ORIGEN` de cada `--sop-editado`."""
+    salida = {}
+    for par in pares:
+        clave, _, origen = par.partition("=")
+        if not clave or not origen:
+            raise SystemExit(f"--sop-editado espera clave=ORIGEN (llegó {par!r})")
+        salida[clave] = origen
+    return salida
+
+
 def completitud(sop: SOP) -> dict[str, Any]:
     """Qué del cuadro resumen y de la tabla de pasos quedó lleno (§14, video E)."""
     r = sop.resumen
@@ -450,6 +500,12 @@ def completitud(sop: SOP) -> dict[str, Any]:
 
 
 # ── Informe ──────────────────────────────────────────────────────────────────────────────────
+
+
+def _tramo(f: dict[str, Any]) -> str:
+    if f["t_inicio"] is None or f["t_fin"] is None:
+        return "sin tiempos"
+    return f"{f['t_inicio']:.1f}–{f['t_fin']:.1f}"
 
 
 def informe(datos: dict[str, Any]) -> str:
@@ -526,6 +582,19 @@ def informe(datos: dict[str, Any]) -> str:
             + "; ".join(c.get("equipo_operacion", []))
         )
         lineas += [f"  - sin traducir · {m}" for m in c.get("sin_traducir", [])]
+    if datos.get("editados"):
+        lineas += [
+            "",
+            "## SOP editados (RF-26)",
+            "",
+            "Medidos sin generar: el SOP que quedó tras la revisión en el editor. Unir pasos es "
+            "válido; quitar pasos baja el denominador (ADR-025): ver la referencia cubierta.",
+            "",
+        ]
+        lineas += [
+            f"- {clave}: {e['pasos']} pasos, de `{e['origen']}`"
+            for clave, e in datos["editados"].items()
+        ]
     lineas += ["", "## Llamadas (segundos · tokens de salida · tokens/s)", ""]
     for c in datos["corridas"]:
         partes = [f"{x['etapa']} {x['s']} s · {x['tokens']} · {x['tok_s']}" for x in c["llamadas"]]
@@ -573,7 +642,7 @@ def informe(datos: dict[str, Any]) -> str:
         ]
         for f in rnf["filas"]:
             lineas.append(
-                f"| {f['paso']} | {f['nombre']} | {f['t_inicio']:.1f}–{f['t_fin']:.1f} | "
+                f"| {f['paso']} | {f['nombre']} | {_tramo(f)} | "
                 f"{f.get('ref_tramo') or '—'} | {'sí' if f.get('correcto_tramo') else 'no'} | "
                 f"{f['referencia']} {f['nombre_referencia'] or ''} | {f['estado']} | "
                 f"{f['similitud']} | {'sí' if f['fuera_de_orden'] else 'no'} | "
@@ -609,6 +678,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--candado", choices=("si", "no"), help="candado de la agrupación (por defecto SOP_CANDADO)"
     )
+    parser.add_argument(
+        "--sop-editado",
+        action="append",
+        default=[],
+        metavar="CLAVE=ORIGEN",
+        help="mide RNF-05 sobre un SOP corregido (sop_id o JSON) en lugar de generar uno",
+    )
     args = parser.parse_args(argv)
 
     settings = get_settings()
@@ -618,6 +694,7 @@ def main(argv: list[str] | None = None) -> int:
     carpeta = SALIDA / marca
     carpeta.mkdir(parents=True, exist_ok=True)
     referencia = convertir_sop(args.referencia.read_text("utf-8")).sop if args.referencia else None
+    editados = {c: (o, leer_sop_editado(o)) for c, o in ediciones(args.sop_editado).items()}
     anotaciones = json.loads(args.anotacion.read_text("utf-8")) if args.anotacion else {}
     gpu = get_hardware().gpu
 
@@ -639,6 +716,7 @@ def main(argv: list[str] | None = None) -> int:
         "idiomas": {},
         "completitud": {},
         "rnf05": {},
+        "editados": {c: {"origen": o, "pasos": len(x.pasos)} for c, (o, x) in editados.items()},
     }
     primero: tuple[str, SOP] | None = None
     try:
@@ -655,6 +733,17 @@ def main(argv: list[str] | None = None) -> int:
                 analisis.model_dump_json(indent=2), "utf-8", newline="\n"
             )
             datos["idiomas"][clave] = analisis.idioma.model_dump()
+            if clave in editados:
+                # RF-26: el SOP corregido en el editor, sin generar otro.
+                editado = editados[clave][1]
+                datos["completitud"][f"{clave} (editado)"] = completitud(editado)
+                if referencia is not None and clave in anotaciones:
+                    datos["rnf05"][f"{clave} (editado)"] = comparar(
+                        editado, referencia, analisis, anotaciones[clave], llm
+                    )
+                print(f"{clave}: SOP editado, {len(editado.pasos)} pasos", file=sys.stderr)
+                primero = primero or (f"{clave} (editado)", editado)  # --validar lo usa
+                continue
             for n in range(1, args.repeticiones + 1):
                 corrida, generado = generar(clave, n, analisis, llm, registro, pedido_cpu, candado)
                 nombre = f"{clave}-{n}{'-cpu' if pedido_cpu else ''}.json"

@@ -570,6 +570,13 @@ class ResultadoEmparejamiento(_Modelo):
 # A diferencia de `Fuente`, un dato del SOP también puede venir del documento cargado.
 FuenteSOP = Literal["documento", "audio", "visual", "inferido"]
 
+# Lo revisó una persona en el editor (RF-25, RF-26, ADR-025): lo editó o lo confirmó. No cambia
+# `fuente`, `confianza` ni la cita (de dónde salió el dato se conserva); solo deja de resaltarse.
+Revisado = Annotated[
+    bool,
+    Field(description="Una persona lo editó o lo confirmó en el editor (ADR-025)."),
+]
+
 
 class Dato(_Modelo):
     """Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
@@ -583,6 +590,7 @@ class Dato(_Modelo):
     fuente: FuenteSOP = "documento"
     t: Tiempo | None = None
     cita: str = ""
+    revisado: Revisado = False
 
 
 class Elemento(_Modelo):
@@ -619,6 +627,7 @@ class Riesgo(_Modelo):
     fuente: FuenteSOP = "documento"
     confianza: Confianza = "alta"
     t: Tiempo | None = None
+    revisado: Revisado = False
 
 
 class Falla(_Modelo):
@@ -630,6 +639,7 @@ class Falla(_Modelo):
     fuente: FuenteSOP = "documento"
     confianza: Confianza = "alta"
     t: Tiempo | None = None
+    revisado: Revisado = False
 
 
 class Resumen(_Modelo):
@@ -683,6 +693,9 @@ class PasoSOP(_Modelo):
     pasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del
     tiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que
     la pantalla lo resalte. Un SOP cargado deja "", "documento" y [].
+
+    En el editor (RF-26, ADR-025), editar o confirmar un campo lo saca de `campos_inferidos`, y
+    `revisado` dice que una persona revisó el paso: su confianza baja o media deja de resaltarse.
     """
 
     numero: int = Field(ge=1)
@@ -699,6 +712,7 @@ class PasoSOP(_Modelo):
     cita: str = ""
     fuente: FuenteSOP = "documento"
     evidencia: list[Evidencia] = []
+    revisado: Revisado = False
 
     @model_validator(mode="after")
     def _rango(self) -> Self:
@@ -716,6 +730,7 @@ class PuntoClave(_Modelo):
     cita: str = ""
     fuente: FuenteSOP = "documento"
     confianza: Confianza = "alta"
+    revisado: Revisado = False
 
 
 CategoriaPalabra = Literal["equipo", "accion", "seguridad", "calidad", "lugar", "material", "otro"]
@@ -1406,9 +1421,11 @@ class GeneracionSOP(_Modelo):
 
     `grupos` tiene, por cada paso del SOP y en su orden, los números de los pasos del video que lo
     forman (consecutivos); `fuera`, los que no entran. Entre los dos aparece cada paso del video
-    una sola vez. `agrupacion` es "uno_a_uno" si la llamada de agrupación falló y cada paso del
-    video quedó como un paso del SOP. `segundos` es lo que tardó la generación (sin la ficha ni
-    la segmentación); `dispositivo_llm`, dónde corrió Gemma (ADR-018).
+    una sola vez. `grupos` registra lo que hizo el modelo: no refleja las ediciones de la persona
+    (`PUT /sops/{id}`, RF-26), que pueden unir, mover o quitar pasos. `agrupacion` es "uno_a_uno"
+    si la llamada de agrupación falló y cada paso del video quedó como un paso del SOP. `segundos`
+    es lo que tardó la generación (sin la ficha ni la segmentación); `dispositivo_llm`, dónde
+    corrió Gemma (ADR-018).
 
     Con la agrupación v2, `etiquetas` guarda la que puso Gemma a cada paso del video, en orden
     (vacía con la v1 o si falló). `candado` dice si se aplicó el candado por coseno y
@@ -1421,7 +1438,10 @@ class GeneracionSOP(_Modelo):
     modelo: str | None = None
     pasos_video: int = Field(ge=0)
     agrupacion: Literal["llm", "uno_a_uno"]
-    grupos: list[list[Annotated[int, Field(ge=1)]]]
+    grupos: list[list[Annotated[int, Field(ge=1)]]] = Field(
+        description="Pasos del video de cada paso del SOP, como los agrupó el modelo; no refleja "
+        "las ediciones de la persona (RF-26)."
+    )
     fuera: list[PasoFuera] = []
     etiquetas: list[EtiquetaAgrupacion] = []
     candado: bool = False

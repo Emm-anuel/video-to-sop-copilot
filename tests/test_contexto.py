@@ -101,6 +101,7 @@ def test_cita_que_existe_da_audio_alta_y_el_segundo_de_su_segmento():
         "fuente": "audio",
         "t": 0.0,
         "cita": "",
+        "revisado": False,
     }
     assert r.contexto.horario_mencionado.t == 10.0
     assert r.contexto.horario_mencionado.fuente == "audio"
@@ -203,6 +204,7 @@ def test_el_resumen_va_inferido_con_confianza_media_y_sin_cita():
         "fuente": "inferido",
         "t": None,
         "cita": "",
+        "revisado": False,
     }
 
 
@@ -265,6 +267,7 @@ def test_con_fotogramas_entran_numerados_y_el_esquema_acepta_el_numero():
         "fuente": "visual",
         "t": 3.5,
         "cita": "",
+        "revisado": False,
     }
     assert (r.contexto.tema.fuente, r.contexto.tema.t) == ("inferido", None)
     [persona] = r.contexto.personas

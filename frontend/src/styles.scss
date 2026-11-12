@@ -21,3 +21,50 @@ h1 {
   font-size: 1.5rem;
   margin: 0 0 1rem;
 }
+
+// Controles del editor del SOP (sop/sop-editor.ts) y de sus chips (sop/chips.ts): aquí y no en el
+// componente para que los dos los compartan sin repetirlos.
+app-sop-editor input,
+app-sop-editor textarea,
+app-sop-editor select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  border: 1px solid #98a2b3;
+  border-radius: 0.3rem;
+  background: #fff;
+}
+
+app-sop-editor textarea {
+  resize: vertical;
+}
+
+app-sop-editor button,
+app-sop-editor .boton {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #1f2a37;
+  background: #fff;
+  border: 1px solid #98a2b3;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+app-sop-editor button:disabled,
+app-sop-editor .boton.deshabilitado {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+app-sop-editor .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -1,8 +1,8 @@
 import { HttpEventType } from '@angular/common/http';
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
@@ -21,17 +21,30 @@ export const SONDEO_SOP_MS = 2000;
  *
  * Con "No tengo SOP" (ADR-023) no se pide SOP: el video sube con `modo=generar` y, al aceptarlo
  * la API, se va a la vista del SOP generado (`/videos/:id/sop`), que sigue el avance.
+ *
+ * Con `?sop=ID` ("Usar para validar" del editor) el SOP ya está elegido y solo se sube el video.
+ * Si el SOP quedó con advertencias o lo convirtió el modelo, ofrece revisarlo en `/sops/:id` con
+ * `?video=N`: el video no espera la corrección; si se corrige, se revalida desde el editor (RF-04).
  */
 @Component({
   selector: 'app-nuevo',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './nuevo.html',
   styleUrl: './nuevo.scss',
 })
-export class Nuevo {
+export class Nuevo implements OnInit {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  /** `?sop=ID`: un SOP ya guardado (cargado o de la biblioteca), elegido desde el editor. */
+  readonly sopInicial = input<number | undefined, unknown>(undefined, {
+    alias: 'sop',
+    transform: (v: unknown) => {
+      const n = v === null || v === undefined || v === '' ? NaN : Number(v);
+      return Number.isInteger(n) && n > 0 ? n : undefined;
+    },
+  });
 
   protected readonly tituloMax = TITULO_MAX;
   protected readonly form = new FormGroup({
@@ -56,6 +69,8 @@ export class Nuevo {
   /** El video ya había subido cuando falló la conversión: no se validará con ese SOP. */
   protected readonly videoSinSop = signal(false);
   protected readonly intentado = signal(false);
+  /** El SOP llegó elegido con `?sop=ID`: no se pide archivo. */
+  protected readonly sopElegido = signal(false);
 
   protected readonly convirtiendo = computed(() => {
     const estado = this.sop()?.estado;
@@ -69,10 +84,48 @@ export class Nuevo {
     () => this.video() !== null && this.sop()?.estado === 'listo',
   );
 
+  /** Revisar el SOP en el editor: listo con advertencias o convertido por el modelo (RF-04). */
+  protected readonly conviene = computed(() => {
+    const s = this.sop();
+    return s?.estado === 'listo' && (s.advertencias.length > 0 || s.metodo === 'llm');
+  });
+
   /** Título que se puso solo con el nombre del video; si el usuario lo cambia, no se toca. */
   private tituloAutomatico = '';
   private sondeo: Subscription | null = null;
   private subida: Subscription | null = null;
+
+  ngOnInit(): void {
+    const id = this.sopInicial();
+    if (id === undefined) {
+      return;
+    }
+    this.api
+      .estadoSop(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (estado) => {
+          if (estado.estado === 'error') {
+            this.error.set(`El SOP ${estado.codigo} no se pudo convertir: elige otro.`);
+          } else if (estado.en_biblioteca === false) {
+            this.error.set(
+              `El SOP ${estado.codigo} no está en la biblioteca: guárdalo desde el editor antes de usarlo.`,
+            );
+          } else {
+            this.sop.set(estado);
+            this.sopElegido.set(true);
+          }
+        },
+        error: (e: unknown) => this.error.set(`No se pudo leer el SOP ${id}. ${mensajeDeError(e)}`),
+      });
+  }
+
+  /** Deja el SOP elegido con `?sop=ID` y vuelve a pedir un archivo. */
+  protected otroSop(): void {
+    this.detenerSondeo();
+    this.sopElegido.set(false);
+    this.sop.set(null);
+  }
 
   protected elegirSop(evento: Event): void {
     this.archivoSop.set(primerArchivo(evento));
@@ -105,7 +158,8 @@ export class Nuevo {
     this.intentado.set(true);
     const archivoSop = this.archivoSop();
     const video = this.archivoVideo();
-    if (this.enviando() || !archivoSop || !video || this.form.invalid) {
+    const guardado = this.sop();
+    if (this.enviando() || (!archivoSop && !guardado) || !video || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
@@ -113,13 +167,12 @@ export class Nuevo {
     this.error.set(null);
     this.videoSinSop.set(false);
 
-    const guardado = this.sop();
     if (guardado) {
       this.seguir(guardado, video);
       return;
     }
     this.api
-      .crearSop(archivoSop)
+      .crearSop(archivoSop!)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (creado) => {

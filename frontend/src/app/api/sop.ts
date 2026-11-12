@@ -8,6 +8,10 @@ export type Confianza = "alta" | "media" | "baja";
 export type Fuente = "documento" | "audio" | "visual" | "inferido";
 export type T = number | null;
 export type Cita = string;
+/**
+ * Una persona lo editó o lo confirmó en el editor (ADR-025).
+ */
+export type Revisado = boolean;
 export type DuracionTotalMin = number | null;
 export type Nombre = string;
 export type Descripcion = string;
@@ -30,6 +34,10 @@ export type Cita2 = string;
 export type Fuente1 = "documento" | "audio" | "visual" | "inferido";
 export type Confianza1 = "alta" | "media" | "baja";
 export type T2 = number | null;
+/**
+ * Una persona lo editó o lo confirmó en el editor (ADR-025).
+ */
+export type Revisado1 = boolean;
 export type Riesgos = Riesgo[];
 export type Situacion = string;
 export type Accion = string;
@@ -37,6 +45,10 @@ export type Cita3 = string;
 export type Fuente2 = "documento" | "audio" | "visual" | "inferido";
 export type Confianza2 = "alta" | "media" | "baja";
 export type T3 = number | null;
+/**
+ * Una persona lo editó o lo confirmó en el editor (ADR-025).
+ */
+export type Revisado2 = boolean;
 export type EnCasoDeFalla = Falla[];
 /**
  * @minItems 1
@@ -62,11 +74,19 @@ export type Fuente4 = "documento" | "audio" | "visual" | "inferido";
 export type Confianza4 = "alta" | "media" | "baja";
 export type T4 = number | null;
 export type Evidencia = Evidencia1[];
+/**
+ * Una persona lo editó o lo confirmó en el editor (ADR-025).
+ */
+export type Revisado3 = boolean;
 export type Texto = string;
 export type T5 = number | null;
 export type Cita6 = string;
 export type Fuente5 = "documento" | "audio" | "visual" | "inferido";
 export type Confianza5 = "alta" | "media" | "baja";
+/**
+ * Una persona lo editó o lo confirmó en el editor (ADR-025).
+ */
+export type Revisado4 = boolean;
 export type PuntosClave = PuntoClave[];
 export type Termino = string;
 export type Categoria = "equipo" | "accion" | "seguridad" | "calidad" | "lugar" | "material" | "otro";
@@ -118,6 +138,7 @@ export interface Dato {
   fuente?: Fuente;
   t?: T;
   cita?: Cita;
+  revisado?: Revisado;
 }
 /**
  * Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
@@ -131,6 +152,7 @@ export interface Dato1 {
   fuente?: Fuente;
   t?: T;
   cita?: Cita;
+  revisado?: Revisado;
 }
 /**
  * Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
@@ -144,6 +166,7 @@ export interface Dato2 {
   fuente?: Fuente;
   t?: T;
   cita?: Cita;
+  revisado?: Revisado;
 }
 /**
  * Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
@@ -157,6 +180,7 @@ export interface Dato3 {
   fuente?: Fuente;
   t?: T;
   cita?: Cita;
+  revisado?: Revisado;
 }
 /**
  * Dato del resumen con su evidencia: de dónde sale, qué tan sólido es y en qué segundo.
@@ -170,6 +194,7 @@ export interface Dato4 {
   fuente?: Fuente;
   t?: T;
   cita?: Cita;
+  revisado?: Revisado;
 }
 /**
  * Equipo de operación o rol del SOP.
@@ -205,6 +230,7 @@ export interface Riesgo {
   fuente?: Fuente1;
   confianza?: Confianza1;
   t?: T2;
+  revisado?: Revisado1;
 }
 /**
  * Qué hacer en caso de falla, con su evidencia como en `Riesgo`.
@@ -216,6 +242,7 @@ export interface Falla {
   fuente?: Fuente2;
   confianza?: Confianza2;
   t?: T3;
+  revisado?: Revisado2;
 }
 /**
  * Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.
@@ -224,6 +251,9 @@ export interface Falla {
  * pasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del
  * tiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que
  * la pantalla lo resalte. Un SOP cargado deja "", "documento" y [].
+ *
+ * En el editor (RF-26, ADR-025), editar o confirmar un campo lo saca de `campos_inferidos`, y
+ * `revisado` dice que una persona revisó el paso: su confianza baja o media deja de resaltarse.
  */
 export interface PasoSOP {
   numero: Numero;
@@ -240,6 +270,7 @@ export interface PasoSOP {
   cita?: Cita4;
   fuente?: Fuente3;
   evidencia?: Evidencia;
+  revisado?: Revisado3;
 }
 /**
  * De dónde sale un dato de un paso del SOP generado (RF-25, ADR-023): `valor` es el dato tal
@@ -265,6 +296,7 @@ export interface PuntoClave {
   cita?: Cita6;
   fuente?: Fuente5;
   confianza?: Confianza5;
+  revisado?: Revisado4;
 }
 /**
  * Palabra clave del SOP. En el SOP generado, `t` es el segundo de cada mención en el audio

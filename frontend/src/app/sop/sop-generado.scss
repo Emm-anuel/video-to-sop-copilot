@@ -1,41 +1,7 @@
 :host {
   display: grid;
-  gap: 1.25rem;
-}
-
-section {
-  padding: 1.25rem 1.5rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
-}
-
-h1,
-h2,
-h3 {
-  margin: 0 0 0.6rem;
-}
-
-.encabezado {
-  display: flex;
   gap: 1rem;
-  align-items: flex-start;
-  justify-content: space-between;
 }
-
-.nota,
-.leyenda {
-  margin: 0;
-  color: #475467;
-  font-size: 0.9rem;
-}
-
-.guardado {
-  margin: 0;
-  color: #067647;
-  font-weight: 600;
-}
-
 .error {
   margin: 0;
   padding: 0.75rem;
@@ -44,100 +10,9 @@ h3 {
   border: 1px solid #fda29b;
   border-radius: 0.3rem;
 }
-
-.advertencias {
-  padding: 0.75rem;
-  background: #fffaeb;
-  border: 1px solid #fec84b;
-  border-radius: 0.3rem;
-
-  p,
-  ul {
-    margin: 0;
-  }
+.avance p {
+  margin: 0 0 0.4rem;
 }
-
-/* Lo inferido (sin evidencia en el video) se resalta para revisarlo (RF-25). */
-.inferido {
-  background: #fffaeb;
-  outline: 1px dashed #dc6803;
-}
-
-.resumen {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.4rem 1rem;
-  margin: 0 0 1rem;
-
-  dt {
-    font-weight: 600;
-  }
-
-  dd {
-    margin: 0;
-  }
-}
-
-.ficha {
-  display: inline-block;
-  margin: 0 0.3rem 0.3rem 0;
-  padding: 0.1rem 0.45rem;
-  background: #f2f4f7;
-  border-radius: 0.3rem;
-  font-size: 0.9rem;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-
-  th,
-  td {
-    padding: 0.4rem 0.5rem;
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid #eaecf0;
-  }
-}
-
-.claves {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.t {
-  margin-left: 0.4rem;
-  color: #475467;
-  font-variant-numeric: tabular-nums;
-}
-
 .avance progress {
   width: 100%;
-}
-
-// Miniatura del inicio de cada paso (ADR-024): recortada a 16:9, con fondo gris mientras carga.
-.col-miniatura {
-  width: 6.5rem;
-}
-
-.miniatura {
-  display: block;
-  width: 6rem;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  background: #f2f4f7;
-  border: 1px solid #e4e7ec;
-  border-radius: 0.25rem;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
 }

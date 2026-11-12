@@ -85,6 +85,27 @@ export class ApiService {
     return this.http.get<SopDetalle>(`${API}/sops/${id}`);
   }
 
+  /**
+   * `PUT /sops/{id}` (RF-04, RF-26): guarda el SOP completo. 422 si no cumple el contrato (con el
+   * `detail` por campo), 409 si todavía no está listo. La API recalcula la duración total.
+   */
+  corregirSop(id: number, sop: SOP): Observable<SopDetalle> {
+    return this.http.put<SopDetalle>(`${API}/sops/${id}`, sop);
+  }
+
+  /** `GET /sops/{id}.md`: el SOP guardado en la plantilla Markdown (ADR-015), para descargarlo. */
+  urlMarkdown(id: number): string {
+    return `${API}/sops/${id}.md`;
+  }
+
+  /**
+   * `POST /videos/{id}/validar` (ADR-019, ADR-022): repite la validación contra el SOP guardado,
+   * sin Whisper y con la segmentación guardada. 202; 409 si el video sigue en cola o procesando.
+   */
+  revalidar(videoId: number): Observable<VideoCreado> {
+    return this.http.post<VideoCreado>(`${API}/videos/${videoId}/validar`, null);
+  }
+
   /** `POST /sops/{id}/biblioteca` (RF-27): desde ahí sirve como referencia de otros videos. */
   guardarEnBiblioteca(id: number): Observable<EstadoSop> {
     return this.http.post<EstadoSop>(`${API}/sops/${id}/biblioteca`, null);

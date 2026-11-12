@@ -18,7 +18,8 @@ son de S5 y S6.
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
 | `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
-| `/videos/:id/sop` | **SOP generado (mínima, solo lectura):** avance, cuadro resumen, tabla de pasos, puntos y palabras clave con menciones, lo inferido resaltado y "Guardar en la biblioteca" | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov): `src/app/sop/`. Sin edición: llega con RF-26 |
+| `/videos/:id/sop` | **SOP generado y su editor (RF-26):** avance y, al terminar, el editor del SOP (sección "Editor del SOP") | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov, solo lectura; editor desde el 11 nov): `src/app/sop/` |
+| `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -33,8 +34,8 @@ Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 
 | Qué falta | RF | Responsable | Semana |
 |---|---|---|---|
-| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP") | RF-07, RF-02 | Emmanuel | S5 |
-| Mostrar el SOP convertido para corregirlo (sin detener el video: si se corrige, se revalida con `POST /videos/{id}/validar`) | RF-04 | Emmanuel | S5 |
+| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP"; desde el 11 nov `/nuevo?sop=ID` llega con un SOP ya elegido desde el editor, pero todavía no hay lista para escoger) | RF-07, RF-02 | Emmanuel | S5 |
+| ~~Mostrar el SOP convertido para corregirlo~~ Hecho el 11 nov: enlace "Revisar y corregir el SOP" a `/sops/:id?video=N` (el video no espera; se revalida desde el editor) | RF-04 | Emmanuel | S5 |
 | Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | Emmanuel | S5 |
 | Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | Emmanuel | S5 |
 
@@ -222,22 +223,74 @@ reordenar pasos) sobre el mismo componente.
     `sop_id` en otro `POST /videos` (antes, la API responde 422).
 - Tipos: `src/app/api/sop.ts` se genera desde `docs/contrato/sop.schema.json` con
   `npm run tipos:sop` (`npm run tipos` genera los dos). No se edita a mano.
-- Pendiente (RF-26): edición con `PUT /sops/{id}` (la API ya valida el SOP completo y responde
-  422 si no cumple el contrato), descargar el Markdown (`GET /sops/{id}.md`) y repetir la
-  generación (`POST /videos/{id}/generar`).
-- **Para RF-26 (10 nov): el editor necesita "Unir con el siguiente paso".** La agrupación
-  predeterminada (v2, ADR-023) encuentra bien dónde empieza y termina cada paso y no inventa ni
-  mezcla pasos, pero el SOP sale más detallado que uno escrito a mano (unos 15 pasos contra 6 en
-  el video E): quien revisa junta pasos. En cada fila (menos la última), un botón que una el paso
-  con el siguiente en el mismo `PasoSOP`:
-  - `t_inicio` del primero y `t_fin` del segundo (los tiempos salen del video: no se escriben a
-    mano);
-  - nombre del primero, editable; descripciones unidas en orden;
-  - `equipo`, `puntos_validacion`, `evidencia` y `campos_inferidos` unidos sin repetir;
-    `tiempo_esperado_min`, la suma; `cita`, `fuente` y `confianza`, las del primero;
-  - renumerar los pasos (1…n) y el `paso` de cada riesgo del resumen: el que apuntaba al segundo
-    pasa al paso unido y los de después bajan uno.
-  Se guarda con el mismo `PUT /sops/{id}`. Lo contrario ("Partir") no hace falta para este caso.
+- Desde el 11 nov la vista de solo lectura es el editor (sección siguiente). Pendiente: repetir la
+  generación (`POST /videos/{id}/generar`) desde la pantalla.
+
+## Editor del SOP (RF-26 y RF-04, 11 nov, ADR-025)
+
+Un solo componente, `SopEditor` (`src/app/sop/sop-editor.ts`), para los dos casos:
+
+- **SOP generado** (`/videos/:id/sop`): `SopGenerado` sigue el avance y, con `listo`, monta el
+  editor con el `sop_id` del video. Miniatura por paso (`GET /videos/{id}/thumb?t=`,
+  `loading="lazy"`; con la advertencia `sin_imagen` no se pide), tramo del video de cada paso y
+  segundos de puntos y palabras clave como botones que abren el video en ese segundo (un
+  `<dialog>` con el reproductor, `preload="none"`).
+- **SOP de referencia** (`/sops/:id`, ruta directa al editor): advertencias agrupadas por `tipo`
+  con su línea, aviso "lo convirtió el modelo, revísalo" con `metodo: "llm"` y "Usar para validar"
+  (`/nuevo?sop=ID`). Con `?video=N`, después de guardar ofrece "Revalidar el video N"
+  (`POST /videos/{id}/validar`, reusa la segmentación y no repite Whisper). **El video no espera
+  la corrección:** se valida en cuanto el SOP está listo (los pasos del video se extraen sin ver el
+  SOP, regla 5) y la cola de un trabajador nunca espera a una persona. `/nuevo` muestra el enlace
+  "Revisar y corregir el SOP" cuando el SOP quedó con advertencias o lo convirtió el modelo.
+
+Cómo funciona:
+
+- **Borrador y funciones puras** (`src/app/sop/edicion.ts`, pruebas en `edicion.spec.ts`): cada
+  paso lleva una `clave` estable y los riesgos apuntan a esa clave, así que reordenar, unir o
+  quitar no rompe su `paso`. `aSop` pone los números 1..n y el `paso` de cada riesgo al
+  guardar; la persona no escribe el número. `t_inicio` y `t_fin` no se editan (regla 4).
+- **Unir con el siguiente paso** (`unirConSiguiente`): nombre del primero (el foco va a su campo);
+  descripciones unidas; equipo, puntos de validación, evidencia y campos inferidos sin repetir;
+  tiempo sumado; tramo del video con el **mínimo y el máximo** de los dos (en el caso normal, el
+  `t_inicio` del primero y el `t_fin` del segundo; así un par reordenado no deja el rango al
+  revés ni da 422) y la miniatura sale de ese `t_inicio`; **confianza la menor**; `cita` y
+  `fuente` del primero (la del segundo sigue en `evidencia`); los riesgos del segundo pasan al
+  unido. Si los responsables difieren, pregunta cuál usar y el elegido sale de `campos_inferidos`.
+- **Quitar con deshacer** (pila de la sesión; el último paso no se quita), **agregar** (vacío,
+  inferido con confianza baja y `revisado`, porque lo escribió una persona) y **reordenar**
+  arrastrando el asa (⠿, HTML5 nativo, sin CDK) o con ▲ ▼.
+- **Lo que hay que revisar (RF-25):** un campo en `campos_inferidos`, o un dato con fuente
+  `inferido` o confianza baja o media, lleva color **y** una leyenda de texto ("Inferido",
+  "Confianza media"). Editarlo o pulsar "Confirmar" lo marca `revisado: true` (ADR-025) y, en un
+  paso, lo saca de `campos_inferidos`; la fuente, la confianza y la cita no cambian. Lo revisado
+  ya no se resalta, también al recargar. Quitar un elemento de una lista borra su evidencia;
+  cambiar a mano el responsable o el tiempo borra la de ese campo.
+- **Cuadro resumen:** título, versión y los cinco datos como texto (vacío → `null`); equipo de
+  operación y roles como chips (`src/app/sop/chips.ts`); riesgos (con nivel, paso y control) y
+  qué hacer en caso de falla como filas con agregar y quitar. Personas, solo lectura. La duración
+  total se muestra como quedará al guardar (`PUT /sops/{id}` la pone al día, ADR-025): **la que
+  narró el operador, si la hay** (`generacion.duracion_narrada`, ADR-021: gana e incluye pausas);
+  si no, la suma de los pasos si todos tienen tiempo, la del documento si ninguno y vacía si solo
+  algunos. La pantalla dice de cuál salió.
+- **Puntos clave:** se editan y se quitan. **Palabras clave:** solo lectura (las menciones las
+  cuenta el código), como tarjetas (`src/app/sop/palabras-clave.ts`): término, categoría y
+  menciones arriba y los segundos abajo, en varias líneas. Si el componente mide 34 rem o más
+  (container query, no el ancho de la ventana), se alinean como una tabla.
+- **Guardar:** `PUT /sops/{id}` con el SOP completo y luego `GET /sops/{id}` para comprobar que
+  el orden, las listas y los números quedaron como se veían (`huella`: JSON con claves ordenadas
+  y sin la duración total). Un 422 lista cada campo ("Paso 4 · nombre: …", `erroresPorCampo` en
+  `api/errores.ts`) y lo marca sin perder lo editado; un 409 dice "el SOP todavía no está listo".
+  "Guardar en la biblioteca", "Descargar .md" (`GET /sops/{id}.md`) y "Usar para validar" quedan
+  deshabilitados con cambios sin guardar. Salir con cambios pregunta (`sinGuardar` en las dos
+  rutas y `beforeunload`).
+- **360 px (RNF-13):** los pasos son tarjetas, no una tabla, y las rejillas se abren en dos
+  columnas desde 40 rem. Todo lo que se toca mide al menos 24 px (WCAG 2.5.8): la × de los chips
+  y los segundos, 36 px; el asa de arrastre, 28 × 36 (en un teléfono se reordena con ▲ ▼).
+  Revisado el 12 nov en Edge headless a 360 × 780 con el build de producción: ningún desborde
+  horizontal, también tras unir, reordenar y agregar un chip de 70 caracteres sin espacios, y el
+  diálogo del video cabe (322 × 218 px). Los estilos de los controles del formulario están en `src/styles.scss`
+  bajo `app-sop-editor`, para que los chips los compartan.
+- `generacion.grupos` no se toca: registra cómo agrupó el modelo, no lo que editó la persona.
 
 ## Desarrollo
 

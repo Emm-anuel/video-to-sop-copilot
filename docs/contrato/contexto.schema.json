@@ -85,6 +85,12 @@
           "default": "",
           "title": "Cita",
           "type": "string"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "title": "Dato",

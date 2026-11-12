@@ -24,6 +24,7 @@ from sopvid.contrato import (
 from sopvid.lenguaje.tiempos import (
     comparar,
     comparar_horario,
+    con_duracion_recalculada,
     duracion_en_texto,
     duracion_narrada,
     esperado_total,
@@ -349,6 +350,26 @@ def test_total_contra_la_suma_de_los_esperados_si_el_sop_no_trae_total() -> None
     assert esperado_total(_sop([0.5, 1.0, 0.5])) == 2.0
     # Si algún paso no tiene tiempo, la suma sería parcial: sin referencia.
     assert esperado_total(_sop([0.5, None, 0.5])) is None
+
+
+def test_la_edicion_recalcula_la_duracion_total_desde_los_pasos() -> None:
+    """ADR-025: al guardar una edición (RF-26) el total no se queda con el valor de antes."""
+    # Se quitó un paso: el total viejo (3.0) ya no es la suma.
+    assert con_duracion_recalculada(_sop([0.5, 1.0], total=3.0)).resumen.duracion_total_min == 1.5
+    assert con_duracion_recalculada(_sop([0.1, 0.2])).resumen.duracion_total_min == 0.3
+    # Un paso agregado sin tiempo: una suma parcial engañaría.
+    assert con_duracion_recalculada(_sop([0.5, None], total=3.0)).resumen.duracion_total_min is None
+    # Ningún paso con tiempo (SOP cargado que solo da el total): se queda el del documento.
+    assert con_duracion_recalculada(_sop([None, None], total=30.0)).resumen.duracion_total_min == 30
+
+
+def test_la_duracion_narrada_por_el_operador_no_se_pisa_al_editar() -> None:
+    """ADR-021 y ADR-025: lo narrado gana; incluye pausas que la suma de los pasos no captura."""
+    sop = _sop([0.5, 1.0], total=3.0)
+    assert con_duracion_recalculada(sop, narrada=3.0).resumen.duracion_total_min == 3.0
+    # Aunque se quiten pasos o falte el tiempo de alguno.
+    assert con_duracion_recalculada(_sop([0.5]), narrada=3.0).resumen.duracion_total_min == 3.0
+    assert con_duracion_recalculada(_sop([None]), narrada=3.0).resumen.duracion_total_min == 3.0
 
 
 def test_total_sin_referencia() -> None:

@@ -1,0 +1,353 @@
+// Editor del SOP. Primero para pantallas angostas (RNF-13: 360 px); las rejillas se abren en
+// columnas cuando hay espacio.
+
+:host {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+section,
+.encabezado {
+  min-width: 0;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+}
+
+h2,
+h3 {
+  margin: 0 0 0.6rem;
+}
+
+h3 {
+  margin-top: 1rem;
+  font-size: 1rem;
+}
+
+// Controles del formulario: en styles.scss (`app-sop-editor …`), para que los chips los compartan.
+
+.primario {
+  color: #fff;
+  background: #1f2a37;
+  border-color: #1f2a37;
+}
+
+.peligro {
+  color: #b42318;
+  border-color: #fda29b;
+}
+
+.campo {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  margin-bottom: 0.6rem;
+
+  label,
+  .etiqueta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .confirmar {
+    justify-self: start;
+  }
+}
+
+.rejilla {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 1rem;
+
+  @media (min-width: 40rem) {
+    grid-template-columns: 1fr 1fr;
+
+    .ancho {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+.encabezado {
+  display: grid;
+  gap: 0.75rem;
+
+  .titulo input {
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+}
+
+.acciones,
+.acciones-fila,
+.paso-pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nota,
+.leyenda {
+  margin: 0;
+  color: #475467;
+  font-size: 0.9rem;
+}
+
+.guardado {
+  color: #067647;
+  font-weight: 600;
+}
+
+.sin-guardar {
+  margin: 0;
+  color: #93370d;
+  font-weight: 600;
+}
+
+// Cajas de aviso: error (rojo), hecho (verde) y advertencia (ámbar).
+.error,
+.errores,
+.aviso,
+.revalidar,
+.aviso-llm,
+.advertencias {
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid #fec84b;
+  border-radius: 0.3rem;
+  background: #fffaeb;
+
+  p,
+  ul {
+    margin: 0 0 0.4rem;
+  }
+}
+
+.error,
+.errores {
+  color: #b42318;
+  background: #fef3f2;
+  border-color: #fda29b;
+}
+
+.aviso,
+.revalidar {
+  background: #ecfdf3;
+  border-color: #75e0a7;
+}
+
+.campo-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.85rem;
+}
+
+.con-error {
+  border-color: #d92d20;
+  outline: 1px solid #d92d20;
+}
+
+.linea {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+// Lo que hay que revisar (RF-25): color y, siempre, una leyenda de texto.
+.revisar {
+  background: #fffaeb;
+  outline: 1px dashed #dc6803;
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.marca-revisar {
+  display: inline-block;
+  padding: 0 0.35rem;
+  color: #93370d;
+  background: #fef0c7;
+  border: 1px solid #fec84b;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.duracion {
+  margin: 0.25rem 0 0.75rem;
+}
+
+.filas {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+
+.fila {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid #eaecf0;
+  border-radius: 0.3rem;
+}
+
+// Pasos como tarjetas: una por fila, con la miniatura arriba en pantallas angostas.
+.pasos {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paso {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 0.4rem;
+
+  &.arrastrando {
+    opacity: 0.5;
+  }
+}
+
+.paso-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+
+  .numero {
+    font-weight: 700;
+  }
+
+  .controles {
+    display: inline-flex;
+    gap: 0.3rem;
+    margin-left: auto;
+  }
+}
+
+// Al menos 24 px de lado (WCAG 2.5.8); en un teléfono se reordena con ▲ ▼.
+.asa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  min-height: 2.25rem;
+  cursor: grab;
+  user-select: none;
+  color: #667085;
+}
+
+.paso-cuerpo {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 40rem) {
+    grid-template-columns: 10rem 1fr;
+  }
+}
+
+.campos {
+  min-width: 0;
+  grid-column: -2 / -1;
+}
+
+.miniatura {
+  display: block;
+  width: 100%;
+  max-width: 10rem;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #f2f4f7;
+  border: 1px solid #e4e7ec;
+  border-radius: 0.25rem;
+}
+
+.pregunta {
+  padding: 0.6rem;
+  background: #eff8ff;
+  border: 1px solid #84caff;
+
+  p {
+    margin: 0 0 0.4rem;
+  }
+}
+
+.enlace-t {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  margin: 0 0.25rem 0.25rem 0;
+  color: #175cd3;
+  border-color: #b2ddff;
+  font-variant-numeric: tabular-nums;
+}
+
+.t {
+  margin-right: 0.4rem;
+  color: #475467;
+  font-variant-numeric: tabular-nums;
+}
+
+.claves {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+
+  > div {
+    min-width: 0;
+  }
+
+  @media (min-width: 48rem) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.deshacer {
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  color: #fff;
+  background: #1f2a37;
+  border-radius: 0.4rem;
+
+  button {
+    color: #fff;
+    background: transparent;
+    border-color: #fff;
+  }
+}
+
+.dialogo-video {
+  width: min(48rem, 95vw);
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+
+  video {
+    display: block;
+    width: 100%;
+    max-height: 70vh;
+    margin-bottom: 0.5rem;
+    background: #000;
+  }
+}

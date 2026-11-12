@@ -218,8 +218,13 @@ docs/
 >   `PASOS_POR_MIN`, de 4 a 20), lotes de 8 (`prompts/fotogramas_v1.md`), aviso
 >   `imagenes_incompletas`; `metadatos.imagenes` en el reporte y en `sops.generacion`.
 >   `GET /videos/estimacion` avisa del tiempo extra con y sin GPU; nunca bloquea.
-> - **Sin código todavía:** subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6); editor
->   de RF-26; pantallas fuera del MVP.
+> - **Editor del SOP (11 nov, rama `feat/s5-pantallas`, RF-26 y RF-04, ADR-025):** `frontend/src/app/sop/`
+>   (`SopEditor` en `/videos/:id/sop` y `/sops/:id`; unir, reordenar y quitar con deshacer; lógica pura en
+>   `edicion.ts`). `revisado` en `Dato`, `Riesgo`, `Falla`, `PuntoClave` y `PasoSOP`; `PUT /sops/{id}`
+>   pone al día la duración total sin pisar la narrada. RNF-05 de un SOP editado:
+>   `scripts/medir_sop_generado.py --sop-editado clave=sop_id|json`. Corregir un SOP no detiene el video: se revalida con `POST /videos/{id}/validar`.
+> - **Sin código todavía:** subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6);
+>   pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

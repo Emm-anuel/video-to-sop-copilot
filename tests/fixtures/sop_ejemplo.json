@@ -8,35 +8,40 @@
       "confianza": "alta",
       "fuente": "documento",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "alcance": {
       "valor": "Filtro de cartucho montado en pared, antes de la línea de enjuague. No incluye cambiar la carcasa ni la llave de paso.",
       "confianza": "alta",
       "fuente": "documento",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "responsable": {
       "valor": "Técnico de mantenimiento",
       "confianza": "alta",
       "fuente": "documento",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "lugar": {
       "valor": "Línea de enjuague, filtro de agua de entrada",
       "confianza": "alta",
       "fuente": "documento",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "horario_frecuencia": {
       "valor": "Cada tres meses, o cuando el manómetro marque menos de 2 bar",
       "confianza": "alta",
       "fuente": "documento",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "duracion_total_min": 3.0,
     "equipo_operacion": [
@@ -89,7 +94,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       },
       {
         "descripcion": "Piso mojado",
@@ -99,7 +105,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       }
     ],
     "en_caso_de_falla": [
@@ -109,7 +116,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       },
       {
         "situacion": "Hay fuga en la unión del vaso",
@@ -117,7 +125,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       }
     ]
   },
@@ -141,7 +150,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 2,
@@ -161,7 +171,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 3,
@@ -182,7 +193,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 4,
@@ -203,7 +215,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 5,
@@ -225,7 +238,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 6,
@@ -247,7 +261,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     }
   ],
   "puntos_clave": [],
