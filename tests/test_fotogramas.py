@@ -178,6 +178,47 @@ def test_ollama_caido_no_pide_los_lotes_que_faltan(video: Path, tmp_path: Path) 
     assert [a.tipo for a in avisos_fotogramas(r)] == ["imagenes_incompletas"]
 
 
+def test_cuenta_exacta_de_imagenes_por_lote_antes_del_avance(video: Path, tmp_path: Path) -> None:
+    # RF-08: la pantalla muestra (hechas, total) tal cual; la última cuenta es la completa.
+    ollama = OllamaFalso([])
+    eventos: list[tuple[str, Any]] = []
+    with ollama.cliente() as llm:
+        describir_fotogramas(
+            video,
+            tmp_path / "v",
+            6.0,
+            5,
+            llm,
+            settings=AJUSTES,
+            al_avanzar=lambda f: eventos.append(("avance", round(f, 2))),
+            al_contar=lambda hechas, total: eventos.append(("cuenta", (hechas, total))),
+        )
+    assert eventos == [
+        ("cuenta", (0, 5)),
+        ("cuenta", (2, 5)),
+        ("avance", 0.4),
+        ("cuenta", (4, 5)),
+        ("avance", 0.8),
+        ("cuenta", (5, 5)),
+        ("avance", 1.0),
+    ]
+
+
+def test_cuenta_sin_imagen_es_cero_de_cero(generar_video, tmp_path: Path) -> None:
+    cuentas: list[tuple[int, int]] = []
+    with OllamaFalso([]).cliente() as llm:
+        describir_fotogramas(
+            generar_video(segundos=6, imagen="ninguna"),
+            tmp_path / "v",
+            6.0,
+            5,
+            llm,
+            settings=AJUSTES,
+            al_contar=lambda hechas, total: cuentas.append((hechas, total)),
+        )
+    assert cuentas == [(0, 0)]
+
+
 def test_sin_memoria_baja_el_lote_a_la_mitad_y_reintenta(video: Path, tmp_path: Path) -> None:
     ollama = OllamaFalso([])
     ollama.fotogramas_memoria_max = 4  # con 6 imágenes por llamada no cabe; con 3, sí
@@ -336,6 +377,72 @@ def test_settings_encendido_sin_parametro_describe(
     _subir(client, entorno, generar_video())
     entorno.correr_pendientes()
     assert entorno.ollama.imagenes_por_llamada == [4]
+
+
+@pytest.mark.parametrize(
+    ("instalacion", "parametro", "esperado"),
+    [
+        (False, None, False),
+        (True, None, True),
+        (False, "true", True),
+        (True, "false", False),
+    ],
+)
+def test_estado_trae_analizar_imagenes_ya_resuelto(
+    client: TestClient,
+    entorno: Entorno,
+    generar_video,
+    instalacion: bool,
+    parametro: str | None,
+    esperado: bool,
+) -> None:
+    # RF-08: la pantalla de avance sabe desde la cola si la etapa "fotogramas" va a correr, sin
+    # volver a resolver el parámetro contra FOTOGRAMAS_DESCRIBIR.
+    entorno.settings = entorno.settings.model_copy(update={"fotogramas_describir": instalacion})
+    datos = {} if parametro is None else {"analizar_imagenes": parametro}
+    video_id = _subir(client, entorno, generar_video(), **datos)
+    estado = client.get(f"/videos/{video_id}").json()
+    assert estado["proceso"] == "en_cola"
+    assert estado["analizar_imagenes"] is esperado
+    assert entorno.video(video_id).analizar_imagenes is esperado
+
+
+@pytest.mark.parametrize("modo", ["validar", "generar"])
+def test_estado_trae_la_cuenta_de_imagenes(
+    client: TestClient, entorno: Entorno, generar_video, modo: str
+) -> None:
+    video_id = _subir(client, entorno, generar_video(), modo=modo, analizar_imagenes="true")
+    vistas: list[tuple[str | None, int | None, int | None]] = []
+
+    def ver() -> None:
+        e = client.get(f"/videos/{video_id}").json()
+        vistas.append((e["etapa"], e["imagenes_hechas"], e["imagenes_total"]))
+
+    entorno.ollama.al_pedir = ver
+    entorno.correr_pendientes()
+    # Al pedir las imágenes a Gemma ya se ve "0 de 4"; al terminar, la cuenta completa.
+    assert ("fotogramas", 0, 4) in vistas
+    final = client.get(f"/videos/{video_id}").json()
+    assert (final["proceso"], final["imagenes_hechas"], final["imagenes_total"]) == ("listo", 4, 4)
+
+
+def test_sin_imagenes_la_cuenta_va_vacia(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    video_id = _subir(client, entorno, generar_video())
+    entorno.correr_pendientes()
+    estado = client.get(f"/videos/{video_id}").json()
+    assert (estado["imagenes_hechas"], estado["imagenes_total"]) == (None, None)
+
+
+def test_video_anterior_a_la_columna_se_lee_sin_imagenes(
+    client: TestClient, entorno: Entorno, generar_video
+) -> None:
+    # NULL (video subido antes de la migración 0007): ninguno pudo describir imágenes.
+    video_id = _subir(client, entorno, generar_video())
+    entorno.video(video_id).analizar_imagenes = None
+    entorno.session.commit()
+    assert client.get(f"/videos/{video_id}").json()["analizar_imagenes"] is False
 
 
 def test_un_dato_tomado_de_una_imagen_sale_con_fuente_visual(

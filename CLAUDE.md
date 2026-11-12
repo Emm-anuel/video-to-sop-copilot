@@ -229,6 +229,12 @@ docs/
 >   `/nuevo` con tres modos, consentimiento (RNF-16) y la casilla de imágenes: duración leída en el
 >   navegador, `GET /videos/estimacion` (ahora con `sin_imagen` y `analizar_imagenes_defecto`) y
 >   `analizar_imagenes` siempre en `POST /videos`. La lista de videos (pantalla 6) pasa a S6.
+> - **Procesando (12 nov, rama `feat/s5-pantallas`, RF-08):** `/videos/:id/procesando`
+>   (`frontend/src/app/procesando/`); el avance sale de un solo servicio (`frontend/src/app/avance/`:
+>   sondeo de 1.5 s, finales, reintento con espera creciente y la única tabla de etapas), que
+>   también usan el reporte y el SOP generado. `/nuevo` navega ahí. `videos.analizar_imagenes`
+>   (migración `0007`) guarda la casilla ya resuelta, e `imagenes_hechas`/`imagenes_total` la
+>   cuenta exacta por lote; `GET /videos/{id}` devuelve las tres.
 > - **Sin código todavía:** subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6);
 >   pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar

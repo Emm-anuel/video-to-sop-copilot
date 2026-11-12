@@ -82,6 +82,12 @@ video {
   font-variant-numeric: tabular-nums;
 }
 
+// Enlace al avance por etapa: objetivo de 36 px (RNF-13).
+.ir a {
+  display: inline-block;
+  line-height: 2.25rem;
+}
+
 .tiempo-final {
   font-size: 0.85rem;
   color: #667085;

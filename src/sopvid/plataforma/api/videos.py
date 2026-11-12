@@ -53,7 +53,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from sopvid.contrato import (
@@ -141,6 +141,19 @@ class EstadoVideo(BaseModel):
     # Afinidad de contexto (RF-17, ADR-020): con "afinidad_baja", la de la detención (la pantalla
     # advierte y ofrece continuar); con "listo", la del reporte. None sin ficha o sin validación.
     afinidad: Afinidad | None = None
+    # Si se pidió describir imágenes (ADR-024), ya resuelto contra FOTOGRAMAS_DESCRIBIR: con true,
+    # la etapa "fotogramas" corre en el proceso inicial (al repetir se usan las guardadas). Un
+    # video anterior a la columna (NULL) no pudo describirlas: false.
+    analizar_imagenes: bool = False
+    # Imágenes que ya pasaron por Gemma de las sacadas (ADR-024), al día por lote durante la etapa
+    # "fotogramas": la pantalla las muestra tal cual. None si el video nunca las describió.
+    imagenes_hechas: int | None = None
+    imagenes_total: int | None = None
+
+    @field_validator("analizar_imagenes", mode="before")
+    @classmethod
+    def _nulo_es_no(cls, valor: bool | None) -> bool:
+        return bool(valor)
 
 
 class EstimacionImagenes(BaseModel):
@@ -248,6 +261,9 @@ def subir_video(
             )
     # Del SOP adjunto se revisa aquí que se pueda leer; lo convierte el trabajador.
     adjunto = leer_archivo_sop(sop) if sop is not None else None
+    # El parámetro del video gana sobre la instalación, en los dos sentidos (ADR-024). Se guarda
+    # ya resuelto: la pantalla de avance no tiene que volver a resolverlo (RF-08).
+    imagenes = settings.fotogramas_describir if analizar_imagenes is None else analizar_imagenes
 
     carpetas: list[Path] = []
     try:
@@ -258,7 +274,13 @@ def subir_video(
             carpetas.append(carpeta_sop(settings.media_path, fila_sop.id))
             sop_id = fila_sop.id
         video = Video(
-            titulo=titulo, archivo="", modo=modo, idioma=idioma, sop_id=sop_id, proceso=EN_COLA
+            titulo=titulo,
+            archivo="",
+            modo=modo,
+            idioma=idioma,
+            sop_id=sop_id,
+            proceso=EN_COLA,
+            analizar_imagenes=imagenes,
         )
         session.add(video)
         session.flush()  # asigna el id
@@ -275,8 +297,6 @@ def subir_video(
         if isinstance(exc, _TamanoExcedido):
             raise HTTPException(413, _detalle_tamano(settings)) from None
         raise
-    # El parámetro del video gana sobre la instalación, en los dos sentidos (ADR-024).
-    imagenes = settings.fotogramas_describir if analizar_imagenes is None else analizar_imagenes
     logger.info(
         "Video %d recibido (%s, %.1f MB%s%s)",
         video.id,

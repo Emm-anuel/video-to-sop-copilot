@@ -99,6 +99,8 @@ _ERROR_DE_MEMORIA = re.compile(
 Modo = Literal["validar", "generar"]
 # Recibe la fracción de la etapa ya hecha (0 a 1), para el avance.
 AlAvanzarFraccion = Callable[[float], None]
+# (hechas, total): cuántas de las imágenes sacadas ya pasaron por Gemma; se llama antes del avance.
+AlContar = Callable[[int, int], None]
 
 
 # ── Respuesta del LLM ────────────────────────────────────────────────────────────────────────
@@ -265,17 +267,21 @@ def describir_fotogramas(
     *,
     settings: Settings | None = None,
     al_avanzar: AlAvanzarFraccion | None = None,
+    al_contar: AlContar | None = None,
     version: str = PROMPT,
     reloj: Callable[[], float] = time.monotonic,
 ) -> ResultadoFotogramas:
     """Saca `n` cuadros repartidos de forma pareja y los describe con Gemma por lotes.
 
     Nunca lanza por el LLM ni por ffmpeg (ver el docstring del módulo). Sin imagen visible no
-    llama al modelo y devuelve `sin_imagen=True`.
+    llama al modelo y devuelve `sin_imagen=True`. `al_contar(hechas, total)` da la cuenta exacta
+    para la pantalla de avance (RF-08): (0, total) al sacar los cuadros y después de cada lote,
+    antes de `al_avanzar`; sin imagen, (0, 0).
     """
     s = settings or get_settings()
     inicio = reloj()
     avanzar = al_avanzar or (lambda fraccion: None)
+    contar = al_contar or (lambda hechas, total: None)
 
     def terminar(**kwargs: Any) -> ResultadoFotogramas:
         resultado = ResultadoFotogramas(
@@ -290,9 +296,11 @@ def describir_fotogramas(
         logger.warning("Imágenes de %s: no se pudo revisar la imagen (%s)", video.name, exc)
         visible = False
     if not visible:
+        contar(0, 0)
         return terminar(sin_imagen=True)
 
     cuadros, motivo = _extraer(video, carpeta_video, tiempos_parejos(n, duracion_s), s)
+    contar(0, len(cuadros))
     prompt = cargar_prompt(version)
     cuenta = _Cuenta()
     fotogramas: list[Fotograma] = []
@@ -327,6 +335,7 @@ def describir_fotogramas(
                 fallidos += restantes
                 lotes += restantes
                 break
+        contar(hechos, len(cuadros))
         avanzar(hechos / len(cuadros))
     fotogramas.sort(key=lambda f: f.t)
     return terminar(

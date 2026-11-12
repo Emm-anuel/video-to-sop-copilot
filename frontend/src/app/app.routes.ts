@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Biblioteca } from './biblioteca/biblioteca';
 import { Nuevo } from './nuevo/nuevo';
+import { Procesando } from './procesando/procesando';
 import { Reporte } from './reporte/reporte';
 import { sinGuardar } from './sop/sin-guardar.guard';
 import { SopEditor } from './sop/sop-editor';
@@ -15,6 +16,12 @@ export const routes: Routes = [
     component: Biblioteca,
     data: { ancho: true },
     title: 'Biblioteca de SOP · SOPVID',
+  },
+  // Avance en vivo por etapa (RF-08): /nuevo llega aquí al enviar; al terminar sigue al resultado.
+  {
+    path: 'videos/:id/procesando',
+    component: Procesando,
+    title: 'Procesando · SOPVID',
   },
   {
     path: 'videos/:id/reporte',

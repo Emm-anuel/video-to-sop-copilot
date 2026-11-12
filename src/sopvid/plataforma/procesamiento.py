@@ -771,7 +771,7 @@ class Procesador:
                 if imagenes:
                     rango = tabla["contexto"] - tabla["fotogramas"]
                     n = cuantas_imagenes("generar", None, analisis.duracion_s)
-                    resultado_fotogramas = self._describidor(video, analisis, n)(
+                    resultado_fotogramas = self._describidor(session, video, analisis, n)(
                         llm,
                         lambda fraccion: avanzar(
                             "fotogramas", tabla["fotogramas"] + int(rango * min(fraccion, 1.0))
@@ -914,7 +914,7 @@ class Procesador:
             sop = SOP.model_validate(sop_fila.contenido)
             if imagenes and contexto is None:
                 n = cuantas_imagenes("validar", len(sop.pasos), analisis.duracion_s)
-                describir = self._describidor(video, analisis, n)
+                describir = self._describidor(session, video, analisis, n)
             validacion = validar(
                 analisis,
                 sop,
@@ -962,13 +962,28 @@ class Procesador:
             validacion.resultado.semaforo,
         )
 
-    def _describidor(self, video: Video, analisis: Analisis, n: int) -> DescribirImagenes:
-        """Describe `n` imágenes del video con el cliente que se le pase (misma carga de Gemma)."""
+    def _describidor(
+        self, session: Session, video: Video, analisis: Analisis, n: int
+    ) -> DescribirImagenes:
+        """Describe `n` imágenes del video con el cliente que se le pase (misma carga de Gemma).
+        Lleva la cuenta en `videos.imagenes_hechas` e `imagenes_total` para la pantalla de avance
+        (RF-08); el commit va aquí para que la cuenta inicial (0 de N) se vea antes del primer
+        lote."""
         archivo = self._media / video.archivo
+
+        def contar(hechas: int, total: int) -> None:
+            video.imagenes_hechas, video.imagenes_total = hechas, total
+            session.commit()
 
         def describir(llm: ClienteLLM, al_avanzar: Callable[[float], None]) -> ResultadoFotogramas:
             return describir_fotogramas(
-                archivo, archivo.parent, analisis.duracion_s, n, llm, al_avanzar=al_avanzar
+                archivo,
+                archivo.parent,
+                analisis.duracion_s,
+                n,
+                llm,
+                al_avanzar=al_avanzar,
+                al_contar=contar,
             )
 
         return describir

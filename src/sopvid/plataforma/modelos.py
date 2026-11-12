@@ -109,6 +109,10 @@ class Video(Base):
         CheckConstraint(_en("modo", MODOS_VIDEO), name="modo"),
         CheckConstraint(_en("proceso", PROCESOS_VIDEO), name="proceso"),
         CheckConstraint("progreso BETWEEN 0 AND 100", name="progreso"),
+        CheckConstraint(
+            "imagenes_hechas >= 0 AND imagenes_total >= 0 AND imagenes_hechas <= imagenes_total",
+            name="imagenes",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -125,6 +129,13 @@ class Video(Base):
     etapa: Mapped[str | None] = mapped_column(String)
     progreso: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     error: Mapped[str | None] = mapped_column(Text)
+    # Si se pidió describir imágenes (ADR-024), ya resuelto contra FOTOGRAMAS_DESCRIBIR al subir.
+    # NULL en los videos anteriores a la columna (0007): ninguno las describió; se lee como false.
+    analizar_imagenes: Mapped[bool | None] = mapped_column(Boolean)
+    # Cuántas de las imágenes sacadas ya pasaron por Gemma, al día por lote durante "fotogramas"
+    # (RF-08). NULL si nunca se describieron; al repetir sin describir, quedan las del proceso.
+    imagenes_hechas: Mapped[int | None] = mapped_column(Integer)
+    imagenes_total: Mapped[int | None] = mapped_column(Integer)
     transcripcion: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     fotogramas: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     contexto: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

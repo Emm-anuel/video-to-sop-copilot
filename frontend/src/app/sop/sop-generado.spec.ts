@@ -5,7 +5,8 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import ejemplo from '../../../../tests/fixtures/sop_generado_ejemplo.json';
 import { SOP } from '../api/sop';
 import { EstadoVideo, Proceso, SopDetalle } from '../api/tipos';
-import { INTERVALO_MS, SopGenerado } from './sop-generado';
+import { INTERVALO_MS } from '../avance/avance.service';
+import { SopGenerado } from './sop-generado';
 
 const ESTADO = '/api/videos/9';
 
@@ -81,7 +82,7 @@ describe('SopGenerado', () => {
 
   it('sigue el avance mientras se genera y luego abre el editor con el SOP', async () => {
     await responder(ESTADO, estado('procesando'));
-    expect(texto()).toContain('Redactando el cuadro resumen…');
+    expect(texto()).toContain('Cuadro resumen…');
     expect(fixture.componentInstance.puedeSalir()).toBe(true);
 
     await vi.advanceTimersByTimeAsync(INTERVALO_MS);
@@ -109,7 +110,7 @@ describe('SopGenerado', () => {
 
   it('nombra la etapa de imágenes en el avance', async () => {
     await responder(ESTADO, estado('procesando', { etapa: 'fotogramas', progreso: 38 }));
-    expect(texto()).toContain('Describiendo imágenes…');
+    expect(texto()).toContain('Descripción de imágenes…');
     await vi.advanceTimersByTimeAsync(INTERVALO_MS);
     await responder(ESTADO, estado('error', { error: 'x' }));
   });

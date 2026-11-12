@@ -1,0 +1,267 @@
+// Una columna en cualquier ancho; desde 40 rem del propio componente, los datos van en fila
+// (container query, no el ancho de la ventana: RNF-13, como la biblioteca y el editor).
+:host {
+  display: grid;
+  gap: 1rem;
+  container-type: inline-size;
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+
+  .titulo {
+    font-weight: 400;
+  }
+}
+
+h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+p {
+  margin: 0;
+}
+
+.tarjeta {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+  min-width: 0;
+}
+
+.etapa-actual {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.porcentaje {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  progress {
+    flex: 1;
+    min-width: 0;
+    height: 1rem;
+  }
+
+  .cifra {
+    min-width: 3.5rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+}
+
+.imagenes {
+  font-variant-numeric: tabular-nums;
+}
+
+.nota {
+  color: #475467;
+  font-size: 0.9rem;
+}
+
+.datos {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+
+  div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+  }
+
+  dt {
+    color: #475467;
+
+    &::after {
+      content: ':';
+    }
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+.aviso {
+  padding: 0.6rem 0.75rem;
+  color: #93370d;
+  background: #fffaeb;
+  border: 1px solid #fec84b;
+  border-radius: 0.3rem;
+}
+
+.error {
+  padding: 0.6rem 0.75rem;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 0.3rem;
+  overflow-wrap: anywhere;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button,
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #1f2a37;
+  background: #fff;
+  border: 1px solid #98a2b3;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.boton.inactivo {
+  opacity: 0.6;
+}
+
+button.principal {
+  padding: 0.45rem 1.25rem;
+  color: #fff;
+  background: #1f6feb;
+  border-color: #1f6feb;
+  font-weight: 600;
+}
+
+.etapas {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.etapa {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  border-radius: 0.3rem;
+
+  .marca {
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2px solid #98a2b3;
+    border-radius: 50%;
+  }
+
+  .estado {
+    color: #475467;
+    font-size: 0.85rem;
+  }
+
+  &.hecha .marca {
+    background: #12b76a;
+    border-color: #12b76a;
+  }
+
+  &.en_curso {
+    background: #eff4ff;
+    font-weight: 600;
+
+    .marca {
+      border-color: #1f6feb;
+      border-top-color: transparent;
+      animation: girar 1s linear infinite;
+    }
+  }
+
+  &.fallo {
+    background: #fef3f2;
+
+    .marca {
+      background: #d92d20;
+      border-color: #d92d20;
+    }
+
+    .estado {
+      color: #b42318;
+    }
+  }
+
+  &.detenida .marca {
+    background: #f79009;
+    border-color: #f79009;
+  }
+
+  &.pendiente .nombre {
+    color: #667085;
+  }
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .etapa.en_curso .marca {
+    animation: none;
+  }
+}
+
+.transcripcion .encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.txt {
+  max-height: 18rem;
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f9fafb;
+  border: 1px solid #eaecf0;
+  border-radius: 0.3rem;
+}
+
+@container (min-width: 40rem) {
+  .datos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.5rem;
+  }
+}

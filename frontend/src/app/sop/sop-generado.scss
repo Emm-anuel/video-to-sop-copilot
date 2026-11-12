@@ -16,3 +16,17 @@
 .avance progress {
   width: 100%;
 }
+.aviso {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  color: #93370d;
+  background: #fffaeb;
+  border: 1px solid #fec84b;
+  border-radius: 0.3rem;
+}
+// Objetivo de 36 px (RNF-13).
+.enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+}

@@ -232,7 +232,7 @@
   }
 
   @if (listoParaVer()) {
-    <button type="button" class="principal" (click)="verReporte()">Ver el reporte</button>
+    <button type="button" class="principal" (click)="verAvance()">Ver el avance</button>
   } @else {
     <button type="submit" class="principal" [disabled]="enviando()">
       {{ modo() === 'generar' ? 'Generar SOP' : 'Validar' }}

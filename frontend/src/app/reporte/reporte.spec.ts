@@ -1,14 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import ejemplo from '../../../../tests/fixtures/reporte_ejemplo.json';
 import ejemploProvisional from '../../../../tests/fixtures/reporte_ejemplo_provisional.json';
 import { ReporteValidacion } from '../api/reporte-validacion';
 import { EstadoVideo, Proceso } from '../api/tipos';
+import { INTERVALO_MS } from '../avance/avance.service';
 import {
-  INTERVALO_MS,
   NO_CORRIO,
   NO_REGISTRADO,
   RESPALDO_CPU,
@@ -149,6 +149,7 @@ describe('Reporte', () => {
     TestBed.configureTestingModule({
       imports: [Reporte],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: '7' })) } },
@@ -215,7 +216,7 @@ describe('Reporte', () => {
         dd.textContent?.trim(),
       ]);
       expect(etapas).toEqual([
-        ['Duración', '0.2 s'],
+        ['Duración del video', '0.2 s'],
         ['Audio', '0.6 s'],
         ['Transcripción', '11.8 s'],
         ['Pasos del video', '74.3 s'],
@@ -296,11 +297,12 @@ describe('Reporte', () => {
     });
   });
 
-  it('consulta cada 3 s y, con "listo", pide el reporte y lo muestra', () => {
+  it('consulta cada 1.5 s y, con "listo", pide el reporte y lo muestra', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).flush(estado('procesando'));
     expect(texto()).toContain('procesando');
-    expect(texto()).toContain('transcripcion');
+    expect(texto()).toContain('Etapa: Transcripción');
+    expect(pantalla().querySelector('a[href="/videos/7/procesando"]')).not.toBeNull();
     expect(texto()).toContain('Progreso: 30 %');
     http.expectNone(REPORTE);
 
@@ -529,6 +531,8 @@ describe('Reporte', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).flush(estado('procesando'));
     vi.advanceTimersByTime(INTERVALO_MS);
+    http.expectOne(ESTADO).flush(estado('procesando', { progreso: 35 }));
+    vi.advanceTimersByTime(INTERVALO_MS);
     http
       .expectOne(ESTADO)
       .flush(estado('error', { error: 'falló la etapa transcripcion (RuntimeError)' }));
@@ -621,11 +625,26 @@ describe('Reporte', () => {
     http.expectNone(ESTADO);
   });
 
-  it('sin conexión con la API muestra el aviso en español', () => {
+  it('sin conexión con la API muestra el aviso en español y reintenta con espera creciente', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
     expect(texto()).toContain('No hay conexión con la API (¿está corriendo en el puerto 8000?)');
-    vi.advanceTimersByTime(INTERVALO_MS);
+    expect(texto()).toContain('Reintento 1 en 1.5 s');
+    vi.advanceTimersByTime(1500);
+    http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
+    expect(texto()).toContain('Reintento 2 en 3 s');
+    vi.advanceTimersByTime(3000);
+    http.expectOne(ESTADO).flush(estado('listo'));
+    http.expectOne(REPORTE).flush(NORMAL);
+    expect(texto()).not.toContain('No hay conexión');
+    expect(filas()).toHaveLength(NORMAL.filas.length);
+  });
+
+  it('con "afinidad_baja" no vuelve a consultar aunque pase mucho tiempo (RF-08)', () => {
+    vi.advanceTimersByTime(0);
+    http.expectOne(ESTADO).flush(estado('afinidad_baja', { etapa: 'afinidad', progreso: 50 }));
+    vi.advanceTimersByTime(10 * 60_000);
     http.expectNone(ESTADO);
+    http.expectNone(REPORTE);
   });
 });

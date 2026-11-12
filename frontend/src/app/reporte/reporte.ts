@@ -1,19 +1,8 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
-import {
-  EMPTY,
-  Subject,
-  catchError,
-  filter,
-  map,
-  merge,
-  switchMap,
-  takeWhile,
-  tap,
-  timer,
-} from 'rxjs';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { EMPTY, catchError, filter, map, switchMap } from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
 import {
@@ -28,13 +17,8 @@ import {
   Semaforo,
   Tipo,
 } from '../api/reporte-validacion';
-import { EstadoVideo, Proceso } from '../api/tipos';
-
-/** Cada cuánto se consulta `GET /videos/{id}` mientras el video está en cola o en proceso. */
-export const INTERVALO_MS = 3000;
-
-/** Procesos con los que se deja de consultar el estado. */
-const FINALES: readonly Proceso[] = ['listo', 'error', 'afinidad_baja'];
+import { AvanceVideo } from '../avance/avance.service';
+import { etiquetaEtapa } from '../avance/etapas';
 
 /** Estado de la fila tal como se muestra; "zona_gris" es un par que el juez no revisó. */
 const ETIQUETA_ESTADO: Record<Estado, string> = {
@@ -97,17 +81,6 @@ type Etapa =
   | 'segmentacion'
   | 'emparejamiento'
   | 'miniaturas';
-
-const ETIQUETA_ETAPA: Record<Etapa, string> = {
-  duracion: 'Duración',
-  audio: 'Audio',
-  transcripcion: 'Transcripción',
-  fotogramas: 'Descripción de imágenes',
-  contexto: 'Ficha de contexto',
-  segmentacion: 'Pasos del video',
-  emparejamiento: 'Emparejamiento',
-  miniaturas: 'Miniaturas',
-};
 
 /** Orden en que corren las etapas (y en que se muestran). */
 const ORDEN_ETAPAS: readonly Etapa[] = [
@@ -201,7 +174,7 @@ export function dispositivosDeModelos(
 export function etapasConTiempo(segundos: Segundos): TiempoEtapa[] {
   return ORDEN_ETAPAS.filter((clave) => typeof segundos[clave] === 'number').map((clave) => ({
     clave,
-    nombre: ETIQUETA_ETAPA[clave],
+    nombre: etiquetaEtapa(clave),
     segundos: segundos[clave],
   }));
 }
@@ -231,47 +204,44 @@ export function mmss(segundos: number): string {
 
 /**
  * Reporte de validación (RF-20): semáforo, resumen y tabla paso a paso con cita y segundo, con el
- * video al lado. Mientras el video no está listo muestra el avance; la consulta se detiene con
- * "listo", con "error", con "afinidad_baja" (el video parece no ser del SOP: se advierte y se
- * ofrece continuar, ADR-020) y al salir de la pantalla. Todo se muestra tal como viene de la
- * API: el semáforo no se recalcula y los segundos salen de la transcripción (regla 4 de
- * CLAUDE.md).
+ * video al lado. Mientras el video no está listo muestra un avance breve (el detalle está en
+ * `/videos/:id/procesando`). El avance sale de `AvanceVideo`, que deja de consultar con "listo",
+ * "error", "afinidad_baja" (el video parece no ser del SOP: se advierte y se ofrece continuar,
+ * ADR-020) y al salir de la pantalla. Todo se muestra tal como viene de la API: el semáforo no se
+ * recalcula y los segundos salen de la transcripción (regla 4 de CLAUDE.md).
  */
 @Component({
   selector: 'app-reporte',
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, RouterLink],
+  providers: [AvanceVideo],
   templateUrl: './reporte.html',
   styleUrl: './reporte.scss',
 })
 export class Reporte {
   private readonly api = inject(ApiService);
   private readonly ruta = inject(ActivatedRoute);
+  protected readonly avance = inject(AvanceVideo);
   private readonly reproductor = viewChild<ElementRef<HTMLVideoElement>>('reproductor');
 
   protected readonly videoId = signal<number | null>(null);
-  protected readonly estado = signal<EstadoVideo | null>(null);
+  protected readonly estado = this.avance.estado;
   protected readonly reporte = signal<ReporteValidacion | null>(null);
-  protected readonly errorConsulta = signal<string | null>(null);
+  private readonly errorReporte = signal<string | null>(null);
+  /** Una falla de la consulta del estado (que no se reintenta), del reporte o de continuar. */
+  protected readonly errorConsulta = computed(
+    () => this.errorReporte() ?? this.avance.errorConsulta(),
+  );
   /** Índice en `filas` de la última fila a la que se saltó. */
   protected readonly filaActiva = signal<number | null>(null);
   protected readonly videoNoDisponible = signal(false);
   /** Mientras se envía "Continuar de todos modos" (evita el doble envío). */
   protected readonly continuando = signal(false);
-  /** Reinicia la consulta del estado del video con ese id (después de continuar). */
-  private readonly consultar = new Subject<number>();
 
   /**
-   * Tiempo de procesamiento medido en esta pantalla: empieza al ver el video en cola o en proceso
-   * y se congela con "listo", "error" o una falla de la consulta. No usa `creado` (la hora de
-   * subida), que no cambia al repetir la validación (`POST /videos/{id}/validar`).
+   * Tiempo de procesamiento medido en esta pantalla (`AvanceVideo.segundos`): empieza al ver el
+   * video en cola o en proceso y se congela al terminar. Null si ya estaba listo al abrir.
    */
-  private readonly inicio = signal<number | null>(null);
-  private readonly fin = signal<number | null>(null);
-  private readonly ahora = signal(Date.now());
-  protected readonly segundosProceso = computed(() => {
-    const inicio = this.inicio();
-    return inicio == null ? null : ((this.fin() ?? this.ahora()) - inicio) / 1000;
-  });
+  protected readonly segundosProceso = this.avance.segundos;
 
   /** Recuadro "Cómo se obtuvo": dónde corrió cada modelo y cuánto tardó cada etapa. */
   protected readonly comoSeObtuvo = computed(() => {
@@ -313,43 +283,28 @@ export class Reporte {
   protected readonly claseDispositivo = CLASE_DISPOSITIVO;
 
   constructor() {
-    timer(0, 1000)
-      .pipe(takeUntilDestroyed())
-      .subscribe(() => {
-        if (this.inicio() != null && this.fin() == null) {
-          this.ahora.set(Date.now());
-        }
+    this.ruta.paramMap
+      .pipe(
+        map((parametros) => Number(parametros.get('id'))),
+        takeUntilDestroyed(),
+      )
+      .subscribe((id) => {
+        this.videoId.set(id);
+        this.reporte.set(null);
+        this.errorReporte.set(null);
+        this.filaActiva.set(null);
+        this.videoNoDisponible.set(false);
+        this.miniaturasFallidas.set(new Set());
+        this.avance.seguir(id);
       });
 
-    merge(
-      this.ruta.paramMap.pipe(map((parametros) => Number(parametros.get('id')))),
-      this.consultar,
-    )
+    this.avance.terminado
       .pipe(
-        tap((id) => {
-          this.videoId.set(id);
-          this.estado.set(null);
-          this.reporte.set(null);
-          this.errorConsulta.set(null);
-          this.filaActiva.set(null);
-          this.videoNoDisponible.set(false);
-          this.miniaturasFallidas.set(new Set());
-          this.inicio.set(null);
-          this.fin.set(null);
-        }),
-        switchMap((id) =>
-          timer(0, INTERVALO_MS).pipe(
-            switchMap(() => this.api.estadoVideo(id)),
-            tap((estado) => {
-              this.estado.set(estado);
-              this.medirProceso(estado);
-            }),
-            takeWhile((estado) => !FINALES.includes(estado.proceso), true),
-            filter((estado) => estado.proceso === 'listo'),
-            switchMap(() => this.api.reporte(id)),
+        filter((estado) => estado.proceso === 'listo'),
+        switchMap((estado) =>
+          this.api.reporte(estado.id).pipe(
             catchError((e: unknown) => {
-              this.detenerReloj();
-              this.errorConsulta.set(mensajeDeError(e));
+              this.errorReporte.set(mensajeDeError(e));
               return EMPTY;
             }),
           ),
@@ -369,33 +324,17 @@ export class Reporte {
       return;
     }
     this.continuando.set(true);
-    this.errorConsulta.set(null);
+    this.errorReporte.set(null);
     this.api.continuarValidacion(id).subscribe({
       next: () => {
         this.continuando.set(false);
-        this.consultar.next(id);
+        this.avance.seguir(id);
       },
       error: (e: unknown) => {
         this.continuando.set(false);
-        this.errorConsulta.set(mensajeDeError(e));
+        this.errorReporte.set(mensajeDeError(e));
       },
     });
-  }
-
-  private medirProceso(estado: EstadoVideo): void {
-    const enProceso = estado.proceso === 'en_cola' || estado.proceso === 'procesando';
-    if (enProceso && this.inicio() == null) {
-      this.inicio.set(Date.now());
-      this.ahora.set(Date.now());
-    } else if (!enProceso) {
-      this.detenerReloj();
-    }
-  }
-
-  private detenerReloj(): void {
-    if (this.inicio() != null && this.fin() == null) {
-      this.fin.set(Date.now());
-    }
   }
 
   protected urlVideo(id: number): string {

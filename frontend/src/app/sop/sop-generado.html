@@ -1,13 +1,26 @@
-@if (error(); as mensaje) {
-  <p class="error" role="alert">{{ mensaje }}</p>
+@if (avance.errorConsulta(); as mensaje) {
+  <p class="error" role="alert">No se pudo consultar el video. {{ mensaje }}</p>
 }
-@if (video(); as v) {
+@if (avance.reintento(); as r) {
+  <p class="aviso" role="status">
+    {{ r.mensaje }} Reintento {{ r.intento }} en {{ r.esperaMs / 1000 }} s…
+  </p>
+}
+@if (avance.estado(); as v) {
   @if (v.proceso === 'error') {
     <p class="error" role="alert">No se pudo generar el SOP: {{ v.error }}</p>
+    <p>
+      <a class="enlace" [routerLink]="['/videos', videoId, 'procesando']"
+        >Reprocesar desde el avance</a
+      >
+    </p>
   } @else if (v.proceso !== 'listo') {
     <div class="avance" role="status">
-      <p>{{ etapa() }}…</p>
-      <progress max="100" [value]="v.progreso"></progress>
+      <p>{{ avance.etiqueta() }}…</p>
+      <progress max="100" [value]="avance.progreso()"></progress>
+      <a class="enlace" [routerLink]="['/videos', videoId, 'procesando']"
+        >Ver el avance por etapa</a
+      >
     </div>
   } @else if (v.sop_id != null) {
     <app-sop-editor [id]="v.sop_id" [videoId]="videoId" />

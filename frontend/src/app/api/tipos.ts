@@ -89,6 +89,33 @@ export interface EstadoVideo {
   /** Afinidad de contexto (ADR-020): con `afinidad_baja`, la de la detención; si no, la del reporte. */
   afinidad?: Afinidad | null;
   sop_id?: number | null;
+  /**
+   * Si se pidió describir imágenes (ADR-024), ya resuelto contra `FOTOGRAMAS_DESCRIBIR`: con
+   * true, la etapa "fotogramas" corre. Un video anterior a la columna llega en false.
+   */
+  analizar_imagenes?: boolean;
+  /**
+   * Imágenes que ya pasaron por Gemma de las sacadas, al día por lote durante "fotogramas": se
+   * muestran tal cual. null si el video nunca las describió.
+   */
+  imagenes_hechas?: number | null;
+  imagenes_total?: number | null;
+}
+
+/** `GET /health` (docs/dev/api.md): lo que usa la pantalla Procesando. */
+export interface Salud {
+  status: string;
+  db: string;
+  llm: string;
+  dispositivos?: {
+    gpu: { nombre: string; vram_mb: number } | null;
+    /** Lo que resolvió faster-whisper: "cuda/float16" o "cpu/int8". */
+    transcripcion: string;
+    /** Política de Gemma: "auto" (Ollama usa la GPU si la ve) o "cpu" (forzada). */
+    llm: 'auto' | 'cpu';
+    embedder: string;
+    avisos: string[];
+  };
 }
 
 /** Un SOP de la biblioteca en `GET /sops` (RF-05): listo y guardado en ella. */

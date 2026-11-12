@@ -8,6 +8,7 @@ import {
   EstadoVideo,
   EstimacionImagenes,
   PedidoEstimacion,
+  Salud,
   SopDetalle,
   SopResumen,
   VideoCreado,
@@ -105,9 +106,27 @@ export class ApiService {
     });
   }
 
-  /** `GET /videos/{id}`: proceso, etapa y progreso. */
+  /** `GET /videos/{id}`: proceso, etapa y progreso (la ruta de estado del video). */
   estadoVideo(id: number): Observable<EstadoVideo> {
     return this.http.get<EstadoVideo>(`${API}/videos/${id}`);
+  }
+
+  /**
+   * `GET /videos/{id}/transcripcion.txt` (RF-10): el TXT `[mm:ss]` tal como va; vacío si la
+   * transcripción todavía no empieza.
+   */
+  transcripcionTxt(id: number): Observable<string> {
+    return this.http.get(this.urlTranscripcion(id), { responseType: 'text' });
+  }
+
+  /** La URL del TXT de la transcripción, para descargarlo tal como va. */
+  urlTranscripcion(id: number): string {
+    return `${API}/videos/${id}/transcripcion.txt`;
+  }
+
+  /** `GET /health`: estado de la API y dónde corre cada modelo (`dispositivos`, ADR-018). */
+  salud(): Observable<Salud> {
+    return this.http.get<Salud>(`${API}/health`);
   }
 
   /**
@@ -149,6 +168,14 @@ export class ApiService {
    */
   revalidar(videoId: number): Observable<VideoCreado> {
     return this.http.post<VideoCreado>(`${API}/videos/${videoId}/validar`, null);
+  }
+
+  /**
+   * `POST /videos/{id}/generar` (ADR-023, criterio de ADR-019): repite la generación del SOP sin
+   * Whisper, con la ficha y los pasos guardados. 202; 409 si sigue en proceso o no tiene análisis.
+   */
+  regenerar(videoId: number): Observable<VideoCreado> {
+    return this.http.post<VideoCreado>(`${API}/videos/${videoId}/generar`, null);
   }
 
   /** `POST /sops/{id}/biblioteca` (RF-27): desde ahí sirve como referencia de otros videos. */

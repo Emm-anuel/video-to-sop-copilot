@@ -216,7 +216,7 @@ describe('Nuevo', () => {
     await flush(video, VIDEO_CREADO);
     // El SOP ya está listo: no hay conversión que consultar.
     http.expectNone('/api/sops/8/estado');
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
   });
 
   it('en "De la biblioteca" sin elegir SOP no sube nada', async () => {
@@ -241,7 +241,7 @@ describe('Nuevo', () => {
     expect(texto()).toContain('No se pudo leer la biblioteca.');
   });
 
-  it('con "No tengo SOP" sube el video en modo generar, sin SOP, y va a la vista del SOP', async () => {
+  it('con "No tengo SOP" sube el video en modo generar, sin SOP, y va al avance', async () => {
     await clic('#modo-generar');
     expect(el('#sop')).toBeNull();
     expect(boton().textContent).toContain('Generar SOP');
@@ -257,7 +257,7 @@ describe('Nuevo', () => {
     expect(datos.get('titulo')).toBe('video_e');
     expect(datos.get('analizar_imagenes')).toBe('false');
     await flush(video, VIDEO_CREADO);
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'sop']);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
   });
 
   it('acepta SOP en Markdown, texto, PDF y Word', () => {
@@ -301,7 +301,7 @@ describe('Nuevo', () => {
 
   // ── Subir uno ahora (el camino del MVP) ──
 
-  it('sube el SOP y el video sin esperar la conversión, consulta cada 2 s y navega al quedar listo', async () => {
+  it('sube el SOP y el video sin esperar la conversión, consulta cada 2 s y navega al avance al quedar listo', async () => {
     await llenarYValidar();
     expect(boton().disabled).toBe(true);
 
@@ -331,13 +331,13 @@ describe('Nuevo', () => {
     expect(navegar).not.toHaveBeenCalled();
 
     await sondeo(SOP_LISTO);
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
     // Terminó: no hay más consultas.
     await vi.advanceTimersByTimeAsync(3 * SONDEO_SOP_MS);
     http.expectNone('/api/sops/3/estado');
   });
 
-  it('con advertencias las muestra y espera a "Ver el reporte"', async () => {
+  it('con advertencias las muestra y espera a "Ver el avance"', async () => {
     await llenarYValidar();
     await flush(http.expectOne('/api/sops'), SOP_EN_COLA);
     await sondeo(SOP_CON_ADVERTENCIAS);
@@ -350,9 +350,9 @@ describe('Nuevo', () => {
     // RF-04: se puede revisar el SOP sin detener el video; desde ahí se revalida.
     const revisar = el<HTMLAnchorElement>('.revisar a')!;
     expect(revisar.getAttribute('href')).toBe('/sops/3?video=12');
-    expect(boton().textContent).toContain('Ver el reporte');
+    expect(boton().textContent).toContain('Ver el avance');
     boton().click();
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
   });
 
   it('si la conversión falla, muestra el mensaje, cancela la subida y pide otro SOP', async () => {
@@ -396,7 +396,7 @@ describe('Nuevo', () => {
     await flush(video, VIDEO_CREADO);
     // Un SOP que ya llega listo no se consulta.
     http.expectNone('/api/sops/3/estado');
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
   });
 
   it('con 422 en /sops muestra el mensaje de la API y no llama a /videos', async () => {
@@ -436,7 +436,7 @@ describe('Nuevo', () => {
     const reintento = http.expectOne('/api/videos');
     expect(enviado(reintento).get('sop_id')).toBe('3');
     await flush(reintento, VIDEO_CREADO);
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
   });
 
   it('sin archivos no llama a la API', async () => {
@@ -469,7 +469,7 @@ describe('Nuevo', () => {
       const video = http.expectOne({ method: 'POST', url: '/api/videos' });
       expect(enviado(video).get('sop_id')).toBe('3');
       await flush(video, VIDEO_CREADO);
-      expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte']);
+      expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
     });
 
     it('se puede elegir otro SOP de la lista', async () => {

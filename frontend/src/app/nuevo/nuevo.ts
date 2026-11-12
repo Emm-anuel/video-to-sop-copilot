@@ -36,15 +36,18 @@ export type ModoNuevo = 'biblioteca' | 'subir' | 'generar';
  * Nuevo análisis (RF-07): el SOP de referencia sale de uno de tres modos excluyentes.
  *
  * - **De la biblioteca** (`GET /sops`): el SOP ya está listo; `POST /videos` con `modo=validar` y
- *   su `sop_id`, sin `POST /sops`, y al 202 va al reporte. Es el modo inicial si la biblioteca
+ *   su `sop_id`, sin `POST /sops`, y al 202 va al avance. Es el modo inicial si la biblioteca
  *   tiene algo. Con `?sop=ID` ("Usar para validar" del editor o de la biblioteca) llega elegido.
  * - **Subir uno ahora:** `POST /sops` (202) y, sin esperar a la conversión, `POST /videos` con el
- *   `sop_id`; mientras tanto consulta el estado del SOP cada 2 s. Navega al reporte cuando el video
+ *   `sop_id`; mientras tanto consulta el estado del SOP cada 2 s. Navega al avance cuando el video
  *   ya subió y el SOP quedó listo sin advertencias; con advertencias, las muestra y espera a "Ver el
- *   reporte". Si la conversión falla, cancela la subida y pide otro SOP. Si falla el video, el SOP
+ *   avance". Si la conversión falla, cancela la subida y pide otro SOP. Si falla el video, el SOP
  *   ya guardado se reutiliza al reintentar. Si el SOP quedó con advertencias o lo convirtió el
  *   modelo, ofrece revisarlo en `/sops/:id?video=N` (RF-04): el video no espera la corrección.
- * - **No tengo SOP** (ADR-023): el video sube con `modo=generar` y se va a `/videos/:id/sop`.
+ * - **No tengo SOP** (ADR-023): el video sube con `modo=generar`.
+ *
+ * En los tres, al enviar se va a `/videos/:id/procesando` (RF-08), que al terminar abre el
+ * reporte o el editor del SOP generado.
  *
  * En los tres: título obligatorio y consentimiento obligatorio (RNF-16) antes de subir.
  *
@@ -148,7 +151,7 @@ export class Nuevo implements OnInit {
   protected readonly advertencias = computed(() =>
     this.modo() === 'subir' && this.sop()?.estado === 'listo' ? this.sop()!.advertencias : [],
   );
-  /** Video subido y SOP listo con advertencias: se muestran y se sigue con "Ver el reporte". */
+  /** Video subido y SOP listo con advertencias: se muestran y se sigue con "Ver el avance". */
   protected readonly listoParaVer = computed(
     () => this.video() !== null && this.sop()?.estado === 'listo',
   );
@@ -325,13 +328,13 @@ export class Nuevo implements OnInit {
 
     if (modo === 'generar') {
       // Va a la vista del SOP generado, que sigue el avance.
-      this.enviar(undefined, (creado) => this.navegar(['/videos', creado.id, 'sop']));
+      this.enviar(undefined, (creado) => this.navegar(['/videos', creado.id, 'procesando']));
       return;
     }
     if (modo === 'biblioteca') {
       // El SOP ya está en la biblioteca: no hay conversión que esperar.
       const id = this.sopBiblioteca()!;
-      this.enviar(id, (creado) => this.navegar(['/videos', creado.id, 'reporte']));
+      this.enviar(id, (creado) => this.navegar(['/videos', creado.id, 'procesando']));
       return;
     }
 
@@ -352,10 +355,11 @@ export class Nuevo implements OnInit {
       });
   }
 
-  protected verReporte(): void {
+  /** Al avance del video (RF-08): de ahí sigue al reporte cuando termina. */
+  protected verAvance(): void {
     const video = this.video();
     if (video) {
-      void this.router.navigate(['/videos', video.id, 'reporte']);
+      void this.router.navigate(['/videos', video.id, 'procesando']);
     }
   }
 
@@ -442,14 +446,14 @@ export class Nuevo implements OnInit {
       });
   }
 
-  /** Con el video subido y el SOP listo: al reporte, salvo que haya advertencias que leer. */
+  /** Con el video subido y el SOP listo: al avance, salvo que haya advertencias que leer. */
   private alTerminar(): void {
     if (!this.video() || this.sop()?.estado !== 'listo') {
       return;
     }
     this.enviando.set(false);
     if (this.advertencias().length === 0) {
-      this.verReporte();
+      this.verAvance();
     }
   }
 
