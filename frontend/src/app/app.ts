@@ -1,10 +1,10 @@
 import { Component, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 @Component({
-  imports: [RouterOutlet, RouterLink],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',

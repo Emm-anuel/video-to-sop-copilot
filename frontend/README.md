@@ -19,6 +19,7 @@ son de S5 y S6.
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
 | `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
 | `/videos/:id/sop` | **SOP generado y su editor (RF-26):** avance y, al terminar, el editor del SOP (sección "Editor del SOP") | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov, solo lectura; editor desde el 11 nov): `src/app/sop/` |
+| `/sops` | **Biblioteca de SOP (RF-05):** búsqueda, filtro por origen, ver o editar, usar para validar, eliminar y subir (sección "Biblioteca y Nuevo análisis") | Emmanuel | Hecho (12 nov): `src/app/biblioteca/` |
 | `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
@@ -34,7 +35,8 @@ Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 
 | Qué falta | RF | Responsable | Semana |
 |---|---|---|---|
-| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP"; desde el 11 nov `/nuevo?sop=ID` llega con un SOP ya elegido desde el editor, pero todavía no hay lista para escoger) | RF-07, RF-02 | Emmanuel | S5 |
+| ~~Elegir un SOP de la biblioteca~~ Hecho el 12 nov: tres modos (biblioteca, subir, generar), consentimiento y casilla de imágenes | RF-07, RF-02 | Emmanuel | S5 |
+| Lista de videos (`/videos`, pantalla 6): título, fecha, modo, estado, porcentaje con semáforo e imágenes, con enlace al reporte o al SOP generado. Falta `GET /videos` | — | Emmanuel | S6 |
 | ~~Mostrar el SOP convertido para corregirlo~~ Hecho el 11 nov: enlace "Revisar y corregir el SOP" a `/sops/:id?video=N` (el video no espera; se revalida desde el editor) | RF-04 | Emmanuel | S5 |
 | Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | Emmanuel | S5 |
 | Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | Emmanuel | S5 |
@@ -291,6 +293,50 @@ Cómo funciona:
   diálogo del video cabe (322 × 218 px). Los estilos de los controles del formulario están en `src/styles.scss`
   bajo `app-sop-editor`, para que los chips los compartan.
 - `generacion.grupos` no se toca: registra cómo agrupó el modelo, no lo que editó la persona.
+
+## Biblioteca y Nuevo análisis (RF-05, RF-07, 12 nov)
+
+Menú en `app.html`: **Biblioteca** (`/sops`) y **Nuevo análisis** (`/nuevo`), con
+`routerLinkActive` y `aria-current`.
+
+**`/sops` (`src/app/biblioteca/`).** `GET /sops` da los SOP listos y guardados con cuántos videos
+se validaron con cada uno. Búsqueda por título o código sin acentos ni mayúsculas
+(`biblioteca/filtro.ts`, la usa también `/nuevo`) y filtro por origen. Por SOP: **Ver o editar**
+(`/sops/:id`), **Usar para validar** (`/nuevo?sop=ID`) y **Eliminar** con confirmación en la propia
+fila (sin `confirm()`), que avisa que en un SOP cargado se borra también el archivo original y que
+no se puede deshacer. `DELETE /sops/{id}` responde 409 si algún video o reporte lo usa: la fila
+muestra el `mensaje` de la API en ámbar ("no se puede eliminar: 1 video lo usa como
+referencia…"); `mensajeDeError` ya trata el 409 como una frase de la API. **Subir SOP** (uno o
+varios) usa `POST /sops` y deja una fila provisional que consulta el estado cada 2 s; con `listo`
+recarga la lista y marca el SOP como nuevo (con advertencias o `metodo: llm`, enlace "Revísalo");
+con `error`, el mensaje y **Descartar**, que borra ese SOP (nadie lo usa).
+
+**`/nuevo`, tres modos excluyentes** (radios): **De la biblioteca** (`SelectorSop`, búsqueda y
+lista con alto máximo; `POST /videos` con ese `sop_id`, sin `POST /sops`, y al 202 al reporte),
+**Subir uno ahora** (el flujo de siempre) y **No tengo SOP** (modo generar). Empieza en la
+biblioteca si tiene algo; si está vacía o no responde, en "Subir uno ahora". `?sop=ID` llega en la
+biblioteca con ese SOP elegido. Título y **consentimiento (RNF-16)** obligatorios en los tres: la casilla confirma que las
+personas grabadas dieron su consentimiento y avisa que sus rostros y voces son datos personales
+(LFPDPPP). El documento del patrocinador no da texto literal; esta redacción es la del equipo.
+
+**Casilla de imágenes (ADR-024).** Aparece al elegir el video. Antes de subirlo, el navegador lee
+la duración y si hay imagen (`api/metadatos-video.ts`: `<video preload="metadata">`, token
+`METADATOS_VIDEO` para sustituirlo en las pruebas) y se pide `GET /videos/estimacion` con el modo y
+el `sop_id` (solo en "De la biblioteca"); se repite al cambiar de video, de modo o de SOP
+(`toObservable` + `switchMap`). La casilla arranca con `analizar_imagenes_defecto` hasta que la
+persona la toca. Prendida: "≈ N imágenes · +X s" (los segundos del `dispositivo` probable; con
+`dispositivo_supuesto`, "(estimado)") y, sin GPU o si no se supo, el `aviso` del servidor en
+ámbar. **Nunca se deshabilita por falta de GPU**; sí con `videoWidth === 0` ("este archivo no
+tiene imagen"), y entonces la estimación va con `sin_imagen=true`. `analizar_imagenes` viaja
+siempre en `POST /videos`, también en `false` (`SubidaVideo.analizarImagenes` es obligatorio).
+
+**360 px (RNF-13).** La biblioteca son tarjetas y, desde 60 rem del propio componente (container
+query), filas de tabla con cabecera; en `/nuevo` la lista de SOP es una columna flex (una rejilla
+con alto máximo encima las filas). Todo lo que se toca mide 36 px. Revisado el 12 nov en Edge
+headless a 360 × 780 y 1280 con el build de producción y 29 SOP (8 inventados de títulos largos,
+uno de 100 caracteres sin espacios): ningún desborde horizontal ni objetivo menor de 36 px en la
+biblioteca (búsqueda, filtro, confirmación, aviso 409, fila provisional en error y descartada) ni
+en `/nuevo` en los tres modos (con imagen, casilla prendida y archivo solo de audio).
 
 ## Desarrollo
 

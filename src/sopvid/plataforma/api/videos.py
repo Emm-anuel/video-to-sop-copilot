@@ -24,8 +24,9 @@ advertirlo; `POST /videos/{id}/validar?continuar=true` sigue sin detenerse.
 Imágenes (RF-11, ADR-024): `analizar_imagenes` en `POST /videos` pide describir imágenes con
 Gemma antes de la ficha y gana sobre `FOTOGRAMAS_DESCRIBIR` (apagado por defecto).
 `GET /videos/estimacion` dice antes de subir cuántas imágenes se describirían y cuánto tiempo
-sumarían con y sin GPU; nunca prohíbe nada. `GET /videos/{id}/thumb?t=` entrega la miniatura del
-segundo `t` (la guardada a ≤ 1 s o una nueva, solo ffmpeg), con cabeceras de caché.
+sumarían con y sin GPU, y el valor de la instalación para la casilla; nunca prohíbe nada.
+`GET /videos/{id}/thumb?t=` entrega la miniatura del segundo `t` (la guardada a ≤ 1 s o una
+nueva, solo ffmpeg), con cabeceras de caché.
 
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
@@ -148,7 +149,8 @@ class EstimacionImagenes(BaseModel):
     `imagenes_estimadas` es la N que se usaría; los segundos extra son N por `SEG_IMAGEN_GPU` o
     `SEG_IMAGEN_CPU` (sin calibrar hasta la medición de ADR-024). `dispositivo` es dónde correría
     Gemma; `dispositivo_supuesto`, si no se pudo saber y se supuso CPU. `aviso` va listo para la
-    pantalla. Solo informa: nunca prohíbe describir.
+    pantalla. Solo informa: nunca prohíbe describir. `analizar_imagenes_defecto`: el valor de la
+    instalación (`FOTOGRAMAS_DESCRIBIR`) con el que arranca la casilla de la pantalla.
     """
 
     imagenes_estimadas: int
@@ -157,6 +159,7 @@ class EstimacionImagenes(BaseModel):
     dispositivo: Literal["cpu", "gpu"]
     dispositivo_supuesto: bool
     aviso: str
+    analizar_imagenes_defecto: bool
 
 
 def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Transcriptor:
@@ -300,12 +303,16 @@ def estimar_imagenes(
     plan: Annotated[PlanDispositivos, Depends(get_plan_dispositivos)],
     llm: Annotated[ClienteLLM, Depends(get_cliente_llm)],
     sop_id: Annotated[int | None, Query(description="SOP de referencia (modo validar)")] = None,
+    sin_imagen: Annotated[
+        bool, Query(description="true: el navegador vio que el archivo no tiene imagen")
+    ] = False,
 ) -> EstimacionImagenes:
     """Cuántas imágenes se describirían y cuánto tiempo sumarían, con y sin GPU (ADR-024).
 
     N es la misma que usaría el procesamiento: los pasos del SOP (si `sop_id` ya está listo) o la
     duración por `PASOS_POR_MIN`, entre `FOTOGRAMAS_MIN` y `FOTOGRAMAS_MAX`. Va declarada antes de
-    `/videos/{video_id}`. 404 si el SOP no existe; nunca prohíbe describir, solo informa.
+    `/videos/{video_id}`. 404 si el SOP no existe; nunca prohíbe describir, solo informa. Con
+    `sin_imagen=true` (el navegador leyó `videoWidth === 0`) no hay nada que describir: N es 0.
     """
     if not math.isfinite(duracion_s):
         raise HTTPException(422, "duracion_s debe ser un número finito")
@@ -316,7 +323,7 @@ def estimar_imagenes(
             raise HTTPException(404, "SOP no encontrado")
         if fila.estado == SOP_LISTO and fila.contenido:
             pasos_sop = len(SOP.model_validate(fila.contenido).pasos)
-    n = cuantas_imagenes(modo, pasos_sop, duracion_s, settings)
+    n = 0 if sin_imagen else cuantas_imagenes(modo, pasos_sop, duracion_s, settings)
     extra_gpu = round(n * settings.seg_imagen_gpu, 1)
     extra_cpu = round(n * settings.seg_imagen_cpu, 1)
     dispositivo, supuesto = dispositivo_llm_probable(
@@ -331,6 +338,7 @@ def estimar_imagenes(
         dispositivo=dispositivo,
         dispositivo_supuesto=supuesto,
         aviso=_aviso_estimacion(n, dispositivo, supuesto, extra_gpu, extra_cpu),
+        analizar_imagenes_defecto=settings.fotogramas_describir,
     )
 
 
@@ -338,6 +346,8 @@ def _aviso_estimacion(
     n: int, dispositivo: str, supuesto: bool, extra_gpu: float, extra_cpu: float
 ) -> str:
     """El texto para la pantalla: cuánto sumaría describir las `n` imágenes."""
+    if n == 0:
+        return "El archivo no tiene imagen: no hay imágenes que describir."
     describir = f"describir {n} imágenes sumará"
     if supuesto:
         return (

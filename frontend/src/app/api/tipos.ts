@@ -90,3 +90,39 @@ export interface EstadoVideo {
   afinidad?: Afinidad | null;
   sop_id?: number | null;
 }
+
+/** Un SOP de la biblioteca en `GET /sops` (RF-05): listo y guardado en ella. */
+export interface SopResumen {
+  id: number;
+  codigo: string;
+  titulo: string;
+  origen: 'cargado' | 'generado';
+  creado: string;
+  /** Videos con reporte de validación contra este SOP. */
+  videos_validados: number;
+}
+
+/**
+ * `GET /videos/estimacion` (ADR-024): cuánto sumaría describir las imágenes. Solo informa: la
+ * pantalla nunca deshabilita la casilla por falta de GPU. `aviso` viene redactado por la API.
+ */
+export interface EstimacionImagenes {
+  imagenes_estimadas: number;
+  segundos_extra_gpu: number;
+  segundos_extra_cpu: number;
+  /** Dónde correría Gemma; con `dispositivo_supuesto`, no se pudo saber y se supuso CPU. */
+  dispositivo: 'cpu' | 'gpu';
+  dispositivo_supuesto: boolean;
+  aviso: string;
+  /** `FOTOGRAMAS_DESCRIBIR` de la instalación: el valor con el que arranca la casilla. */
+  analizar_imagenes_defecto: boolean;
+}
+
+/** Parámetros de `GET /videos/estimacion`. */
+export interface PedidoEstimacion {
+  duracionS: number;
+  modo: 'validar' | 'generar';
+  sopId?: number;
+  /** El navegador vio `videoWidth === 0`: no hay imágenes que describir. */
+  sinImagen?: boolean;
+}

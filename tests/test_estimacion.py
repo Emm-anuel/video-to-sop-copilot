@@ -164,3 +164,27 @@ def test_errores_de_parametros(client: TestClient) -> None:
         "/videos/estimacion", params={"duracion_s": 60, "modo": "validar", "sop_id": 999999}
     )
     assert r.status_code == 404  # fmt: skip
+
+
+def test_archivo_sin_imagen_no_tiene_nada_que_describir(
+    client: TestClient, entorno: Entorno
+) -> None:
+    fila = guardar_sop(entorno.session, SOP_PRUEBA)
+    datos = client.get(
+        "/videos/estimacion",
+        params={"duracion_s": 600, "modo": "validar", "sop_id": fila.id, "sin_imagen": "true"},
+    ).json()
+    assert (datos["imagenes_estimadas"], datos["segundos_extra_gpu"]) == (0, 0.0)
+    assert datos["segundos_extra_cpu"] == 0.0
+    assert datos["aviso"] == "El archivo no tiene imagen: no hay imágenes que describir."
+
+
+def test_valor_de_la_instalacion_para_la_casilla(client: TestClient, entorno: Entorno) -> None:
+    params = {"duracion_s": 60, "modo": "generar"}
+    assert (
+        client.get("/videos/estimacion", params=params).json()["analizar_imagenes_defecto"] is False
+    )
+    entorno.settings = entorno.settings.model_copy(update={"fotogramas_describir": True})
+    assert (
+        client.get("/videos/estimacion", params=params).json()["analizar_imagenes_defecto"] is True
+    )

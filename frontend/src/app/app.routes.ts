@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { Biblioteca } from './biblioteca/biblioteca';
 import { Nuevo } from './nuevo/nuevo';
 import { Reporte } from './reporte/reporte';
 import { sinGuardar } from './sop/sin-guardar.guard';
@@ -8,6 +9,13 @@ import { SopGenerado } from './sop/sop-generado';
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'nuevo' },
   { path: 'nuevo', component: Nuevo, title: 'Nuevo análisis · SOPVID' },
+  // Biblioteca de SOP (RF-05): en escritorio, filas de tabla a todo el ancho.
+  {
+    path: 'sops',
+    component: Biblioteca,
+    data: { ancho: true },
+    title: 'Biblioteca de SOP · SOPVID',
+  },
   {
     path: 'videos/:id/reporte',
     component: Reporte,

@@ -1,9 +1,17 @@
-import { HttpClient, HttpEvent } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ReporteValidacion } from './reporte-validacion';
 import { SOP } from './sop';
-import { EstadoSop, EstadoVideo, SopDetalle, VideoCreado } from './tipos';
+import {
+  EstadoSop,
+  EstadoVideo,
+  EstimacionImagenes,
+  PedidoEstimacion,
+  SopDetalle,
+  SopResumen,
+  VideoCreado,
+} from './tipos';
 
 /** Prefijo que el proxy de `ng serve` reenvía a la API sin `/api` (proxy.conf.json). */
 export const API = '/api';
@@ -15,6 +23,11 @@ export interface SubidaVideo {
   sopId?: number;
   /** ISO 639-1. Sin él, Whisper detecta el idioma. */
   idioma?: string;
+  /**
+   * Describir imágenes con Gemma (ADR-024). Siempre viaja, también en `false`: lo que se ve en la
+   * casilla gana sobre `FOTOGRAMAS_DESCRIBIR` de la instalación.
+   */
+  analizarImagenes: boolean;
 }
 
 /** Cliente de la API de SOPVID (rutas en docs/dev/api.md). */
@@ -30,6 +43,37 @@ export class ApiService {
     const datos = new FormData();
     datos.append('archivo', archivo, archivo.name);
     return this.http.post<EstadoSop>(`${API}/sops`, datos);
+  }
+
+  /**
+   * `GET /sops` (RF-05): la biblioteca, del más nuevo al más viejo. Solo los SOP listos y
+   * guardados en ella, con cuántos videos se validaron con cada uno.
+   */
+  listarSops(): Observable<SopResumen[]> {
+    return this.http.get<SopResumen[]>(`${API}/sops`);
+  }
+
+  /**
+   * `DELETE /sops/{id}` (RF-05): 204. 409 si algún video o reporte lo usa, o si se está
+   * convirtiendo, con el porqué en `detail.mensaje` (`mensajeDeError` lo muestra tal cual).
+   */
+  borrarSop(id: number): Observable<void> {
+    return this.http.delete<void>(`${API}/sops/${id}`);
+  }
+
+  /**
+   * `GET /videos/estimacion` (ADR-024): cuántas imágenes se describirían y cuánto sumarían, antes
+   * de subir el video.
+   */
+  estimarImagenes(pedido: PedidoEstimacion): Observable<EstimacionImagenes> {
+    let params = new HttpParams().set('duracion_s', pedido.duracionS).set('modo', pedido.modo);
+    if (pedido.sopId !== undefined) {
+      params = params.set('sop_id', pedido.sopId);
+    }
+    if (pedido.sinImagen) {
+      params = params.set('sin_imagen', 'true');
+    }
+    return this.http.get<EstimacionImagenes>(`${API}/videos/estimacion`, { params });
   }
 
   /** `GET /sops/{id}/estado`: en_cola, convirtiendo, listo (con advertencias) o error. */
@@ -54,6 +98,7 @@ export class ApiService {
     if (subida.idioma) {
       datos.append('idioma', subida.idioma);
     }
+    datos.append('analizar_imagenes', String(subida.analizarImagenes));
     return this.http.post<VideoCreado>(`${API}/videos`, datos, {
       reportProgress: true,
       observe: 'events',

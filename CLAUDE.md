@@ -223,6 +223,12 @@ docs/
 >   `edicion.ts`). `revisado` en `Dato`, `Riesgo`, `Falla`, `PuntoClave` y `PasoSOP`; `PUT /sops/{id}`
 >   pone al día la duración total sin pisar la narrada. RNF-05 de un SOP editado:
 >   `scripts/medir_sop_generado.py --sop-editado clave=sop_id|json`. Corregir un SOP no detiene el video: se revalida con `POST /videos/{id}/validar`.
+> - **Biblioteca y Nuevo análisis (12 nov, rama `feat/s5-pantallas`, RF-05 y RF-07):** `GET /sops`
+>   (listos y en la biblioteca, con videos validados) y `DELETE /sops/{id}` (204; 409 explicado si
+>   un video o reporte lo usa, nunca en cascada). `/sops` (`frontend/src/app/biblioteca/`) y
+>   `/nuevo` con tres modos, consentimiento (RNF-16) y la casilla de imágenes: duración leída en el
+>   navegador, `GET /videos/estimacion` (ahora con `sin_imagen` y `analizar_imagenes_defecto`) y
+>   `analizar_imagenes` siempre en `POST /videos`. La lista de videos (pantalla 6) pasa a S6.
 > - **Sin código todavía:** subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6);
 >   pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar

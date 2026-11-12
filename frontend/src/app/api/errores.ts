@@ -30,6 +30,9 @@ export function mensajeDeError(error: unknown): string {
       return conDetalle('La API rechazó los datos', detalle);
     case 404:
       return conDetalle('No encontrado', detalle);
+    case 409:
+      // La API ya explica el conflicto en una frase (p. ej. por qué no se puede borrar un SOP).
+      return detalle ? conPunto(detalle) : 'La operación no se puede hacer en el estado actual.';
     default:
       return `Error de la API (HTTP ${error.status}). Revisa el log de la API.`;
   }
@@ -112,6 +115,10 @@ export function erroresPorCampo(error: unknown): ErrorCampo[] {
       const ruta = (d.loc ?? []).filter((p) => p !== 'body');
       return { ruta, etiqueta: etiquetaDeRuta(ruta), mensaje: d.msg! };
     });
+}
+
+function conPunto(texto: string): string {
+  return /[.!?]$/.test(texto) ? texto : `${texto}.`;
 }
 
 function conDetalle(titulo: string, detalle: string | undefined): string {
