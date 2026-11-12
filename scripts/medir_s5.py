@@ -35,6 +35,10 @@ Tres modos, desde la raíz del repo y con el entorno activado:
     # Une las dos fases en docs/adr/datos/s5/medicion-s5-<fecha>.{md,json}
     python scripts/medir_s5.py --informe data/interim/s5/<gpu>.json data/interim/s5/<cpu>.json
 
+Orden (plan §7, ADR-024): las repeticiones van video por video, así que los últimos (E) se miden
+con la GPU caliente; tras una tanda larga E tardó 81–83 s contra 69–71 s en frío con el mismo
+código. Antes de comparar tiempos entre informes, deja enfriar la GPU entre tandas o intercala.
+
 Antes de medir, cada fase carga Gemma y pregunta a Ollama dónde quedó
 (`medir_sop_generado.confirmar_dispositivo`); si no es donde se pidió, sale con código 3 sin
 medir. Lo mismo después de cada corrida, guardando lo medido hasta ahí.
@@ -75,7 +79,7 @@ from medir_sop_generado import (
 from medir_tiempos import criterio as criterio_tiempos
 from medir_tiempos import excede_esperados, filas_de, tramos_anotados
 
-from sopvid.contrato import SOP
+from sopvid.contrato import SOP, es_provisional
 from sopvid.lenguaje.emparejamiento import get_embedder
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.sop_markdown import convertir_sop
@@ -385,7 +389,7 @@ def correr_validar(
             afinidad = g.afinidad
         res = g.resultado
         meta = g.metadatos
-        valida = meta.segmentacion == "llm" and not meta.avisos
+        valida = meta.segmentacion == "llm" and not es_provisional(meta.avisos)
         chequeos, extra = chequeos_validar(
             clave,
             v,

@@ -233,6 +233,33 @@ def registrar(plan: PlanDispositivos, motivo_sin_gpu: str | None = None) -> None
         logger.warning("Dispositivos: %s", aviso)
 
 
+def dispositivo_llm_probable(
+    llm_dispositivo: Literal["auto", "cpu"],
+    gpu_detectada: GPU | None,
+    cargado_en: Callable[[], str],
+) -> tuple[Literal["cpu", "gpu"], bool]:
+    """Dónde va a correr Gemma, para estimar antes de procesar (ADR-024): (dispositivo, supuesto).
+
+    No llama a `nvidia-smi`: usa la GPU que la API ya detectó al arrancar (`gpu_detectada`, la
+    misma de `/health`). En orden: `LLM_DISPOSITIVO=cpu` fuerza la CPU; si Ollama tiene el modelo
+    cargado, dónde está (`cargado_en`, p. ej. `ClienteLLM.dispositivo_cargado`); si no, la GPU que
+    ve la API. Si nada de eso lo dice (p. ej. la API en Docker, que no ve la GPU aunque Ollama sí),
+    se supone CPU, que no subestima el tiempo, y `supuesto` va en True.
+    """
+    if llm_dispositivo == "cpu":
+        return "cpu", False
+    try:
+        cargado = cargado_en()
+    except Exception as exc:  # solo informa: nunca impide estimar
+        logger.debug("No se pudo preguntar a Ollama dónde está el modelo (%s)", type(exc).__name__)
+        cargado = "desconocido"
+    if cargado in ("cpu", "gpu"):
+        return cargado, False  # type: ignore[return-value]
+    if gpu_detectada is not None:
+        return "gpu", False
+    return "cpu", True
+
+
 # ── Un modelo pesado a la vez ────────────────────────────────────────────────────────────────
 
 

@@ -21,17 +21,24 @@ advertirlo; `POST /videos/{id}/validar?continuar=true` sigue sin detenerse.
 `GET /videos/{id}/video` entrega el archivo con `Range` para el reproductor del reporte (RF-20).
 `GET /videos/{id}/contexto` devuelve la ficha de contexto (RF-12) si ya se generó.
 
+Imágenes (RF-11, ADR-024): `analizar_imagenes` en `POST /videos` pide describir imágenes con
+Gemma antes de la ficha y gana sobre `FOTOGRAMAS_DESCRIBIR` (apagado por defecto).
+`GET /videos/estimacion` dice antes de subir cuántas imágenes se describirían y cuánto tiempo
+sumarían con y sin GPU; nunca prohíbe nada. `GET /videos/{id}/thumb?t=` entrega la miniatura del
+segundo `t` (la guardada a ≤ 1 s o una nueva, solo ffmpeg), con cabeceras de caché.
+
 La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
 
 import logging
+import math
 import mimetypes
 import re
 import shutil
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Annotated, BinaryIO
+from typing import Annotated, BinaryIO, Literal
 
 from fastapi import (
     APIRouter,
@@ -57,8 +64,12 @@ from sopvid.contrato import (
     ResultadoValidacion,
 )
 from sopvid.lenguaje.lectura_sop import AjustesConversion
+from sopvid.lenguaje.llm import ClienteLLM, get_cliente_llm
 from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
+from sopvid.percepcion import miniaturas
+from sopvid.percepcion.fotogramas import cuantas_imagenes
+from sopvid.percepcion.medios import ErrorMedios, duracion, imagen_visible, tiene_imagen
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
 from sopvid.plataforma.api.sops import (
@@ -70,6 +81,11 @@ from sopvid.plataforma.api.sops import (
 )
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
+from sopvid.plataforma.hardware import (
+    PlanDispositivos,
+    dispositivo_llm_probable,
+    get_plan_dispositivos,
+)
 from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
 from sopvid.plataforma.procesamiento import (
     AFINIDAD_BAJA,
@@ -95,6 +111,8 @@ BLOQUE = 1024 * 1024
 # límite, el middleware rechaza la petición antes de leerla; con los límites reales (GB) no pasa.
 HOLGURA_FORMULARIO = 1024 * 1024
 _IDIOMA = re.compile(r"^[a-z]{2,3}$")
+# La miniatura de un segundo no cambia: el navegador la guarda un día sin volver a pedirla.
+CACHE_MINIATURA = "private, max-age=86400, immutable"
 
 
 class VideoCreado(BaseModel):
@@ -122,6 +140,23 @@ class EstadoVideo(BaseModel):
     # Afinidad de contexto (RF-17, ADR-020): con "afinidad_baja", la de la detención (la pantalla
     # advierte y ofrece continuar); con "listo", la del reporte. None sin ficha o sin validación.
     afinidad: Afinidad | None = None
+
+
+class EstimacionImagenes(BaseModel):
+    """Respuesta de `GET /videos/estimacion` (ADR-024): cuánto sumaría describir las imágenes.
+
+    `imagenes_estimadas` es la N que se usaría; los segundos extra son N por `SEG_IMAGEN_GPU` o
+    `SEG_IMAGEN_CPU` (sin calibrar hasta la medición de ADR-024). `dispositivo` es dónde correría
+    Gemma; `dispositivo_supuesto`, si no se pudo saber y se supuso CPU. `aviso` va listo para la
+    pantalla. Solo informa: nunca prohíbe describir.
+    """
+
+    imagenes_estimadas: int
+    segundos_extra_gpu: float
+    segundos_extra_cpu: float
+    dispositivo: Literal["cpu", "gpu"]
+    dispositivo_supuesto: bool
+    aviso: str
 
 
 def get_transcriptor(settings: Annotated[Settings, Depends(get_settings)]) -> Transcriptor:
@@ -170,6 +205,13 @@ def subir_video(
     sop: Annotated[
         UploadFile | None,
         File(description="SOP nuevo (.md, .txt, .pdf o .docx); con modo=validar, este o sop_id"),
+    ] = None,
+    analizar_imagenes: Annotated[
+        bool | None,
+        Form(
+            description="Describir imágenes con Gemma antes de la ficha (ADR-024); sin el campo, "
+            "FOTOGRAMAS_DESCRIBIR de la instalación"
+        ),
     ] = None,
 ) -> VideoCreado:
     extension = Path(archivo.filename or "").suffix.lower()
@@ -230,20 +272,88 @@ def subir_video(
         if isinstance(exc, _TamanoExcedido):
             raise HTTPException(413, _detalle_tamano(settings)) from None
         raise
+    # El parámetro del video gana sobre la instalación, en los dos sentidos (ADR-024).
+    imagenes = settings.fotogramas_describir if analizar_imagenes is None else analizar_imagenes
     logger.info(
-        "Video %d recibido (%s, %.1f MB%s)",
+        "Video %d recibido (%s, %.1f MB%s%s)",
         video.id,
         extension,
         destino.stat().st_size / 1e6,
         f", SOP adjunto {sop_id} {adjunto.extension}" if adjunto is not None else "",
+        ", con imágenes" if imagenes else "",
     )
 
     if adjunto is not None:  # antes que el video, que lo espera
         assert sop_id is not None
         procesador.encolar_sop(sop_id, fabrica_llm, AjustesConversion.desde_settings(settings))
-    procesador.encolar(video.id, idioma, transcriptor, validacion)
+    procesador.encolar(video.id, idioma, transcriptor, validacion, imagenes=imagenes)
     response.headers["Location"] = f"/videos/{video.id}"
     return VideoCreado(id=video.id, proceso=video.proceso, sop_id=sop_id)
+
+
+@router.get("/videos/estimacion", response_model=EstimacionImagenes)
+def estimar_imagenes(
+    duracion_s: Annotated[float, Query(gt=0, description="Duración del video en segundos")],
+    modo: Annotated[Literal["validar", "generar"], Query(description="validar | generar")],
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    plan: Annotated[PlanDispositivos, Depends(get_plan_dispositivos)],
+    llm: Annotated[ClienteLLM, Depends(get_cliente_llm)],
+    sop_id: Annotated[int | None, Query(description="SOP de referencia (modo validar)")] = None,
+) -> EstimacionImagenes:
+    """Cuántas imágenes se describirían y cuánto tiempo sumarían, con y sin GPU (ADR-024).
+
+    N es la misma que usaría el procesamiento: los pasos del SOP (si `sop_id` ya está listo) o la
+    duración por `PASOS_POR_MIN`, entre `FOTOGRAMAS_MIN` y `FOTOGRAMAS_MAX`. Va declarada antes de
+    `/videos/{video_id}`. 404 si el SOP no existe; nunca prohíbe describir, solo informa.
+    """
+    if not math.isfinite(duracion_s):
+        raise HTTPException(422, "duracion_s debe ser un número finito")
+    pasos_sop = None
+    if sop_id is not None:
+        fila = session.get(Sop, sop_id)
+        if fila is None:
+            raise HTTPException(404, "SOP no encontrado")
+        if fila.estado == SOP_LISTO and fila.contenido:
+            pasos_sop = len(SOP.model_validate(fila.contenido).pasos)
+    n = cuantas_imagenes(modo, pasos_sop, duracion_s, settings)
+    extra_gpu = round(n * settings.seg_imagen_gpu, 1)
+    extra_cpu = round(n * settings.seg_imagen_cpu, 1)
+    dispositivo, supuesto = dispositivo_llm_probable(
+        settings.llm_dispositivo,
+        plan.gpu,
+        lambda: llm.dispositivo_cargado(timeout_s=settings.llm_health_timeout_s),
+    )
+    return EstimacionImagenes(
+        imagenes_estimadas=n,
+        segundos_extra_gpu=extra_gpu,
+        segundos_extra_cpu=extra_cpu,
+        dispositivo=dispositivo,
+        dispositivo_supuesto=supuesto,
+        aviso=_aviso_estimacion(n, dispositivo, supuesto, extra_gpu, extra_cpu),
+    )
+
+
+def _aviso_estimacion(
+    n: int, dispositivo: str, supuesto: bool, extra_gpu: float, extra_cpu: float
+) -> str:
+    """El texto para la pantalla: cuánto sumaría describir las `n` imágenes."""
+    describir = f"describir {n} imágenes sumará"
+    if supuesto:
+        return (
+            f"No se pudo saber si hay GPU: {describir} {_duracion(extra_gpu)} con GPU o "
+            f"{_duracion(extra_cpu)} sin ella."
+        )
+    if dispositivo == "gpu":
+        return f"Con GPU: {describir} {_duracion(extra_gpu)}."
+    return f"Sin GPU: {describir} {_duracion(extra_cpu)}."
+
+
+def _duracion(segundos: float) -> str:
+    """'~40 s' o '~4 min', redondeado para leerse de un vistazo."""
+    if segundos < 90:
+        return f"~{max(round(segundos), 1)} s"
+    return f"~{round(segundos / 60)} min"
 
 
 @router.post("/videos/{video_id}/validar", status_code=202, response_model=VideoCreado)
@@ -390,6 +500,51 @@ def archivo_video(
         raise HTTPException(404, {"mensaje": "el archivo del video no está en disco"})
     tipo = mimetypes.guess_type(ruta.name)[0] or "application/octet-stream"
     return FileResponse(ruta, media_type=tipo)
+
+
+@router.get("/videos/{video_id}/thumb", response_class=FileResponse)
+def miniatura_video(
+    video_id: int,
+    t: Annotated[float, Query(description="Segundo del video, p. ej. 12.5")],
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> FileResponse:
+    """La miniatura del segundo `t` (RF-11, ADR-024): solo ffmpeg, sin modelo.
+
+    Si hay una guardada a ≤ 1 s (RNF-03) la devuelve; si no, la saca y la deja en
+    `media/videos/<id>/miniaturas/` como caché. 404 si el video no existe o no tiene imagen
+    visible (sin pista de video o negro); 400 si `t` está fuera de la duración. La imagen de un
+    segundo no cambia: va con `Cache-Control` de un día. La ruta sale de la fila, nunca de la
+    petición.
+    """
+    video = _buscar(session, video_id)
+    archivo = settings.media_path / video.archivo
+    if not video.archivo or not archivo.is_file():
+        raise HTTPException(404, {"mensaje": "el archivo del video no está en disco"})
+    carpeta = miniaturas.carpeta_miniaturas(archivo.parent)
+    if miniaturas.sin_imagen_marcado(carpeta):
+        raise HTTPException(404, {"mensaje": "el video no tiene imagen"})
+    try:
+        total = video.duracion if video.duracion is not None else duracion(archivo)
+    except ErrorMedios:
+        raise HTTPException(404, {"mensaje": "el video no se pudo leer"}) from None
+    if not math.isfinite(t) or t < 0 or t > total:
+        raise HTTPException(400, f"t debe estar entre 0 y {total:g} s")
+    ruta = miniaturas.buscar(carpeta, t)
+    if ruta is None:
+        try:
+            # La primera vez (un video procesado antes de las miniaturas) se revisa que tenga
+            # imagen visible; después basta con que tenga pista de video.
+            primera = not carpeta.is_dir() or not any(carpeta.glob("t*.jpg"))
+            visible = imagen_visible(archivo, total) if primera else tiene_imagen(archivo)
+            if not visible:
+                miniaturas.marcar_sin_imagen(carpeta)
+                raise HTTPException(404, {"mensaje": "el video no tiene imagen"})
+            ruta = miniaturas.asegurar(archivo, carpeta, t, total, settings.miniatura_lado_px)
+        except ErrorMedios as exc:
+            logger.warning("Video %d: miniatura en %.1f s sin generar (%s)", video_id, t, exc)
+            raise HTTPException(404, {"mensaje": "no se pudo sacar la miniatura"}) from None
+    return FileResponse(ruta, media_type="image/jpeg", headers={"Cache-Control": CACHE_MINIATURA})
 
 
 @router.get("/videos/{video_id}/analisis", response_model=Analisis)

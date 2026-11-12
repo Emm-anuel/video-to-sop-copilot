@@ -16,6 +16,9 @@ nunca incluyen el texto enviado ni el devuelto (pueden contener material del cli
 `stream: true` (el `format` con JSON Schema sigue valiendo) y mide el tiempo por fragmento: sirve
 para respuestas largas en CPU, donde un plazo fijo corta generaciones sanas (ADR-018). Cada
 llamada registra en el log los tokens generados y los tokens/s (`eval_count`, `eval_duration`).
+
+Los mensajes van tal cual a Ollama: uno puede llevar `images` (JPEG en base64, en orden) para que
+Gemma 4 las lea con su proyector de visión (RF-11, ADR-024; `percepcion.fotogramas`).
 """
 
 import json
@@ -134,7 +137,7 @@ class ClienteLLM:
 
     def chat(
         self,
-        mensajes: list[dict[str, str]],
+        mensajes: list[dict[str, Any]],
         *,
         esquema: dict[str, Any] | None = None,
         think: bool | None = None,
@@ -152,7 +155,7 @@ class ClienteLLM:
 
     def cuerpo(
         self,
-        mensajes: list[dict[str, str]],
+        mensajes: list[dict[str, Any]],
         *,
         esquema: dict[str, Any] | None = None,
         think: bool | None = None,
@@ -269,7 +272,7 @@ class ClienteLLM:
 
     def chat_en_flujo(
         self,
-        mensajes: list[dict[str, str]],
+        mensajes: list[dict[str, Any]],
         *,
         inactividad_s: float,
         tope_s: float,

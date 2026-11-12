@@ -3,7 +3,7 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { forkJoin, switchMap, takeWhile, timer } from 'rxjs';
-import { ApiService } from '../api/api.service';
+import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
 import { PasoSOP, SOP } from '../api/sop';
 import { EstadoVideo, SopDetalle } from '../api/tipos';
@@ -16,6 +16,7 @@ const ETAPAS: Record<string, string> = {
   duracion: 'Leyendo el video',
   audio: 'Extrayendo el audio',
   transcripcion: 'Transcribiendo',
+  fotogramas: 'Describiendo imágenes',
   contexto: 'Ficha de contexto',
   segmentacion: 'Pasos del video',
   sop_pasos: 'Redactando los pasos',
@@ -59,6 +60,12 @@ export class SopGenerado {
     return etapa ? (ETAPAS[etapa] ?? etapa) : 'En cola';
   });
   protected readonly enBiblioteca = computed(() => this.detalle()?.en_biblioteca ?? false);
+  /** El video no tiene imagen (advertencia "sin_imagen", ADR-024): no hay miniaturas. */
+  protected readonly sinImagen = computed(
+    () => this.detalle()?.advertencias?.some((a) => a.tipo === 'sin_imagen') ?? false,
+  );
+  /** Pasos cuya miniatura no cargó: se ocultan en lugar de mostrar una imagen rota. */
+  protected readonly miniaturasFallidas = signal<ReadonlySet<number>>(new Set());
 
   constructor() {
     timer(0, INTERVALO_MS)
@@ -107,6 +114,15 @@ export class SopGenerado {
         (e) => e.campo === campo && (valor === undefined || e.valor === valor),
       ) ?? null
     );
+  }
+
+  /** Miniatura del inicio del paso (`GET /videos/{id}/thumb`, ADR-024): se pide por segundo. */
+  protected urlMiniatura(t: number): string {
+    return `${API}/videos/${this.videoId}/thumb?t=${t}`;
+  }
+
+  protected ocultarMiniatura(numero: number): void {
+    this.miniaturasFallidas.update((fallidas) => new Set(fallidas).add(numero));
   }
 
   protected inferido(paso: PasoSOP, campo: string): boolean {

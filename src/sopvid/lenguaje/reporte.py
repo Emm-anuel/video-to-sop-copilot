@@ -28,6 +28,7 @@ from sopvid.contrato import (
     ResultadoValidacion,
     Semaforo,
     SOPReporte,
+    es_provisional,
 )
 from sopvid.plataforma.config import Settings, get_settings
 
@@ -155,7 +156,7 @@ def armar_reporte(
         ),
         cumplimiento=cumplimiento,
         semaforo=validacion.semaforo,
-        provisional=bool(validacion.metadatos.avisos),
+        provisional=es_provisional(validacion.metadatos.avisos),
         afinidad=validacion.afinidad,
         conteo=conteo,
         filas=filas,

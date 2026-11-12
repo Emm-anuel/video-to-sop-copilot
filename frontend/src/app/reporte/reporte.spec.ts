@@ -13,10 +13,12 @@ import {
   NO_REGISTRADO,
   RESPALDO_CPU,
   Reporte,
+  avisosQueAfectan,
   dispositivosDeModelos,
   etapasConTiempo,
   formatoSegundos,
   mmss,
+  textoImagenes,
   totalSegundos,
 } from './reporte';
 
@@ -83,6 +85,36 @@ describe('Cómo se obtuvo (funciones puras)', () => {
     ]);
     expect(totalSegundos(etapas)).toBeCloseTo(26.6);
     expect(totalSegundos([])).toBe(0);
+  });
+
+  it('las imágenes van entre la transcripción y la ficha, y las miniaturas al final', () => {
+    const etapas = etapasConTiempo({
+      miniaturas: 0.4,
+      contexto: 8,
+      fotogramas: 6,
+      transcripcion: 9,
+    });
+    expect(etapas.map((e) => e.nombre)).toEqual([
+      'Transcripción',
+      'Descripción de imágenes',
+      'Ficha de contexto',
+      'Miniaturas',
+    ]);
+  });
+
+  it('textoImagenes dice "no" o "sí, N" y lee los reportes anteriores', () => {
+    expect(textoImagenes(undefined)).toBe('no');
+    expect(textoImagenes({ descritas: false, cantidad: 0 })).toBe('no');
+    expect(textoImagenes({ descritas: true, cantidad: 6 })).toBe('sí, 6');
+  });
+
+  it('avisosQueAfectan quita los informativos', () => {
+    const avisos = [
+      { tipo: 'sin_imagen' as const, detalle: 'a' },
+      { tipo: 'imagenes_incompletas' as const, detalle: 'b' },
+    ];
+    expect(avisosQueAfectan(avisos).map((a) => a.tipo)).toEqual(['imagenes_incompletas']);
+    expect(avisosQueAfectan(undefined)).toEqual([]);
   });
 
   it('dispositivosDeModelos traduce cada caso', () => {
@@ -176,6 +208,7 @@ describe('Reporte', () => {
       expect(dato('modelo', 'llm')).toBe('GPU');
       expect(dato('modelo', 'embedder')).toBe('CPU');
       expect(dato('modelo', 'gpu')).toBe('GPU de ejemplo');
+      expect(dato('modelo', 'imagenes')).toBe('no');
 
       const etapas = Array.from(recuadro().querySelectorAll('[data-etapa]')).map((dd) => [
         dd.previousElementSibling?.textContent?.trim(),
@@ -202,6 +235,17 @@ describe('Reporte', () => {
       expect(pantalla().querySelector('.porcentaje')?.textContent).toContain('71.43 %');
       expect(pantalla().querySelector('.semaforo-amarillo')).not.toBeNull();
       expect(filas()).toHaveLength(NORMAL.filas.length);
+    });
+
+    it('con imágenes descritas dice "sí, N" junto al dispositivo', () => {
+      llegaReporte(
+        conMetadatos((m) => {
+          m.imagenes = { descritas: true, cantidad: 6, tokens_entrada: 600, tokens_salida: 400 };
+          m.segundos = { ...m.segundos, fotogramas: 7.5 };
+        }),
+      );
+      expect(dato('modelo', 'imagenes')).toBe('sí, 6');
+      expect(dato('etapa', 'fotogramas')).toBe('7.5 s');
     });
 
     it('con dispositivos en null dice "No registrado…" y sigue mostrando los tiempos', () => {
@@ -375,12 +419,48 @@ describe('Reporte', () => {
     const sobras = f.filter((fila) => fila.querySelector('.estado-sobra'));
     expect(sobras).toHaveLength(NORMAL.conteo.sobra);
 
-    // Espacio para la miniatura (S5), sin imagen y sin nada que se pueda llenar.
-    expect(f[0].querySelector('.miniatura')?.getAttribute('title')).toContain(
-      'Miniatura pendiente',
-    );
+    // Miniatura por fila con segundo (ADR-024), pedida por segundo y con carga diferida; el
+    // Falta (fila 6) no tiene segundo y deja la celda vacía.
+    const img = f[0].querySelector('img.miniatura') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe(`/api/videos/7/thumb?t=${NORMAL.filas[0].t_inicio}`);
+    expect(img.getAttribute('loading')).toBe('lazy');
+    expect(img.getAttribute('alt')).toBe(`Cuadro del video en ${mmss(NORMAL.filas[0].t_inicio!)}`);
+    expect(f[6].querySelector('img')).toBeNull();
+    const conSegundo = NORMAL.filas.filter((fila) => fila.t_inicio != null).length;
+    expect(pantalla().querySelectorAll('tbody img.miniatura')).toHaveLength(conSegundo);
+    expect(pantalla().querySelector('th.col-miniatura')).not.toBeNull();
     expect(pantalla().querySelector('tbody input')).toBeNull();
+  });
+
+  it('una miniatura que no carga se oculta, sin imagen rota', () => {
+    llegaReporte(NORMAL);
+    const img = filas()[0].querySelector('img.miniatura') as HTMLImageElement;
+    img.dispatchEvent(new Event('error'));
+    expect(filas()[0].querySelector('img')).toBeNull();
+    expect(filas()[1].querySelector('img.miniatura')).not.toBeNull();
+  });
+
+  it('con "sin_imagen" no hay columna de miniatura ni recuadro de provisional', () => {
+    llegaReporte(
+      conMetadatos((m) => (m.avisos = [{ tipo: 'sin_imagen', detalle: 'sin pista de video' }])),
+    );
+    expect(pantalla().querySelector('.col-miniatura')).toBeNull();
     expect(pantalla().querySelector('tbody img')).toBeNull();
+    expect(pantalla().querySelector('.avisos')).toBeNull();
+    // Las columnas siguen en su lugar: estado primero.
+    expect(filas()[0].children[0].querySelector('.estado-etiqueta')).not.toBeNull();
+  });
+
+  it('el recuadro de provisional no lista los avisos informativos', () => {
+    const reporte = structuredClone(PROVISIONAL);
+    reporte.metadatos.avisos = [
+      ...(reporte.metadatos.avisos ?? []),
+      { tipo: 'sin_imagen', detalle: 'sin pista de video' },
+    ];
+    llegaReporte(reporte);
+    const avisos = pantalla().querySelector('.avisos') as HTMLElement;
+    expect(avisos.textContent).toContain('Pares sin revisar por el juez');
+    expect(avisos.textContent).not.toContain('Video sin imagen');
   });
 
   it('con el ejemplo provisional muestra el aviso y la zona gris como "Sin revisar"', () => {

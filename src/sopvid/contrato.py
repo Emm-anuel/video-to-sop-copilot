@@ -822,21 +822,37 @@ class EstadoSop(_Modelo):
 # "contexto_sin_generar": la ficha de contexto (RF-12) quedó vacía porque Ollama no respondió, se
 # cortó por tiempo, no dio un JSON válido o la transcripción estaba vacía;
 # "transcripcion_no_referencia": Whisper no fue el modelo de referencia (large-v3-turbo, ADR-018),
-# así que la transcripción, y lo que se cita de ella, puede traer errores de reconocimiento.
+# así que la transcripción, y lo que se cita de ella, puede traer errores de reconocimiento;
+# "imagenes_incompletas": con la descripción de imágenes encendida (RF-11, ADR-024), algún lote no
+# se pudo describir (Ollama cayó o no dio un JSON válido en 3 intentos) y la ficha se armó sin esas
+# imágenes;
+# "sin_imagen": el video no tiene pista de imagen o es negro: no hay miniaturas ni imágenes que
+# describir. Es informativo (`AVISOS_INFORMATIVOS`): no es una falla y no vuelve provisional el
+# resultado.
 TipoAviso = Literal[
     "segmentacion_heuristica",
     "juez_sin_revisar",
     "pasos_sin_redactar",
     "contexto_sin_generar",
     "transcripcion_no_referencia",
+    "imagenes_incompletas",
+    "sin_imagen",
 ]
+# Avisos que solo informan: se guardan y se muestran, pero no vuelven provisional el reporte.
+AVISOS_INFORMATIVOS: frozenset[str] = frozenset({"sin_imagen"})
 
 
 class Aviso(_Modelo):
-    """Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP."""
+    """Falla del sistema que afecta al resultado, o un dato informativo del video
+    (`AVISOS_INFORMATIVOS`). `detalle` no lleva texto del video ni del SOP."""
 
     tipo: TipoAviso
     detalle: str
+
+
+def es_provisional(avisos: "list[Aviso] | tuple[Aviso, ...]") -> bool:
+    """True si algún aviso es una falla del sistema (ADR-019); los informativos no cuentan."""
+    return any(a.tipo not in AVISOS_INFORMATIVOS for a in avisos)
 
 
 # ── Ficha de contexto del video (RF-12; SOP V1.0 §6) ────────────────────────────────────────
@@ -925,6 +941,22 @@ class Dispositivos(_Modelo):
     embedder: Literal["cpu"] = "cpu"
 
 
+class Imagenes(_Modelo):
+    """Si se describieron imágenes del video con Gemma (RF-11, ADR-024) y cuántas entraron.
+
+    `descritas` es lo que se usó de verdad: false con la opción apagada, sin imagen o si ningún
+    lote se pudo describir; `cantidad`, los fotogramas que recibió la ficha de contexto. Los
+    tokens son los de todas las llamadas de visión de este proceso (None si no hubo o al repetir
+    con las imágenes guardadas). Los resultados guardados antes de ADR-024 leen los valores por
+    defecto.
+    """
+
+    descritas: bool = False
+    cantidad: int = Field(default=0, ge=0)
+    tokens_entrada: int | None = Field(default=None, ge=0)
+    tokens_salida: int | None = Field(default=None, ge=0)
+
+
 class MetadatosValidacion(_Modelo):
     """Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.
 
@@ -945,6 +977,7 @@ class MetadatosValidacion(_Modelo):
     # True si los pasos del video se reusaron de la validación anterior (RNF-07), sin llamar a
     # Gemma para segmentar; entonces `segundos` no trae "segmentacion".
     segmentacion_reusada: bool = False
+    imagenes: Imagenes = Field(default_factory=Imagenes)
 
 
 class ResponsableFila(_Modelo):
@@ -1258,7 +1291,7 @@ class ReporteValidacion(_Modelo):
     """Respuesta de `GET /videos/{id}/reporte`.
 
     `cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin
-    redondear. `provisional` es true si hay avisos (ADR-019).
+    redondear. `provisional` es true si hay avisos que no son informativos (ADR-019, ADR-024).
 
     `afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10
     del documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,
@@ -1282,8 +1315,8 @@ class ReporteValidacion(_Modelo):
 
     @model_validator(mode="after")
     def _coherente(self) -> Self:
-        if self.provisional != bool(self.metadatos.avisos):
-            raise ValueError("provisional va en true si y solo si hay avisos")
+        if self.provisional != es_provisional(self.metadatos.avisos):
+            raise ValueError("provisional va en true si y solo si hay avisos no informativos")
         minimo = self.metadatos.umbrales.afinidad_min
         afinidad = self.afinidad
         if (
@@ -1401,6 +1434,7 @@ class GeneracionSOP(_Modelo):
     dispositivo_llm: Dispositivo = "desconocido"
     contexto_reusado: bool = False
     segmentacion_reusada: bool = False
+    imagenes: Imagenes = Field(default_factory=Imagenes)
 
     @model_validator(mode="after")
     def _cada_paso_una_vez(self) -> Self:

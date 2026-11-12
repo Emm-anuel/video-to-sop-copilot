@@ -147,6 +147,9 @@
       <thead>
         <tr>
           <th>N.º</th>
+          @if (!sinImagen()) {
+            <th class="col-miniatura"><span class="sr-only">Imagen del paso</span></th>
+          }
           <th>Paso</th>
           <th>Descripción</th>
           <th>Responsable</th>
@@ -160,6 +163,23 @@
         @for (p of s.pasos; track p.numero) {
           <tr>
             <td>{{ p.numero }}</td>
+            @if (!sinImagen()) {
+              <td class="col-miniatura">
+                <!-- Miniatura del inicio del paso (ADR-024), con carga diferida. -->
+                @if (p.t_inicio != null && !miniaturasFallidas().has(p.numero)) {
+                  <img
+                    class="miniatura"
+                    loading="lazy"
+                    decoding="async"
+                    width="96"
+                    height="54"
+                    [src]="urlMiniatura(p.t_inicio)"
+                    [alt]="'Cuadro del video en ' + mmss(p.t_inicio)"
+                    (error)="ocultarMiniatura(p.numero)"
+                  />
+                }
+              </td>
+            }
             <td [class.inferido]="inferido(p, 'nombre')">{{ p.nombre }}</td>
             <td [class.inferido]="inferido(p, 'descripcion')">{{ p.descripcion }}</td>
             <td

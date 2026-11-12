@@ -142,7 +142,40 @@ describe('SopGenerado', () => {
     const guantes = fichas.find((f) => f.textContent?.includes('Guantes de nitrilo'))!;
     expect(guantes.classList).not.toContain('inferido');
     expect(guantes.getAttribute('title')).toBe('audio · alta · 00:53 · «I put on nitrile gloves»');
-    expect(celdas[6].classList).toContain('inferido'); // el tiempo, medido
+    expect(celdas[7].classList).toContain('inferido'); // el tiempo, medido (tras la miniatura)
+  });
+
+  it('cada paso lleva la miniatura de su inicio, con carga diferida', async () => {
+    await listo();
+    const el = fixture.nativeElement as HTMLElement;
+    const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('table.pasos tbody img'));
+    expect(imgs).toHaveLength(ejemplo.pasos.length);
+    expect(imgs[0].getAttribute('src')).toBe(`/api/videos/9/thumb?t=${ejemplo.pasos[0].t_inicio}`);
+    expect(imgs[0].getAttribute('loading')).toBe('lazy');
+    imgs[0].dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+    expect(el.querySelectorAll('table.pasos tbody img')).toHaveLength(ejemplo.pasos.length - 1);
+  });
+
+  it('con la advertencia "sin_imagen" no hay columna de miniatura', async () => {
+    await responder(ESTADO, estado('listo'));
+    await responder('/api/videos/9/sop', sopConInferidos());
+    const sinImagen = detalle();
+    sinImagen.advertencias = [
+      ...sinImagen.advertencias,
+      { tipo: 'sin_imagen', linea: null, mensaje: 'el video no tiene imagen visible' },
+    ];
+    await responder('/api/sops/21', sinImagen);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.col-miniatura')).toBeNull();
+    expect(el.querySelector('table.pasos img')).toBeNull();
+  });
+
+  it('nombra la etapa de imágenes en el avance', async () => {
+    await responder(ESTADO, estado('procesando', { etapa: 'fotogramas', progreso: 38 }));
+    expect(texto()).toContain('Describiendo imágenes…');
+    await vi.advanceTimersByTimeAsync(INTERVALO_MS);
+    await responder(ESTADO, estado('error', { error: 'x' }));
   });
 
   it('guarda el SOP en la biblioteca', async () => {

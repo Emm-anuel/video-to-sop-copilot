@@ -101,6 +101,7 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "emparejamiento",
         "personas",
         "tiempos",
+        "miniaturas",  # ADR-024: siempre, con ffmpeg
     }
     assert (meta.umbrales.semaforo_verde, meta.umbrales.semaforo_amarillo) == (90, 70)
     assert (meta.umbrales.tolerancia_tiempo, meta.umbrales.umbral_horario) == (0.2, 0.75)
@@ -211,6 +212,7 @@ def test_ollama_caido_al_empezar_deja_error_reprocesable(
         "emparejamiento",
         "personas",
         "tiempos",
+        "miniaturas",  # ADR-024: siempre, con ffmpeg
     }
     assert entorno.video(video_id).contexto is not None
 
@@ -349,6 +351,7 @@ def test_repetir_la_validacion_reusa_la_ficha_guardada(
         "emparejamiento",
         "personas",
         "tiempos",
+        "miniaturas",  # ADR-024: siempre, con ffmpeg
     }
     assert reporte["metadatos"]["segmentacion_reusada"] is True
     assert reporte["provisional"] is False

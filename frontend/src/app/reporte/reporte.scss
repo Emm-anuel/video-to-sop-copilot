@@ -258,24 +258,19 @@ tr.marco {
 }
 
 .col-miniatura {
-  width: 4.5rem;
+  width: 6.5rem;
 }
 
-// Lugar de la miniatura (S5): borde punteado e ícono de película, para que no parezca un campo.
+// Miniatura del segundo de la fila (ADR-024): recortada a 16:9, con el fondo gris mientras carga.
 .miniatura {
-  display: grid;
-  place-items: center;
-  width: 4rem;
+  display: block;
+  width: 6rem;
+  height: auto;
   aspect-ratio: 16 / 9;
-  border: 1px dashed #d0d5dd;
+  object-fit: cover;
+  background: #f2f4f7;
+  border: 1px solid #e4e7ec;
   border-radius: 0.25rem;
-
-  svg {
-    width: 1.1rem;
-    fill: none;
-    stroke: #c0c6d0;
-    stroke-width: 1.5;
-  }
 }
 
 .estado-etiqueta,

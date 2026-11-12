@@ -48,7 +48,7 @@
               etapa.
             </p>
             <ul>
-              @for (aviso of r.metadatos.avisos ?? []; track $index) {
+              @for (aviso of avisosProvisional(); track $index) {
                 <li>{{ etiquetaAviso(aviso.tipo) }}: {{ aviso.detalle }}</li>
               }
             </ul>
@@ -107,9 +107,15 @@
                     <dt>GPU del equipo</dt>
                     <dd data-modelo="gpu">{{ c.gpu }}</dd>
                   }
+                  <dt>Imágenes</dt>
+                  <dd data-modelo="imagenes">{{ c.imagenes }}</dd>
                 </dl>
               } @else {
                 <p data-modelo="no-registrado">{{ noRegistrado }}</p>
+                <dl class="pares">
+                  <dt>Imágenes</dt>
+                  <dd data-modelo="imagenes">{{ c.imagenes }}</dd>
+                </dl>
               }
             </div>
             <div>
@@ -151,7 +157,9 @@
         <table class="tabla">
           <thead>
             <tr>
-              <th scope="col" class="col-miniatura"><span class="sr-only">Miniatura</span></th>
+              @if (!sinImagen()) {
+                <th scope="col" class="col-miniatura"><span class="sr-only">Miniatura</span></th>
+              }
               <th scope="col">Estado</th>
               <th scope="col">Paso del SOP</th>
               <th scope="col">Paso del video</th>
@@ -166,15 +174,23 @@
                 [class.activa]="filaActiva() === i"
                 (click)="irA(fila, i)"
               >
-                <td class="col-miniatura">
-                  <!-- Lugar de la miniatura: llega con los fotogramas (S5). -->
-                  <div class="miniatura" title="Miniatura pendiente: llega con los fotogramas">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4" />
-                    </svg>
-                  </div>
-                </td>
+                @if (!sinImagen()) {
+                  <td class="col-miniatura">
+                    <!-- Miniatura del segundo de la fila (ADR-024); un Falta no tiene segundo. -->
+                    @if (fila.t_inicio != null && !miniaturasFallidas().has(i)) {
+                      <img
+                        class="miniatura"
+                        loading="lazy"
+                        decoding="async"
+                        width="96"
+                        height="54"
+                        [src]="urlMiniatura(videoId() ?? r.video_id, fila.t_inicio)"
+                        [alt]="'Cuadro del video en ' + mmss(fila.t_inicio)"
+                        (error)="ocultarMiniatura(i)"
+                      />
+                    }
+                  </td>
+                }
                 <td class="col-estado">
                   <span class="estado-etiqueta" [class]="claseEstado(fila)">
                     {{ etiquetaEstado(fila) }}

@@ -116,3 +116,28 @@ table {
 .avance progress {
   width: 100%;
 }
+
+// Miniatura del inicio de cada paso (ADR-024): recortada a 16:9, con fondo gris mientras carga.
+.col-miniatura {
+  width: 6.5rem;
+}
+
+.miniatura {
+  display: block;
+  width: 6rem;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #f2f4f7;
+  border: 1px solid #e4e7ec;
+  border-radius: 0.25rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

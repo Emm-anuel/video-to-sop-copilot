@@ -40,7 +40,7 @@
     },
     "Aviso": {
       "additionalProperties": false,
-      "description": "Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.",
+      "description": "Falla del sistema que afecta al resultado, o un dato informativo del video\n(`AVISOS_INFORMATIVOS`). `detalle` no lleva texto del video ni del SOP.",
       "properties": {
         "tipo": {
           "enum": [
@@ -48,7 +48,9 @@
             "juez_sin_revisar",
             "pasos_sin_redactar",
             "contexto_sin_generar",
-            "transcripcion_no_referencia"
+            "transcripcion_no_referencia",
+            "imagenes_incompletas",
+            "sin_imagen"
           ],
           "title": "Tipo",
           "type": "string"
@@ -419,6 +421,51 @@
       "title": "Horario",
       "type": "object"
     },
+    "Imagenes": {
+      "additionalProperties": false,
+      "description": "Si se describieron imágenes del video con Gemma (RF-11, ADR-024) y cuántas entraron.\n\n`descritas` es lo que se usó de verdad: false con la opción apagada, sin imagen o si ningún\nlote se pudo describir; `cantidad`, los fotogramas que recibió la ficha de contexto. Los\ntokens son los de todas las llamadas de visión de este proceso (None si no hubo o al repetir\ncon las imágenes guardadas). Los resultados guardados antes de ADR-024 leen los valores por\ndefecto.",
+      "properties": {
+        "descritas": {
+          "default": false,
+          "title": "Descritas",
+          "type": "boolean"
+        },
+        "cantidad": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Cantidad",
+          "type": "integer"
+        },
+        "tokens_entrada": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokens Entrada"
+        },
+        "tokens_salida": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokens Salida"
+        }
+      },
+      "title": "Imagenes",
+      "type": "object"
+    },
     "MetadatosValidacion": {
       "additionalProperties": false,
       "description": "Cómo se obtuvo el reporte: segmentación, modelos, umbrales, tiempos y avisos.\n\n`segundos` lleva lo que tardó cada etapa (duracion, audio, transcripcion, segmentacion,\nemparejamiento); al repetir solo la validación (ADR-019) no trae las del análisis. Lo que\ntardó el juez va aparte, en `resultado.clasificacion.resumen.segundos_juez`.",
@@ -493,6 +540,9 @@
           "default": false,
           "title": "Segmentacion Reusada",
           "type": "boolean"
+        },
+        "imagenes": {
+          "$ref": "#/$defs/Imagenes"
         }
       },
       "required": [
@@ -965,7 +1015,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos (ADR-019).\n\n`afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10\ndel documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,\nigual que `responsable` y `tiempo` de cada fila.",
+  "description": "Respuesta de `GET /videos/{id}/reporte`.\n\n`cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin\nredondear. `provisional` es true si hay avisos que no son informativos (ADR-019, ADR-024).\n\n`afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10\ndel documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,\nigual que `responsable` y `tiempo` de cada fila.",
   "properties": {
     "version_contrato": {
       "const": 1,

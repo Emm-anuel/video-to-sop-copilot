@@ -24,6 +24,9 @@ La salida del pipeline de video es un `Analisis` y la extracción devuelve `Paso
 |---|---|
 | `duracion(video, timeout_s=None)` | Duración en segundos según ffprobe |
 | `extraer_audio(video, destino, timeout_s=None)` | Audio en mp3 mono a 16 kHz (64 kbps). Escribe en un temporal `.part` (por eso pasa `-f mp3`) y lo renombra al terminar; crea la carpeta y sobrescribe |
+| `tiene_imagen(video)` | Hay una pista de video que no es una portada (`attached_pic`) |
+| `extraer_cuadro(video, t, destino, lado_px)` | JPEG del cuadro en `t`, con el lado mayor de `lado_px` (sin agrandar); temporal `.part` y renombre |
+| `luma_maxima(video, t)` / `imagen_visible(video, duracion_s)` | Luma máxima de un cuadro (`signalstats`) y si alguno de 5 cuadros parejos pasa de `UMBRAL_NEGRO`: sin pista o todo negro, no hay imagen |
 
 ffmpeg y ffprobe se llaman con lista de argumentos, sin `shell=True`, con tope `FFMPEG_TIMEOUT_S`
 (300 s por defecto). Errores, todos de `ErrorMedios`: `MedioInvalido` (no existe, ffmpeg no lo lee,
@@ -54,7 +57,7 @@ usa el audio de `SOPVID_AUDIO_PRUEBA` (fuera del repo).
 duración → audio → transcripción, y valida el resultado con `Analisis.model_validate` antes de
 devolverlo. Deja en `trabajo_dir` el `audio.mp3` y el `transcripcion.txt`, que se escribe mientras
 avanza. `duracion_s` va en milisegundos, como los tiempos de la transcripción, y lo que Whisper
-deja más allá del final del video (inicio y fin de segmentos y palabras) se recorta a ella. `fotogramas` va vacía hasta RF-11 (S5).
+deja más allá del final del video (inicio y fin de segmentos y palabras) se recorta a ella. `fotogramas` va vacía: las imágenes se describen después, con Gemma ya cargado (`fotogramas.py`).
 
 - El transcriptor se inyecta (RNF-14); el pipeline no crea modelos.
 - `al_avanzar(etapa, porcentaje)`: avance global entero que nunca retrocede y solo se informa
@@ -65,6 +68,28 @@ deja más allá del final del video (inicio y fin de segmentos y palabras) se re
 escribe `analisis.json`, el TXT y el audio en `MEDIA_DIR/<nombre del video>/` (o en `--salida`).
 Si ya hay un `analisis.json`, sale con código 1 sin procesar nada, salvo con `--sobrescribir`. El
 JSON entra tal cual a `segmentacion.segmentar` y después al emparejamiento.
+
+## `miniaturas.py` (RF-11, ADR-024)
+
+La miniatura por paso, siempre, con ffmpeg y sin modelo: una por fila del reporte con segundo y
+una por paso del SOP generado, en `media/videos/<id>/miniaturas/t<ms>.jpg`. `GET /videos/{id}/thumb`
+reusa la guardada a ≤ 1 s (`TOLERANCIA_S`, RNF-03) o saca una nueva; el reporte saca cada fila en
+su segundo exacto. Sin imagen visible, la carpeta lleva la marca `SIN_IMAGEN` y el resultado el
+aviso informativo `sin_imagen` (no vuelve provisional el reporte).
+
+## `fotogramas.py` (RF-11, ADR-024)
+
+Descripción opcional (apagada por defecto) de N imágenes repartidas de forma pareja, antes de la
+ficha y en la misma carga de Gemma. N = pasos del SOP (validar) o duración × `PASOS_POR_MIN`
+(generar), entre `FOTOGRAMAS_MIN` y `FOTOGRAMAS_MAX` (≤ 20, ADR-002); `contexto.py` no tiene tope
+propio. Lotes de `FOTOGRAMAS_LOTE` imágenes en `chat_en_flujo` con el prompt
+`lenguaje/prompts/fotogramas_v1.md` y un esquema con solo `i`, `descripcion`, `equipos`,
+`personas` (conteo), `texto_visible` y `riesgos`; hasta 3 intentos por lote. El código pone `t` y
+`archivo`, ordena por `t` y descarta índices fuera del lote, repetidos o sin descripción. Un lote
+fallido o un Ollama caído dejan el aviso `imagenes_incompletas` y el análisis sigue. Si Ollama
+responde sin memoria (VRAM o RAM), el lote baja a la mitad y se reintenta una vez; los lotes
+siguientes van con ese tamaño. `FOTOGRAMAS_LOTE` es la palanca para equipos con menos memoria.
+Los JPEG (fotogramas y miniaturas) salen de una sola llamada a ffmpeg por tanda (`extraer_cuadros`).
 
 ## `contexto.py`
 

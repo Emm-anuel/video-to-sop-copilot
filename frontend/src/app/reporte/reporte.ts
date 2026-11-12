@@ -17,9 +17,11 @@ import {
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
 import {
+  Aviso,
   Dispositivos,
   Estado,
   FilaReporte,
+  Imagenes,
   Llm,
   ReporteValidacion,
   Segundos,
@@ -56,7 +58,25 @@ const ETIQUETA_AVISO: Record<Tipo, string> = {
   pasos_sin_redactar: 'Pasos del video sin redactar',
   contexto_sin_generar: 'Ficha de contexto sin generar',
   transcripcion_no_referencia: 'Transcripción con un Whisper que no es el de referencia',
+  imagenes_incompletas: 'Imágenes sin describir',
+  sin_imagen: 'Video sin imagen',
 };
+
+/**
+ * Avisos que solo informan y no vuelven provisional el reporte (`AVISOS_INFORMATIVOS` del
+ * contrato, ADR-024): no van en el recuadro de "Reporte provisional".
+ */
+export const AVISOS_INFORMATIVOS: readonly Tipo[] = ['sin_imagen'];
+
+/** Los avisos que vuelven provisional el reporte (fallas del sistema, ADR-019). */
+export function avisosQueAfectan(avisos: readonly Aviso[] | undefined): Aviso[] {
+  return (avisos ?? []).filter((a) => !AVISOS_INFORMATIVOS.includes(a.tipo));
+}
+
+/** El renglón "Imágenes" de "Cómo se obtuvo": "sí, N" o "no" (ADR-024). */
+export function textoImagenes(imagenes: Imagenes | null | undefined): string {
+  return imagenes?.descritas ? `sí, ${imagenes.cantidad ?? 0}` : 'no';
+}
 
 const ETIQUETA_MARCO = { intro: 'Intro del operador', cierre: 'Cierre del operador' } as const;
 
@@ -69,15 +89,24 @@ const ETIQUETA_DISPOSITIVO: Record<Llm, string> = {
 
 /** Etapas de `metadatos.segundos`. */
 type Etapa =
-  'duracion' | 'audio' | 'transcripcion' | 'contexto' | 'segmentacion' | 'emparejamiento';
+  | 'duracion'
+  | 'audio'
+  | 'transcripcion'
+  | 'fotogramas'
+  | 'contexto'
+  | 'segmentacion'
+  | 'emparejamiento'
+  | 'miniaturas';
 
 const ETIQUETA_ETAPA: Record<Etapa, string> = {
   duracion: 'Duración',
   audio: 'Audio',
   transcripcion: 'Transcripción',
+  fotogramas: 'Descripción de imágenes',
   contexto: 'Ficha de contexto',
   segmentacion: 'Pasos del video',
   emparejamiento: 'Emparejamiento',
+  miniaturas: 'Miniaturas',
 };
 
 /** Orden en que corren las etapas (y en que se muestran). */
@@ -85,9 +114,11 @@ const ORDEN_ETAPAS: readonly Etapa[] = [
   'duracion',
   'audio',
   'transcripcion',
+  'fotogramas',
   'contexto',
   'segmentacion',
   'emparejamiento',
+  'miniaturas',
 ];
 
 /** Color de la etiqueta del dispositivo, con las clases de los estados (reporte.scss). */
@@ -180,6 +211,11 @@ export function totalSegundos(etapas: readonly TiempoEtapa[]): number {
   return etapas.reduce((suma, etapa) => suma + etapa.segundos, 0);
 }
 
+/** URL de la miniatura del segundo `t` del video (`GET /videos/{id}/thumb`, ADR-024). */
+export function urlMiniatura(id: number, t: number): string {
+  return `${API}/videos/${id}/thumb?t=${t}`;
+}
+
 /** Segundos con un decimal: `11.8 s`. */
 export function formatoSegundos(segundos: number): string {
   return `${segundos.toFixed(1)} s`;
@@ -250,8 +286,25 @@ export class Reporte {
       etapas,
       total: totalSegundos(etapas),
       heuristica: metadatos.segmentacion === 'heuristica',
+      imagenes: textoImagenes(metadatos.imagenes),
     };
   });
+
+  /** Avisos del recuadro "Reporte provisional": sin los informativos. */
+  protected readonly avisosProvisional = computed(() =>
+    avisosQueAfectan(this.reporte()?.metadatos.avisos),
+  );
+
+  /**
+   * El video no tiene imagen (aviso "sin_imagen", ADR-024): no hay miniaturas y la columna no se
+   * dibuja.
+   */
+  protected readonly sinImagen = computed(
+    () => this.reporte()?.metadatos.avisos?.some((a) => a.tipo === 'sin_imagen') ?? false,
+  );
+
+  /** Filas cuya miniatura no cargó: se ocultan en lugar de mostrar una imagen rota. */
+  protected readonly miniaturasFallidas = signal<ReadonlySet<number>>(new Set());
 
   protected readonly etiquetaSemaforo = ETIQUETA_SEMAFORO;
   protected readonly mmss = mmss;
@@ -280,6 +333,7 @@ export class Reporte {
           this.errorConsulta.set(null);
           this.filaActiva.set(null);
           this.videoNoDisponible.set(false);
+          this.miniaturasFallidas.set(new Set());
           this.inicio.set(null);
           this.fin.set(null);
         }),
@@ -346,6 +400,15 @@ export class Reporte {
 
   protected urlVideo(id: number): string {
     return `${API}/videos/${id}/video`;
+  }
+
+  /** Miniatura del segundo de la fila (`GET /videos/{id}/thumb`, ADR-024): se pide por segundo. */
+  protected urlMiniatura(id: number, t: number): string {
+    return urlMiniatura(id, t);
+  }
+
+  protected ocultarMiniatura(indice: number): void {
+    this.miniaturasFallidas.update((fallidas) => new Set(fallidas).add(indice));
   }
 
   protected etiquetaEstado(fila: FilaReporte): string {

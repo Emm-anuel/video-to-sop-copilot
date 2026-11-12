@@ -210,7 +210,15 @@ docs/
 >   14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por
 >   un valor sin traducir y RNF-01 no se cumple (15–21 min). SOP generado (RF-22 a 25, 27) en
 >   `lenguaje/sop_generado.py` (ADR-023); RF-26 solo el endpoint.
-> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6); editor
+> - **Imágenes (10–11 nov, rama `feat/s5-pantallas`, ADR-024, RF-11):** miniatura por paso
+>   siempre, con ffmpeg y sin modelo (`percepcion/miniaturas.py`, `GET /videos/{id}/thumb?t=`,
+>   aviso informativo `sin_imagen` que no vuelve provisional el reporte). Descripción con Gemma
+>   opcional y apagada (`FOTOGRAMAS_DESCRIBIR`, `analizar_imagenes` en `POST /videos`):
+>   `percepcion/fotogramas.py`, N imágenes parejas antes de la ficha (pasos del SOP o duración ×
+>   `PASOS_POR_MIN`, de 4 a 20), lotes de 8 (`prompts/fotogramas_v1.md`), aviso
+>   `imagenes_incompletas`; `metadatos.imagenes` en el reporte y en `sops.generacion`.
+>   `GET /videos/estimacion` avisa del tiempo extra con y sin GPU; nunca bloquea.
+> - **Sin código todavía:** subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6); editor
 >   de RF-26; pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en

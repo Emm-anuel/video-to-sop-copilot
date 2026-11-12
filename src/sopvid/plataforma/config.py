@@ -98,6 +98,34 @@ class Settings(BaseSettings):
     # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
     llm_dispositivo: Literal["auto", "cpu"] = "auto"
 
+    # Imágenes del video (RF-11, ADR-024). La miniatura por paso se saca siempre, con ffmpeg y sin
+    # modelo: un JPEG con este lado mayor, en media/videos/<id>/miniaturas/.
+    miniatura_lado_px: int = Field(default=320, ge=32, le=1920)
+    # Describir imágenes con Gemma antes de la ficha de contexto: el valor por defecto de la
+    # instalación. `analizar_imagenes` de POST /videos gana sobre él, video por video.
+    fotogramas_describir: bool = False
+    # Cuántas se describen: los pasos del SOP (modo validar) o la duración por `pasos_por_min`
+    # (modo generar), entre `fotogramas_min` y `fotogramas_max` (tope de 20, ADR-002), repartidas
+    # de forma pareja en el video. SIN CALIBRAR: `pasos_por_min` es la mediana de pasos reales por
+    # minuto de A, B, C y E (2.67, 3.14, 1.79, 1.58; D no sigue su SOP), medida el 10 nov.
+    pasos_por_min: float = Field(default=2.2, gt=0)
+    fotogramas_min: int = Field(default=4, ge=1, le=20)
+    fotogramas_max: int = Field(default=20, ge=1, le=20)
+    # JPEG que recibe Gemma (lado mayor) y cuántos van por llamada. FOTOGRAMAS_LOTE es la palanca
+    # para equipos con menos memoria: con 8 la GPU de referencia (8 GB) llega a 7.2 GB (ADR-024).
+    # Si Ollama responde sin memoria, el lote baja solo a la mitad una vez y sigue así; si tampoco
+    # cabe, las imágenes que falten no se describen (aviso "imagenes_incompletas") y el análisis
+    # sigue. En un equipo con menos VRAM, baja este valor (4, 2…) para no perder la primera llamada.
+    fotogramas_lado_px: int = Field(default=512, ge=64, le=1920)
+    fotogramas_lote: int = Field(default=8, ge=1, le=20)
+    # Tope por lote, en flujo (primer token incluido: en CPU leer las imágenes tarda).
+    llm_timeout_fotogramas_s: float = Field(default=600.0, gt=0)
+    # Segundos que suma cada imagen descrita (imágenes + ficha con ellas − ficha sola), para avisar
+    # antes de procesar (GET /videos/estimacion). Mediana de C, D y E, una corrida por
+    # combinación (11 nov, ADR-024): GPU 0.4–1.3 s, CPU 10.4–12.9 s. Pocos videos: orientativo.
+    seg_imagen_gpu: float = Field(default=1.2, ge=0)
+    seg_imagen_cpu: float = Field(default=10.7, ge=0)
+
     # MiniLM para emparejar pasos (ADR-012), siempre en CPU. Los pesos se descargan la primera
     # vez a esta carpeta (ignorada por git; en Docker, el volumen "modelos").
     embedder_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -172,6 +200,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AFINIDAD_COS_CERO ({self.afinidad_cos_cero}) debe ser menor que "
                 f"AFINIDAD_COS_CIEN ({self.afinidad_cos_cien})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _fotogramas_ordenados(self) -> Self:
+        if self.fotogramas_min > self.fotogramas_max:
+            raise ValueError(
+                f"FOTOGRAMAS_MIN ({self.fotogramas_min}) no puede ser mayor que "
+                f"FOTOGRAMAS_MAX ({self.fotogramas_max})"
             )
         return self
 

@@ -295,6 +295,12 @@ en `tests/test_emparejamiento.py`, incluida la de MiniLM real (`-m lento`).
 | 07 | Mismo % en dos corridas | Temperatura 0, semilla 42, versiones fijadas |
 | 10 · 15 | Sin claves de API; < USD 0.25 por video | No hay APIs: USD 0 |
 
+**Orden de las mediciones (11 nov, ADR-024; aplicar en PS6).** Medir A–E de corrido castiga a los
+últimos por el calentamiento de la GPU y no por el código: tras ~15 min seguidos, Gemma bajó de
+~114 a ~87 tokens/s y E pasó de 69–71 s a 81–83 s con el mismo código. Intercalar las corridas
+(A, B, C, D, E, A, B…) o dejar enfriar entre tandas, y anotar la temperatura de la GPU al empezar
+y al terminar (`nvidia-smi --query-gpu=temperature.gpu,clocks.sm`).
+
 ---
 
 ## 8. Línea académica y paper
