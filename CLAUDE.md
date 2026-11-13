@@ -235,7 +235,14 @@ docs/
 >   también usan el reporte y el SOP generado. `/nuevo` navega ahí. `videos.analizar_imagenes`
 >   (migración `0007`) guarda la casilla ya resuelta, e `imagenes_hechas`/`imagenes_total` la
 >   cuenta exacta por lote; `GET /videos/{id}` devuelve las tres.
-> - **Sin código todavía:** subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6);
+> - **Subida por partes y AVI (12 nov, rama `feat/s5-pantallas`, RF-06):** `POST /uploads`,
+>   `PUT /uploads/{id}?offset=N`, `GET` y `DELETE /uploads/{id}` (`plataforma/api/subidas.py`);
+>   el armado vive en disco, sin tabla (`percepcion/subidas.py`, `media/subidas/<id>/`), con
+>   limpieza por edad (`SUBIDA_CADUCIDAD_H`) al arrancar y en cada `POST /uploads`. `POST /videos`
+>   acepta `upload_id` además de `archivo`, con los mismos campos, y valida con ffprobe. `/nuevo`
+>   sube siempre por partes (`frontend/src/app/subida/`). AVI se acepta y se analiza; el navegador no
+>   lo reproduce: el reporte y el editor lo dicen y ofrecen descargarlo (remux a MP4: issue de S6).
+> - **Sin código todavía:** PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6);
 >   pantallas fuera del MVP.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en

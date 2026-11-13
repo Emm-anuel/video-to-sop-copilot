@@ -17,7 +17,7 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al avance (`/videos/:id/procesando`, desde el 12 nov) cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
+| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, el video por partes (`POST /uploads`, desde el 12 nov) y `POST /videos` con `upload_id`, `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al avance (`/videos/:id/procesando`, desde el 12 nov) cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
 | `/videos/:id/sop` | **SOP generado y su editor (RF-26):** avance y, al terminar, el editor del SOP (sección "Editor del SOP") | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov, solo lectura; editor desde el 11 nov): `src/app/sop/` |
 | `/sops` | **Biblioteca de SOP (RF-05):** búsqueda, filtro por origen, ver o editar, usar para validar, eliminar y subir (sección "Biblioteca y Nuevo análisis") | Emmanuel | Hecho (12 nov): `src/app/biblioteca/` |
 | `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
@@ -380,6 +380,43 @@ automático si la persona está al final y "Descargar TXT" (el parcial, tal como
 
 **Sondeo, no SSE ni WebSocket.** Con un solo trabajador y pocas pantallas abiertas, cada consulta
 es una lectura por id. Así lo pidió el issue #9; SSE queda como propuesta, sin implementar.
+
+## Subida por partes y AVI (RF-06, 12 nov, issue #10)
+
+`/nuevo` sube el video **siempre por partes** (`src/app/subida/`), en los tres modos; un video
+chico es una sola parte. La subida simple de la API (`archivo` en `POST /videos`) se queda para los
+scripts y las pruebas; la pantalla ya no la usa.
+
+- **Flujo:** `POST /uploads` (`{nombre, tamano}`; la API responde `tamano_parte`, 16 MB) →
+  `PUT /uploads/{id}?offset=N` con `Blob.slice`, una parte tras otra → `POST /videos` con
+  `upload_id` y los mismos campos de siempre (`titulo`, `modo`, `sop_id`, `idioma`,
+  `analizar_imagenes`, que viaja siempre). Al 202 sigue igual: a `/videos/:id/procesando`.
+- **Reintentos:** cada parte se reintenta hasta 3 veces con espera de 1, 2 y 4 s ("Reintento 1 de
+  3 en 1 s"). Antes de cada reintento se pregunta `GET /uploads/{id}`: si la parte sí llegó (se
+  perdió la respuesta) no se repite. Un 409 trae `detail.offset` y se sigue desde ahí. 404, 413 y
+  415 no se reintentan.
+- **Si aun así falla:** "Se perdió la conexión con la API después de 3 reintentos. Van 1.0 de 3.0
+  MB; al reintentar, la subida sigue desde ahí", con **Reintentar la subida** (retoma el mismo
+  `upload_id` desde `GET /uploads/{id}`, nunca desde 0) y **Cancelar**. Si la subida ya no está en
+  la API (se canceló o caducó), el reintento abre otra.
+- **Barra:** porcentaje y "X de Y MB" (MiB, como `SUBIDA_MAX_MB`), con el avance dentro de la parte
+  en vuelo. **Cancelar** aborta la parte en vuelo y borra lo recibido (`DELETE /uploads/{id}`,
+  RNF-09); elegir otro video o un SOP que no se pudo convertir también la borra. El SOP subido ahora
+  queda guardado: al validar de nuevo solo se sube el video.
+- **Arrastrar y soltar:** el de siempre, sobre el `<input type=file>` nativo; no hay zona propia.
+- **AVI:** se acepta y se analiza, pero Chrome y Edge no lo reproducen. El reporte y el diálogo del
+  video del editor del SOP lo dicen ("El navegador no reproduce este formato") con **Descargar el
+  video**, y los segundos siguen a la vista. Como `MediaError` 4 llega igual con un archivo que
+  falta, se pide su primer byte (`Range: bytes=0-0`, `ApiService.videoDisponible`) antes de decir
+  "formato" (`src/app/api/reproductor.ts`). Pasar el AVI a MP4 sin recodificar queda para S6.
+- **360 px (RNF-13):** Cancelar y Reintentar miden 40 px de alto; el porcentaje y los MB bajan de
+  línea antes que desbordar. Revisado el 12 nov en Edge headless (DevTools, 360 × 780 y 1280) con
+  el build de producción y la API simulada, un archivo de 3 MB en partes de 1 MB y un título de 66
+  caracteres: subida en curso, fallando (red cortada tras la primera parte, tres reintentos) y
+  cancelada. Ningún desborde horizontal ni objetivo nuevo menor de 36 px. A 1280 px, la fila de la
+  casilla "Analizar también las imágenes" (PS3) mide 24 px de alto: queda anotado, no se tocó.
+- Pruebas: `subida/partes.spec.ts` (partidor), `subida/subida.service.spec.ts` (orden, reintento,
+  reanudación, 409, 413, cancelar) y `nuevo/nuevo.spec.ts`.
 
 ## Desarrollo
 

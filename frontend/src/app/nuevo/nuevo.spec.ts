@@ -7,7 +7,7 @@ import {
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { METADATOS_VIDEO, MetadatosVideo } from '../api/metadatos-video';
-import { EstadoSop, EstimacionImagenes, SopResumen, VideoCreado } from '../api/tipos';
+import { EstadoSop, EstadoSubida, EstimacionImagenes, SopResumen, VideoCreado } from '../api/tipos';
 import { Nuevo, SONDEO_SOP_MS, duracionCorta } from './nuevo';
 
 const SOP_EN_COLA: EstadoSop = {
@@ -53,6 +53,8 @@ const SOP_B: SopResumen = {
 };
 const VIDEO_CREADO: VideoCreado = { id: 12, proceso: 'en_cola' };
 const ACEPTADO = { status: 202, statusText: 'Accepted' };
+const MIB = 1024 * 1024;
+const SIN_RED = { status: 0, statusText: 'Unknown Error' };
 const CON_IMAGEN: MetadatosVideo = { duracion: 135, conImagen: true };
 const ESTIMACION: EstimacionImagenes = {
   imagenes_estimadas: 6,
@@ -154,7 +156,7 @@ describe('Nuevo', () => {
 
   async function flush(req: TestRequest, cuerpo: object, estado = ACEPTADO): Promise<void> {
     req.flush(cuerpo, estado);
-    await fixture.whenStable();
+    await tic(); // la subida por partes sigue en promesas
   }
 
   /** Adelanta el sondeo y responde la consulta del estado del SOP. */
@@ -176,8 +178,9 @@ describe('Nuevo', () => {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
 
+  /** El botón principal (Validar, Generar SOP o Ver el avance), no Cancelar ni Reintentar. */
   function boton(): HTMLButtonElement {
-    return el<HTMLButtonElement>('button')!;
+    return el<HTMLButtonElement>('button.principal')!;
   }
 
   function casilla(): HTMLInputElement {
@@ -186,6 +189,56 @@ describe('Nuevo', () => {
 
   function enviado(req: TestRequest): FormData {
     return req.request.body as FormData;
+  }
+
+  // ── Subida por partes (RF-06) ──
+
+  /** Deja correr las promesas del servicio de subida hasta su siguiente petición. */
+  async function tic(ms = 0): Promise<void> {
+    await vi.advanceTimersByTimeAsync(ms);
+    await fixture.whenStable();
+  }
+
+  function subida(tamano: number, recibidos: number, tamanoParte = 16 * MIB): EstadoSubida {
+    return {
+      upload_id: 'u1',
+      tamano,
+      tamano_parte: tamanoParte,
+      recibidos,
+      completo: recibidos === tamano,
+    };
+  }
+
+  /** Responde `POST /uploads` (201) y devuelve el PUT de la primera parte, en vuelo. */
+  async function parteEnVuelo(tamano = 5, tamanoParte = 16 * MIB): Promise<TestRequest> {
+    const abrir = http.expectOne({ method: 'POST', url: '/api/uploads' });
+    expect(abrir.request.body.tamano).toBe(tamano);
+    abrir.flush(subida(tamano, 0, tamanoParte), { status: 201, statusText: 'Created' });
+    await tic();
+    return parte(0);
+  }
+
+  function parte(offset: number): TestRequest {
+    return http.expectOne(
+      (r) =>
+        r.method === 'PUT' && r.url === '/api/uploads/u1' && r.params.get('offset') === `${offset}`,
+    );
+  }
+
+  /** Sube el video de prueba (una parte) y devuelve el `POST /videos` con `upload_id`. */
+  async function videoReq(): Promise<TestRequest> {
+    const unica = await parteEnVuelo();
+    unica.flush(subida(5, 5), { status: 200, statusText: 'OK' });
+    await tic();
+    const req = http.expectOne({ method: 'POST', url: '/api/videos' });
+    expect(enviado(req).get('upload_id')).toBe('u1');
+    expect(enviado(req).has('archivo')).toBe(false);
+    return req;
+  }
+
+  function sinSubida(): void {
+    http.expectNone('/api/uploads');
+    http.expectNone('/api/videos');
   }
 
   // ── Los tres modos (RF-07) ──
@@ -209,7 +262,7 @@ describe('Nuevo', () => {
     await validar();
 
     http.expectNone({ method: 'POST', url: '/api/sops' });
-    const video = http.expectOne({ method: 'POST', url: '/api/videos' });
+    const video = await videoReq();
     expect(enviado(video).get('modo')).toBe('validar');
     expect(enviado(video).get('sop_id')).toBe('8');
     expect(enviado(video).get('analizar_imagenes')).toBe('false');
@@ -225,7 +278,7 @@ describe('Nuevo', () => {
     await aceptar();
     await validar();
     expect(texto()).toContain('Elige un SOP de la biblioteca.');
-    http.expectNone({ method: 'POST', url: '/api/videos' });
+    sinSubida();
   });
 
   it('si la biblioteca no responde, lo dice y empieza en "Subir uno ahora"', async () => {
@@ -250,7 +303,7 @@ describe('Nuevo', () => {
     await aceptar();
     await validar();
     http.expectNone({ method: 'POST', url: '/api/sops' });
-    const video = http.expectOne({ method: 'POST', url: '/api/videos' });
+    const video = await videoReq();
     const datos = enviado(video);
     expect(datos.get('modo')).toBe('generar');
     expect(datos.has('sop_id')).toBe(false);
@@ -272,7 +325,7 @@ describe('Nuevo', () => {
     await validar();
     expect(texto()).toContain('Confirma el consentimiento para poder subir el video.');
     http.expectNone('/api/sops');
-    http.expectNone('/api/videos');
+    sinSubida();
 
     // RNF-16: el aviso dice que los rostros y las voces son datos personales.
     expect(el('label[for=consentimiento]')!.textContent).toContain('datos personales (LFPDPPP)');
@@ -296,7 +349,7 @@ describe('Nuevo', () => {
     await validar();
     expect(texto()).toContain('El título debe tener de 1 a 300 caracteres.');
     http.expectNone('/api/sops');
-    http.expectNone('/api/videos');
+    sinSubida();
   });
 
   // ── Subir uno ahora (el camino del MVP) ──
@@ -310,17 +363,21 @@ describe('Nuevo', () => {
     await flush(sop, SOP_EN_COLA);
     expect(texto()).toContain('Convirtiendo el SOP…');
 
-    // El video sale de inmediato, con el SOP todavía en cola.
+    // El video sale de inmediato, con el SOP todavía en cola, por partes (RF-06).
+    const unica = await parteEnVuelo();
+    expect(unica.request.reportProgress).toBe(true);
+    unica.event({ type: HttpEventType.UploadProgress, loaded: 2, total: 5 });
+    await tic();
+    expect(texto()).toContain('Subiendo el video: 40 %');
+    unica.flush(subida(5, 5), { status: 200, statusText: 'OK' });
+    await tic();
     const video = http.expectOne({ method: 'POST', url: '/api/videos' });
     const datos = enviado(video);
+    expect(datos.get('upload_id')).toBe('u1');
     expect(datos.get('modo')).toBe('validar');
     expect(datos.get('sop_id')).toBe('3');
     expect(datos.get('titulo')).toBe('video_b');
     expect(datos.has('idioma')).toBe(false);
-    expect(video.request.reportProgress).toBe(true);
-    video.event({ type: HttpEventType.UploadProgress, loaded: 40, total: 100 });
-    await fixture.whenStable();
-    expect(texto()).toContain('Subiendo el video: 40 %');
 
     await flush(video, VIDEO_CREADO);
     expect(navegar).not.toHaveBeenCalled(); // falta el SOP
@@ -345,7 +402,7 @@ describe('Nuevo', () => {
     expect(texto()).toContain('lo convirtió el modelo');
     expect(texto()).toContain('el paso 4 no tiene cita');
 
-    await flush(http.expectOne('/api/videos'), VIDEO_CREADO);
+    await flush(await videoReq(), VIDEO_CREADO);
     expect(navegar).not.toHaveBeenCalled();
     // RF-04: se puede revisar el SOP sin detener el video; desde ahí se revalida.
     const revisar = el<HTMLAnchorElement>('.revisar a')!;
@@ -358,10 +415,15 @@ describe('Nuevo', () => {
   it('si la conversión falla, muestra el mensaje, cancela la subida y pide otro SOP', async () => {
     await llenarYValidar();
     await flush(http.expectOne('/api/sops'), SOP_EN_COLA);
-    const video = http.expectOne('/api/videos');
+    const enVuelo = await parteEnVuelo();
 
     await sondeo(SOP_ERROR);
-    expect(video.cancelled).toBe(true);
+    expect(enVuelo.cancelled).toBe(true);
+    // Lo ya recibido del video se borra en la API.
+    http.expectOne({ method: 'DELETE', url: '/api/uploads/u1' }).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
     expect(texto()).toContain(
       'No se pudo convertir el SOP SOP-0003. El PDF no tiene texto: súbelo en Markdown con la plantilla.',
     );
@@ -372,14 +434,14 @@ describe('Nuevo', () => {
     // El reintento vuelve a subir el SOP y el video.
     await validar();
     await flush(http.expectOne({ method: 'POST', url: '/api/sops' }), SOP_EN_COLA);
-    http.expectOne('/api/videos');
+    await videoReq();
     await sondeo(SOP_LISTO);
   });
 
   it('si la conversión falla con el video ya subido, avisa que no se validará', async () => {
     await llenarYValidar();
     await flush(http.expectOne('/api/sops'), SOP_EN_COLA);
-    await flush(http.expectOne('/api/videos'), VIDEO_CREADO);
+    await flush(await videoReq(), VIDEO_CREADO);
     await sondeo(SOP_ERROR);
     expect(texto()).toContain('El video ya se había subido, pero no se validará con ese SOP.');
     expect(navegar).not.toHaveBeenCalled();
@@ -391,7 +453,7 @@ describe('Nuevo', () => {
     select.dispatchEvent(new Event('change'));
     await llenarYValidar('sop_filtro.md');
     await flush(http.expectOne('/api/sops'), SOP_LISTO);
-    const video = http.expectOne('/api/videos');
+    const video = await videoReq();
     expect(enviado(video).get('idioma')).toBe('es');
     await flush(video, VIDEO_CREADO);
     // Un SOP que ya llega listo no se consulta.
@@ -407,7 +469,7 @@ describe('Nuevo', () => {
       { status: 422, statusText: 'Unprocessable Entity' },
     );
 
-    http.expectNone('/api/videos');
+    sinSubida();
     expect(texto()).toContain(
       'No se pudo guardar el SOP. La API rechazó los datos: el PDF no tiene texto (¿es escaneado?).',
     );
@@ -415,14 +477,16 @@ describe('Nuevo', () => {
     expect(navegar).not.toHaveBeenCalled();
   });
 
-  it('si falla /videos, el reintento sube solo el video con el mismo sop_id', async () => {
+  it('si la subida se rechaza, el reintento sube solo el video con el mismo sop_id', async () => {
     await llenarYValidar();
     await flush(http.expectOne('/api/sops'), SOP_EN_COLA);
     await flush(
-      http.expectOne('/api/videos'),
+      http.expectOne({ method: 'POST', url: '/api/uploads' }),
       { detail: 'el video pasa del límite de 1024 MB' },
       { status: 413, statusText: 'Content Too Large' },
     );
+    await tic();
+    expect(el('.reanudar')).toBeNull(); // no hay nada que reanudar
     expect(texto()).toContain(
       'No se pudo subir el video. Archivo demasiado grande: el video pasa del límite de 1024 MB.',
     );
@@ -433,10 +497,134 @@ describe('Nuevo', () => {
     await sondeo(SOP_LISTO);
     await validar();
     http.expectNone({ method: 'POST', url: '/api/sops' });
-    const reintento = http.expectOne('/api/videos');
+    const reintento = await videoReq();
     expect(enviado(reintento).get('sop_id')).toBe('3');
     await flush(reintento, VIDEO_CREADO);
     expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
+  });
+
+  // ── Subida por partes (RF-06): MB, Cancelar, reintentos y reanudación ──
+
+  describe('subida por partes', () => {
+    /** 3 MiB en partes de 1 MiB, en modo generar (sin SOP de por medio). */
+    const GRANDE = 3 * MIB;
+
+    async function empezarGrande(): Promise<TestRequest> {
+      await clic('#modo-generar');
+      await elegir('#video', new File([new Uint8Array(GRANDE)], 'video_c.mp4'));
+      await aceptar();
+      await validar();
+      return parteEnVuelo(GRANDE, MIB);
+    }
+
+    function aceptarParte(req: TestRequest, recibidos: number): Promise<void> {
+      req.flush(subida(GRANDE, recibidos, MIB), { status: 200, statusText: 'OK' });
+      return tic();
+    }
+
+    it('muestra el porcentaje y los MB enviados de cuántos', async () => {
+      const primera = await empezarGrande();
+      expect(await (primera.request.body as Blob).arrayBuffer()).toHaveProperty('byteLength', MIB);
+      expect(texto()).toContain('Subiendo el video: 0 % · 0.0 de 3.0 MB');
+      await aceptarParte(primera, MIB);
+      expect(texto()).toContain('Subiendo el video: 33 % · 1.0 de 3.0 MB');
+      expect(el('button.cancelar')!.textContent).toContain('Cancelar');
+      const segunda = parte(MIB);
+      await clic('button.cancelar');
+      expect(segunda.cancelled).toBe(true);
+      http.expectOne({ method: 'DELETE', url: '/api/uploads/u1' });
+    });
+
+    it('Cancelar aborta la parte en vuelo, borra lo recibido y deja volver a empezar', async () => {
+      const primera = await empezarGrande();
+      await aceptarParte(primera, MIB);
+      const segunda = parte(MIB);
+
+      await clic('button.cancelar');
+
+      expect(segunda.cancelled).toBe(true);
+      http.expectOne({ method: 'DELETE', url: '/api/uploads/u1' }).flush(null, {
+        status: 204,
+        statusText: 'No Content',
+      });
+      expect(texto()).toContain('Subida cancelada');
+      expect(el('progress')).toBeNull();
+      expect(boton().disabled).toBe(false);
+      await tic(10_000);
+      http.expectNone(() => true);
+
+      // Validar otra vez empieza una subida nueva.
+      await validar();
+      expect(texto()).not.toContain('Subida cancelada');
+      http.expectOne({ method: 'POST', url: '/api/uploads' });
+    });
+
+    it('reintenta solo y, tras el tercer reintento, "Reintentar la subida" sigue desde lo recibido', async () => {
+      const primera = await empezarGrande();
+      await aceptarParte(primera, MIB);
+
+      for (const [intento, espera] of [
+        [1, 1000],
+        [2, 2000],
+        [3, 4000],
+      ]) {
+        parte(MIB).error(new ProgressEvent('error'), SIN_RED);
+        await tic();
+        expect(texto()).toContain(`Reintento ${intento} de 3 en ${espera / 1000} s`);
+        await tic(espera);
+        http
+          .expectOne({ method: 'GET', url: '/api/uploads/u1' })
+          .error(new ProgressEvent('error'), SIN_RED);
+        await tic();
+      }
+      parte(MIB).error(new ProgressEvent('error'), SIN_RED);
+      await tic();
+
+      expect(texto()).toContain('Se perdió la conexión con la API después de 3 reintentos.');
+      expect(texto()).toContain('Van 1.0 de 3.0 MB');
+      expect(boton().disabled).toBe(false);
+      const reintentar = el<HTMLButtonElement>('.reanudar button')!;
+      expect(reintentar.textContent).toContain('Reintentar la subida');
+
+      // Vuelve la red: retoma la misma subida desde lo que tiene la API, no desde 0.
+      reintentar.click();
+      await tic();
+      http.expectNone({ method: 'POST', url: '/api/uploads' });
+      http
+        .expectOne({ method: 'GET', url: '/api/uploads/u1' })
+        .flush(subida(GRANDE, MIB, MIB), { status: 200, statusText: 'OK' });
+      await tic();
+      http.expectNone((r) => r.method === 'PUT' && r.params.get('offset') === '0');
+      await aceptarParte(parte(MIB), 2 * MIB);
+      await aceptarParte(parte(2 * MIB), GRANDE);
+      const video = http.expectOne({ method: 'POST', url: '/api/videos' });
+      expect(enviado(video).get('upload_id')).toBe('u1');
+      await flush(video, VIDEO_CREADO);
+      expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
+    });
+
+    it('elegir otro video borra la subida pendiente del anterior', async () => {
+      const primera = await empezarGrande();
+      primera.flush({ detail: 'falló' }, { status: 500, statusText: 'Error' });
+      for (const espera of [1000, 2000, 4000]) {
+        await tic(espera);
+        http
+          .expectOne({ method: 'GET', url: '/api/uploads/u1' })
+          .error(new ProgressEvent('e'), SIN_RED);
+        await tic();
+        parte(0).flush({ detail: 'falló' }, { status: 500, statusText: 'Error' });
+      }
+      await tic();
+      expect(el('.reanudar')).not.toBeNull();
+
+      await elegirVideo('otro.mp4');
+      http.expectOne({ method: 'DELETE', url: '/api/uploads/u1' });
+      expect(el('.reanudar')).toBeNull();
+    });
+
+    it('acepta AVI', () => {
+      expect(el<HTMLInputElement>('#video')!.accept).toBe('.mp4,.mov,.mkv,.webm,.avi');
+    });
   });
 
   it('sin archivos no llama a la API', async () => {
@@ -466,7 +654,7 @@ describe('Nuevo', () => {
       await aceptar();
       await validar();
       http.expectNone({ method: 'POST', url: '/api/sops' });
-      const video = http.expectOne({ method: 'POST', url: '/api/videos' });
+      const video = await videoReq();
       expect(enviado(video).get('sop_id')).toBe('3');
       await flush(video, VIDEO_CREADO);
       expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'procesando']);
@@ -478,7 +666,7 @@ describe('Nuevo', () => {
       await elegirVideo();
       await aceptar();
       await validar();
-      expect(enviado(http.expectOne('/api/videos')).get('sop_id')).toBe('7');
+      expect(enviado(await videoReq()).get('sop_id')).toBe('7');
     });
 
     it('un SOP generado fuera de la biblioteca no se puede usar', async () => {
@@ -604,7 +792,7 @@ describe('Nuevo', () => {
 
       await aceptar();
       await validar();
-      expect(enviado(http.expectOne('/api/videos')).get('analizar_imagenes')).toBe('false');
+      expect(enviado(await videoReq()).get('analizar_imagenes')).toBe('false');
     });
 
     it('prendida, analizar_imagenes viaja en true', async () => {
@@ -615,7 +803,7 @@ describe('Nuevo', () => {
       await clic('#imagenes');
       await aceptar();
       await validar();
-      expect(enviado(http.expectOne('/api/videos')).get('analizar_imagenes')).toBe('true');
+      expect(enviado(await videoReq()).get('analizar_imagenes')).toBe('true');
     });
 
     it('lo que eligió la persona no lo pisa una estimación nueva', async () => {

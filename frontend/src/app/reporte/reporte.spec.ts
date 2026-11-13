@@ -527,6 +527,57 @@ describe('Reporte', () => {
     expect(filas()).toHaveLength(NORMAL.filas.length);
   });
 
+  /** Un `error` del `<video>` con el `MediaError` de código `codigo`. */
+  function falla(codigo: number): void {
+    const video = pantalla().querySelector('video')!;
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: codigo } });
+    video.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+  }
+
+  it('un formato que el navegador no reproduce (AVI) lo dice y ofrece descargarlo', () => {
+    llegaReporte(NORMAL);
+    falla(4);
+    const sonda = http.expectOne('/api/videos/7/video');
+    expect(sonda.request.headers.get('Range')).toBe('bytes=0-0');
+    sonda.flush(new Blob(['R']), { status: 206, statusText: 'Partial Content' });
+    fixture.detectChanges();
+
+    const aviso = pantalla().querySelector('.aviso-video')!;
+    expect(aviso.textContent).toContain('El navegador no reproduce este formato.');
+    expect(aviso.textContent).toContain('Los segundos de cada hallazgo siguen en la tabla.');
+    const enlace = aviso.querySelector<HTMLAnchorElement>('a.descargar-video')!;
+    expect(enlace.getAttribute('href')).toBe('/api/videos/7/video');
+    expect(enlace.hasAttribute('download')).toBe(true);
+    expect(filas()).toHaveLength(NORMAL.filas.length);
+  });
+
+  it('con el mismo código pero sin archivo (404) dice que no cargó, sin enlace', () => {
+    llegaReporte(NORMAL);
+    falla(4);
+    http
+      .expectOne('/api/videos/7/video')
+      .flush(new Blob(['{"detail": {"mensaje": "el archivo del video no está en disco"}}']), {
+        status: 404,
+        statusText: 'Not Found',
+      });
+    fixture.detectChanges();
+
+    expect(pantalla().querySelector('.aviso-video')?.textContent).toContain(
+      'No se pudo cargar el video',
+    );
+    expect(pantalla().querySelector('a.descargar-video')).toBeNull();
+  });
+
+  it('otro error del video (red) no consulta el archivo', () => {
+    llegaReporte(NORMAL);
+    falla(2);
+    http.expectNone('/api/videos/7/video');
+    expect(pantalla().querySelector('.aviso-video')?.textContent).toContain(
+      'No se pudo cargar el video',
+    );
+  });
+
   it('con "error" a medio proceso, el tiempo se congela junto al mensaje', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).flush(estado('procesando'));

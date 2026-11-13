@@ -20,6 +20,7 @@ import { Router } from '@angular/router';
 import { switchMap, takeWhile, tap, timer } from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { ErrorCampo, erroresPorCampo, mensajeDeError } from '../api/errores';
+import { FalloVideo, SIN_SOPORTE, codigoDeError } from '../api/reproductor';
 import { Elemento, Evidencia1 as Evidencia } from '../api/sop';
 import { AdvertenciaSOP, SopDetalle } from '../api/tipos';
 import { Chips } from './chips';
@@ -189,6 +190,8 @@ export class SopEditor implements OnInit, ConCambios {
     () => this.detalle()?.advertencias?.some((a) => a.tipo === 'sin_imagen') ?? false,
   );
   protected readonly conMiniaturas = computed(() => this.idVideo() !== null && !this.sinImagen());
+  /** Por qué no se ve el video del diálogo (`formato`: p. ej. un AVI), o `null`. */
+  protected readonly falloVideo = signal<FalloVideo | null>(null);
   protected readonly urlVideo = computed(() => {
     const id = this.idVideo();
     return id === null ? '' : `${API}/videos/${id}/video`;
@@ -473,12 +476,26 @@ export class SopEditor implements OnInit, ConCambios {
   }
 
   protected alCargarVideo(): void {
+    this.falloVideo.set(null);
     const video = this.reproductor()?.nativeElement;
     if (video && this.segundoPendiente !== null) {
       video.currentTime = this.segundoPendiente;
       this.segundoPendiente = null;
       void video.play?.()?.catch(() => undefined);
     }
+  }
+
+  /** Como en el reporte: con `MediaError` 4 y el archivo en la API, es el formato (p. ej. AVI). */
+  protected alFallarVideo(evento: Event): void {
+    const id = this.idVideo();
+    if (codigoDeError(evento) !== SIN_SOPORTE || id === null) {
+      this.falloVideo.set('carga');
+      return;
+    }
+    this.api
+      .videoDisponible(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((esta) => this.falloVideo.set(esta ? 'formato' : 'carga'));
   }
 
   protected cerrarVideo(): void {

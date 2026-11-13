@@ -1,4 +1,3 @@
-import { HttpEventType } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -23,6 +22,8 @@ import {
   SopResumen,
   VideoCreado,
 } from '../api/tipos';
+import { REINTENTOS, megasDe } from '../subida/partes';
+import { ErrorSubida, SubidaPorPartes } from '../subida/subida.service';
 import { SelectorSop } from './selector-sop';
 
 export const TITULO_MAX = 300;
@@ -51,6 +52,10 @@ export type ModoNuevo = 'biblioteca' | 'subir' | 'generar';
  *
  * En los tres: título obligatorio y consentimiento obligatorio (RNF-16) antes de subir.
  *
+ * El video sube siempre por partes (RF-06, `SubidaPorPartes`): barra con porcentaje y MB, botón
+ * Cancelar (borra lo recibido), hasta 3 reintentos por parte y, si aun así falla, "Reintentar la
+ * subida", que sigue desde lo que la API ya tiene (`GET /uploads/{id}`), sin empezar de cero.
+ *
  * Imágenes (ADR-024): al elegir el video se leen su duración y si tiene imagen en el navegador,
  * antes de subirlo, y se pide `GET /videos/estimacion` (de nuevo al cambiar de video, de modo o
  * de SOP). La casilla arranca con el valor de la instalación y nunca se deshabilita por falta de
@@ -65,6 +70,7 @@ export type ModoNuevo = 'biblioteca' | 'subir' | 'generar';
 })
 export class Nuevo implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly subidas = inject(SubidaPorPartes);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly leerMetadatos = inject(METADATOS_VIDEO);
@@ -113,6 +119,16 @@ export class Nuevo implements OnInit {
   protected readonly video = signal<VideoCreado | null>(null);
   protected readonly enviando = signal(false);
   protected readonly progreso = signal<number | null>(null);
+  // ── Subida por partes (RF-06) ──
+  protected readonly enviados = signal(0);
+  protected readonly total = signal(0);
+  protected readonly megas = computed(() => megasDe(this.enviados(), this.total()));
+  /** Una parte falló y se reintenta sola: cuál intento y en cuánto. */
+  protected readonly reintentando = signal<{ intento: number; esperaMs: number } | null>(null);
+  protected readonly reintentos = REINTENTOS;
+  /** Falló después de los reintentos y lo recibido sigue en la API: se puede reanudar. */
+  protected readonly reanudable = signal(false);
+  protected readonly cancelada = signal(false);
   protected readonly error = signal<string | null>(null);
   /** El video ya había subido cuando falló la conversión: no se validará con ese SOP. */
   protected readonly videoSinSop = signal(false);
@@ -168,6 +184,8 @@ export class Nuevo implements OnInit {
   private casillaTocada = false;
   private sondeo: Subscription | null = null;
   private subida: Subscription | null = null;
+  /** La subida abierta en la API para este archivo: el reintento la reanuda; cancelar la borra. */
+  private pendiente: { archivo: File; uploadId: string } | null = null;
 
   /** Lo que se le pregunta a la estimación; `null` sin duración. */
   private readonly pedido = computed<PedidoEstimacion | null>(() => {
@@ -283,8 +301,12 @@ export class Nuevo implements OnInit {
 
   protected elegirVideo(evento: Event): void {
     const archivo = primerArchivo(evento);
+    if (this.pendiente && this.pendiente.archivo !== archivo) {
+      this.descartarPendiente(); // otro video: lo subido del anterior ya no sirve
+    }
     this.archivoVideo.set(archivo);
     this.video.set(null);
+    this.cancelada.set(false);
     this.metadatos.set(undefined);
     const titulo = this.form.controls.titulo;
     if (archivo && (titulo.value === '' || titulo.value === this.tituloAutomatico)) {
@@ -325,6 +347,7 @@ export class Nuevo implements OnInit {
     this.enviando.set(true);
     this.error.set(null);
     this.videoSinSop.set(false);
+    this.cancelada.set(false);
 
     if (modo === 'generar') {
       // Va a la vista del SOP generado, que sigue el avance.
@@ -353,6 +376,22 @@ export class Nuevo implements OnInit {
         },
         error: (e: unknown) => this.fallo(`No se pudo guardar el SOP. ${mensajeDeError(e)}`),
       });
+  }
+
+  /**
+   * Cancela la subida en curso: aborta la parte en vuelo y borra lo recibido en la API (RNF-09).
+   * El SOP subido ahora, si lo hay, queda guardado: al validar de nuevo solo se sube el video.
+   */
+  protected cancelar(): void {
+    this.subida?.unsubscribe();
+    this.subida = null;
+    this.descartarPendiente();
+    this.detenerSondeo();
+    this.enviando.set(false);
+    this.progreso.set(null);
+    this.reintentando.set(null);
+    this.error.set(null);
+    this.cancelada.set(true);
   }
 
   /** Al avance del video (RF-08): de ahí sigue al reporte cuando termina. */
@@ -391,35 +430,79 @@ export class Nuevo implements OnInit {
     }
   }
 
-  /** `POST /videos` con el avance de la subida; `sopId` undefined es modo generar. */
+  /**
+   * Sube el video por partes y lo registra (`POST /videos` con `upload_id`); `sopId` undefined es
+   * modo generar. Si hay una subida pendiente del mismo archivo, la reanuda.
+   */
   private enviar(sopId: number | undefined, alSubir: (creado: VideoCreado) => void): void {
     const video = this.archivoVideo()!;
     const { titulo, idioma } = this.form.getRawValue();
+    const previo = this.pendiente?.archivo === video ? this.pendiente.uploadId : null;
     this.progreso.set(0);
-    this.subida = this.api
-      .subirVideo({
-        archivo: video,
-        titulo: titulo.trim(),
-        sopId,
-        idioma: idioma || undefined,
-        analizarImagenes: this.analizarImagenes() && !this.sinImagen(),
-      })
+    this.enviados.set(0);
+    this.total.set(video.size);
+    this.reintentando.set(null);
+    this.reanudable.set(false);
+    this.subida = this.subidas
+      .subir(
+        video,
+        {
+          titulo: titulo.trim(),
+          sopId,
+          idioma: idioma || undefined,
+          analizarImagenes: this.analizarImagenes() && !this.sinImagen(),
+        },
+        previo,
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (evento) => {
-          if (evento.type === HttpEventType.UploadProgress) {
-            const total = evento.total ?? video.size;
-            this.progreso.set(total ? Math.round((100 * evento.loaded) / total) : 0);
-          } else if (evento.type === HttpEventType.Response && evento.body) {
-            this.subida = null;
-            alSubir(evento.body);
+          switch (evento.tipo) {
+            case 'abierta':
+              this.pendiente = { archivo: video, uploadId: evento.uploadId };
+              break;
+            case 'avance':
+              if (evento.enviados > this.enviados()) {
+                this.reintentando.set(null); // volvió a avanzar
+              }
+              this.enviados.set(evento.enviados);
+              this.progreso.set(
+                evento.total ? Math.floor((100 * evento.enviados) / evento.total) : 100,
+              );
+              break;
+            case 'reintento':
+              this.reintentando.set({ intento: evento.intento, esperaMs: evento.esperaMs });
+              break;
+            case 'creado':
+              this.subida = null;
+              this.pendiente = null;
+              this.reintentando.set(null);
+              alSubir(evento.video);
+              break;
           }
         },
         error: (e: unknown) => {
           this.subida = null;
-          this.fallo(`No se pudo subir el video. ${mensajeDeError(e)}`);
+          this.reintentando.set(null);
+          if (e instanceof ErrorSubida) {
+            this.pendiente = e.uploadId ? { archivo: video, uploadId: e.uploadId } : null;
+            this.fallo(e.message);
+            this.reanudable.set(this.pendiente !== null);
+          } else {
+            this.fallo(`No se pudo subir el video. ${mensajeDeError(e)}`);
+          }
         },
       });
+  }
+
+  /** Borra en la API la subida pendiente, si hay (sin esperar ni avisar si falla). */
+  private descartarPendiente(): void {
+    const pendiente = this.pendiente;
+    this.pendiente = null;
+    this.reanudable.set(false);
+    if (pendiente) {
+      this.api.cancelarSubida(pendiente.uploadId).subscribe({ error: () => undefined });
+    }
   }
 
   private sondearSop(id: number): void {
@@ -461,6 +544,7 @@ export class Nuevo implements OnInit {
     this.sondeo = null;
     this.subida?.unsubscribe();
     this.subida = null;
+    this.descartarPendiente();
     this.videoSinSop.set(this.video() !== null);
     // El SOP no sirve: el reintento sube otro (o el mismo, corregido) y el video otra vez.
     this.sop.set(null);

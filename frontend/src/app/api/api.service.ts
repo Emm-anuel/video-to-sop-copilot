@@ -1,10 +1,11 @@
 import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { ReporteValidacion } from './reporte-validacion';
 import { SOP } from './sop';
 import {
   EstadoSop,
+  EstadoSubida,
   EstadoVideo,
   EstimacionImagenes,
   PedidoEstimacion,
@@ -17,8 +18,8 @@ import {
 /** Prefijo que el proxy de `ng serve` reenvía a la API sin `/api` (proxy.conf.json). */
 export const API = '/api';
 
-export interface SubidaVideo {
-  archivo: File;
+/** Los campos de `POST /videos` además del video (que llega en una subida por partes). */
+export interface CamposVideo {
   titulo: string;
   /** Con SOP, modo validar; sin él, modo generar ("No tengo SOP", ADR-023). */
   sopId?: number;
@@ -83,27 +84,71 @@ export class ApiService {
   }
 
   /**
-   * `POST /videos` con los eventos de avance de la subida: modo validar con `sopId`; sin él,
-   * modo generar (el SOP sale del video).
+   * `POST /uploads` (RF-06): abre una subida por partes. Solo la extensión del nombre le importa
+   * a la API (415 si no es de video; 413 si `tamano` pasa del límite).
    */
-  subirVideo(subida: SubidaVideo): Observable<HttpEvent<VideoCreado>> {
-    const datos = new FormData();
-    datos.append('archivo', subida.archivo, subida.archivo.name);
-    datos.append('titulo', subida.titulo);
-    if (subida.sopId === undefined) {
-      datos.append('modo', 'generar');
-    } else {
-      datos.append('modo', 'validar');
-      datos.append('sop_id', String(subida.sopId));
-    }
-    if (subida.idioma) {
-      datos.append('idioma', subida.idioma);
-    }
-    datos.append('analizar_imagenes', String(subida.analizarImagenes));
-    return this.http.post<VideoCreado>(`${API}/videos`, datos, {
+  crearSubida(nombre: string, tamano: number): Observable<EstadoSubida> {
+    return this.http.post<EstadoSubida>(`${API}/uploads`, { nombre, tamano });
+  }
+
+  /**
+   * `PUT /uploads/{id}?offset=N` con la parte en el cuerpo, con los eventos de avance. 409 con
+   * `detail.offset` si el offset no es el que sigue; repetir una parte no duplica nada.
+   */
+  enviarParte(uploadId: string, offset: number, parte: Blob): Observable<HttpEvent<EstadoSubida>> {
+    return this.http.put<EstadoSubida>(`${API}/uploads/${uploadId}`, parte, {
+      params: { offset },
+      headers: { 'Content-Type': 'application/octet-stream' },
       reportProgress: true,
       observe: 'events',
     });
+  }
+
+  /** `GET /uploads/{id}`: cuánto ha llegado, para reanudar; 404 si ya no existe. */
+  estadoSubida(uploadId: string): Observable<EstadoSubida> {
+    return this.http.get<EstadoSubida>(`${API}/uploads/${uploadId}`);
+  }
+
+  /** `DELETE /uploads/{id}`: cancela la subida y borra lo recibido (204). */
+  cancelarSubida(uploadId: string): Observable<void> {
+    return this.http.delete<void>(`${API}/uploads/${uploadId}`);
+  }
+
+  /**
+   * `POST /videos` con la subida ya completa (`upload_id`): modo validar con `sopId`; sin él,
+   * modo generar (el SOP sale del video). 409 si la subida está incompleta, 422 si no es un video.
+   */
+  crearVideo(uploadId: string, campos: CamposVideo): Observable<VideoCreado> {
+    const datos = new FormData();
+    datos.append('upload_id', uploadId);
+    datos.append('titulo', campos.titulo);
+    if (campos.sopId === undefined) {
+      datos.append('modo', 'generar');
+    } else {
+      datos.append('modo', 'validar');
+      datos.append('sop_id', String(campos.sopId));
+    }
+    if (campos.idioma) {
+      datos.append('idioma', campos.idioma);
+    }
+    datos.append('analizar_imagenes', String(campos.analizarImagenes));
+    return this.http.post<VideoCreado>(`${API}/videos`, datos);
+  }
+
+  /**
+   * Si el archivo del video está en la API: pide solo su primer byte (`Range: bytes=0-0`, 206).
+   * Sirve para distinguir un formato que el navegador no reproduce de un archivo que falta.
+   */
+  videoDisponible(id: number): Observable<boolean> {
+    return this.http
+      .get(`${API}/videos/${id}/video`, {
+        headers: { Range: 'bytes=0-0' },
+        responseType: 'blob',
+      })
+      .pipe(
+        map(() => true),
+        catchError(() => of(false)),
+      );
   }
 
   /** `GET /videos/{id}`: proceso, etapa y progreso (la ruta de estado del video). */

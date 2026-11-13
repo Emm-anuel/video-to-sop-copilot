@@ -103,11 +103,11 @@
   }
 
   <div class="campo">
-    <label for="video">Video (.mp4, .mov, .mkv o .webm)</label>
+    <label for="video">Video (.mp4, .mov, .mkv, .webm o .avi)</label>
     <input
       id="video"
       type="file"
-      accept=".mp4,.mov,.mkv,.webm"
+      accept=".mp4,.mov,.mkv,.webm,.avi"
       (change)="elegirVideo($event)"
       [disabled]="enviando()"
     />
@@ -211,9 +211,27 @@
 
   @if (progreso() !== null && !video()) {
     <div class="subida">
-      <label for="avance">Subiendo el video: {{ progreso() }} %</label>
+      <div class="subida-fila">
+        <label for="avance">
+          Subiendo el video: {{ progreso() }} %
+          <span class="megas">· {{ megas() }}</span>
+        </label>
+        <button type="button" class="secundario cancelar" (click)="cancelar()">Cancelar</button>
+      </div>
       <progress id="avance" max="100" [value]="progreso()"></progress>
+      @if (reintentando(); as r) {
+        <p class="aviso-ambar" role="status">
+          Se cortó la conexión. Reintento {{ r.intento }} de {{ reintentos }} en
+          {{ r.esperaMs / 1000 }} s; lo ya subido no se repite.
+        </p>
+      }
     </div>
+  }
+  @if (cancelada()) {
+    <p class="nota" role="status">
+      Subida cancelada: lo recibido se borró. Al validar de nuevo el video se sube desde el
+      principio.
+    </p>
   }
   @if (video() && convirtiendo()) {
     <p class="nota" role="status">Video subido. Falta que termine la conversión del SOP.</p>
@@ -221,6 +239,12 @@
 
   @if (error(); as mensaje) {
     <p class="error" role="alert">{{ mensaje }}</p>
+    @if (reanudable()) {
+      <div class="reanudar">
+        <button type="button" class="secundario" (click)="validar()">Reintentar la subida</button>
+        <button type="button" class="secundario" (click)="cancelar()">Cancelar</button>
+      </div>
+    }
     @if (videoSinSop()) {
       <p class="nota">
         El video ya se había subido, pero no se validará con ese SOP. Elige un SOP y valida de

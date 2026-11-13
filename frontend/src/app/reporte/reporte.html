@@ -9,10 +9,18 @@
           controls
           preload="metadata"
           [src]="urlVideo(id)"
-          (error)="videoNoDisponible.set(true)"
-          (loadedmetadata)="videoNoDisponible.set(false)"
+          (error)="alFallarVideo($event, id)"
+          (loadedmetadata)="falloVideo.set(null)"
         ></video>
-        @if (videoNoDisponible()) {
+        @if (falloVideo() === 'formato') {
+          <div class="aviso-video" role="status">
+            <p>
+              El navegador no reproduce este formato. Los segundos de cada hallazgo siguen en la
+              tabla.
+            </p>
+            <a class="descargar-video" [href]="urlVideo(id)" download>Descargar el video</a>
+          </div>
+        } @else if (falloVideo() === 'carga') {
           <p class="aviso-video" role="status">
             No se pudo cargar el video. La tabla sigue disponible, pero sin saltar al segundo.
           </p>

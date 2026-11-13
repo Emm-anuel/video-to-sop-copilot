@@ -60,6 +60,8 @@ select {
   }
 }
 
+// Subida por partes (RF-06): porcentaje y MB a la izquierda, Cancelar a la derecha; en un
+// teléfono (RNF-13), si no caben, Cancelar baja a su propia línea.
 .subida {
   display: grid;
   gap: 0.35rem;
@@ -67,6 +69,31 @@ select {
   progress {
     width: 100%;
   }
+}
+
+.subida-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+
+  label {
+    flex: 1 1 14rem;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.megas {
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.reanudar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 button {
@@ -84,6 +111,14 @@ button {
   &:disabled {
     background: #98a2b3;
     cursor: not-allowed;
+  }
+
+  // Cancelar y Reintentar: secundarios, 36 px de alto como los demás (RNF-13).
+  &.secundario {
+    padding: 0.45rem 1rem;
+    background: #fff;
+    border: 1px solid #b8c0ca;
+    color: #1d2939;
   }
 }
 

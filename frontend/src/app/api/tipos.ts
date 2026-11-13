@@ -71,6 +71,18 @@ export interface VideoCreado {
 }
 
 /**
+ * Subida por partes (RF-06): `POST /uploads` (201), `PUT /uploads/{id}?offset=N` y
+ * `GET /uploads/{id}`. `recibidos` es desde dónde sigue la subida.
+ */
+export interface EstadoSubida {
+  upload_id: string;
+  tamano: number;
+  tamano_parte: number;
+  recibidos: number;
+  completo: boolean;
+}
+
+/**
  * `GET /videos/{id}`. `etapa`: duracion, audio, transcripcion, contexto, segmentacion; en modo
  * validar también emparejamiento y reporte; en modo generar sop_pasos, sop_resumen y sop_claves;
  * al final listo. `sop_id`: el SOP de referencia o, en modo generar, el generado.

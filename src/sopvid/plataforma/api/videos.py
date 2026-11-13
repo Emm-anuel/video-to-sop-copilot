@@ -1,10 +1,19 @@
-"""Subida de videos completos (RF-06 del MVP), consulta del análisis y del reporte.
+"""Subida de videos (RF-06), consulta del análisis y del reporte.
 
 `POST /videos` guarda el archivo en `MEDIA_DIR/videos/<id>/video.<ext>`, crea la fila con
-`proceso="en_cola"` y encola el análisis; responde 202 con el id. El archivo se copia por
-bloques; en la fila va la ruta relativa a `MEDIA_DIR`, nunca el nombre original. El tamaño se
-limita dos veces: `limitar_content_length` rechaza la petición antes de recibirla si el
-`Content-Length` ya excede el límite, y la copia cuenta los bytes reales.
+`proceso="en_cola"` y encola el análisis; responde 202 con el id. El video llega de una de dos
+formas, con el resto del formulario igual (`titulo`, `modo`, `sop_id` o `sop`, `idioma`,
+`analizar_imagenes`):
+
+- **Completo** en `archivo` (la subida simple): se copia por bloques. El tamaño se limita dos
+  veces: `limitar_content_length` rechaza la petición antes de recibirla si el `Content-Length`
+  ya excede el límite, y la copia cuenta los bytes reales.
+- **Por partes** en `upload_id` (`plataforma/api/subidas.py`, `POST /uploads`): la subida debe
+  estar completa (409 si no), ffprobe debe leerla (422 y se descarta si no) y se mueve sin copiar.
+
+En la fila va la ruta relativa a `MEDIA_DIR`, nunca el nombre original. AVI se acepta y se
+analiza, pero Chrome y Edge no lo reproducen: el reporte avisa y ofrece descargarlo (convertirlo
+a MP4 sin recodificar queda para S6).
 
 En modo validar hace falta un SOP de referencia y el trabajo sigue con la validación (pasos del
 video, emparejamiento y reporte). El SOP es uno de la biblioteca (`sop_id`) o uno nuevo adjunto
@@ -27,16 +36,16 @@ Gemma antes de la ficha y gana sobre `FOTOGRAMAS_DESCRIBIR` (apagado por defecto
 sumarían con y sin GPU, y el valor de la instalación para la casilla; nunca prohíbe nada.
 `GET /videos/{id}/thumb?t=` entrega la miniatura del segundo `t` (la guardada a ≤ 1 s o una
 nueva, solo ffmpeg), con cabeceras de caché.
-
-La subida por partes de 16 MB con reintentos es de S5; aquí no está.
 """
 
 import logging
 import math
 import mimetypes
+import os
 import re
 import shutil
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, BinaryIO, Literal
@@ -68,12 +77,19 @@ from sopvid.lenguaje.lectura_sop import AjustesConversion
 from sopvid.lenguaje.llm import ClienteLLM, get_cliente_llm
 from sopvid.lenguaje.reporte import armar_reporte
 from sopvid.lenguaje.validacion import DependenciasValidacion, FabricaValidacion
-from sopvid.percepcion import miniaturas
+from sopvid.percepcion import miniaturas, subidas
 from sopvid.percepcion.fotogramas import cuantas_imagenes
-from sopvid.percepcion.medios import ErrorMedios, duracion, imagen_visible, tiene_imagen
+from sopvid.percepcion.medios import (
+    ErrorMedios,
+    FfmpegNoDisponible,
+    duracion,
+    imagen_visible,
+    tiene_imagen,
+)
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
 from sopvid.plataforma.api.sops import (
+    ArchivoSop,
     FabricaLLM,
     carpeta_sop,
     get_fabrica_llm,
@@ -105,8 +121,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["videos"])
 
-EXTENSIONES = (".mp4", ".mov", ".mkv", ".webm")
+# AVI se analiza igual, pero Chrome y Edge no lo reproducen: el reporte lo dice y lo deja bajar.
+EXTENSIONES = (".mp4", ".mov", ".mkv", ".webm", ".avi")
 BLOQUE = 1024 * 1024
+SUBIDA_NO_ENCONTRADA = "la subida no existe, ya se usó, se canceló o caducó: empieza otra"
 # Holgura para los campos del formulario y los separadores multipart en el Content-Length. No
 # cubre un SOP adjunto grande (hasta `sops.SOP_DOCUMENTO_MAX_BYTES`): con un video justo en el
 # límite, el middleware rechaza la petición antes de leerla; con los límites reales (GB) no pasa.
@@ -192,20 +210,39 @@ def get_validacion(settings: Annotated[Settings, Depends(get_settings)]) -> Fabr
 async def limitar_content_length(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
-    """Middleware: 413 antes de recibir el cuerpo si `Content-Length` ya excede el límite."""
+    """Middleware: 413 antes de recibir el cuerpo si `Content-Length` ya excede el límite: el del
+    video en `POST /videos` y el de la parte en `PUT /uploads/{id}` (RF-06)."""
+    largo = request.headers.get("content-length")
+    if not largo or not largo.isdigit():
+        return await call_next(request)
     if request.method == "POST" and request.url.path == "/videos":
         settings = request.app.dependency_overrides.get(get_settings, get_settings)()
-        largo = request.headers.get("content-length")
-        maximo = settings.subida_max_bytes + HOLGURA_FORMULARIO
-        if largo and largo.isdigit() and int(largo) > maximo:
-            return JSONResponse(status_code=413, content={"detail": _detalle_tamano(settings)})
+        if int(largo) > settings.subida_max_bytes + HOLGURA_FORMULARIO:
+            return JSONResponse(status_code=413, content={"detail": detalle_tamano(settings)})
+    elif request.method == "PUT" and request.url.path.startswith("/uploads/"):
+        settings = request.app.dependency_overrides.get(get_settings, get_settings)()
+        if int(largo) > settings.subida_parte_bytes:
+            return JSONResponse(
+                status_code=413, content={"detail": detalle_parte(settings.subida_parte_bytes)}
+            )
     return await call_next(request)
+
+
+@dataclass(frozen=True)
+class _Pedido:
+    """Lo que `POST /videos` guarda del formulario, ya revisado; igual en los dos caminos."""
+
+    titulo: str
+    modo: str
+    idioma: str | None
+    sop_id: int | None
+    adjunto: ArchivoSop | None
+    imagenes: bool
 
 
 @router.post("/videos", status_code=202, response_model=VideoCreado)
 def subir_video(
     response: Response,
-    archivo: Annotated[UploadFile, File(description="Video completo: mp4, mov, mkv o webm")],
     titulo: Annotated[str, Form(min_length=1, max_length=300)],
     modo: Annotated[str, Form(description="validar | generar")],
     session: Annotated[Session, Depends(get_session)],
@@ -214,6 +251,14 @@ def subir_video(
     transcriptor: Annotated[Transcriptor, Depends(get_transcriptor)],
     validacion: Annotated[FabricaValidacion, Depends(get_validacion)],
     fabrica_llm: Annotated[FabricaLLM, Depends(get_fabrica_llm)],
+    archivo: Annotated[
+        UploadFile | None,
+        File(description="Video completo: mp4, mov, mkv, webm o avi; este o upload_id"),
+    ] = None,
+    upload_id: Annotated[
+        str | None,
+        Form(description="Subida por partes ya completa (POST /uploads); este o archivo"),
+    ] = None,
     idioma: Annotated[str | None, Form(description="ISO 639-1 para fijarlo (p. ej. es)")] = None,
     sop_id: Annotated[
         int | None, Form(description="SOP de la biblioteca; con modo=validar, este o `sop`")
@@ -230,9 +275,65 @@ def subir_video(
         ),
     ] = None,
 ) -> VideoCreado:
-    extension = Path(archivo.filename or "").suffix.lower()
+    if (archivo is None) == (upload_id is None):
+        raise HTTPException(
+            422,
+            "manda el video en `archivo` o una subida por partes en `upload_id`, uno de los dos",
+        )
+    extension = extension_video(archivo.filename or "") if archivo is not None else None
+    pedido = _revisar_pedido(
+        session, settings, titulo, modo, idioma, sop_id, sop, analizar_imagenes
+    )
+
+    if archivo is not None:
+        assert extension is not None
+        video, sop_id = _registrar(
+            session,
+            settings,
+            pedido,
+            extension,
+            colocar=lambda destino: _copiar(archivo.file, destino, settings.subida_max_bytes),
+        )
+    else:
+        assert upload_id is not None
+        video, sop_id = _registrar_subida(session, settings, pedido, upload_id)
+    logger.info(
+        "Video %d recibido (%s, %.1f MB%s%s%s)",
+        video.id,
+        PurePosixPath(video.archivo).suffix,
+        (settings.media_path / video.archivo).stat().st_size / 1e6,
+        ", por partes" if upload_id is not None else "",
+        f", SOP adjunto {sop_id} {pedido.adjunto.extension}" if pedido.adjunto else "",
+        ", con imágenes" if pedido.imagenes else "",
+    )
+
+    if pedido.adjunto is not None:  # antes que el video, que lo espera
+        assert sop_id is not None
+        procesador.encolar_sop(sop_id, fabrica_llm, AjustesConversion.desde_settings(settings))
+    procesador.encolar(video.id, pedido.idioma, transcriptor, validacion, imagenes=pedido.imagenes)
+    response.headers["Location"] = f"/videos/{video.id}"
+    return VideoCreado(id=video.id, proceso=video.proceso, sop_id=sop_id)
+
+
+def extension_video(nombre: str) -> str:
+    """La extensión en minúsculas si es de video permitida; si no, 415."""
+    extension = Path(nombre).suffix.lower()
     if extension not in EXTENSIONES:
         raise HTTPException(415, f"extensión no permitida; usa {', '.join(EXTENSIONES)}")
+    return extension
+
+
+def _revisar_pedido(
+    session: Session,
+    settings: Settings,
+    titulo: str,
+    modo: str,
+    idioma: str | None,
+    sop_id: int | None,
+    sop: UploadFile | None,
+    analizar_imagenes: bool | None,
+) -> _Pedido:
+    """Revisa el formulario de `POST /videos` (422 o 404) sin guardar nada."""
     if modo not in MODOS_VIDEO:
         raise HTTPException(422, f"modo debe ser uno de {', '.join(MODOS_VIDEO)}")
     titulo = titulo.strip()
@@ -264,54 +365,109 @@ def subir_video(
     # El parámetro del video gana sobre la instalación, en los dos sentidos (ADR-024). Se guarda
     # ya resuelto: la pantalla de avance no tiene que volver a resolverlo (RF-08).
     imagenes = settings.fotogramas_describir if analizar_imagenes is None else analizar_imagenes
+    return _Pedido(titulo, modo, idioma, sop_id, adjunto, imagenes)
 
+
+def _registrar(
+    session: Session,
+    settings: Settings,
+    pedido: _Pedido,
+    extension: str,
+    colocar: Callable[[Path], None],
+    deshacer: Callable[[Path], None] | None = None,
+) -> tuple[Video, int | None]:
+    """Crea el SOP adjunto (si hay) y el video en cola, y `colocar` deja el archivo en
+    `media/videos/<id>/video.<ext>`. Si algo falla no queda nada: la transacción se revierte,
+    `deshacer` devuelve el archivo a donde estaba y se borran las carpetas creadas."""
     carpetas: list[Path] = []
+    destino: Path | None = None
+    sop_id = pedido.sop_id
     try:
-        if adjunto is not None:
+        if pedido.adjunto is not None:
             fila_sop = crear_sop_en_cola(
-                session, settings.media_path, adjunto.datos, adjunto.extension
+                session, settings.media_path, pedido.adjunto.datos, pedido.adjunto.extension
             )
             carpetas.append(carpeta_sop(settings.media_path, fila_sop.id))
             sop_id = fila_sop.id
         video = Video(
-            titulo=titulo,
+            titulo=pedido.titulo,
             archivo="",
-            modo=modo,
-            idioma=idioma,
+            modo=pedido.modo,
+            idioma=pedido.idioma,
             sop_id=sop_id,
             proceso=EN_COLA,
-            analizar_imagenes=imagenes,
+            analizar_imagenes=pedido.imagenes,
         )
         session.add(video)
         session.flush()  # asigna el id
         relativa = PurePosixPath("videos", str(video.id), f"video{extension}")
         destino = settings.media_path / relativa
         carpetas.append(destino.parent)
-        _copiar(archivo.file, destino, settings.subida_max_bytes)
+        colocar(destino)
         video.archivo = str(relativa)
         session.commit()
     except BaseException as exc:
         session.rollback()
+        if deshacer is not None and destino is not None and destino.is_file():
+            try:
+                deshacer(destino)
+            except OSError:
+                logger.warning("No se pudo devolver el video a su subida", exc_info=True)
         for carpeta in carpetas:
             shutil.rmtree(carpeta, ignore_errors=True)
         if isinstance(exc, _TamanoExcedido):
-            raise HTTPException(413, _detalle_tamano(settings)) from None
+            raise HTTPException(413, detalle_tamano(settings)) from None
         raise
-    logger.info(
-        "Video %d recibido (%s, %.1f MB%s%s)",
-        video.id,
-        extension,
-        destino.stat().st_size / 1e6,
-        f", SOP adjunto {sop_id} {adjunto.extension}" if adjunto is not None else "",
-        ", con imágenes" if imagenes else "",
-    )
+    return video, sop_id
 
-    if adjunto is not None:  # antes que el video, que lo espera
-        assert sop_id is not None
-        procesador.encolar_sop(sop_id, fabrica_llm, AjustesConversion.desde_settings(settings))
-    procesador.encolar(video.id, idioma, transcriptor, validacion, imagenes=imagenes)
-    response.headers["Location"] = f"/videos/{video.id}"
-    return VideoCreado(id=video.id, proceso=video.proceso, sop_id=sop_id)
+
+def _registrar_subida(
+    session: Session, settings: Settings, pedido: _Pedido, upload_id: str
+) -> tuple[Video, int | None]:
+    """El camino de `upload_id` (RF-06): la subida completa y legible para ffprobe se mueve a
+    `media/videos/<id>/` y se borra. 404 si no existe o ya se usó; 409 si está incompleta; 422
+    (y se descarta) si no es un video legible; 503 (y se conserva) si no hay ffprobe."""
+    media = settings.media_path
+    try:
+        with subidas.reservada(media, upload_id) as (estado, armado):
+            try:
+                duracion(armado, timeout_s=settings.ffmpeg_timeout_s)
+            except FfmpegNoDisponible:
+                raise HTTPException(
+                    503, "ffprobe no está disponible: la subida se conserva, reintenta más tarde"
+                ) from None
+            except ErrorMedios as exc:
+                logger.info("Subida %s descartada: no es un video legible (%s)", upload_id, exc)
+                subidas.descartar(media, upload_id)
+                raise HTTPException(
+                    422, "el archivo no es un video legible (ffprobe no lo pudo leer): se descartó"
+                ) from None
+            resultado = _registrar(
+                session,
+                settings,
+                pedido,
+                estado.extension,
+                colocar=lambda destino: _mover(armado, destino),
+                deshacer=lambda destino: _mover(destino, armado),
+            )
+            subidas.descartar(media, upload_id)
+            return resultado
+    except subidas.SubidaNoEncontrada:
+        raise HTTPException(404, SUBIDA_NO_ENCONTRADA) from None
+    except subidas.SubidaIncompleta as exc:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": f"la subida está incompleta: van {exc.recibidos} de {exc.tamano} bytes",
+                "recibidos": exc.recibidos,
+                "tamano": exc.tamano,
+            },
+        ) from None
+
+
+def _mover(origen: Path, destino: Path) -> None:
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(origen, destino)
 
 
 @router.get("/videos/estimacion", response_model=EstimacionImagenes)
@@ -649,5 +805,9 @@ def _copiar(origen: BinaryIO, destino: Path, limite: int) -> None:
             salida.write(bloque)
 
 
-def _detalle_tamano(settings: Settings) -> str:
+def detalle_tamano(settings: Settings) -> str:
     return f"el video pasa del límite de {settings.subida_max_mb} MB"
+
+
+def detalle_parte(tamano_parte: int) -> str:
+    return f"la parte pasa del tamaño de parte ({tamano_parte} bytes)"

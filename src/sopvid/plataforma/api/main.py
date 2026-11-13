@@ -8,7 +8,8 @@ from fastapi import FastAPI
 from sqlalchemy.exc import SQLAlchemyError
 
 from sopvid import __version__
-from sopvid.plataforma.api import health, sops, videos
+from sopvid.percepcion.subidas import limpiar_caducadas
+from sopvid.plataforma.api import health, sops, subidas, videos
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_sessionmaker
 from sopvid.plataforma.hardware import get_hardware, get_plan_dispositivos, registrar
@@ -43,7 +44,8 @@ def create_app(
     """Crea la app. `sesiones` reemplaza al sessionmaker (pruebas).
 
     Al arrancar, los videos y los SOP que quedaron en cola o en proceso pasan a error: la cola
-    vive en memoria y no sobrevive a un reinicio. Si la base no responde, la API arranca igual y
+    vive en memoria y no sobrevive a un reinicio. También se borran las subidas por partes sin
+    actividad desde hace `SUBIDA_CADUCIDAD_H` horas. Si la base no responde, la API arranca igual y
     `/health` lo informa. También se registra dónde va a correr cada etapa (GPU o CPU,
     ADR-018), con un aviso si la configuración no cuadra con el equipo.
     """
@@ -51,6 +53,13 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         registrar(get_plan_dispositivos(), get_hardware().motivo_sin_gpu)
+        # Las subidas por partes abandonadas no se quedan en media (RNF-09). Con los ajustes de
+        # la app (las pruebas los reemplazan), no los del entorno.
+        settings = app.dependency_overrides.get(get_settings, get_settings)()
+        try:
+            limpiar_caducadas(settings.media_path, settings.subida_caducidad_h)
+        except OSError as exc:
+            logger.warning("No se limpiaron las subidas caducadas: %s", exc)
         fabrica = sesiones or get_sessionmaker()
         if recuperar_interrumpidos:
             try:
@@ -69,6 +78,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(sops.router)
     app.include_router(videos.router)
+    app.include_router(subidas.router)
     return app
 
 

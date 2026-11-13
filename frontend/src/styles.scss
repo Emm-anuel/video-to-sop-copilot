@@ -68,3 +68,28 @@ app-sop-editor .sr-only {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+// Reproductor que no puede mostrar el video (RF-06, RF-20): el reporte y el diálogo del editor del
+// SOP. Con un formato que el navegador no reproduce (p. ej. AVI) va el enlace para descargarlo,
+// con un objetivo de 36 px (RNF-13). Aquí y no en cada componente: lo comparten los dos.
+.aviso-video {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 0.3rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.descargar-video {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  margin-top: 0.35rem;
+  font-weight: 600;
+  color: #175cd3;
+}

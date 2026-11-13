@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, catchError, filter, map, switchMap } from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
+import { FalloVideo, SIN_SOPORTE, codigoDeError } from '../api/reproductor';
 import {
   Aviso,
   Dispositivos,
@@ -233,7 +234,8 @@ export class Reporte {
   );
   /** Índice en `filas` de la última fila a la que se saltó. */
   protected readonly filaActiva = signal<number | null>(null);
-  protected readonly videoNoDisponible = signal(false);
+  /** Por qué no se ve el video (`formato`: p. ej. un AVI; `carga`: no cargó), o `null`. */
+  protected readonly falloVideo = signal<FalloVideo | null>(null);
   /** Mientras se envía "Continuar de todos modos" (evita el doble envío). */
   protected readonly continuando = signal(false);
 
@@ -293,7 +295,7 @@ export class Reporte {
         this.reporte.set(null);
         this.errorReporte.set(null);
         this.filaActiva.set(null);
-        this.videoNoDisponible.set(false);
+        this.falloVideo.set(null);
         this.miniaturasFallidas.set(new Set());
         this.avance.seguir(id);
       });
@@ -339,6 +341,22 @@ export class Reporte {
 
   protected urlVideo(id: number): string {
     return `${API}/videos/${id}/video`;
+  }
+
+  /**
+   * El `<video>` no se pudo reproducir. Con `MediaError` 4 se pregunta si el archivo está: si
+   * está, es el formato (p. ej. AVI) y se ofrece descargarlo; si no, no cargó.
+   */
+  protected alFallarVideo(evento: Event, id: number): void {
+    if (codigoDeError(evento) !== SIN_SOPORTE) {
+      this.falloVideo.set('carga');
+      return;
+    }
+    this.api.videoDisponible(id).subscribe((esta) => {
+      if (this.videoId() === id) {
+        this.falloVideo.set(esta ? 'formato' : 'carga');
+      }
+    });
   }
 
   /** Miniatura del segundo de la fila (`GET /videos/{id}/thumb`, ADR-024): se pide por segundo. */

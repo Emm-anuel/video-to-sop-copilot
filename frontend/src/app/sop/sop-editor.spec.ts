@@ -140,6 +140,36 @@ describe('SopEditor', () => {
     expect(boton('00:16', fila)).toBeTruthy();
   });
 
+  it('si el navegador no reproduce el formato del video (AVI), el diálogo lo dice y ofrece descargarlo', async () => {
+    await abrir();
+    const video = el().querySelector<HTMLVideoElement>('dialog video')!;
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: 4 } });
+    video.dispatchEvent(new Event('error'));
+    const sonda = http.expectOne('/api/videos/9/video');
+    expect(sonda.request.headers.get('Range')).toBe('bytes=0-0');
+    sonda.flush(new Blob(['R']), { status: 206, statusText: 'Partial Content' });
+    await fixture.whenStable();
+
+    const aviso = el().querySelector('dialog .aviso-video')!;
+    expect(aviso.textContent).toContain('El navegador no reproduce este formato.');
+    const enlace = aviso.querySelector<HTMLAnchorElement>('a.descargar-video')!;
+    expect(enlace.getAttribute('href')).toBe('/api/videos/9/video');
+    expect(enlace.hasAttribute('download')).toBe(true);
+    // Los segundos siguen a la vista en el SOP.
+    expect(nombres()).toEqual(ejemplo.pasos.map((p) => p.nombre));
+  });
+
+  it('con otro error del video, el diálogo dice que no cargó sin consultar el archivo', async () => {
+    await abrir();
+    el().querySelector('dialog video')!.dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+    http.expectNone('/api/videos/9/video');
+    expect(el().querySelector('dialog .aviso-video')!.textContent).toContain(
+      'No se pudo cargar el video.',
+    );
+    expect(el().querySelector('a.descargar-video')).toBeNull();
+  });
+
   it('con la advertencia "sin_imagen" no pide miniaturas', async () => {
     const sinImagen: AdvertenciaSOP = {
       tipo: 'sin_imagen',

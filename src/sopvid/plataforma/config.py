@@ -54,8 +54,13 @@ class Settings(BaseSettings):
     # Tope por llamada a ffmpeg/ffprobe. Extraer mp3 mono va decenas de veces más rápido que el
     # tiempo real: 300 s cubre videos de una hora con margen.
     ffmpeg_timeout_s: float = Field(default=300.0, gt=0)
-    # Tamaño máximo de un video en POST /videos (subida completa, RF-06 del MVP).
+    # Tamaño máximo de un video, en la subida completa (POST /videos) y por partes (POST /uploads).
     subida_max_mb: int = Field(default=1024, gt=0)
+    # Subida por partes (RF-06): tamaño de cada parte. Admite fracciones para las pruebas (KB).
+    subida_parte_mb: float = Field(default=16, gt=0)
+    # Una subida por partes sin actividad durante estas horas se borra (RNF-09): al arrancar la
+    # API y en cada POST /uploads.
+    subida_caducidad_h: float = Field(default=24, gt=0)
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es
@@ -225,6 +230,10 @@ class Settings(BaseSettings):
     @property
     def subida_max_bytes(self) -> int:
         return self.subida_max_mb * 1024 * 1024
+
+    @property
+    def subida_parte_bytes(self) -> int:
+        return max(1, round(self.subida_parte_mb * 1024 * 1024))
 
     def modelo_whisper(self, dispositivo: str) -> str:
         """El modelo de Whisper para `dispositivo` ya resuelto ("cpu" o "cuda")."""
