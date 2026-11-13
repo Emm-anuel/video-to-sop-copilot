@@ -6,7 +6,8 @@ interface ErrorValidacion {
   msg?: string;
 }
 
-const SIN_CONEXION = 'No hay conexión con la API (¿está corriendo en el puerto 8000?)';
+// Lo lee el operador, no quien desarrolla: un corte de red y una API apagada se ven igual (status 0).
+const SIN_CONEXION = 'No hay conexión con la API: revisa la red o que el servidor esté encendido.';
 
 /**
  * Convierte un error HTTP en un mensaje en español para la pantalla, sin trazas.

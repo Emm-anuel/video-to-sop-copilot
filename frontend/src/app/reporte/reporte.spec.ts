@@ -679,7 +679,7 @@ describe('Reporte', () => {
   it('sin conexión con la API muestra el aviso en español y reintenta con espera creciente', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
-    expect(texto()).toContain('No hay conexión con la API (¿está corriendo en el puerto 8000?)');
+    expect(texto()).toContain('No hay conexión con la API: revisa la red o que el servidor esté encendido.');
     expect(texto()).toContain('Reintento 1 en 1.5 s');
     vi.advanceTimersByTime(1500);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
