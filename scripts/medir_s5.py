@@ -37,7 +37,10 @@ Tres modos, desde la raíz del repo y con el entorno activado:
 
 Orden (plan §7, ADR-024): las repeticiones van video por video, así que los últimos (E) se miden
 con la GPU caliente; tras una tanda larga E tardó 81–83 s contra 69–71 s en frío con el mismo
-código. Antes de comparar tiempos entre informes, deja enfriar la GPU entre tandas o intercala.
+código. Antes de comparar tiempos entre informes, deja enfriar la GPU entre tandas o intercala:
+varias `--fase gpu --repeticiones 1` (A → B → C → D → E cada una; `--regeneraciones 0` desde la
+segunda) con la GPU a ≤ 50 °C entre ellas, y `--informe` con todos los JSON: las tandas de la
+misma fase se juntan (`unir_tandas`) y el informe dice el orden de cada una (cierre de S5, 13 nov).
 
 Antes de medir, cada fase carga Gemma y pregunta a Ollama dónde quedó
 (`medir_sop_generado.confirmar_dispositivo`); si no es donde se pidió, sale con código 3 sin
@@ -752,7 +755,53 @@ def _resumen_tiempos(corridas: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def unir_tandas(fases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Junta en una sola fase las tandas de la misma fase (p. ej. tres `--fase gpu
+    --repeticiones 1` con la GPU enfriándose entre una y otra, para no castigar a los últimos
+    videos por el calor). Las corridas se renumeran por video en orden de tanda y llevan
+    `tanda`; la reproducibilidad es la de la primera tanda que la midió; `tandas` guarda el
+    inicio, el fin y el orden de cada una para el informe."""
+    agrupadas: dict[str, list[dict[str, Any]]] = {}
+    for f in fases:
+        agrupadas.setdefault(f["fase"], []).append(f)
+    unidas = []
+    for tandas in agrupadas.values():
+        if len(tandas) == 1:
+            unidas.append(tandas[0])
+            continue
+        tandas = sorted(tandas, key=lambda t: t["inicio"])
+        cuenta: dict[str, int] = {}
+        corridas = []
+        for i, t in enumerate(tandas, 1):
+            for c in t["corridas"]:
+                cuenta[c["video"]] = cuenta.get(c["video"], 0) + 1
+                corridas.append({**c, "n": cuenta[c["video"]], "tanda": i})
+        unidas.append(
+            {
+                **tandas[0],
+                "corridas": corridas,
+                "repeticiones": cuenta,
+                "fin": tandas[-1].get("fin"),
+                "segundos_fase": round(sum(t.get("segundos_fase") or 0 for t in tandas), 1),
+                "reproducibilidad": next(
+                    (t["reproducibilidad"] for t in tandas if t.get("reproducibilidad")), None
+                ),
+                "tandas": [
+                    {
+                        "inicio": t["inicio"],
+                        "fin": t.get("fin"),
+                        "segundos": t.get("segundos_fase"),
+                        "videos": [c["video"] for c in t["corridas"]],
+                    }
+                    for t in tandas
+                ],
+            }
+        )
+    return unidas
+
+
 def armar_informe(fases: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
+    fases = unir_tandas(fases)
     por_fase = {f["fase"]: f for f in fases}
     base = por_fase.get("gpu") or fases[0]
     git, s = base["git"], base["settings"]
@@ -823,6 +872,12 @@ def armar_informe(fases: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
             f.get("ollama_ps", ""),
             "```",
         ]
+        for i, t in enumerate(f.get("tandas", []), 1):
+            videos = " → ".join(NOMBRE[v] for v in t["videos"])
+            lineas.append(
+                f"- Tanda {i}: {t['inicio']} → {t.get('fin') or 'sin terminar'} "
+                f"({_f(t.get('segundos'))} s): {videos}"
+            )
     lineas += [
         "",
         "## Aceptación (§14)",
