@@ -116,7 +116,7 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 10 nov 2026 (resumen semanal en `docs/plan/estado.md`):
+> Estado al 13 nov 2026 (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -242,8 +242,16 @@ docs/
 >   acepta `upload_id` además de `archivo`, con los mismos campos, y valida con ffprobe. `/nuevo`
 >   sube siempre por partes (`frontend/src/app/subida/`). AVI se acepta y se analiza; el navegador no
 >   lo reproduce: el reporte y el editor lo dicen y ofrecen descargarlo (remux a MP4: issue de S6).
-> - **Sin código todavía:** PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6);
->   pantallas fuera del MVP.
+> - **Cierre de S5 (13 nov, [informe](docs/adr/datos/s5/medicion-s5-20261113-0021.md)):** recorrido
+>   completo desde la pantalla (capturas en `docs/adr/datos/s5/pantallas/`) y medición en tres
+>   tandas intercaladas con la GPU enfriada a ≤ 50 °C (`medir_s5.py --informe` las une con
+>   `unir_tandas`): con GPU e imágenes apagadas, A–E 14/14 y RNF-01 3.2 min para 10 min; MVP sin
+>   regresión. Issues #7–#10 cerrados. Del recorrido: con imágenes, E sacó una vez valores sin
+>   traducir y equipo inventado (#16); la estimación de imágenes se queda corta (#17); el SOP
+>   convertido no se puede marcar revisado sin editarlo (#18); sin GPU, Nuevo no avisa del tiempo
+>   total y la subida no reanuda sola al volver la red (#19).
+> - **Sin código todavía (S6):** pantalla `/videos`, PDF del reporte y del SOP con QR (RF-29, 30),
+>   descargas (RF-31), búsqueda (RF-32 a 37), juicios del juez guardados, Docker en máquina limpia.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
