@@ -84,11 +84,16 @@ pendiente de confirmación por escrito.
 De ahí salen las cuatro decisiones del 10 de noviembre que este ADR registra. La medición
 de la sección siguiente las respalda: con los videos A a E, las descripciones no aportan
 ningún dato nuevo a la ficha de contexto ni mueven la afinidad por sí mismas, y su único
-efecto atribuible es diluir el componente de equipo.
+efecto atribuible es diluir el componente de equipo. El recorrido de cierre de S5 (12 nov)
+agrega lo peor: **además inventan** objetos que no están en la escena, y esos inventos llegan
+a la ficha y al SOP generado sin cita en la narración (RNF-06).
 
 ## Números
 
-**Resultado principal:** con A–E, las descripciones no aportan ningún dato nuevo a la ficha (en
+**Resultado principal: las descripciones no aportan y además inventan.** Inventan objetos
+("equipo de flujo" en las 8 descripciones de una corrida de E, "brazo mecánico" en 2 de 6 de C) que
+pasan a la ficha y al `equipo_operacion` del SOP generado sin ninguna cita en la narración (RNF-06;
+sección "Recorrido de cierre de S5"). Y no aportan: con A–E, ningún dato nuevo a la ficha (en
 ninguna corrida un dato quedó con fuente "visual": la voz ya respalda actividad, tema, lugar y
 propósito) y no mueven la afinidad por sí mismas. Lo único que agregan a la ficha son equipos
 genéricos (contenedor, cubo, herramienta), que diluyen el componente de equipos (86 → 71 en A y en
@@ -172,11 +177,50 @@ E había tardado 81–83 s con la opción apagada: no era el código (esa medici
 los tokens de salida eran los mismos) sino la GPU, que tras ~15 min seguidos de medición bajó de
 ~114 a ~87 tokens/s en todas las etapas.
 
+### Recorrido de cierre de S5: las descripciones inventan (12 nov, GPU)
+
+Desde la pantalla, con la casilla prendida (el recorrido lo manejó Playwright sobre la app real;
+capturas en `docs/adr/datos/s5/pantallas/`): C en modo validar (video 9687) y E en modo generar
+dos veces (videos 9689 y 9690, SOP 9298 y 9299). Se revisó el origen de cada elemento de equipo de
+la ficha y del SOP: si aparece en los `equipos` de algún `Fotograma` y no en la transcripción, salió
+solo de las imágenes.
+
+| Elemento | Corrida | En las descripciones | ¿Existe en la escena o la narración? | Llegó a |
+|---|---|---|---|---|
+| "equipo de flujo" | E·1 (9689) | 8 de 8 | no: no hay tal objeto ni se narra | ficha y `equipo_operacion` del SOP 9298 |
+| "herramienta de manipulación de tubería" | E·1 (9689) | 1 de 8 | nombre vago para la llave; no se narra así | ficha y SOP 9298 |
+| "brazo mecánico" | C (9687) | 2 de 6 (texto y `equipos`) | no: es el brazo del operador en primer plano girando la llave (revisado en el fotograma de 117 s) | ficha de C (6 de sus 15 equipos vienen de imágenes) |
+| "llave inglesa" | E·2 (9690) | 2 de 8 | **sí**: la narración dice "with the wrench" | ficha y SOP 9299 (correcto) |
+
+Es RNF-06: un dato del SOP sin evidencia en la narración, marcado igual que los demás. Antes ya
+se había visto el "brazo mecánico" una vez en E en CPU (11 nov, arriba); ahora aparece con GPU y en
+C, y por primera vez se ve llegar al SOP generado.
+
+**Lo que no es de las imágenes** (revisado con la transcripción): E·1 falló la §14 por la advertencia
+`sin_traducir` ("housing grant", "bol") y trajo personas como equipo ("supervisor SNP",
+"Supervisor de ajuste"). Ninguno aparece en las descripciones: salen de la narración en inglés mal
+transcrita por Whisper ("I removed the housing with the housing grant", "the snp supervisor is the
+person to call") y de cómo Gemma la tradujo al redactar el SOP: E·2, también con imágenes, salió limpio (16 elementos, sin advertencias), y
+sin imágenes E pasó 6 de 6 (10, 11 y 13 nov). Con 1 falla en 2 corridas con imágenes no se puede
+atribuir la falla de la §14 a la opción; es el problema de #11 (errores de Whisper en inglés).
+
+**Tiempo** (mismo recorrido): la etapa de imágenes tardó 14.6 s en GPU (2.4 s por imagen, 7 s
+estimados) y 108.5 s en CPU (18.1 s por imagen, 64 s estimados). La estimación se queda corta
+(#17); la medición del 11 nov daba el extra neto, no la etapa.
+
+**Conclusión:** las descripciones no aportan datos a la ficha **y además inventan** objetos que
+llegan al SOP generado. La opción sigue apagada por defecto y la demo del modo generar va sin
+imágenes (decisión del 13 nov, plan §2).
+
 ## Consecuencias
 
 - **Positivas:** la pantalla muestra qué pasaba en cada paso sin costo de modelo; quien quiere la
   descripción la enciende sabiendo cuánto tarda; con la opción apagada la §14 y A y B no cambian.
 - **Negativas / riesgos:**
+  - **Prendida, inventa (RNF-06).** Los equipos que solo vienen de las imágenes entran a la ficha
+    y al `equipo_operacion` del SOP generado como cualquier otro, sin cita ni marca de inferido.
+    Mientras eso no cambie (#16: que entren como inferidos con confianza baja, o que no entren), la
+    opción no debe prenderse para generar un SOP, y la demo va sin ella.
   - Apagada (por defecto), la ficha no recibe evidencia visual: un paso que no se narra y se ve
     poco puede seguir como *Falta* (riesgo ya anotado en ADR-002).
   - A y B **sí tienen imagen** (pista de video con contenido, no negra): generan miniaturas y no

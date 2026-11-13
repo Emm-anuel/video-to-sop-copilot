@@ -245,9 +245,11 @@ docs/
 > - **Cierre de S5 (13 nov, [informe](docs/adr/datos/s5/medicion-s5-20261113-0021.md)):** recorrido
 >   completo desde la pantalla (capturas en `docs/adr/datos/s5/pantallas/`) y medición en tres
 >   tandas intercaladas con la GPU enfriada a ≤ 50 °C (`medir_s5.py --informe` las une con
->   `unir_tandas`): con GPU e imágenes apagadas, A–E 14/14 y RNF-01 3.2 min para 10 min; MVP sin
->   regresión. Issues #7–#10 cerrados. Del recorrido: con imágenes, E sacó una vez valores sin
->   traducir y equipo inventado (#16); la estimación de imágenes se queda corta (#17); el SOP
+>   `unir_tandas`): con GPU e imágenes apagadas, A–E 14/14 y RNF-01 3.2 min para 10 min (3.4–3.9
+>   con la carga de MiniLM que paga el primer video tras arrancar; "Cuánto tardó" no la suma, #20);
+>   MVP sin regresión. Issues #7–#10 cerrados. Del recorrido: las descripciones de imágenes no
+>   aportan y además inventan objetos que llegan al SOP generado (RNF-06, ADR-024, #16), así que
+>   **la demo del modo generar va sin imágenes** (13 nov); la estimación de imágenes se queda corta (#17); el SOP
 >   convertido no se puede marcar revisado sin editarlo (#18); sin GPU, Nuevo no avisa del tiempo
 >   total y la subida no reanuda sola al volver la red (#19).
 > - **Sin código todavía (S6):** pantalla `/videos`, PDF del reporte y del SOP con QR (RF-29, 30),

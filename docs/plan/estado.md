@@ -43,7 +43,8 @@ se pudo hacer desde la pantalla. Lo que salió mal:
 
 | Dónde | Qué pasó | Qué se hizo |
 |---|---|---|
-| E con imágenes | Una de dos corridas sacó el SOP con `sin_traducir` (2 valores) y 22 elementos de equipo, con inventos de la descripción de imágenes y personas como equipo: por la §14, E falla con imágenes | #16 |
+| Imágenes prendidas | Las descripciones **inventan objetos** que llegan a la ficha y al SOP generado sin cita (RNF-06): "equipo de flujo" en 8 de 8 descripciones de E·1 y en el SOP 9298, "brazo mecánico" en 2 de 6 de C (es el brazo del operador) | ADR-024 (resultado medido), #16 |
+| E·1 con imágenes | Falló la §14 por `sin_traducir` ("housing grant", "bol") y trajo "supervisor SNP" como equipo. **No es de las imágenes:** sale de la narración mal transcrita por Whisper; E·2, con imágenes, salió limpio y sin imágenes E pasa 6/6. En el primer cierre lo atribuí a las imágenes por error | #11 |
 | C sin GPU | Nuevo estimó "+64 s" de imágenes y la etapa tardó 108.5 s (18.1 s por imagen contra 10.7). Con GPU, 14.6 s contra 7 estimados. Procesando se queda en "0 de 6 imágenes" toda la etapa (un solo lote) | #17 |
 | Nuevo sin GPU | Solo avisa del tiempo de las imágenes; C tardó 7.0 min de punta a punta y nada lo anticipa | #19 |
 | Corte de red al registrar | La pantalla dijo "¿está corriendo en el puerto 8000?" y no reintenta el registro sola; "Reintentar la subida" sí registra sin volver a subir | Mensaje corregido; resto en #19 |
@@ -52,7 +53,7 @@ se pudo hacer desde la pantalla. Lo que salió mal:
 | Biblioteca y `/nuevo` | ~20 SOP con el mismo título; el selector solo muestra código y título | #18 |
 | E contra su SOP generado y editado | 83.33 % amarillo (2 *Parcial*): al unir pasos, la cita del video cubre una de 3–4 acciones. Además hay que subir el video otra vez | Comentado en #11 y #12 |
 | Procesando de E | Una vez se quedó 48 s en "Redacción de los pasos" sin mostrar resumen ni claves; no se reprodujo en dos repeticiones (la API publicó cada etapa a tiempo) | Anotado en #17 |
-| Reporte | "Cuánto tardó" no cuenta la carga de MiniLM (16 s en el primer video tras arrancar: dijo 38 s y fueron 57) | Anotado en #17 |
+| Reporte | "Cuánto tardó" no suma `afinidad` (donde se carga MiniLM), `personas` ni `tiempos`: el primer video tras arrancar dijo 38.2 s y fueron 57. La medición de RNF-01 tampoco tenía esa carga (se corrigió en el informe) | #20 |
 
 **Resultado A–E (13 nov, `scripts/medir_s5.py`, imágenes apagadas;
 [informe](../adr/datos/s5/medicion-s5-20261113-0021.md)).** Tres tandas intercaladas (A → B → C → D
@@ -79,13 +80,18 @@ sin regresión ([`mvp-20261113-0019`](../adr/datos/mvp/mvp-20261113-0019.md)): A
 | Sin GPU (`LLM_DISPOSITIVO=cpu`, Whisper int8) | C con imágenes desde la pantalla, 12 nov: 422 s (factor 2.1); A el 10 nov: 206 s (factor 1.53) | E el 10 nov: 483 s (factor 2.12) | ~21 min | **no se cumple** |
 
 Con la GPU fría, E tarda 68.5–71.6 s, contra 81–83 s cuando se medía al final de una tanda larga.
+**Esos números tienen MiniLM ya cargado.** El primer video después de arrancar la API (siempre, en
+una máquina limpia) paga ~17 s más: con esa carga, el peor caso con GPU es **3.4–3.9 min** para
+10 min y RNF-01 se sigue cumpliendo (corrección en el informe; el conteo de la pantalla, #20). La
+corrida sin GPU de C (422 s) ya la incluye.
 
 **Riesgos**
 
 1. **RNF-01 sin GPU no se cumple** (~21 min estimados para 10 min) y la pantalla no lo anticipa
    (#19). Sigue pendiente acordar con el asesor y el patrocinador que RNF-01 se mide con GPU.
-2. **Las imágenes prendidas degradan el SOP generado** (#16) y su estimación se queda corta (#17).
-   Siguen apagadas por defecto; se recomienda que la demo del modo generar vaya sin imágenes hasta resolverlo (decisión pendiente del equipo).
+2. **Las imágenes prendidas no aportan y además inventan** objetos que llegan al SOP generado (RNF-06,
+   ADR-024, #16); su estimación se queda corta (#17). Siguen apagadas por defecto y **la demo del modo
+   generar va sin imágenes** (decisión del 13 nov).
 3. **El resultado depende de la corrida.** Gemma no es determinista: el mismo A dio 100 % por MP4 y
    91.67 % por AVI en el recorrido (segmentación nueva). Para la demo, procesar antes y mostrar lo
    guardado.
@@ -103,7 +109,9 @@ Con la GPU fría, E tarda 68.5–71.6 s, contra 81–83 s cuando se medía al fi
 - [ADR-023](../adr/ADR-023-sop-generado.md): Gemma agrupa los pasos del video eligiendo números y
   solo redacta; el código pone tiempos, fuentes, confianza y evidencia.
 - [ADR-024](../adr/ADR-024-imagenes-opcionales-miniatura.md): miniatura siempre con ffmpeg;
-  descripción de imágenes opcional, apagada y sin bloquear por falta de GPU.
+  descripción de imágenes opcional, apagada y sin bloquear por falta de GPU. Resultado medido en el
+  recorrido: las descripciones no aportan y además inventan (RNF-06).
+- **13 nov: la demo del modo generar va sin imágenes** ([registro de decisiones](plan.md#registro-de-decisiones)).
 - [ADR-025](../adr/ADR-025-sop-revisado-por-persona.md): `revisado` por dato y por paso; al editar
   se conserva la duración narrada.
 - Reparto del 10 nov: Emmanuel toma RF-04, 05, 06 (partes), 07, 08, 11 y 26; Sara conserva la
@@ -120,7 +128,7 @@ Con la GPU fría, E tarda 68.5–71.6 s, contra 81–83 s cuando se medía al fi
 - Docker en máquina limpia.
 - Guardar los juicios del juez para que el reporte regenerado salga idéntico (hoy coincide el
   porcentaje, no siempre la redacción).
-- Del recorrido: #16 (imágenes y SOP generado), #17 (contador y estimación de imágenes), #18
+- Del recorrido: #20 ("Cuánto tardó" sin la carga de MiniLM), #16 (imágenes que inventan), #17 (contador y estimación de imágenes), #18
   (revisar el SOP convertido sin editar), #19 (aviso sin GPU y reanudar al volver la red), #12
   (validar contra el SOP generado sin volver a subir) y el remux de AVI a MP4.
 
