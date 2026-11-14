@@ -116,7 +116,8 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 13 nov 2026 (resumen semanal en `docs/plan/estado.md`):
+> Estado al 14 nov 2026, inicio de la semana 6 en la rama `feat/s6` (resumen semanal en
+> `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -252,8 +253,16 @@ docs/
 >   **la demo del modo generar va sin imágenes** (13 nov); la estimación de imágenes se queda corta (#17); el SOP
 >   convertido no se puede marcar revisado sin editarlo (#18); sin GPU, Nuevo no avisa del tiempo
 >   total y la subida no reanuda sola al volver la red (#19).
-> - **Sin código todavía (S6):** pantalla `/videos`, PDF del reporte y del SOP con QR (RF-29, 30),
->   descargas (RF-31), búsqueda (RF-32 a 37), juicios del juez guardados, Docker en máquina limpia.
+> - **Semana 6 (16–22 nov, rama `feat/s6`, sale de `main` en `ef9e60e`; plan §6):** todo a
+>   nombre de Emmanuel; Sara no participa en S6 y RF-31 a 37 pasaron a Emmanuel el 14 nov
+>   (registro de decisiones). **Núcleo, sin código todavía:** PDF del reporte y del SOP con QR
+>   (RF-29, 30; `qrcode` aún no está en `pyproject.toml`), descargas TXT, SRT y JSON (RF-31),
+>   publicar y búsqueda exacta (RF-32, 33; `palabras` con su índice, `busquedas` y
+>   `videos.publicado` ya existen desde la `0002`; la `0008` agrega `publicado_en`; la
+>   normalización reusa `texto.forma_busqueda`), resultados con miniatura y salto (RF-34), `/buscar` tipo chat (RF-36) con filtros
+>   (RF-37), pantalla `/videos` con "Publicar" y #11; además Docker en máquina limpia y RNF-01 a 07.
+>   **Si alcanza:** juicios del juez guardados, #20 y RF-35. **Pasan a S7:** afinidad estable entre
+>   corridas (ADR-024), #12, #16 a #19, recalibrar `SEG_IMAGEN_*` y el remux de AVI.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

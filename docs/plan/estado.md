@@ -205,7 +205,7 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 | Dom 1 nov | ✓ Avance 5 |
 | Dom 8 nov | **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)). La lógica cumple; falta la pantalla del reporte (RF-20) |
 | Dom 15 nov | ✓ SOP generado, personas, tiempos y afinidad: pasan los videos C, D y E (medido el 13 nov con GPU y las pantallas de S5: A–E pasan 14/14) |
-| Dom 22 nov | ✓ App completa en Docker en máquina limpia |
+| Dom 22 nov | App completa en Docker en máquina limpia (meta de S6) |
 
 ## Resumen en dos frases
 
