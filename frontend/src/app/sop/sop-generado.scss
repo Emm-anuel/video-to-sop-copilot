@@ -1,41 +1,7 @@
 :host {
   display: grid;
-  gap: 1.25rem;
-}
-
-section {
-  padding: 1.25rem 1.5rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
-}
-
-h1,
-h2,
-h3 {
-  margin: 0 0 0.6rem;
-}
-
-.encabezado {
-  display: flex;
   gap: 1rem;
-  align-items: flex-start;
-  justify-content: space-between;
 }
-
-.nota,
-.leyenda {
-  margin: 0;
-  color: #475467;
-  font-size: 0.9rem;
-}
-
-.guardado {
-  margin: 0;
-  color: #067647;
-  font-weight: 600;
-}
-
 .error {
   margin: 0;
   padding: 0.75rem;
@@ -44,75 +10,23 @@ h3 {
   border: 1px solid #fda29b;
   border-radius: 0.3rem;
 }
-
-.advertencias {
-  padding: 0.75rem;
+.avance p {
+  margin: 0 0 0.4rem;
+}
+.avance progress {
+  width: 100%;
+}
+.aviso {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  color: #93370d;
   background: #fffaeb;
   border: 1px solid #fec84b;
   border-radius: 0.3rem;
-
-  p,
-  ul {
-    margin: 0;
-  }
 }
-
-/* Lo inferido (sin evidencia en el video) se resalta para revisarlo (RF-25). */
-.inferido {
-  background: #fffaeb;
-  outline: 1px dashed #dc6803;
-}
-
-.resumen {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.4rem 1rem;
-  margin: 0 0 1rem;
-
-  dt {
-    font-weight: 600;
-  }
-
-  dd {
-    margin: 0;
-  }
-}
-
-.ficha {
-  display: inline-block;
-  margin: 0 0.3rem 0.3rem 0;
-  padding: 0.1rem 0.45rem;
-  background: #f2f4f7;
-  border-radius: 0.3rem;
-  font-size: 0.9rem;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-
-  th,
-  td {
-    padding: 0.4rem 0.5rem;
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid #eaecf0;
-  }
-}
-
-.claves {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.t {
-  margin-left: 0.4rem;
-  color: #475467;
-  font-variant-numeric: tabular-nums;
-}
-
-.avance progress {
-  width: 100%;
+// Objetivo de 36 px (RNF-13).
+.enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
 }

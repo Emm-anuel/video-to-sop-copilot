@@ -1,0 +1,1763 @@
+{
+  "fecha": "2026-11-11T00:46:58",
+  "git": {
+    "commit": "1d590bcdfedc93404aaaabeb7270a4b9406256f4",
+    "rama": "feat/s5-pantallas",
+    "cambios_sin_commit": 33
+  },
+  "settings": {
+    "llm_model": "gemma4:e4b-it-q4_K_M",
+    "fotogramas_lote": 8,
+    "fotogramas_lado_px": 512,
+    "fotogramas_min": 4,
+    "fotogramas_max": 20,
+    "pasos_por_min": 2.2,
+    "seg_imagen_gpu": 1.2,
+    "seg_imagen_cpu": 10.7,
+    "llm_num_ctx": 8192
+  },
+  "corridas": [
+    {
+      "video": "video_a",
+      "config": "gpu",
+      "con_imagenes": false,
+      "imagenes_pedidas": 0,
+      "imagenes_descritas": 0,
+      "segundos_fotogramas": 0.0,
+      "segundos_contexto": 9.99,
+      "tokens_entrada_imagenes": null,
+      "tokens_salida_imagenes": null,
+      "lotes": 0,
+      "llamadas_imagenes": 0,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho porque el manómetro marca menos de 2 bar",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, retirar la carcasa, reemplazar el cartucho y purgar el sistema hasta verificar la presión correcta.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho nuevo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 72,
+      "afinidad_componentes": {
+        "global": 86,
+        "actividad": 100,
+        "objetivo": 0,
+        "equipos": 86
+      },
+      "descripciones": [],
+      "error": null
+    },
+    {
+      "video": "video_a",
+      "config": "gpu",
+      "con_imagenes": true,
+      "imagenes_pedidas": 6,
+      "imagenes_descritas": 6,
+      "segundos_fotogramas": 11.06,
+      "segundos_contexto": 4.44,
+      "tokens_entrada_imagenes": 919,
+      "tokens_salida_imagenes": 614,
+      "lotes": 1,
+      "llamadas_imagenes": 1,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.36,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador realiza el cambio del cartucho del filtro de agua de la línea de enjuague. El proceso incluye cerrar la llave de paso, liberar la presión, retirar el cartucho usado, instalar el nuevo y purgar el sistema hasta alcanzar la presión adecuada.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.36,
+            "cita": "Buenos días, soy técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague"
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de la carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "botón rojo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 95,
+      "afinidad_componentes": {
+        "global": 100,
+        "actividad": 100,
+        "objetivo": 100,
+        "equipos": 71
+      },
+      "descripciones": [
+        {
+          "t": 11.25,
+          "archivo": "fotogramas/f01.jpg",
+          "descripcion": "Se muestra la pantalla de un dispositivo móvil que está registrando el tiempo de un proceso.",
+          "equipos": [],
+          "personas": 0,
+          "texto_visible": [
+            "00:11:26",
+            "Vuelta",
+            "Vuelta 1",
+            "Reset manual",
+            "Alarmas",
+            "Cronómetro",
+            "Temperaturas"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 33.75,
+          "archivo": "fotogramas/f02.jpg",
+          "descripcion": "La pantalla del dispositivo móvil muestra el avance del tiempo del proceso.",
+          "equipos": [],
+          "personas": 0,
+          "texto_visible": [
+            "00:33:72",
+            "Vuelta",
+            "Vuelta 1",
+            "Reset manual",
+            "Alarmas",
+            "Cronómetro",
+            "Temperaturas"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 56.25,
+          "archivo": "fotogramas/f03.jpg",
+          "descripcion": "La pantalla del dispositivo móvil muestra el tiempo transcurrido en el proceso.",
+          "equipos": [],
+          "personas": 0,
+          "texto_visible": [
+            "00:56:20",
+            "Vuelta",
+            "Vuelta 1",
+            "Reset manual",
+            "Alarmas",
+            "Cronómetro",
+            "Temperaturas"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 78.75,
+          "archivo": "fotogramas/f04.jpg",
+          "descripcion": "La pantalla del dispositivo móvil indica el tiempo avanzado en la vuelta 1 del proceso.",
+          "equipos": [],
+          "personas": 0,
+          "texto_visible": [
+            "01:18:66",
+            "Vuelta",
+            "Vuelta 1",
+            "Reset manual",
+            "Alarmas",
+            "Cronómetro",
+            "Temperaturas"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 101.25,
+          "archivo": "fotogramas/f05.jpg",
+          "descripcion": "La pantalla del dispositivo móvil muestra el tiempo registrado en la vuelta 1 del proceso.",
+          "equipos": [],
+          "personas": 0,
+          "texto_visible": [
+            "01:41:20",
+            "Vuelta",
+            "Vuelta 1",
+            "Reset manual",
+            "Alarmas",
+            "Cronómetro",
+            "Temperaturas"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 123.75,
+          "archivo": "fotogramas/f06.jpg",
+          "descripcion": "La pantalla del dispositivo móvil muestra el tiempo total registrado en el proceso.",
+          "equipos": [],
+          "personas": 0,
+          "texto_visible": [
+            "02:03:66",
+            "Vuelta",
+            "Vuelta 1",
+            "Reset manual",
+            "Alarmas",
+            "Cronómetro",
+            "Temperaturas"
+          ],
+          "riesgos": []
+        }
+      ],
+      "error": null
+    },
+    {
+      "video": "video_b",
+      "config": "gpu",
+      "con_imagenes": false,
+      "imagenes_pedidas": 0,
+      "imagenes_descritas": 0,
+      "segundos_fotogramas": 0.0,
+      "segundos_contexto": 9.48,
+      "tokens_entrada_imagenes": null,
+      "tokens_salida_imagenes": null,
+      "lotes": 0,
+      "llamadas_imagenes": 0,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador realiza el cambio del cartucho del filtro de agua de la línea de enjuague. Este proceso incluye liberar la presión, retirar el cartucho viejo, limpiar la carcasa y colocar el cartucho nuevo.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 95,
+      "afinidad_componentes": {
+        "global": 100,
+        "actividad": 100,
+        "objetivo": 100,
+        "equipos": 71
+      },
+      "descripciones": [],
+      "error": null
+    },
+    {
+      "video": "video_b",
+      "config": "gpu",
+      "con_imagenes": true,
+      "imagenes_pedidas": 6,
+      "imagenes_descritas": 6,
+      "segundos_fotogramas": 12.0,
+      "segundos_contexto": 4.15,
+      "tokens_entrada_imagenes": 919,
+      "tokens_salida_imagenes": 574,
+      "lotes": 1,
+      "llamadas_imagenes": 1,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho del filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 3.5,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento realiza el cambio del cartucho del filtro de agua en la línea de enjuague. El proceso incluye liberar la presión, retirar el cartucho usado, limpiar la carcasa y colocar el cartucho nuevo.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "No identificado",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 3.5,
+            "cita": "Buenos días, soy el técnico de mantenimiento y voy a cambiar el cartucho del filtro de agua de la línea de enjuague."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "teléfono móvil",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 95,
+      "afinidad_componentes": {
+        "global": 100,
+        "actividad": 100,
+        "objetivo": 100,
+        "equipos": 71
+      },
+      "descripciones": [
+        {
+          "t": 9.554,
+          "archivo": "fotogramas/f01.jpg",
+          "descripcion": "Se muestra la pantalla de un teléfono móvil con un temporizador en funcionamiento, indicando el tiempo transcurrido.",
+          "equipos": [
+            "teléfono móvil"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "00:09.43",
+            "Vuelta",
+            "Vuelta 1"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 28.661,
+          "archivo": "fotogramas/f02.jpg",
+          "descripcion": "La pantalla de un teléfono móvil muestra un temporizador en curso, registrando el tiempo de la vuelta.",
+          "equipos": [
+            "teléfono móvil"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "00:28.53",
+            "Vuelta",
+            "Vuelta 1"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 47.768,
+          "archivo": "fotogramas/f03.jpg",
+          "descripcion": "Un teléfono móvil exhibe un temporizador activo, mostrando el tiempo acumulado de la vuelta.",
+          "equipos": [
+            "teléfono móvil"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "00:47.64",
+            "Vuelta",
+            "Vuelta 1"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 66.875,
+          "archivo": "fotogramas/f04.jpg",
+          "descripcion": "La pantalla de un teléfono móvil muestra el tiempo en curso, indicando el progreso de la vuelta.",
+          "equipos": [
+            "teléfono móvil"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "01:06.74",
+            "Vuelta",
+            "Vuelta 1"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 85.982,
+          "archivo": "fotogramas/f05.jpg",
+          "descripcion": "Un teléfono móvil muestra el tiempo en curso, con un indicador de 'Detener' visible en la pantalla.",
+          "equipos": [
+            "teléfono móvil"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "01:25.83",
+            "Vuelta",
+            "Vuelta 1"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 105.089,
+          "archivo": "fotogramas/f06.jpg",
+          "descripcion": "La pantalla de un teléfono móvil muestra el tiempo en curso, con opciones de control en la parte inferior.",
+          "equipos": [
+            "teléfono móvil"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "01:44.97",
+            "Vuelta",
+            "Vuelta 1"
+          ],
+          "riesgos": []
+        }
+      ],
+      "error": null
+    },
+    {
+      "video": "video_c",
+      "config": "gpu",
+      "con_imagenes": false,
+      "imagenes_pedidas": 0,
+      "imagenes_descritas": 0,
+      "segundos_fotogramas": 0.0,
+      "segundos_contexto": 9.16,
+      "tokens_entrada_imagenes": null,
+      "tokens_salida_imagenes": null,
+      "lotes": 0,
+      "llamadas_imagenes": 0,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 6.19,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 6.19,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 6.19,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador realiza el cambio del cartucho del filtro de agua de la línea de enjuague. Este proceso incluye la preparación de equipo de protección, el cierre del sistema, la extracción del cartucho viejo y la instalación del nuevo, verificando la presión y la ausencia de fugas.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "Emanuel",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.81,
+            "cita": "Buenos días, soy Emanuel, técnico de mantenimiento."
+          },
+          {
+            "nombre": "Sara",
+            "rol": "supervisora de turno",
+            "participacion": "participa",
+            "t": 124.3,
+            "cita": "Ahora entra mi compañera Sara, la supervisora de turno, y ella retira la carcasa."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "cartucho del filtro de agua",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "equipo de protección",
+            "descripcion": ""
+          },
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho nuevo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de paso",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 97,
+      "afinidad_componentes": {
+        "global": 100,
+        "actividad": 100,
+        "equipos": 86
+      },
+      "descripciones": [],
+      "error": null
+    },
+    {
+      "video": "video_c",
+      "config": "gpu",
+      "con_imagenes": true,
+      "imagenes_pedidas": 6,
+      "imagenes_descritas": 6,
+      "segundos_fotogramas": 14.22,
+      "segundos_contexto": 6.16,
+      "tokens_entrada_imagenes": 919,
+      "tokens_salida_imagenes": 697,
+      "lotes": 1,
+      "llamadas_imagenes": 1,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de cartucho de filtro de agua de la línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 6.19,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 6.19,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador realiza el cambio del cartucho del filtro de agua en la línea de enjuague. Este proceso incluye la preparación de equipo de protección, el cierre del sistema, la extracción del cartucho viejo y la instalación del nuevo, finalizando con la purga y verificación de fugas.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "Emanuel",
+            "rol": "técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 1.81,
+            "cita": "Buenos días, soy Emanuel, técnico de mantenimiento."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "guantes de nitrilo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "lentes de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubeta",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "botón rojo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de residuos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de paso",
+            "descripcion": ""
+          },
+          {
+            "nombre": "recipiente",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "tubería",
+            "descripcion": ""
+          },
+          {
+            "nombre": "contenedor",
+            "descripcion": ""
+          },
+          {
+            "nombre": "anillo de hule",
+            "descripcion": ""
+          },
+          {
+            "nombre": "trapo seco",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 97,
+      "afinidad_componentes": {
+        "global": 100,
+        "actividad": 100,
+        "equipos": 86
+      },
+      "descripciones": [
+        {
+          "t": 16.761,
+          "archivo": "fotogramas/f01.jpg",
+          "descripcion": "Un operador está trabajando en una instalación industrial, manipulando un equipo conectado a una tubería.",
+          "equipos": [
+            "manómetro",
+            "contenedor",
+            "tubería"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENJUAGUE"
+          ],
+          "riesgos": [
+            "Ninguno visible"
+          ]
+        },
+        {
+          "t": 50.282,
+          "archivo": "fotogramas/f02.jpg",
+          "descripcion": "El operador extiende su brazo para manipular un equipo que está conectado a una tubería, mientras hay un contenedor de nitrilo cerca.",
+          "equipos": [
+            "manómetro",
+            "contenedor",
+            "tubería"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENJUAGUE",
+            "NITRILO"
+          ],
+          "riesgos": [
+            "Ninguno visible"
+          ]
+        },
+        {
+          "t": 83.803,
+          "archivo": "fotogramas/f03.jpg",
+          "descripcion": "Un equipo de medición está montado en una pared, con una tubería que pasa por encima y un operador cerca.",
+          "equipos": [
+            "manómetro",
+            "tubería"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENJUAGUE"
+          ],
+          "riesgos": [
+            "Ninguno visible"
+          ]
+        },
+        {
+          "t": 117.325,
+          "archivo": "fotogramas/f04.jpg",
+          "descripcion": "Se muestra un sistema de tuberías con un equipo de medición y un brazo mecánico que se extiende hacia un punto de conexión.",
+          "equipos": [
+            "manómetro",
+            "tubería"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "ENJUAGUE"
+          ],
+          "riesgos": [
+            "Ninguno visible"
+          ]
+        },
+        {
+          "t": 150.846,
+          "archivo": "fotogramas/f05.jpg",
+          "descripcion": "Un operador con protección ocular está manipulando un equipo conectado a una tubería, utilizando un cubo y un recipiente.",
+          "equipos": [
+            "manómetro",
+            "tubería",
+            "cubo"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENJUAGUE"
+          ],
+          "riesgos": [
+            "Ninguno visible"
+          ]
+        },
+        {
+          "t": 184.367,
+          "archivo": "fotogramas/f06.jpg",
+          "descripcion": "El operador está realizando una operación de llenado o muestreo, utilizando un recipiente y un cubo bajo una tubería.",
+          "equipos": [
+            "manómetro",
+            "tubería",
+            "cubo"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENJUAGUE"
+          ],
+          "riesgos": [
+            "Ninguno visible"
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "video": "video_d",
+      "config": "gpu",
+      "con_imagenes": false,
+      "imagenes_pedidas": 0,
+      "imagenes_descritas": 0,
+      "segundos_fotogramas": 0.0,
+      "segundos_contexto": 9.91,
+      "tokens_entrada_imagenes": null,
+      "tokens_salida_imagenes": null,
+      "lotes": 0,
+      "llamadas_imagenes": 0,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de rollo de etiquetas en la etiquetadora",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 5.79,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Envasado",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.87,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Finalizar el cambio del rollo de etiquetas",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 154.7,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador cambia el rollo de etiquetas de la etiquetadora, deteniendo la máquina, retirando el rollo vacío y montando uno nuevo. Luego, realiza una calibración y verifica que las etiquetas estén correctamente aplicadas en las botellas.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "Emanuel",
+            "rol": "operador de la línea de envasado",
+            "participacion": "participa",
+            "t": 1.87,
+            "cita": "Buenos días, soy Emanuel, operador de la línea de envasado."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "etiquetadora",
+            "descripcion": ""
+          },
+          {
+            "nombre": "panel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "banda transportadora",
+            "descripcion": ""
+          },
+          {
+            "nombre": "puerta de acrílico",
+            "descripcion": ""
+          },
+          {
+            "nombre": "portarrollos",
+            "descripcion": ""
+          },
+          {
+            "nombre": "contenedor de reciclaje de cartón",
+            "descripcion": ""
+          },
+          {
+            "nombre": "rodillo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "sensor",
+            "descripcion": ""
+          },
+          {
+            "nombre": "rebobinador",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cinta adhesiva",
+            "descripcion": ""
+          },
+          {
+            "nombre": "botella",
+            "descripcion": ""
+          },
+          {
+            "nombre": "etiquetas",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 18,
+      "afinidad_componentes": {
+        "global": 59,
+        "actividad": 0,
+        "objetivo": 0,
+        "equipos": 0
+      },
+      "descripciones": [],
+      "error": null
+    },
+    {
+      "video": "video_d",
+      "config": "gpu",
+      "con_imagenes": true,
+      "imagenes_pedidas": 6,
+      "imagenes_descritas": 6,
+      "segundos_fotogramas": 12.45,
+      "segundos_contexto": 4.69,
+      "tokens_entrada_imagenes": 919,
+      "tokens_salida_imagenes": 558,
+      "lotes": 1,
+      "llamadas_imagenes": 1,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Cambio de rollo de etiquetas en la etiquetadora",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 5.79,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Operación de línea de envasado",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.87,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de envasado",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 1.87,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": null,
+          "confianza": "baja",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Finalizar el cambio del rollo de etiquetas",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 154.7,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador realiza el cambio del rollo de etiquetas en la etiquetadora. Este proceso incluye pausar la máquina, retirar el rollo vacío, montar uno nuevo, calibrar y reiniciar la línea para asegurar la correcta aplicación de las etiquetas en las botellas.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "Emanuel",
+            "rol": "operador de la línea de envasado",
+            "participacion": "participa",
+            "t": 1.87,
+            "cita": "Buenos días, soy Emanuel, operador de la línea de envasado."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "etiquetadora",
+            "descripcion": ""
+          },
+          {
+            "nombre": "panel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "rollo de etiquetas",
+            "descripcion": ""
+          },
+          {
+            "nombre": "contenedor de reciclaje de cartón",
+            "descripcion": ""
+          },
+          {
+            "nombre": "rodillo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "sensor",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cinta adhesiva",
+            "descripcion": ""
+          },
+          {
+            "nombre": "rebobinador",
+            "descripcion": ""
+          },
+          {
+            "nombre": "máquina de envasado",
+            "descripcion": ""
+          },
+          {
+            "nombre": "botellas",
+            "descripcion": ""
+          },
+          {
+            "nombre": "panel de control",
+            "descripcion": ""
+          },
+          {
+            "nombre": "rollo de material",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": 19,
+      "afinidad_componentes": {
+        "global": 63,
+        "actividad": 0,
+        "objetivo": 0,
+        "equipos": 0
+      },
+      "descripciones": [
+        {
+          "t": 13.986,
+          "archivo": "fotogramas/f01.jpg",
+          "descripcion": "Se observa una línea de producción con botellas y un operador interactuando con una máquina de envasado.",
+          "equipos": [
+            "máquina de envasado",
+            "botellas"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENVASADO"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 41.957,
+          "archivo": "fotogramas/f02.jpg",
+          "descripcion": "Un operador señala una máquina de envasado que tiene un panel de control visible.",
+          "equipos": [
+            "máquina de envasado",
+            "panel de control"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENVASADO",
+            "PAUSA",
+            "INICIO"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 69.929,
+          "archivo": "fotogramas/f03.jpg",
+          "descripcion": "El operador está manipulando un rollo de material en la máquina de envasado.",
+          "equipos": [
+            "rollo de material",
+            "máquina de envasado"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENVASADO"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 97.9,
+          "archivo": "fotogramas/f04.jpg",
+          "descripcion": "El operador está interactuando con la máquina de envasado, señalando un componente.",
+          "equipos": [
+            "máquina de envasado",
+            "panel de control"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENVASADO"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 125.872,
+          "archivo": "fotogramas/f05.jpg",
+          "descripcion": "Se muestra un rollo de material en la máquina de envasado, con un operador señalando el panel de control.",
+          "equipos": [
+            "rollo de material",
+            "máquina de envasado",
+            "panel de control"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENVASADO",
+            "CALIBRADO",
+            "INICIO",
+            "PAUSA"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 153.843,
+          "archivo": "fotogramas/f06.jpg",
+          "descripcion": "El operador está interactuando con la máquina de envasado, señalando el panel de control que muestra diferentes estados.",
+          "equipos": [
+            "máquina de envasado",
+            "panel de control"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "ENVASADO"
+          ],
+          "riesgos": []
+        }
+      ],
+      "error": null
+    },
+    {
+      "video": "video_e",
+      "config": "gpu",
+      "con_imagenes": false,
+      "imagenes_pedidas": 0,
+      "imagenes_descritas": 0,
+      "segundos_fotogramas": 0.0,
+      "segundos_contexto": 9.82,
+      "tokens_entrada_imagenes": null,
+      "tokens_salida_imagenes": null,
+      "lotes": 0,
+      "llamadas_imagenes": 0,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Reemplazar el cartucho del filtro de agua en la línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 0.14,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 0.14,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 14.94,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 27.18,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 9.28,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El técnico de mantenimiento reemplaza el cartucho del filtro de agua en la línea de enjuague. El procedimiento incluye cerrar la válvula, liberar la presión, reemplazar el cartucho y verificar que no haya fugas.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "Emmanuel",
+            "rol": "Técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 0.14,
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes neutros",
+            "descripcion": ""
+          },
+          {
+            "nombre": "gafas de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave de ajuste",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de desecho",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro de presión",
+            "descripcion": ""
+          },
+          {
+            "nombre": "válvula de corte",
+            "descripcion": ""
+          },
+          {
+            "nombre": "herramienta de soporte de carcasa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": null,
+      "afinidad_componentes": {},
+      "descripciones": [],
+      "error": null
+    },
+    {
+      "video": "video_e",
+      "config": "gpu",
+      "con_imagenes": true,
+      "imagenes_pedidas": 8,
+      "imagenes_descritas": 8,
+      "segundos_fotogramas": 13.86,
+      "segundos_contexto": 5.64,
+      "tokens_entrada_imagenes": 1091,
+      "tokens_salida_imagenes": 725,
+      "lotes": 1,
+      "llamadas_imagenes": 1,
+      "motivo_imagenes": null,
+      "dispositivo_llm": "gpu",
+      "contexto_generado": true,
+      "ficha": {
+        "version_contrato": 1,
+        "actividad": {
+          "valor": "Reemplazar el cartucho del filtro de agua en la línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 0.14,
+          "cita": ""
+        },
+        "tema": {
+          "valor": "Mantenimiento",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 0.14,
+          "cita": ""
+        },
+        "lugar": {
+          "valor": "Línea de enjuague",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 14.94,
+          "cita": ""
+        },
+        "horario_mencionado": {
+          "valor": "Cada 3 meses o cuando el manómetro marca menos de 2 bar",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 27.18,
+          "cita": ""
+        },
+        "proposito": {
+          "valor": "Cambiar el cartucho sin fugas y recuperar la presión de trabajo",
+          "confianza": "alta",
+          "fuente": "audio",
+          "t": 9.28,
+          "cita": ""
+        },
+        "resumen": {
+          "valor": "El operador está realizando el reemplazo del cartucho del filtro de agua en la línea de enjuague. Este procedimiento se realiza cada tres meses o cuando la presión cae por debajo de 2 bar, asegurando que no haya fugas y restaurando la presión operativa.",
+          "confianza": "media",
+          "fuente": "inferido",
+          "t": null,
+          "cita": ""
+        },
+        "personas": [
+          {
+            "nombre": "Emmanuel",
+            "rol": "Técnico de mantenimiento",
+            "participacion": "participa",
+            "t": 0.14,
+            "cita": "Good morning, I'm Emmanuel, the maintenance technician."
+          }
+        ],
+        "equipos": [
+          {
+            "nombre": "guantes neutros",
+            "descripcion": ""
+          },
+          {
+            "nombre": "gafas de seguridad",
+            "descripcion": ""
+          },
+          {
+            "nombre": "manómetro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "válvula",
+            "descripcion": ""
+          },
+          {
+            "nombre": "herramienta de soporte",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cubo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "cartucho de filtro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "bolsa de desecho",
+            "descripcion": ""
+          },
+          {
+            "nombre": "llave inglesa",
+            "descripcion": ""
+          },
+          {
+            "nombre": "botón rojo",
+            "descripcion": ""
+          },
+          {
+            "nombre": "herramienta de soporte para carcasa de filtro",
+            "descripcion": ""
+          },
+          {
+            "nombre": "toalla de papel",
+            "descripcion": ""
+          },
+          {
+            "nombre": "equipo de medición",
+            "descripcion": ""
+          }
+        ],
+        "avisos": []
+      },
+      "afinidad": null,
+      "afinidad_componentes": {},
+      "descripciones": [
+        {
+          "t": 14.204,
+          "archivo": "fotogramas/f01.jpg",
+          "descripcion": "Se observa una línea de tubería con un equipo de medición conectado, y una persona está interactuando con este equipo.",
+          "equipos": [
+            "manómetro",
+            "válvula"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 42.612,
+          "archivo": "fotogramas/f02.jpg",
+          "descripcion": "Una persona está manipulando un equipo de medición conectado a una línea de tubería, mientras se encuentra en un área industrial.",
+          "equipos": [
+            "manómetro",
+            "válvula"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 71.02,
+          "archivo": "fotogramas/f03.jpg",
+          "descripcion": "Un operador con protección ocular está de pie junto a una línea de tubería y un equipo de medición, con un contenedor de guantes en una mesa.",
+          "equipos": [
+            "manómetro",
+            "válvula"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "NITRILE",
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 99.428,
+          "archivo": "fotogramas/f04.jpg",
+          "descripcion": "Se muestra un brazo mecánico o herramienta que está manipulando un equipo conectado a una línea de tubería, con un manómetro visible.",
+          "equipos": [
+            "manómetro",
+            "válvula"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 127.836,
+          "archivo": "fotogramas/f05.jpg",
+          "descripcion": "Un manómetro está colocado sobre un equipo de medición, y se observa vapor saliendo de la parte superior del equipo.",
+          "equipos": [
+            "manómetro",
+            "equipo de medición"
+          ],
+          "personas": 0,
+          "texto_visible": [],
+          "riesgos": []
+        },
+        {
+          "t": 156.244,
+          "archivo": "fotogramas/f06.jpg",
+          "descripcion": "Un operador con protección ocular está sosteniendo un recipiente y un cubo, mientras interactúa con un equipo de medición conectado a una línea de tubería.",
+          "equipos": [
+            "manómetro",
+            "válvula"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 184.652,
+          "archivo": "fotogramas/f07.jpg",
+          "descripcion": "Un operador con protección ocular está manipulando un equipo de medición conectado a una línea de tubería, con un cubo y un recipiente cerca.",
+          "equipos": [
+            "manómetro",
+            "válvula"
+          ],
+          "personas": 1,
+          "texto_visible": [
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        },
+        {
+          "t": 213.06,
+          "archivo": "fotogramas/f08.jpg",
+          "descripcion": "Un manómetro está colocado sobre un equipo de medición, y se observa una flecha indicando dirección en el área de trabajo.",
+          "equipos": [
+            "manómetro",
+            "equipo de medición"
+          ],
+          "personas": 0,
+          "texto_visible": [
+            "RINSE LINE"
+          ],
+          "riesgos": []
+        }
+      ],
+      "error": null
+    }
+  ],
+  "recomendacion": {
+    "seg_imagen_gpu": 1.2,
+    "seg_imagen_cpu": null
+  }
+}

@@ -101,6 +101,7 @@ def test_encadena_y_guarda_reporte_y_pasos(entorno: Entorno, subir_validar) -> N
         "emparejamiento",
         "personas",
         "tiempos",
+        "miniaturas",  # ADR-024: siempre, con ffmpeg
     }
     assert (meta.umbrales.semaforo_verde, meta.umbrales.semaforo_amarillo) == (90, 70)
     assert (meta.umbrales.tolerancia_tiempo, meta.umbrales.umbral_horario) == (0.2, 0.75)
@@ -211,8 +212,39 @@ def test_ollama_caido_al_empezar_deja_error_reprocesable(
         "emparejamiento",
         "personas",
         "tiempos",
+        "miniaturas",  # ADR-024: siempre, con ffmpeg
     }
     assert entorno.video(video_id).contexto is not None
+
+
+def test_corregir_el_sop_y_revalidar_usa_la_version_corregida_sin_whisper_ni_segmentar(
+    client: TestClient, entorno: Entorno, subir_validar
+) -> None:
+    """RF-04 (ADR-019, ADR-022, ADR-025): el video no espera la corrección del SOP; si se
+    corrige después con `PUT /sops/{id}`, `POST /videos/{id}/validar` la usa, sin repetir Whisper
+    ni pedir otra segmentación a Gemma."""
+    video_id = subir_validar()
+    entorno.correr_pendientes()
+    assert entorno.video(video_id).proceso == "listo"
+    sop_id = entorno.video(video_id).sop_id
+    pasos_video = entorno.video(video_id).pasos_video
+
+    corregido = SOP_PRUEBA.model_dump(mode="json")
+    corregido["pasos"][2]["nombre"] = "Registrar la lectura en la bitácora"
+    assert client.put(f"/sops/{sop_id}", json=corregido).status_code == 200
+
+    entorno.eventos.clear()
+    assert client.post(f"/videos/{video_id}/validar").status_code == 202
+    entorno.correr_pendientes()
+
+    assert entorno.transcriptor.idiomas == [None]  # Whisper, una sola vez (la primera)
+    assert not any(e in entorno.eventos for e in ("chat:fronteras", "chat:redaccion"))
+    assert entorno.video(video_id).pasos_video == pasos_video
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["metadatos"]["segmentacion_reusada"] is True
+    nombres = {f["nombre_sop"] for f in reporte["filas"] if f["paso_sop"]}
+    assert "Registrar la lectura en la bitácora" in nombres
+    assert "Anotar la lectura" not in nombres
 
 
 def test_ollama_se_cae_a_medias_da_reporte_provisional(
@@ -349,6 +381,7 @@ def test_repetir_la_validacion_reusa_la_ficha_guardada(
         "emparejamiento",
         "personas",
         "tiempos",
+        "miniaturas",  # ADR-024: siempre, con ffmpeg
     }
     assert reporte["metadatos"]["segmentacion_reusada"] is True
     assert reporte["provisional"] is False

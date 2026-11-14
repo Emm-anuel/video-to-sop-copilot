@@ -81,7 +81,7 @@ def test_subida_aceptada(client: TestClient, entorno: Entorno, generar_video) ->
     assert len(entorno.pendientes) == 1
 
 
-@pytest.mark.parametrize("nombre", ["notas.txt", "video.avi", "sin_extension"])
+@pytest.mark.parametrize("nombre", ["notas.txt", "video.wmv", "video.flv", "sin_extension"])
 def test_extension_rechazada(client: TestClient, entorno: Entorno, nombre: str) -> None:
     antes = _filas(entorno.session)
 
@@ -90,6 +90,20 @@ def test_extension_rechazada(client: TestClient, entorno: Entorno, nombre: str) 
     assert r.status_code == 415
     assert _filas(entorno.session) == antes
     assert entorno.pendientes == []
+
+
+def test_avi_se_acepta_y_se_analiza(client: TestClient, entorno: Entorno, generar_video) -> None:
+    """RF-06: AVI (aquí MPEG-4 Part 2, el códec viejo típico) entra y el análisis termina. El
+    navegador no lo reproduce: eso lo resuelve el reporte con el aviso y la descarga."""
+    contenido = generar_video("operador.avi").read_bytes()
+
+    r = subir(client, contenido, nombre="operador.avi")
+
+    assert r.status_code == 202
+    video_id = r.json()["id"]
+    assert entorno.video(video_id).archivo.endswith("/video.avi")
+    entorno.correr_pendientes()
+    assert entorno.video(video_id).proceso == "listo"
 
 
 def test_extension_en_mayusculas_se_acepta(client: TestClient, entorno: Entorno) -> None:

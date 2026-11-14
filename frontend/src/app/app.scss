@@ -1,13 +1,17 @@
 .barra {
   display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 1.5rem;
   background: #1f2a37;
   color: #fff;
 }
 
 .marca {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
   color: inherit;
   font-weight: 700;
   text-decoration: none;
@@ -16,6 +20,55 @@
 .lema {
   opacity: 0.75;
   font-size: 0.9rem;
+}
+
+// Menú (Biblioteca, Nuevo análisis): enlaces de 36 px; en pantallas angostas baja a su propia
+// línea y el lema se oculta (RNF-13).
+.menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-left: auto;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    color: #d0d5dd;
+    border-radius: 0.3rem;
+    text-decoration: none;
+
+    &:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 0.08);
+    }
+
+    &.activo {
+      color: #fff;
+      background: rgb(255 255 255 / 0.16);
+      font-weight: 600;
+    }
+  }
+}
+
+@media (max-width: 40rem) {
+  .barra {
+    padding: 0.5rem 1rem;
+  }
+
+  .lema {
+    display: none;
+  }
+
+  .menu {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  .contenido {
+    padding: 0 1rem;
+  }
 }
 
 .contenido {

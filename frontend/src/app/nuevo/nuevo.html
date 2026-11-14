@@ -1,52 +1,113 @@
-<h1>{{ sinSop() ? 'Generar el SOP desde un video' : 'Validar un video contra un SOP' }}</h1>
+<h1>
+  {{ modo() === 'generar' ? 'Generar el SOP desde un video' : 'Validar un video contra un SOP' }}
+</h1>
 
 <form [formGroup]="form" (ngSubmit)="validar()" novalidate>
-  <div class="campo casilla">
-    <input
-      id="sin-sop"
-      type="checkbox"
-      [checked]="sinSop()"
-      (change)="cambiarSinSop($event)"
-      [disabled]="enviando()"
-    />
-    <label for="sin-sop">No tengo SOP: generarlo desde el video</label>
-  </div>
-
-  @if (!sinSop()) {
-    <div class="campo">
-      <label for="sop">SOP de referencia (.md, .txt, .pdf o .docx)</label>
+  <fieldset class="modos" [disabled]="enviando()">
+    <legend>SOP de referencia</legend>
+    <label class="modo" for="modo-biblioteca">
       <input
-        id="sop"
-        type="file"
-        accept=".md,.txt,.pdf,.docx"
-        (change)="elegirSop($event)"
-        [disabled]="enviando()"
+        id="modo-biblioteca"
+        type="radio"
+        name="modo"
+        value="biblioteca"
+        [checked]="modo() === 'biblioteca'"
+        (change)="cambiarModo('biblioteca')"
       />
-      @if (intentado() && !archivoSop()) {
-        <p class="campo-error">Elige el archivo del SOP.</p>
-      }
-      @if (convirtiendo()) {
-        <p class="nota" role="status">Convirtiendo el SOP…</p>
-      }
-      @if (sop(); as s) {
-        @if (s.estado === 'listo') {
-          <p class="nota">SOP guardado como {{ s.codigo }}: {{ s.titulo }}</p>
-          @if (s.metodo === 'llm') {
-            <p class="nota">
-              No seguía la plantilla: lo convirtió el modelo. Vale la pena revisarlo.
-            </p>
+      De la biblioteca
+    </label>
+    <label class="modo" for="modo-subir">
+      <input
+        id="modo-subir"
+        type="radio"
+        name="modo"
+        value="subir"
+        [checked]="modo() === 'subir'"
+        (change)="cambiarModo('subir')"
+      />
+      Subir uno ahora
+    </label>
+    <label class="modo" for="modo-generar">
+      <input
+        id="modo-generar"
+        type="radio"
+        name="modo"
+        value="generar"
+        [checked]="modo() === 'generar'"
+        (change)="cambiarModo('generar')"
+      />
+      No tengo SOP: generarlo desde el video
+    </label>
+  </fieldset>
+
+  @switch (modo()) {
+    @case ('biblioteca') {
+      <div class="campo">
+        @if (sops() === null) {
+          <p class="nota" role="status">Cargando la biblioteca…</p>
+        } @else if (opcionesBiblioteca().length === 0) {
+          <p class="nota">
+            La biblioteca está vacía. Sube uno ahora o
+            <a routerLink="/sops">ve a la biblioteca</a> para cargar tus SOP.
+          </p>
+        } @else {
+          <app-selector-sop
+            [sops]="opcionesBiblioteca()"
+            [elegido]="sopBiblioteca()"
+            [deshabilitado]="enviando()"
+            (elegir)="elegirDeBiblioteca($event)"
+          />
+          @if (intentado() && sopBiblioteca() === null) {
+            <p class="campo-error">Elige un SOP de la biblioteca.</p>
           }
         }
-      }
-    </div>
+        @if (errorBiblioteca(); as e) {
+          <p class="campo-error">{{ e }}</p>
+        }
+      </div>
+    }
+    @case ('subir') {
+      <div class="campo">
+        <label for="sop">SOP de referencia (.md, .txt, .pdf o .docx)</label>
+        <input
+          id="sop"
+          type="file"
+          accept=".md,.txt,.pdf,.docx"
+          (change)="elegirSop($event)"
+          [disabled]="enviando()"
+        />
+        @if (intentado() && !archivoSop() && !sop()) {
+          <p class="campo-error">Elige el archivo del SOP.</p>
+        }
+        @if (convirtiendo()) {
+          <p class="nota" role="status">Convirtiendo el SOP…</p>
+        }
+        @if (sop(); as s) {
+          @if (s.estado === 'listo') {
+            <p class="nota">SOP guardado como {{ s.codigo }}: {{ s.titulo }}</p>
+            @if (s.metodo === 'llm') {
+              <p class="nota">
+                No seguía la plantilla: lo convirtió el modelo. Vale la pena revisarlo.
+              </p>
+            }
+          }
+        }
+      </div>
+    }
+    @case ('generar') {
+      <p class="nota">
+        El SOP se redacta desde la narración del video. Al terminar lo revisas, lo corriges y lo
+        guardas en la biblioteca.
+      </p>
+    }
   }
 
   <div class="campo">
-    <label for="video">Video (.mp4, .mov, .mkv o .webm)</label>
+    <label for="video">Video (.mp4, .mov, .mkv, .webm o .avi)</label>
     <input
       id="video"
       type="file"
-      accept=".mp4,.mov,.mkv,.webm"
+      accept=".mp4,.mov,.mkv,.webm,.avi"
       (change)="elegirVideo($event)"
       [disabled]="enviando()"
     />
@@ -54,6 +115,42 @@
       <p class="campo-error">Elige el archivo del video.</p>
     }
   </div>
+
+  @if (archivoVideo()) {
+    <div class="campo imagenes">
+      <div class="casilla">
+        <input
+          id="imagenes"
+          type="checkbox"
+          [checked]="analizarImagenes() && !sinImagen()"
+          [disabled]="enviando() || sinImagen()"
+          (change)="cambiarImagenes($event)"
+          aria-describedby="imagenes-detalle"
+        />
+        <label for="imagenes">Analizar también las imágenes (más lento)</label>
+        @if (indicador(); as i) {
+          <span class="indicador">{{ i }}</span>
+        }
+      </div>
+      <div id="imagenes-detalle">
+        @if (sinImagen()) {
+          <p class="nota">Deshabilitada: este archivo no tiene imagen.</p>
+        } @else if (metadatos() === undefined) {
+          <p class="nota" role="status">Leyendo la duración del video…</p>
+        } @else if (analizarImagenes()) {
+          @if (avisoImagenes(); as a) {
+            <p class="aviso-ambar">{{ a }}</p>
+          } @else if (estimando()) {
+            <p class="nota" role="status">Calculando cuánto tardaría…</p>
+          } @else if (metadatos() === null) {
+            <p class="nota">Sin estimación: el navegador no pudo leer la duración del video.</p>
+          } @else if (estimacionFallo()) {
+            <p class="nota">Sin estimación: no se pudo consultar a la API.</p>
+          }
+        }
+      </div>
+    </div>
+  }
 
   <div class="campo">
     <label for="titulo">Título del video</label>
@@ -78,6 +175,20 @@
     </select>
   </div>
 
+  <div class="campo">
+    <div class="casilla consentimiento">
+      <input id="consentimiento" type="checkbox" formControlName="consentimiento" />
+      <label for="consentimiento">
+        Confirmo que las personas que aparecen o se oyen en este video dieron su consentimiento para
+        ser grabadas y para que el video se analice aquí. Sus rostros y voces son datos personales
+        (LFPDPPP).
+      </label>
+    </div>
+    @if (form.controls.consentimiento.invalid && intentado()) {
+      <p class="campo-error">Confirma el consentimiento para poder subir el video.</p>
+    }
+  </div>
+
   @if (advertencias().length) {
     <div class="advertencias" role="status">
       <p>El SOP se guardó con advertencias:</p>
@@ -89,11 +200,38 @@
     </div>
   }
 
+  @if (modo() === 'subir' && conviene() && video(); as v) {
+    <p class="nota revisar">
+      <a [routerLink]="['/sops', sop()!.id]" [queryParams]="{ video: v.id }"
+        >Revisar y corregir el SOP</a
+      >. El video se valida igual; si corriges el SOP, lo revalidas desde ahí sin repetir la
+      transcripción.
+    </p>
+  }
+
   @if (progreso() !== null && !video()) {
     <div class="subida">
-      <label for="avance">Subiendo el video: {{ progreso() }} %</label>
+      <div class="subida-fila">
+        <label for="avance">
+          Subiendo el video: {{ progreso() }} %
+          <span class="megas">· {{ megas() }}</span>
+        </label>
+        <button type="button" class="secundario cancelar" (click)="cancelar()">Cancelar</button>
+      </div>
       <progress id="avance" max="100" [value]="progreso()"></progress>
+      @if (reintentando(); as r) {
+        <p class="aviso-ambar" role="status">
+          Se cortó la conexión. Reintento {{ r.intento }} de {{ reintentos }} en
+          {{ r.esperaMs / 1000 }} s; lo ya subido no se repite.
+        </p>
+      }
     </div>
+  }
+  @if (cancelada()) {
+    <p class="nota" role="status">
+      Subida cancelada: lo recibido se borró. Al validar de nuevo el video se sube desde el
+      principio.
+    </p>
   }
   @if (video() && convirtiendo()) {
     <p class="nota" role="status">Video subido. Falta que termine la conversión del SOP.</p>
@@ -101,21 +239,27 @@
 
   @if (error(); as mensaje) {
     <p class="error" role="alert">{{ mensaje }}</p>
+    @if (reanudable()) {
+      <div class="reanudar">
+        <button type="button" class="secundario" (click)="validar()">Reintentar la subida</button>
+        <button type="button" class="secundario" (click)="cancelar()">Cancelar</button>
+      </div>
+    }
     @if (videoSinSop()) {
       <p class="nota">
         El video ya se había subido, pero no se validará con ese SOP. Elige un SOP y valida de
         nuevo: se sube otra vez.
       </p>
-    } @else if (sop()) {
+    } @else if (modo() === 'subir' && sop()) {
       <p class="nota">El SOP ya quedó guardado: al validar de nuevo solo se sube el video.</p>
     }
   }
 
   @if (listoParaVer()) {
-    <button type="button" (click)="verReporte()">Ver el reporte</button>
+    <button type="button" class="principal" (click)="verAvance()">Ver el avance</button>
   } @else {
-    <button type="submit" [disabled]="enviando()">
-      {{ sinSop() ? 'Generar SOP' : 'Validar' }}
+    <button type="submit" class="principal" [disabled]="enviando()">
+      {{ modo() === 'generar' ? 'Generar SOP' : 'Validar' }}
     </button>
   }
 </form>

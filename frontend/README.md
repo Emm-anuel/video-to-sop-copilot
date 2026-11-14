@@ -17,8 +17,10 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, `POST /videos` con `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al reporte cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
-| `/videos/:id/sop` | **SOP generado (mínima, solo lectura):** avance, cuadro resumen, tabla de pasos, puntos y palabras clave con menciones, lo inferido resaltado y "Guardar en la biblioteca" | Emmanuel (base) · Sara (RF-26) | Hecho (9 nov): `src/app/sop/`. Sin edición: la pule Sara con RF-26 |
+| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, el video por partes (`POST /uploads`, desde el 12 nov) y `POST /videos` con `upload_id`, `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al avance (`/videos/:id/procesando`, desde el 12 nov) cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
+| `/videos/:id/sop` | **SOP generado y su editor (RF-26):** avance y, al terminar, el editor del SOP (sección "Editor del SOP") | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov, solo lectura; editor desde el 11 nov): `src/app/sop/` |
+| `/sops` | **Biblioteca de SOP (RF-05):** búsqueda, filtro por origen, ver o editar, usar para validar, eliminar y subir (sección "Biblioteca y Nuevo análisis") | Emmanuel | Hecho (12 nov): `src/app/biblioteca/` |
+| `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -31,12 +33,15 @@ base de la pantalla **"Nuevo análisis"** del documento SOP V1.0 y en S5 se ampl
 componente, sin rehacerlo. Hoy cubre el camino del MVP: un SOP nuevo en Markdown, TXT, PDF o
 Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 
-| Qué falta | RF | Semana |
-|---|---|---|
-| Elegir un SOP de la biblioteca (el modo `generar` ya está: casilla "No tengo SOP") | RF-07, RF-02 | S5 |
-| Mostrar el SOP convertido para corregirlo antes de validar | RF-04 | S5 |
-| Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | S5 |
-| Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | S5 |
+| Qué falta | RF | Responsable | Semana |
+|---|---|---|---|
+| ~~Elegir un SOP de la biblioteca~~ Hecho el 12 nov: tres modos (biblioteca, subir, generar), consentimiento y casilla de imágenes | RF-07, RF-02 | Emmanuel | S5 |
+| Lista de videos (`/videos`, pantalla 6): título, fecha, modo, estado, porcentaje con semáforo e imágenes, con enlace al reporte o al SOP generado. Falta `GET /videos` | — | Emmanuel | S6 |
+| ~~Mostrar el SOP convertido para corregirlo~~ Hecho el 11 nov: enlace "Revisar y corregir el SOP" a `/sops/:id?video=N` (el video no espera; se revalida desde el editor) | RF-04 | Emmanuel | S5 |
+| Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | Emmanuel | S5 |
+| Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | Emmanuel | S5 |
+
+Responsables desde el reparto del 10 nov ([registro de decisiones](../docs/plan/plan.md#registro-de-decisiones)).
 
 ## Subir un SOP: flujo asíncrono (desde el 7 nov, rama `feat/sop-pdf-word`)
 
@@ -82,7 +87,7 @@ Cambio mínimo sobre el mismo componente, sin librerías nuevas (`src/app/nuevo/
   `sop_id`, sin esperar la conversión) y la consulta de `GET /sops/{id}/estado` cada 2 s
   (`SONDEO_SOP_MS`, con `timer` + `switchMap` + `takeWhile` de RxJS). Mientras el SOP está en
   `en_cola` o `convirtiendo` se ve "Convirtiendo el SOP…".
-- **Listo sin advertencias** y video subido: navega al reporte, como antes.
+- **Listo sin advertencias** y video subido: navega al avance (`/videos/:id/procesando`, desde el 12 nov; antes, al reporte).
 - **Listo con advertencias:** las muestra (y "lo convirtió el modelo, vale la pena revisarlo" si
   `metodo` es `llm`) y cambia "Validar" por **"Ver el reporte"**, para que se alcancen a leer.
 - **Error:** muestra `mensaje` tal cual, cancela la subida si seguía y olvida el SOP: el
@@ -197,7 +202,7 @@ otro SOP" a `/nuevo`, mostrar la afinidad con `bajo_umbral` junto al porcentaje 
 
 ## SOP generado: "No tengo SOP" y `/videos/:id/sop` (9 nov, ADR-023)
 
-Pantalla mínima para probar el modo generar; **Sara la pule con RF-26** (editar, agregar, quitar y
+Pantalla mínima para probar el modo generar; **se pule con RF-26** (Emmanuel desde el 10 nov) (editar, agregar, quitar y
 reordenar pasos) sobre el mismo componente.
 
 - **`/nuevo`:** la casilla "No tengo SOP" oculta el campo del SOP y el botón dice "Generar SOP".
@@ -220,22 +225,198 @@ reordenar pasos) sobre el mismo componente.
     `sop_id` en otro `POST /videos` (antes, la API responde 422).
 - Tipos: `src/app/api/sop.ts` se genera desde `docs/contrato/sop.schema.json` con
   `npm run tipos:sop` (`npm run tipos` genera los dos). No se edita a mano.
-- Pendiente (RF-26): edición con `PUT /sops/{id}` (la API ya valida el SOP completo y responde
-  422 si no cumple el contrato), descargar el Markdown (`GET /sops/{id}.md`) y repetir la
-  generación (`POST /videos/{id}/generar`).
-- **Para Sara (RF-26, 10 nov): el editor necesita "Unir con el siguiente paso".** La agrupación
-  predeterminada (v2, ADR-023) encuentra bien dónde empieza y termina cada paso y no inventa ni
-  mezcla pasos, pero el SOP sale más detallado que uno escrito a mano (unos 15 pasos contra 6 en
-  el video E): quien revisa junta pasos. En cada fila (menos la última), un botón que una el paso
-  con el siguiente en el mismo `PasoSOP`:
-  - `t_inicio` del primero y `t_fin` del segundo (los tiempos salen del video: no se escriben a
-    mano);
-  - nombre del primero, editable; descripciones unidas en orden;
-  - `equipo`, `puntos_validacion`, `evidencia` y `campos_inferidos` unidos sin repetir;
-    `tiempo_esperado_min`, la suma; `cita`, `fuente` y `confianza`, las del primero;
-  - renumerar los pasos (1…n) y el `paso` de cada riesgo del resumen: el que apuntaba al segundo
-    pasa al paso unido y los de después bajan uno.
-  Se guarda con el mismo `PUT /sops/{id}`. Lo contrario ("Partir") no hace falta para este caso.
+- Desde el 11 nov la vista de solo lectura es el editor (sección siguiente). Pendiente: repetir la
+  generación (`POST /videos/{id}/generar`) desde la pantalla.
+
+## Editor del SOP (RF-26 y RF-04, 11 nov, ADR-025)
+
+Un solo componente, `SopEditor` (`src/app/sop/sop-editor.ts`), para los dos casos:
+
+- **SOP generado** (`/videos/:id/sop`): `SopGenerado` sigue el avance y, con `listo`, monta el
+  editor con el `sop_id` del video. Miniatura por paso (`GET /videos/{id}/thumb?t=`,
+  `loading="lazy"`; con la advertencia `sin_imagen` no se pide), tramo del video de cada paso y
+  segundos de puntos y palabras clave como botones que abren el video en ese segundo (un
+  `<dialog>` con el reproductor, `preload="none"`).
+- **SOP de referencia** (`/sops/:id`, ruta directa al editor): advertencias agrupadas por `tipo`
+  con su línea, aviso "lo convirtió el modelo, revísalo" con `metodo: "llm"` y "Usar para validar"
+  (`/nuevo?sop=ID`). Con `?video=N`, después de guardar ofrece "Revalidar el video N"
+  (`POST /videos/{id}/validar`, reusa la segmentación y no repite Whisper). **El video no espera
+  la corrección:** se valida en cuanto el SOP está listo (los pasos del video se extraen sin ver el
+  SOP, regla 5) y la cola de un trabajador nunca espera a una persona. `/nuevo` muestra el enlace
+  "Revisar y corregir el SOP" cuando el SOP quedó con advertencias o lo convirtió el modelo.
+
+Cómo funciona:
+
+- **Borrador y funciones puras** (`src/app/sop/edicion.ts`, pruebas en `edicion.spec.ts`): cada
+  paso lleva una `clave` estable y los riesgos apuntan a esa clave, así que reordenar, unir o
+  quitar no rompe su `paso`. `aSop` pone los números 1..n y el `paso` de cada riesgo al
+  guardar; la persona no escribe el número. `t_inicio` y `t_fin` no se editan (regla 4).
+- **Unir con el siguiente paso** (`unirConSiguiente`): nombre del primero (el foco va a su campo);
+  descripciones unidas; equipo, puntos de validación, evidencia y campos inferidos sin repetir;
+  tiempo sumado; tramo del video con el **mínimo y el máximo** de los dos (en el caso normal, el
+  `t_inicio` del primero y el `t_fin` del segundo; así un par reordenado no deja el rango al
+  revés ni da 422) y la miniatura sale de ese `t_inicio`; **confianza la menor**; `cita` y
+  `fuente` del primero (la del segundo sigue en `evidencia`); los riesgos del segundo pasan al
+  unido. Si los responsables difieren, pregunta cuál usar y el elegido sale de `campos_inferidos`.
+- **Quitar con deshacer** (pila de la sesión; el último paso no se quita), **agregar** (vacío,
+  inferido con confianza baja y `revisado`, porque lo escribió una persona) y **reordenar**
+  arrastrando el asa (⠿, HTML5 nativo, sin CDK) o con ▲ ▼.
+- **Lo que hay que revisar (RF-25):** un campo en `campos_inferidos`, o un dato con fuente
+  `inferido` o confianza baja o media, lleva color **y** una leyenda de texto ("Inferido",
+  "Confianza media"). Editarlo o pulsar "Confirmar" lo marca `revisado: true` (ADR-025) y, en un
+  paso, lo saca de `campos_inferidos`; la fuente, la confianza y la cita no cambian. Lo revisado
+  ya no se resalta, también al recargar. Quitar un elemento de una lista borra su evidencia;
+  cambiar a mano el responsable o el tiempo borra la de ese campo.
+- **Cuadro resumen:** título, versión y los cinco datos como texto (vacío → `null`); equipo de
+  operación y roles como chips (`src/app/sop/chips.ts`); riesgos (con nivel, paso y control) y
+  qué hacer en caso de falla como filas con agregar y quitar. Personas, solo lectura. La duración
+  total se muestra como quedará al guardar (`PUT /sops/{id}` la pone al día, ADR-025): **la que
+  narró el operador, si la hay** (`generacion.duracion_narrada`, ADR-021: gana e incluye pausas);
+  si no, la suma de los pasos si todos tienen tiempo, la del documento si ninguno y vacía si solo
+  algunos. La pantalla dice de cuál salió.
+- **Puntos clave:** se editan y se quitan. **Palabras clave:** solo lectura (las menciones las
+  cuenta el código), como tarjetas (`src/app/sop/palabras-clave.ts`): término, categoría y
+  menciones arriba y los segundos abajo, en varias líneas. Si el componente mide 34 rem o más
+  (container query, no el ancho de la ventana), se alinean como una tabla.
+- **Guardar:** `PUT /sops/{id}` con el SOP completo y luego `GET /sops/{id}` para comprobar que
+  el orden, las listas y los números quedaron como se veían (`huella`: JSON con claves ordenadas
+  y sin la duración total). Un 422 lista cada campo ("Paso 4 · nombre: …", `erroresPorCampo` en
+  `api/errores.ts`) y lo marca sin perder lo editado; un 409 dice "el SOP todavía no está listo".
+  "Guardar en la biblioteca", "Descargar .md" (`GET /sops/{id}.md`) y "Usar para validar" quedan
+  deshabilitados con cambios sin guardar. Salir con cambios pregunta (`sinGuardar` en las dos
+  rutas y `beforeunload`).
+- **360 px (RNF-13):** los pasos son tarjetas, no una tabla, y las rejillas se abren en dos
+  columnas desde 40 rem. Todo lo que se toca mide al menos 24 px (WCAG 2.5.8): la × de los chips
+  y los segundos, 36 px; el asa de arrastre, 28 × 36 (en un teléfono se reordena con ▲ ▼).
+  Revisado el 12 nov en Edge headless a 360 × 780 con el build de producción: ningún desborde
+  horizontal, también tras unir, reordenar y agregar un chip de 70 caracteres sin espacios, y el
+  diálogo del video cabe (322 × 218 px). Los estilos de los controles del formulario están en `src/styles.scss`
+  bajo `app-sop-editor`, para que los chips los compartan.
+- `generacion.grupos` no se toca: registra cómo agrupó el modelo, no lo que editó la persona.
+
+## Biblioteca y Nuevo análisis (RF-05, RF-07, 12 nov)
+
+Menú en `app.html`: **Biblioteca** (`/sops`) y **Nuevo análisis** (`/nuevo`), con
+`routerLinkActive` y `aria-current`.
+
+**`/sops` (`src/app/biblioteca/`).** `GET /sops` da los SOP listos y guardados con cuántos videos
+se validaron con cada uno. Búsqueda por título o código sin acentos ni mayúsculas
+(`biblioteca/filtro.ts`, la usa también `/nuevo`) y filtro por origen. Por SOP: **Ver o editar**
+(`/sops/:id`), **Usar para validar** (`/nuevo?sop=ID`) y **Eliminar** con confirmación en la propia
+fila (sin `confirm()`), que avisa que en un SOP cargado se borra también el archivo original y que
+no se puede deshacer. `DELETE /sops/{id}` responde 409 si algún video o reporte lo usa: la fila
+muestra el `mensaje` de la API en ámbar ("no se puede eliminar: 1 video lo usa como
+referencia…"); `mensajeDeError` ya trata el 409 como una frase de la API. **Subir SOP** (uno o
+varios) usa `POST /sops` y deja una fila provisional que consulta el estado cada 2 s; con `listo`
+recarga la lista y marca el SOP como nuevo (con advertencias o `metodo: llm`, enlace "Revísalo");
+con `error`, el mensaje y **Descartar**, que borra ese SOP (nadie lo usa).
+
+**`/nuevo`, tres modos excluyentes** (radios): **De la biblioteca** (`SelectorSop`, búsqueda y
+lista con alto máximo; `POST /videos` con ese `sop_id`, sin `POST /sops`, y al 202 al avance),
+**Subir uno ahora** (el flujo de siempre) y **No tengo SOP** (modo generar). Empieza en la
+biblioteca si tiene algo; si está vacía o no responde, en "Subir uno ahora". `?sop=ID` llega en la
+biblioteca con ese SOP elegido. Título y **consentimiento (RNF-16)** obligatorios en los tres: la casilla confirma que las
+personas grabadas dieron su consentimiento y avisa que sus rostros y voces son datos personales
+(LFPDPPP). El documento del patrocinador no da texto literal; esta redacción es la del equipo.
+
+**Casilla de imágenes (ADR-024).** Aparece al elegir el video. Antes de subirlo, el navegador lee
+la duración y si hay imagen (`api/metadatos-video.ts`: `<video preload="metadata">`, token
+`METADATOS_VIDEO` para sustituirlo en las pruebas) y se pide `GET /videos/estimacion` con el modo y
+el `sop_id` (solo en "De la biblioteca"); se repite al cambiar de video, de modo o de SOP
+(`toObservable` + `switchMap`). La casilla arranca con `analizar_imagenes_defecto` hasta que la
+persona la toca. Prendida: "≈ N imágenes · +X s" (los segundos del `dispositivo` probable; con
+`dispositivo_supuesto`, "(estimado)") y, sin GPU o si no se supo, el `aviso` del servidor en
+ámbar. **Nunca se deshabilita por falta de GPU**; sí con `videoWidth === 0` ("este archivo no
+tiene imagen"), y entonces la estimación va con `sin_imagen=true`. `analizar_imagenes` viaja
+siempre en `POST /videos`, también en `false` (`SubidaVideo.analizarImagenes` es obligatorio).
+
+**360 px (RNF-13).** La biblioteca son tarjetas y, desde 60 rem del propio componente (container
+query), filas de tabla con cabecera; en `/nuevo` la lista de SOP es una columna flex (una rejilla
+con alto máximo encima las filas). Todo lo que se toca mide 36 px. Revisado el 12 nov en Edge
+headless a 360 × 780 y 1280 con el build de producción y 29 SOP (8 inventados de títulos largos,
+uno de 100 caracteres sin espacios): ningún desborde horizontal ni objetivo menor de 36 px en la
+biblioteca (búsqueda, filtro, confirmación, aviso 409, fila provisional en error y descartada) ni
+en `/nuevo` en los tres modos (con imagen, casilla prendida y archivo solo de audio).
+
+## Procesando: avance en vivo por etapa (RF-08, 12 nov)
+
+**Una sola fuente del avance: `src/app/avance/`.** `AvanceVideo` (servicio que provee cada
+componente en `providers`, así muere con él) consulta `GET /videos/{id}` cada 1.5 s y se detiene
+con `listo`, `error` y `afinidad_baja`, con `detener()` y al destruirse el componente. Sin red o
+con un 5xx reintenta con espera creciente (1.5, 3, 6… hasta 30 s) y lo dice ("Reintento N en
+X s"); un 404 detiene la consulta con el mensaje. El porcentaje que expone nunca retrocede dentro
+de un seguimiento (100 con `listo`) y mide el tiempo en la pantalla. `etapas.ts` es la única tabla
+de nombres de etapa (también la usa "Cómo se obtuvo" del reporte) y el orden por modo. La usan
+Procesando, el reporte y el SOP generado; antes cada uno tenía su tabla y su intervalo.
+
+**`/videos/:id/procesando` (`src/app/procesando/`).** Etapas en el orden real (validar:
+duracion, audio, transcripcion, [fotogramas], contexto, segmentacion, emparejamiento, reporte;
+generar: las tres primeras, [fotogramas], contexto, segmentacion, sop_pasos, sop_resumen,
+sop_claves), cada una pendiente, en curso, hecha, falló o detenida. `fotogramas` aparece solo con
+`analizar_imagenes` de `GET /videos/{id}` (columna `videos.analizar_imagenes`, migración 0007,
+guardada ya resuelta). Durante esa etapa: "8 de 20 imágenes · faltan ~2 min", con la cuenta de
+la API tal cual (`imagenes_hechas` e `imagenes_total`, al día por lote) y lo que falta con los
+segundos por imagen de `GET /videos/estimacion` (se pide una vez; sin ella, solo la cuenta). El
+número salta de varias en varias porque así se describen, y la pantalla no habla de lotes. Dispositivo: el plan de `GET /health` (Whisper GPU o CPU; Gemma CPU forzada, GPU, o "lo
+decide Ollama"). Transcripción en vivo: `GET /videos/{id}/transcripcion.txt` cada 2 s mientras
+Whisper puede escribir (una lectura más al pasar de la transcripción), con desplazamiento
+automático si la persona está al final y "Descargar TXT" (el parcial, tal como va).
+
+- **Al terminar** (`replaceUrl`, para que "atrás" no regrese aquí): validar → reporte; generar
+  → `/videos/:id/sop`; `afinidad_baja` → reporte, donde está el aviso con "Continuar".
+- **Error:** el mensaje de la API tal cual y "Reprocesar", que llama a `POST /videos/{id}/validar`
+  o `/generar` según el modo: nunca repite Whisper (ADR-019). Si no hay análisis guardado (p. ej.
+  "interrumpido por reinicio" durante la transcripción), muestra el 409 de la API ("vuelve a
+  subirlo") y el enlace a Nuevo análisis. No hay endpoint `/reprocesar`.
+- `/nuevo` navega aquí al enviar en los tres modos (con advertencias del SOP subido, el botón es
+  "Ver el avance"). No va en el menú: es de un video. El reporte y el SOP generado enlazan aquí
+  ("Ver el avance por etapa").
+- **360 px (RNF-13):** una columna; desde 40 rem del componente los datos van en fila. Objetivos
+  de 36 px. Revisado el 12 nov en Edge headless con el build de producción y la API simulada
+  (video en proceso con imágenes, en error de Gemma en modo generar e interrumpido por reinicio,
+  título de 90 caracteres y una palabra de 70 sin espacios en la transcripción) dentro de un marco
+  de 360 × 780 (Edge headless no baja de ~480 px de ventana) y a 1280: ningún desborde horizontal
+  ni objetivo menor de 36 px.
+
+**Sondeo, no SSE ni WebSocket.** Con un solo trabajador y pocas pantallas abiertas, cada consulta
+es una lectura por id. Así lo pidió el issue #9; SSE queda como propuesta, sin implementar.
+
+## Subida por partes y AVI (RF-06, 12 nov, issue #10)
+
+`/nuevo` sube el video **siempre por partes** (`src/app/subida/`), en los tres modos; un video
+chico es una sola parte. La subida simple de la API (`archivo` en `POST /videos`) se queda para los
+scripts y las pruebas; la pantalla ya no la usa.
+
+- **Flujo:** `POST /uploads` (`{nombre, tamano}`; la API responde `tamano_parte`, 16 MB) →
+  `PUT /uploads/{id}?offset=N` con `Blob.slice`, una parte tras otra → `POST /videos` con
+  `upload_id` y los mismos campos de siempre (`titulo`, `modo`, `sop_id`, `idioma`,
+  `analizar_imagenes`, que viaja siempre). Al 202 sigue igual: a `/videos/:id/procesando`.
+- **Reintentos:** cada parte se reintenta hasta 3 veces con espera de 1, 2 y 4 s ("Reintento 1 de
+  3 en 1 s"). Antes de cada reintento se pregunta `GET /uploads/{id}`: si la parte sí llegó (se
+  perdió la respuesta) no se repite. Un 409 trae `detail.offset` y se sigue desde ahí. 404, 413 y
+  415 no se reintentan.
+- **Si aun así falla:** "Se perdió la conexión con la API después de 3 reintentos. Van 1.0 de 3.0
+  MB; al reintentar, la subida sigue desde ahí", con **Reintentar la subida** (retoma el mismo
+  `upload_id` desde `GET /uploads/{id}`, nunca desde 0) y **Cancelar**. Si la subida ya no está en
+  la API (se canceló o caducó), el reintento abre otra.
+- **Barra:** porcentaje y "X de Y MB" (MiB, como `SUBIDA_MAX_MB`), con el avance dentro de la parte
+  en vuelo. **Cancelar** aborta la parte en vuelo y borra lo recibido (`DELETE /uploads/{id}`,
+  RNF-09); elegir otro video o un SOP que no se pudo convertir también la borra. El SOP subido ahora
+  queda guardado: al validar de nuevo solo se sube el video.
+- **Arrastrar y soltar:** el de siempre, sobre el `<input type=file>` nativo; no hay zona propia.
+- **AVI:** se acepta y se analiza, pero Chrome y Edge no lo reproducen. El reporte y el diálogo del
+  video del editor del SOP lo dicen ("El navegador no reproduce este formato") con **Descargar el
+  video**, y los segundos siguen a la vista. Como `MediaError` 4 llega igual con un archivo que
+  falta, se pide su primer byte (`Range: bytes=0-0`, `ApiService.videoDisponible`) antes de decir
+  "formato" (`src/app/api/reproductor.ts`). Pasar el AVI a MP4 sin recodificar queda para S6.
+- **360 px (RNF-13):** Cancelar y Reintentar miden 40 px de alto; el porcentaje y los MB bajan de
+  línea antes que desbordar. Revisado el 12 nov en Edge headless (DevTools, 360 × 780 y 1280) con
+  el build de producción y la API simulada, un archivo de 3 MB en partes de 1 MB y un título de 66
+  caracteres: subida en curso, fallando (red cortada tras la primera parte, tres reintentos) y
+  cancelada. Ningún desborde horizontal ni objetivo nuevo menor de 36 px. A 1280 px, la fila de la
+  casilla "Analizar también las imágenes" (PS3) mide 24 px de alto: queda anotado, no se tocó.
+- Pruebas: `subida/partes.spec.ts` (partidor), `subida/subida.service.spec.ts` (orden, reintento,
+  reanudación, 409, 413, cancelar) y `nuevo/nuevo.spec.ts`.
 
 ## Desarrollo
 
@@ -296,5 +477,6 @@ arriba (ver `docs/dev/llm.md`); sin él, el video termina en `error` con "LLM no
 - No subas `node_modules`, `dist` ni `.angular`.
 - Antes de empezar una pantalla, toma su issue y revisa `main`, para no hacer dos veces el mismo
   trabajo.
-- Commits en español con Conventional Commits (`feat(frontend): …`). Push solo cuando el repo esté
-  privado.
+- Commits en español con Conventional Commits (`feat(frontend): …`). El repositorio de
+  desarrollo es público (10 nov): ni material del cliente ni texto literal del documento del
+  patrocinador en commits, issues o PR.

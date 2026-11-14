@@ -1,0 +1,714 @@
+@if (error(); as mensaje) {
+  <p class="error" role="alert">{{ mensaje }}</p>
+}
+@if (aviso(); as mensaje) {
+  <p class="aviso" role="status">{{ mensaje }}</p>
+}
+
+@if (borrador(); as b) {
+  <header class="encabezado">
+    <div class="campo titulo">
+      <label for="sop-titulo">Título del SOP</label>
+      <input
+        id="sop-titulo"
+        type="text"
+        maxlength="300"
+        required
+        [value]="b.titulo"
+        [class.con-error]="errorEn('titulo')"
+        (input)="editarTitulo($any($event.target).value)"
+      />
+      @if (errorEn('titulo'); as m) {
+        <p class="campo-error">{{ m }}</p>
+      }
+      <p class="nota">
+        {{ detalle()?.codigo }} ·
+        @if (generado()) {
+          generado desde el video {{ idVideo() }}
+        } @else {
+          SOP de referencia{{ detalle()?.metodo === 'plantilla' ? ', leído con la plantilla' : '' }}
+        }
+      </p>
+    </div>
+    <div class="acciones">
+      <button
+        type="button"
+        class="primario"
+        (click)="guardar()"
+        [disabled]="!sucio() || guardando()"
+      >
+        {{ guardando() ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
+      @if (enBiblioteca()) {
+        <span class="guardado">En la biblioteca</span>
+      } @else {
+        <button
+          type="button"
+          (click)="guardarEnBiblioteca()"
+          [disabled]="sucio() || enviandoBiblioteca()"
+        >
+          Guardar en la biblioteca
+        </button>
+      }
+      <button type="button" (click)="usarParaValidar()" [disabled]="sucio() || !enBiblioteca()">
+        Usar para validar
+      </button>
+      @if (sucio()) {
+        <span class="boton deshabilitado" aria-disabled="true">Descargar .md</span>
+      } @else {
+        <a
+          class="boton"
+          [href]="urlMarkdown()"
+          [attr.download]="(detalle()?.codigo ?? 'sop') + '.md'"
+          >Descargar .md</a
+        >
+      }
+    </div>
+    @if (sucio()) {
+      <p class="sin-guardar" role="status">
+        Hay cambios sin guardar. Guárdalos antes de pasar el SOP a la biblioteca, descargarlo o
+        usarlo para validar.
+      </p>
+    }
+  </header>
+
+  @if (video() !== undefined) {
+    @if (guardadoEnSesion() && !sucio()) {
+      <div class="revalidar" role="status">
+        <p>
+          El SOP corregido ya está guardado. El video {{ video() }} se validó con la versión
+          anterior: revalídalo para ver el reporte con esta (no repite la transcripción).
+        </p>
+        <button type="button" class="primario" (click)="revalidar()" [disabled]="revalidando()">
+          Revalidar el video {{ video() }}
+        </button>
+      </div>
+    } @else {
+      <p class="nota">
+        El video {{ video() }} ya se está validando con este SOP. Si lo corriges, al guardar podrás
+        revalidarlo sin repetir la transcripción.
+      </p>
+    }
+  }
+
+  @if (detalle()?.metodo === 'llm') {
+    <p class="aviso-llm" role="note">
+      Este SOP no seguía la plantilla: <strong>lo convirtió el modelo, revísalo</strong> antes de
+      usarlo. Lo que no tiene evidencia en el documento va marcado.
+    </p>
+  }
+
+  @if (grupos().length) {
+    <section class="advertencias" aria-labelledby="titulo-advertencias">
+      <h2 id="titulo-advertencias">Advertencias</h2>
+      @for (g of grupos(); track g.tipo) {
+        <h3>{{ g.titulo }} ({{ g.advertencias.length }})</h3>
+        <ul>
+          @for (a of g.advertencias; track $index) {
+            <li>
+              @if (a.linea !== null) {
+                <span class="linea">Línea {{ a.linea }}:</span>
+              }
+              {{ a.mensaje }}
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  <p class="leyenda">
+    <span class="marca-revisar">Inferido</span> o
+    <span class="marca-revisar">Confianza baja / media</span>: sin evidencia suficiente, revísalo.
+    Al editarlo o pulsar «Confirmar» deja de resaltarse. Pasa el cursor sobre un dato para ver su
+    fuente, su confianza, el segundo y la cita.
+  </p>
+
+  @if (errores().length) {
+    <div class="errores" role="alert">
+      <p>La API rechazó estos campos:</p>
+      <ul>
+        @for (e of errores(); track $index) {
+          <li>
+            @if (e.etiqueta) {
+              <strong>{{ e.etiqueta }}:</strong>
+            }
+            {{ e.mensaje }}
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
+  <!-- ── Cuadro resumen (RF-22) ─────────────────────────────────────────────────────────── -->
+  <section aria-labelledby="titulo-resumen">
+    <h2 id="titulo-resumen">Cuadro resumen</h2>
+    <div class="rejilla">
+      <div class="campo">
+        <label for="sop-version">Versión</label>
+        <input
+          id="sop-version"
+          type="text"
+          [value]="b.resumen.version"
+          (input)="editarVersion($any($event.target).value)"
+        />
+      </div>
+      @for (campo of camposDato; track campo) {
+        @let d = b.resumen[campo];
+        <div class="campo" [class.revisar]="leyenda(d)">
+          <label [for]="'dato-' + campo">
+            {{ etiquetasDato[campo] }}
+            @if (leyenda(d); as l) {
+              <span class="marca-revisar">{{ l }}</span>
+            }
+          </label>
+          <textarea
+            rows="2"
+            placeholder="No identificado"
+            [id]="'dato-' + campo"
+            [value]="d.valor ?? ''"
+            [title]="describir(d)"
+            (input)="editarDato(campo, $any($event.target).value)"
+          ></textarea>
+          @if (leyenda(d)) {
+            <button type="button" class="confirmar" (click)="confirmarDato(campo)">
+              Confirmar
+            </button>
+          }
+          @if (errorEn('resumen', campo, 'valor'); as m) {
+            <p class="campo-error">{{ m }}</p>
+          }
+        </div>
+      }
+    </div>
+
+    <p class="duracion">
+      <strong>Duración total:</strong>
+      {{ total() === null ? '—' : (total() | number: '1.0-2') }} min
+      @if (b.duracionNarrada !== null) {
+        <span class="nota">(la dijo el operador en el video; se conserva al editar)</span>
+      } @else {
+        <span class="nota">(la suma de los pasos; se recalcula al guardar)</span>
+      }
+    </p>
+
+    <div class="campo">
+      <span class="etiqueta">Equipo de operación</span>
+      <app-chips
+        etiqueta="Equipo de operación"
+        idCampo="equipo-operacion"
+        [valores]="b.resumen.equipo_operacion | nombres"
+        (cambio)="editarElementos('equipo_operacion', $event)"
+      />
+    </div>
+    <div class="campo">
+      <span class="etiqueta">Roles</span>
+      <app-chips
+        etiqueta="Roles"
+        idCampo="roles"
+        [valores]="b.resumen.roles | nombres"
+        (cambio)="editarElementos('roles', $event)"
+      />
+    </div>
+
+    @if (b.resumen.personas.length) {
+      <div class="campo">
+        <span class="etiqueta">Personas en el video</span>
+        <ul class="personas">
+          @for (p of b.resumen.personas; track $index) {
+            <li [title]="p.cita ?? ''">
+              {{ p.nombre }}{{ p.rol ? ' (' + p.rol + ')' : '' }} · {{ p.participacion }}
+              @if (idVideo() !== null) {
+                <button type="button" class="enlace-t" (click)="abrirVideo(p.t)">
+                  {{ mmss(p.t) }}
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <h3>Puntos de riesgo</h3>
+    <ul class="filas">
+      @for (x of b.resumen.riesgos; track $index; let i = $index) {
+        <li class="fila" [class.revisar]="leyenda(x)" [title]="describir(x)">
+          @if (leyenda(x); as l) {
+            <span class="marca-revisar">{{ l }}</span>
+          }
+          <div class="rejilla">
+            <div class="campo ancho">
+              <label [for]="'riesgo-' + i + '-descripcion'">Riesgo</label>
+              <input
+                type="text"
+                [id]="'riesgo-' + i + '-descripcion'"
+                [value]="x.descripcion"
+                (input)="editarRiesgo(i, { descripcion: $any($event.target).value })"
+              />
+              @if (errorEn('resumen', 'riesgos', i, 'descripcion'); as m) {
+                <p class="campo-error">{{ m }}</p>
+              }
+            </div>
+            <div class="campo">
+              <label [for]="'riesgo-' + i + '-nivel'">Nivel</label>
+              <select
+                [id]="'riesgo-' + i + '-nivel'"
+                (change)="editarRiesgo(i, { nivel: $any($event.target).value })"
+              >
+                @for (n of ['alto', 'medio', 'bajo']; track n) {
+                  <option [value]="n" [selected]="x.nivel === n">{{ n }}</option>
+                }
+              </select>
+            </div>
+            <div class="campo">
+              <label [for]="'riesgo-' + i + '-paso'">Paso</label>
+              <select
+                [id]="'riesgo-' + i + '-paso'"
+                (change)="pasoDeRiesgo(i, $any($event.target).value)"
+              >
+                <option value="" [selected]="x.pasoClave === null">—</option>
+                @for (p of b.pasos; track p.clave; let n = $index) {
+                  <option [value]="p.clave" [selected]="p.clave === x.pasoClave">
+                    {{ n + 1 }}. {{ p.nombre }}
+                  </option>
+                }
+              </select>
+            </div>
+            <div class="campo ancho">
+              <label [for]="'riesgo-' + i + '-control'">Control</label>
+              <input
+                type="text"
+                [id]="'riesgo-' + i + '-control'"
+                [value]="x.control"
+                (input)="editarRiesgo(i, { control: $any($event.target).value })"
+              />
+            </div>
+          </div>
+          <div class="acciones-fila">
+            @if (leyenda(x)) {
+              <button type="button" class="confirmar" (click)="editarRiesgo(i, {})">
+                Confirmar
+              </button>
+            }
+            <button type="button" (click)="quitarRiesgo(i)">Quitar riesgo</button>
+          </div>
+        </li>
+      } @empty {
+        <li class="nota">No se mencionan riesgos.</li>
+      }
+    </ul>
+    <button type="button" (click)="agregarRiesgo()">Agregar riesgo</button>
+
+    <h3>Qué hacer en caso de falla</h3>
+    <ul class="filas">
+      @for (f of b.resumen.en_caso_de_falla; track $index; let i = $index) {
+        <li class="fila" [class.revisar]="leyenda(f)" [title]="describir(f)">
+          @if (leyenda(f); as l) {
+            <span class="marca-revisar">{{ l }}</span>
+          }
+          <div class="rejilla">
+            <div class="campo">
+              <label [for]="'falla-' + i + '-situacion'">Situación</label>
+              <input
+                type="text"
+                [id]="'falla-' + i + '-situacion'"
+                [value]="f.situacion"
+                (input)="editarFalla(i, { situacion: $any($event.target).value })"
+              />
+            </div>
+            <div class="campo">
+              <label [for]="'falla-' + i + '-accion'">Acción</label>
+              <input
+                type="text"
+                [id]="'falla-' + i + '-accion'"
+                [value]="f.accion"
+                (input)="editarFalla(i, { accion: $any($event.target).value })"
+              />
+            </div>
+          </div>
+          <div class="acciones-fila">
+            @if (leyenda(f)) {
+              <button type="button" class="confirmar" (click)="editarFalla(i, {})">
+                Confirmar
+              </button>
+            }
+            <button type="button" (click)="quitarFalla(i)">Quitar</button>
+          </div>
+        </li>
+      } @empty {
+        <li class="nota">No se dice qué hacer en caso de falla.</li>
+      }
+    </ul>
+    <button type="button" (click)="agregarFalla()">Agregar qué hacer en caso de falla</button>
+  </section>
+
+  <!-- ── Pasos (RF-26) ──────────────────────────────────────────────────────────────────── -->
+  <section aria-labelledby="titulo-pasos">
+    <h2 id="titulo-pasos">Pasos ({{ b.pasos.length }})</h2>
+    <p class="nota">
+      Arrastra un paso por su asa (⠿) o usa ▲ ▼. El número lo pone el sistema al guardar; el tramo
+      del video sale de la transcripción y no se edita.
+    </p>
+    <ol class="pasos">
+      @for (p of b.pasos; track p.clave; let i = $index, primero = $first, ultimo = $last) {
+        <li
+          class="paso"
+          [class.arrastrando]="arrastrando() === i"
+          [attr.aria-label]="'Paso ' + (i + 1)"
+          (dragover)="sobre($event)"
+          (drop)="soltar(i, $event)"
+        >
+          <div class="paso-cabecera">
+            <span
+              class="asa"
+              draggable="true"
+              title="Arrastrar para mover"
+              aria-hidden="true"
+              (dragstart)="iniciarArrastre(i, $event)"
+              (dragend)="terminarArrastre()"
+              >⠿</span
+            >
+            <span class="numero">Paso {{ i + 1 }}</span>
+            @if (leyendaPaso(p); as l) {
+              <span class="marca-revisar">{{ l }}</span>
+            }
+            @if (p.t_inicio !== null) {
+              @if (idVideo() !== null) {
+                <button
+                  type="button"
+                  class="enlace-t"
+                  [title]="p.cita"
+                  [attr.aria-label]="
+                    'Ver el paso ' + (i + 1) + ' en el video desde ' + mmss(p.t_inicio)
+                  "
+                  (click)="abrirVideo(p.t_inicio)"
+                >
+                  {{ mmss(p.t_inicio) }}–{{ mmss(p.t_fin) }}
+                </button>
+              } @else {
+                <span class="t">{{ mmss(p.t_inicio) }}–{{ mmss(p.t_fin) }}</span>
+              }
+            }
+            <span class="controles">
+              <button
+                type="button"
+                [disabled]="primero"
+                [attr.aria-label]="'Subir el paso ' + (i + 1)"
+                (click)="subir(i)"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                [disabled]="ultimo"
+                [attr.aria-label]="'Bajar el paso ' + (i + 1)"
+                (click)="bajar(i)"
+              >
+                ▼
+              </button>
+            </span>
+          </div>
+
+          <div class="paso-cuerpo">
+            @if (conMiniaturas() && p.t_inicio !== null && !miniaturasFallidas().has(p.clave)) {
+              <!-- Miniatura del inicio del paso (ADR-024), con carga diferida. -->
+              <img
+                class="miniatura"
+                loading="lazy"
+                decoding="async"
+                width="160"
+                height="90"
+                [src]="urlMiniatura(p.t_inicio)"
+                [alt]="'Cuadro del video en ' + mmss(p.t_inicio)"
+                (error)="ocultarMiniatura(p.clave)"
+              />
+            }
+            <div class="campos">
+              <div class="campo" [class.revisar]="inferido(p, 'nombre')">
+                <label [for]="'paso-' + p.clave + '-nombre'">
+                  Nombre
+                  @if (inferido(p, 'nombre')) {
+                    <span class="marca-revisar">Inferido</span>
+                  }
+                </label>
+                <input
+                  type="text"
+                  required
+                  [id]="'paso-' + p.clave + '-nombre'"
+                  [value]="p.nombre"
+                  [class.con-error]="errorEn('pasos', i, 'nombre')"
+                  (input)="editarPaso(i, 'nombre', $any($event.target).value)"
+                />
+                @if (inferido(p, 'nombre')) {
+                  <button type="button" class="confirmar" (click)="confirmarCampo(i, 'nombre')">
+                    Confirmar
+                  </button>
+                }
+                @if (errorEn('pasos', i, 'nombre'); as m) {
+                  <p class="campo-error">{{ m }}</p>
+                }
+              </div>
+
+              <div class="campo" [class.revisar]="inferido(p, 'descripcion')">
+                <label [for]="'paso-' + p.clave + '-descripcion'">
+                  Descripción
+                  @if (inferido(p, 'descripcion')) {
+                    <span class="marca-revisar">Inferido</span>
+                  }
+                </label>
+                <textarea
+                  rows="3"
+                  [id]="'paso-' + p.clave + '-descripcion'"
+                  [value]="p.descripcion"
+                  (input)="editarPaso(i, 'descripcion', $any($event.target).value)"
+                ></textarea>
+                @if (inferido(p, 'descripcion')) {
+                  <button
+                    type="button"
+                    class="confirmar"
+                    (click)="confirmarCampo(i, 'descripcion')"
+                  >
+                    Confirmar
+                  </button>
+                }
+              </div>
+
+              <div class="rejilla">
+                <div class="campo" [class.revisar]="inferido(p, 'responsable')">
+                  <label [for]="'paso-' + p.clave + '-responsable'">
+                    Responsable
+                    @if (inferido(p, 'responsable')) {
+                      <span class="marca-revisar">Inferido</span>
+                    }
+                  </label>
+                  <input
+                    type="text"
+                    [id]="'paso-' + p.clave + '-responsable'"
+                    [value]="p.responsable"
+                    [title]="describir(evidencia(p, 'responsable'))"
+                    [class.con-error]="errorEn('pasos', i, 'responsable')"
+                    (input)="editarPaso(i, 'responsable', $any($event.target).value)"
+                  />
+                  @if (inferido(p, 'responsable')) {
+                    <button
+                      type="button"
+                      class="confirmar"
+                      (click)="confirmarCampo(i, 'responsable')"
+                    >
+                      Confirmar
+                    </button>
+                  }
+                  @if (errorEn('pasos', i, 'responsable'); as m) {
+                    <p class="campo-error">{{ m }}</p>
+                  }
+                </div>
+
+                <div class="campo" [class.revisar]="inferido(p, 'tiempo_esperado_min')">
+                  <label [for]="'paso-' + p.clave + '-tiempo'">
+                    Tiempo (min)
+                    @if (inferido(p, 'tiempo_esperado_min')) {
+                      <span class="marca-revisar">Inferido</span>
+                    }
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                    [id]="'paso-' + p.clave + '-tiempo'"
+                    [value]="p.tiempo_esperado_min ?? ''"
+                    [title]="describir(evidencia(p, 'tiempo_esperado_min'))"
+                    [class.con-error]="errorEn('pasos', i, 'tiempo_esperado_min')"
+                    (change)="editarTiempo(i, $any($event.target).value)"
+                  />
+                  @if (inferido(p, 'tiempo_esperado_min')) {
+                    <button
+                      type="button"
+                      class="confirmar"
+                      (click)="confirmarCampo(i, 'tiempo_esperado_min')"
+                    >
+                      Confirmar
+                    </button>
+                  }
+                  @if (errorEn('pasos', i, 'tiempo_esperado_min'); as m) {
+                    <p class="campo-error">{{ m }}</p>
+                  }
+                </div>
+              </div>
+
+              <div class="campo" [class.revisar]="inferido(p, 'equipo')">
+                <span class="etiqueta">
+                  Equipo
+                  @if (inferido(p, 'equipo')) {
+                    <span class="marca-revisar">Inferido</span>
+                    <button type="button" class="confirmar" (click)="confirmarCampo(i, 'equipo')">
+                      Confirmar
+                    </button>
+                  }
+                </span>
+                <app-chips
+                  campo="equipo"
+                  [etiqueta]="'Equipo del paso ' + (i + 1)"
+                  [idCampo]="'paso-' + p.clave + '-equipo'"
+                  [valores]="p.equipo"
+                  [evidencia]="p.evidencia"
+                  [inferido]="inferido(p, 'equipo')"
+                  (cambio)="editarPaso(i, 'equipo', $event)"
+                />
+              </div>
+
+              <div class="campo" [class.revisar]="inferido(p, 'puntos_validacion')">
+                <span class="etiqueta">
+                  Puntos de validación
+                  @if (inferido(p, 'puntos_validacion')) {
+                    <span class="marca-revisar">Inferido</span>
+                    <button
+                      type="button"
+                      class="confirmar"
+                      (click)="confirmarCampo(i, 'puntos_validacion')"
+                    >
+                      Confirmar
+                    </button>
+                  }
+                </span>
+                <app-chips
+                  campo="puntos_validacion"
+                  [etiqueta]="'Puntos de validación del paso ' + (i + 1)"
+                  [idCampo]="'paso-' + p.clave + '-puntos'"
+                  [valores]="p.puntos_validacion"
+                  [evidencia]="p.evidencia"
+                  [inferido]="inferido(p, 'puntos_validacion')"
+                  (cambio)="editarPaso(i, 'puntos_validacion', $event)"
+                />
+              </div>
+            </div>
+          </div>
+
+          @if (unionPendiente()?.indice === i) {
+            <div class="pregunta" role="group" aria-label="Elegir el responsable del paso unido">
+              <p>
+                Los pasos {{ i + 1 }} y {{ i + 2 }} tienen responsables distintos. ¿Cuál queda en el
+                paso unido?
+              </p>
+              @for (r of unionPendiente()!.responsables; track $index) {
+                <button type="button" (click)="unir(i, r)">{{ r }}</button>
+              }
+              <button type="button" (click)="cancelarUnion()">Cancelar</button>
+            </div>
+          }
+
+          <div class="paso-pie">
+            @if (leyendaPaso(p) || p.campos_inferidos.length) {
+              <button type="button" class="confirmar" (click)="confirmarPaso(i)">
+                Confirmar paso
+              </button>
+            }
+            @if (!ultimo) {
+              <button type="button" class="unir" (click)="unir(i)">
+                Unir con el siguiente paso
+              </button>
+            }
+            <button type="button" (click)="agregarPaso(i)">Agregar paso debajo</button>
+            <button
+              type="button"
+              class="peligro"
+              [disabled]="b.pasos.length === 1"
+              (click)="quitarPaso(i)"
+            >
+              Quitar paso
+            </button>
+          </div>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <!-- ── Puntos y palabras clave (RF-24) ─────────────────────────────────────────────────── -->
+  <section class="claves" aria-label="Puntos y palabras clave">
+    <div>
+      <h2>Puntos clave</h2>
+      <ul class="filas">
+        @for (x of b.puntos_clave; track $index; let i = $index) {
+          <li class="fila" [class.revisar]="leyenda(x)" [title]="describir(x)">
+            @if (leyenda(x); as l) {
+              <span class="marca-revisar">{{ l }}</span>
+            }
+            <label class="sr-only" [for]="'punto-' + i">Punto clave {{ i + 1 }}</label>
+            <textarea
+              rows="2"
+              [id]="'punto-' + i"
+              [value]="x.texto"
+              (input)="editarPunto(i, { texto: $any($event.target).value })"
+            ></textarea>
+            <div class="acciones-fila">
+              @if (x.t !== null) {
+                @if (idVideo() !== null) {
+                  <button
+                    type="button"
+                    class="enlace-t"
+                    [attr.aria-label]="'Ver en el video en ' + mmss(x.t)"
+                    (click)="abrirVideo(x.t)"
+                  >
+                    {{ mmss(x.t) }}
+                  </button>
+                } @else {
+                  <span class="t">{{ mmss(x.t) }}</span>
+                }
+              }
+              @if (leyenda(x)) {
+                <button type="button" class="confirmar" (click)="editarPunto(i, {})">
+                  Confirmar
+                </button>
+              }
+              <button type="button" (click)="quitarPunto(i)">Quitar</button>
+            </div>
+          </li>
+        } @empty {
+          <li class="nota">Sin puntos clave.</li>
+        }
+      </ul>
+    </div>
+    <div>
+      <h2>Palabras clave</h2>
+      <p class="nota">Las menciones las cuenta el sistema en la transcripción; no se editan.</p>
+      @if (b.palabras_clave.length) {
+        <app-palabras-clave
+          [palabras]="b.palabras_clave"
+          [conVideo]="idVideo() !== null"
+          (abrir)="abrirVideo($event)"
+        />
+      } @else {
+        <p class="nota">Sin palabras clave.</p>
+      }
+    </div>
+  </section>
+
+  @if (ultimoQuitado(); as q) {
+    <div class="deshacer" role="status">
+      <span>Quitaste el paso «{{ q.paso.nombre || 'sin nombre' }}».</span>
+      <button type="button" (click)="deshacerQuitar()">Deshacer</button>
+    </div>
+  }
+
+  @if (idVideo() !== null) {
+    <dialog #dialogo class="dialogo-video" aria-label="Video del SOP">
+      <video
+        #reproductor
+        controls
+        preload="none"
+        [src]="urlVideo()"
+        (loadedmetadata)="alCargarVideo()"
+        (error)="alFallarVideo($event)"
+      ></video>
+      @if (falloVideo() === 'formato') {
+        <p class="aviso-video" role="status">
+          El navegador no reproduce este formato. Los segundos de cada paso siguen en el SOP.
+          <a class="descargar-video" [href]="urlVideo()" download>Descargar el video</a>
+        </p>
+      } @else if (falloVideo() === 'carga') {
+        <p class="aviso-video" role="status">No se pudo cargar el video.</p>
+      }
+      <button type="button" (click)="cerrarVideo()">Cerrar el video</button>
+    </dialog>
+  }
+}

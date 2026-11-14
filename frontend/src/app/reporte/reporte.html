@@ -9,10 +9,18 @@
           controls
           preload="metadata"
           [src]="urlVideo(id)"
-          (error)="videoNoDisponible.set(true)"
-          (loadedmetadata)="videoNoDisponible.set(false)"
+          (error)="alFallarVideo($event, id)"
+          (loadedmetadata)="falloVideo.set(null)"
         ></video>
-        @if (videoNoDisponible()) {
+        @if (falloVideo() === 'formato') {
+          <div class="aviso-video" role="status">
+            <p>
+              El navegador no reproduce este formato. Los segundos de cada hallazgo siguen en la
+              tabla.
+            </p>
+            <a class="descargar-video" [href]="urlVideo(id)" download>Descargar el video</a>
+          </div>
+        } @else if (falloVideo() === 'carga') {
           <p class="aviso-video" role="status">
             No se pudo cargar el video. La tabla sigue disponible, pero sin saltar al segundo.
           </p>
@@ -48,7 +56,7 @@
               etapa.
             </p>
             <ul>
-              @for (aviso of r.metadatos.avisos ?? []; track $index) {
+              @for (aviso of avisosProvisional(); track $index) {
                 <li>{{ etiquetaAviso(aviso.tipo) }}: {{ aviso.detalle }}</li>
               }
             </ul>
@@ -107,9 +115,15 @@
                     <dt>GPU del equipo</dt>
                     <dd data-modelo="gpu">{{ c.gpu }}</dd>
                   }
+                  <dt>Imágenes</dt>
+                  <dd data-modelo="imagenes">{{ c.imagenes }}</dd>
                 </dl>
               } @else {
                 <p data-modelo="no-registrado">{{ noRegistrado }}</p>
+                <dl class="pares">
+                  <dt>Imágenes</dt>
+                  <dd data-modelo="imagenes">{{ c.imagenes }}</dd>
+                </dl>
               }
             </div>
             <div>
@@ -151,7 +165,9 @@
         <table class="tabla">
           <thead>
             <tr>
-              <th scope="col" class="col-miniatura"><span class="sr-only">Miniatura</span></th>
+              @if (!sinImagen()) {
+                <th scope="col" class="col-miniatura"><span class="sr-only">Miniatura</span></th>
+              }
               <th scope="col">Estado</th>
               <th scope="col">Paso del SOP</th>
               <th scope="col">Paso del video</th>
@@ -166,15 +182,23 @@
                 [class.activa]="filaActiva() === i"
                 (click)="irA(fila, i)"
               >
-                <td class="col-miniatura">
-                  <!-- Lugar de la miniatura: llega con los fotogramas (S5). -->
-                  <div class="miniatura" title="Miniatura pendiente: llega con los fotogramas">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4" />
-                    </svg>
-                  </div>
-                </td>
+                @if (!sinImagen()) {
+                  <td class="col-miniatura">
+                    <!-- Miniatura del segundo de la fila (ADR-024); un Falta no tiene segundo. -->
+                    @if (fila.t_inicio != null && !miniaturasFallidas().has(i)) {
+                      <img
+                        class="miniatura"
+                        loading="lazy"
+                        decoding="async"
+                        width="96"
+                        height="54"
+                        [src]="urlMiniatura(videoId() ?? r.video_id, fila.t_inicio)"
+                        [alt]="'Cuadro del video en ' + mmss(fila.t_inicio)"
+                        (error)="ocultarMiniatura(i)"
+                      />
+                    }
+                  </td>
+                }
                 <td class="col-estado">
                   <span class="estado-etiqueta" [class]="claseEstado(fila)">
                     {{ etiquetaEstado(fila) }}
@@ -221,7 +245,7 @@
           <p>
             <strong>Proceso:</strong> {{ e.proceso }}
             @if (e.etapa) {
-              · <strong>Etapa:</strong> {{ e.etapa }}
+              · <strong>Etapa:</strong> {{ avance.etiqueta() }}
             }
           </p>
           @if (segundosProceso() != null) {
@@ -229,10 +253,20 @@
               <strong>Tiempo de procesamiento:</strong> {{ mmss(segundosProceso()!) }}
             </p>
           }
-          <label for="progreso">Progreso: {{ e.progreso }} %</label>
-          <progress id="progreso" max="100" [value]="e.progreso"></progress>
+          <label for="progreso">Progreso: {{ avance.progreso() }} %</label>
+          <progress id="progreso" max="100" [value]="avance.progreso()"></progress>
+          @if (avance.reintento(); as r) {
+            <p class="aviso-video" role="status">
+              {{ r.mensaje }} Reintento {{ r.intento }} en {{ r.esperaMs / 1000 }} s…
+            </p>
+          }
           @if (e.proceso === 'error') {
             <p class="error" role="alert">{{ e.error || 'El procesamiento falló.' }}</p>
+          }
+          @if (e.proceso !== 'afinidad_baja') {
+            <p class="ir">
+              <a [routerLink]="['/videos', e.id, 'procesando']">Ver el avance por etapa</a>
+            </p>
           }
         </section>
         @if (e.proceso === 'afinidad_baja') {
@@ -247,6 +281,10 @@
             </button>
           </section>
         }
+      } @else if (avance.reintento(); as r) {
+        <p class="aviso-video" role="status">
+          {{ r.mensaje }} Reintento {{ r.intento }} en {{ r.esperaMs / 1000 }} s…
+        </p>
       } @else if (!errorConsulta()) {
         <p>Consultando el estado del video…</p>
       }

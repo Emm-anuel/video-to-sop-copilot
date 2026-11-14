@@ -3,7 +3,7 @@
   "$defs": {
     "Aviso": {
       "additionalProperties": false,
-      "description": "Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.",
+      "description": "Falla del sistema que afecta al resultado, o un dato informativo del video\n(`AVISOS_INFORMATIVOS`). `detalle` no lleva texto del video ni del SOP.",
       "properties": {
         "tipo": {
           "enum": [
@@ -11,7 +11,9 @@
             "juez_sin_revisar",
             "pasos_sin_redactar",
             "contexto_sin_generar",
-            "transcripcion_no_referencia"
+            "transcripcion_no_referencia",
+            "imagenes_incompletas",
+            "sin_imagen"
           ],
           "title": "Tipo",
           "type": "string"
@@ -83,6 +85,12 @@
           "default": "",
           "title": "Cita",
           "type": "string"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "title": "Dato",

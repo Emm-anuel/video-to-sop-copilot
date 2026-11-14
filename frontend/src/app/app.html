@@ -1,6 +1,10 @@
 <header class="barra">
   <a routerLink="/nuevo" class="marca">SOPVID</a>
   <span class="lema">Validación de video contra SOP</span>
+  <nav class="menu" aria-label="Principal">
+    <a routerLink="/sops" routerLinkActive="activo" ariaCurrentWhenActive="page">Biblioteca</a>
+    <a routerLink="/nuevo" routerLinkActive="activo" ariaCurrentWhenActive="page">Nuevo análisis</a>
+  </nav>
 </header>
 <main class="contenido" [class.ancho]="ancho()">
   <router-outlet />

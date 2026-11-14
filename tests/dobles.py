@@ -39,6 +39,7 @@ from sopvid.lenguaje.lectura_sop import ESQUEMA_SOP_LIBRE
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.validacion import DependenciasValidacion
 from sopvid.percepcion.contexto import ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS
+from sopvid.percepcion.fotogramas import TITULO_ESQUEMA as TITULO_ESQUEMA_FOTOGRAMAS
 from sopvid.percepcion.segmentacion import ESQUEMA_FRONTERAS, ESQUEMA_REDACCION
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion
 from sopvid.plataforma.api.main import create_app
@@ -207,6 +208,28 @@ CLAVES_SOP = {
 }
 
 
+# Lo que el doble "ve" en cada imagen (inventado): un equipo, una persona y un texto legible.
+EQUIPO_VISTO = "manómetro de carátula"
+TEXTO_VISTO = "BOMBA B-12"
+
+
+def descripciones_lote(n: int) -> dict[str, Any]:
+    """Una descripción válida por imagen del lote, con `i` de 1 a `n`."""
+    return {
+        "imagenes": [
+            {
+                "i": i,
+                "descripcion": f"Operador junto a un tablero, imagen {i}",
+                "equipos": [EQUIPO_VISTO],
+                "personas": 1,
+                "texto_visible": [TEXTO_VISTO],
+                "riesgos": [],
+            }
+            for i in range(1, n + 1)
+        ]
+    }
+
+
 class OllamaFalso:
     """Ollama simulado. `disponible=False`: no responde a nada; `caido_en_chat=True`: responde
     `/api/tags` pero se cae en `/api/chat` y `/api/generate` (Ollama cae a medias).
@@ -228,6 +251,14 @@ class OllamaFalso:
     defecto, `AGRUPACION_SOP`, `PASOS_SOP`, `RESUMEN_SOP` y `CLAVES_SOP`); `mensajes_generado`
     guarda los mensajes de cada una, en orden.
     `mensajes_sop` y `opciones_sop` guardan los mensajes y las opciones (`num_ctx`) de cada una.
+
+    La descripción de imágenes (ADR-024) se registra como "chat:fotogramas"; `imagenes_por_llamada`
+    cuenta las imágenes que llegaron en cada una. `respuestas_fotogramas` es lo que responde cada
+    llamada, en orden (la última se repite): un objeto o `str` como en `respuestas_sop`, o una
+    función del tamaño del lote; sin ninguna, una descripción válida por imagen
+    (`descripciones_lote`). Con `fotogramas_caido`, Ollama se cae solo en esas llamadas.
+    Con `fotogramas_memoria_max`, una llamada con más imágenes que eso responde 500 con el error de
+    memoria de llama.cpp (la GPU no alcanza).
     """
 
     def __init__(self, eventos: list[str], *, disponible: bool = True):
@@ -254,6 +285,10 @@ class OllamaFalso:
             "claves": CLAVES_SOP,
         }
         self.mensajes_generado: list[tuple[str, list[dict[str, str]]]] = []
+        self.respuestas_fotogramas: list[Any] = []
+        self.imagenes_por_llamada: list[int] = []
+        self.fotogramas_caido = False
+        self.fotogramas_memoria_max: int | None = None
 
     def cliente(self) -> ClienteLLM:
         return ClienteLLM(
@@ -281,7 +316,23 @@ class OllamaFalso:
             return httpx.Response(200, json={"model": MODELO, "done": True})
         assert ruta == "/api/chat", ruta
         pausa_s = self.pausa_s
-        if cuerpo.get("format") in (ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS):
+        formato = cuerpo.get("format")
+        if isinstance(formato, dict) and formato.get("title") == TITULO_ESQUEMA_FOTOGRAMAS:
+            self.eventos.append("chat:fotogramas")
+            n = sum(len(m.get("images") or []) for m in cuerpo["messages"])
+            self.imagenes_por_llamada.append(n)
+            if self.fotogramas_caido:
+                raise httpx.ConnectError("Ollama se cayó", request=request)
+            if self.fotogramas_memoria_max is not None and n > self.fotogramas_memoria_max:
+                error = "llama runner process has terminated: cudaMalloc failed: out of memory"
+                return httpx.Response(500, json={"error": error})
+            i = min(len(self.imagenes_por_llamada), len(self.respuestas_fotogramas)) - 1
+            respuesta = self.respuestas_fotogramas[i] if self.respuestas_fotogramas else None
+            if respuesta is None:
+                contenido = descripciones_lote(n)
+            else:
+                contenido = respuesta(n) if callable(respuesta) else respuesta
+        elif cuerpo.get("format") in (ESQUEMA_CONTEXTO, ESQUEMA_CONTEXTO_FOTOGRAMAS):
             self.eventos.append("chat:contexto")
             self.mensajes_contexto.append(cuerpo["messages"])
             self.esquemas_contexto.append(cuerpo["format"])

@@ -50,7 +50,7 @@ from typing import Any
 
 from medir_dispositivos import Esperado, criterio, esperado_de
 
-from sopvid.contrato import SOP, Analisis, Dispositivos, ResultadoValidacion
+from sopvid.contrato import AVISOS_INFORMATIVOS, SOP, Analisis, Dispositivos, ResultadoValidacion
 from sopvid.lenguaje.juez import JuezGemma
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.sop_markdown import convertir_sop
@@ -145,7 +145,8 @@ def anotar(
     corrida.criterio = criterio(guardado, sop, esperado, settings)
     corrida.sobra_falsos = [round(t, 1) for t in sobra_falsos(guardado, esperado)]
     corrida.segmentacion = meta.segmentacion
-    corrida.avisos = [a.tipo for a in meta.avisos]
+    # Los informativos (p. ej. sin_imagen, ADR-024) no invalidan la corrida.
+    corrida.avisos = [a.tipo for a in meta.avisos if a.tipo not in AVISOS_INFORMATIVOS]
     corrida.dispositivos = meta.dispositivos.model_dump() if meta.dispositivos else {}
     return corrida
 

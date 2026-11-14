@@ -255,6 +255,88 @@ def test_put_guarda_la_version_corregida_y_rechaza_un_sop_invalido(
     assert entorno.session.get(Sop, sop_id).titulo == "Revisión semanal de la línea de agua"
 
 
+def _unido_y_reordenado(sop: dict[str, Any]) -> dict[str, Any]:
+    """Lo que manda el editor (RF-26) tras unir los pasos 1 y 2 y subir el 3 al principio:
+    números 1..n, tramo del video de los dos, evidencia de ambos y lo revisado marcado."""
+    p1, p2, p3 = sop["pasos"]
+    unido = {
+        **p1,
+        "descripcion": f"{p1['descripcion']} {p2['descripcion']}".strip(),
+        "equipo": list(dict.fromkeys(p1["equipo"] + p2["equipo"])),
+        "puntos_validacion": list(dict.fromkeys(p1["puntos_validacion"] + p2["puntos_validacion"])),
+        "tiempo_esperado_min": p1["tiempo_esperado_min"] + p2["tiempo_esperado_min"],
+        "t_inicio": min(p1["t_inicio"], p2["t_inicio"]),
+        "t_fin": max(p1["t_fin"], p2["t_fin"]),
+        "evidencia": p1["evidencia"] + [e for e in p2["evidencia"] if e not in p1["evidencia"]],
+        "revisado": True,
+    }
+    resumen = {**sop["resumen"], "objetivo": {**sop["resumen"]["objetivo"], "revisado": True}}
+    return {
+        **sop,
+        "resumen": resumen,
+        "pasos": [{**p3, "numero": 1}, {**unido, "numero": 2}],
+    }
+
+
+def test_put_con_pasos_unidos_y_reordenados_se_relee_igual(
+    client: TestClient, entorno: Entorno, generado: int
+) -> None:
+    sop_id = _sop_id(entorno, generado)
+    editado = _unido_y_reordenado(client.get(f"/videos/{generado}/sop").json())
+    # Una duración total vieja: el PUT la recalcula desde los pasos (ADR-025).
+    editado["resumen"]["duracion_total_min"] = 99.0
+
+    r = client.put(f"/sops/{sop_id}", json=editado)
+    assert r.status_code == 200, r.text
+    releido = client.get(f"/sops/{sop_id}").json()["sop"]
+
+    suma = round(sum(p["tiempo_esperado_min"] for p in editado["pasos"]), 2)
+    assert releido["resumen"]["duracion_total_min"] == suma
+    editado["resumen"]["duracion_total_min"] = suma
+    assert releido == editado  # orden, listas, números y `revisado`, tal como se mandaron
+    assert [p["numero"] for p in releido["pasos"]] == [1, 2]
+    assert releido["pasos"][1]["revisado"] is True
+    assert releido["resumen"]["objetivo"]["revisado"] is True
+    # `generacion.grupos` registra lo que hizo el modelo, no la edición.
+    assert client.get(f"/sops/{sop_id}").json()["generacion"]["grupos"] == [[1], [2], [3]]
+
+
+def test_put_conserva_la_duracion_total_narrada_por_el_operador(
+    client: TestClient, entorno: Entorno, generado: int
+) -> None:
+    """ADR-021 y ADR-025: si el operador dijo la duración total, editar no la pisa."""
+    sop_id = _sop_id(entorno, generado)
+    fila = entorno.session.get(Sop, sop_id)
+    narrada = {"valor": "4", "confianza": "alta", "fuente": "audio", "t": 1.0, "cita": "unos 4 min"}
+    fila.generacion = {**fila.generacion, "duracion_narrada": narrada}
+    entorno.session.commit()
+
+    sop = client.get(f"/videos/{generado}/sop").json()
+    editado = {**sop, "pasos": [{**sop["pasos"][0], "numero": 1}]}  # se quitaron dos pasos
+    assert client.put(f"/sops/{sop_id}", json=editado).status_code == 200
+    assert client.get(f"/sops/{sop_id}").json()["sop"]["resumen"]["duracion_total_min"] == 4.0
+
+
+def test_un_sop_editado_sirve_como_sop_id_en_otro_video(
+    client: TestClient, entorno: Entorno, generado: int, generar_video
+) -> None:
+    sop_id = _sop_id(entorno, generado)
+    editado = _unido_y_reordenado(client.get(f"/videos/{generado}/sop").json())
+    assert client.put(f"/sops/{sop_id}", json=editado).status_code == 200
+    assert client.post(f"/sops/{sop_id}/biblioteca").status_code == 200
+
+    entorno.juez = JuezFalso("Cumple")
+    video_id = subir(client, generar_video().read_bytes(), modo="validar", sop_id=str(sop_id))
+    entorno.correr_pendientes()
+
+    assert entorno.video(video_id).proceso == "listo"
+    reporte = client.get(f"/videos/{video_id}/reporte").json()
+    assert reporte["sop"]["id"] == sop_id
+    # El reporte compara contra los 2 pasos editados, no contra los 3 generados.
+    filas_sop = {f["paso_sop"]: f["nombre_sop"] for f in reporte["filas"] if f["paso_sop"]}
+    assert filas_sop == {n: p["nombre"] for n, p in enumerate(editado["pasos"], start=1)}
+
+
 def test_put_de_un_sop_que_no_esta_listo_da_409(client: TestClient, entorno: Entorno) -> None:
     fila = Sop(origen="generado", estado="convirtiendo", en_biblioteca=False)
     entorno.session.add(fila)

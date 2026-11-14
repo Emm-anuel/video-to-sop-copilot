@@ -1,11 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import ejemplo from '../../../../tests/fixtures/sop_generado_ejemplo.json';
 import { SOP } from '../api/sop';
 import { EstadoVideo, Proceso, SopDetalle } from '../api/tipos';
-import { INTERVALO_MS, SopGenerado } from './sop-generado';
+import { INTERVALO_MS } from '../avance/avance.service';
+import { SopGenerado } from './sop-generado';
 
 const ESTADO = '/api/videos/9';
 
@@ -26,33 +27,7 @@ function estado(proceso: Proceso, extra: Partial<EstadoVideo> = {}): EstadoVideo
   };
 }
 
-/** El ejemplo con un paso cuyo tiempo y un punto de validación no tienen evidencia. */
-function sopConInferidos(): SOP {
-  const sop = structuredClone(ejemplo) as unknown as SOP;
-  const paso = sop.pasos[0];
-  paso.campos_inferidos = ['puntos_validacion', 'tiempo_esperado_min'];
-  paso.evidencia = [
-    {
-      campo: 'puntos_validacion',
-      valor: paso.puntos_validacion![0],
-      cita: '',
-      fuente: 'inferido',
-      confianza: 'baja',
-      t: null,
-    },
-    {
-      campo: 'equipo',
-      valor: paso.equipo![0],
-      cita: 'I put on nitrile gloves',
-      fuente: 'audio',
-      confianza: 'alta',
-      t: 53,
-    },
-  ];
-  return sop;
-}
-
-function detalle(enBiblioteca = false): SopDetalle {
+function detalle(): SopDetalle {
   return {
     id: 21,
     codigo: 'SOP-0021',
@@ -62,8 +37,9 @@ function detalle(enBiblioteca = false): SopDetalle {
     advertencias: [
       { tipo: 'sop_incompleto', linea: null, mensaje: 'SOP incompleto: puntos y palabras clave' },
     ],
-    en_biblioteca: enBiblioteca,
-    sop: sopConInferidos(),
+    en_biblioteca: false,
+    generacion: { video_id: 9 },
+    sop: structuredClone(ejemplo) as unknown as SOP,
   };
 }
 
@@ -76,6 +52,7 @@ describe('SopGenerado', () => {
     TestBed.configureTestingModule({
       imports: [SopGenerado],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         {
@@ -103,64 +80,39 @@ describe('SopGenerado', () => {
     await fixture.whenStable();
   }
 
-  async function listo(enBiblioteca = false): Promise<void> {
-    await responder(ESTADO, estado('listo'));
-    await responder('/api/videos/9/sop', sopConInferidos());
-    await responder('/api/sops/21', detalle(enBiblioteca));
-  }
-
-  it('sigue el avance mientras se genera y luego muestra el SOP', async () => {
+  it('sigue el avance mientras se genera y luego abre el editor con el SOP', async () => {
     await responder(ESTADO, estado('procesando'));
-    expect(texto()).toContain('Redactando el cuadro resumen…');
+    expect(texto()).toContain('Cuadro resumen…');
+    expect(fixture.componentInstance.puedeSalir()).toBe(true);
 
     await vi.advanceTimersByTimeAsync(INTERVALO_MS);
-    await listo();
-    expect(texto()).toContain(ejemplo.titulo);
-    expect(texto()).toContain('SOP-0021');
-    expect(texto()).toContain('versión 1.0');
-    expect(texto()).toContain('SOP incompleto: puntos y palabras clave');
-  });
-
-  it('muestra el cuadro resumen, la tabla de pasos y las palabras clave con sus menciones', async () => {
-    await listo();
+    await responder(ESTADO, estado('listo'));
+    await responder('/api/sops/21', detalle());
     const el = fixture.nativeElement as HTMLElement;
-    expect(texto()).toContain(ejemplo.resumen.objetivo.valor);
-    expect(texto()).toContain('Supervisor de turno');
-    expect(el.querySelectorAll('table.pasos tbody tr').length).toBe(ejemplo.pasos.length);
-    const manometro = ejemplo.palabras_clave[0];
-    expect(texto()).toContain(manometro.termino);
-    expect(texto()).toContain('00:16'); // su primera mención, 16.53 s
+    expect(el.querySelector('app-sop-editor')).not.toBeNull();
+    expect(el.querySelector<HTMLInputElement>('#sop-titulo')!.value).toBe(ejemplo.titulo);
+    expect(texto()).toContain('SOP incompleto: puntos y palabras clave');
+    // Las miniaturas usan el video de la ruta.
+    expect(el.querySelector('li.paso img')?.getAttribute('src')).toContain('/api/videos/9/thumb');
   });
 
-  it('resalta lo inferido y muestra la evidencia de lo que se dijo', async () => {
-    await listo();
-    const fila = (fixture.nativeElement as HTMLElement).querySelector('table.pasos tbody tr')!;
-    const celdas = fila.querySelectorAll('td');
-    const fichas = Array.from(fila.querySelectorAll('.ficha'));
-    const validacion = fichas.find((f) => f.textContent?.includes('EPP completo'))!;
-    expect(validacion.classList).toContain('inferido');
-    const guantes = fichas.find((f) => f.textContent?.includes('Guantes de nitrilo'))!;
-    expect(guantes.classList).not.toContain('inferido');
-    expect(guantes.getAttribute('title')).toBe('audio · alta · 00:53 · «I put on nitrile gloves»');
-    expect(celdas[6].classList).toContain('inferido'); // el tiempo, medido
-  });
-
-  it('guarda el SOP en la biblioteca', async () => {
-    await listo();
-    const boton = (fixture.nativeElement as HTMLElement).querySelector('button')!;
-    expect(boton.textContent).toContain('Guardar en la biblioteca');
-    boton.click();
+  it('pregunta antes de salir si el editor tiene cambios sin guardar', async () => {
+    await responder(ESTADO, estado('listo'));
+    await responder('/api/sops/21', detalle());
+    const titulo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '#sop-titulo',
+    )!;
+    titulo.value = 'Otro título';
+    titulo.dispatchEvent(new Event('input'));
     await fixture.whenStable();
-    const req = http.expectOne({ method: 'POST', url: '/api/sops/21/biblioteca' });
-    req.flush({ id: 21, codigo: 'SOP-0021', estado: 'listo', en_biblioteca: true });
-    await fixture.whenStable();
-    expect(texto()).toContain('Guardado en la biblioteca');
-    expect((fixture.nativeElement as HTMLElement).querySelector('button')).toBeNull();
+    expect(fixture.componentInstance.puedeSalir()).toBe(false);
   });
 
-  it('un SOP que ya está en la biblioteca no ofrece guardarlo', async () => {
-    await listo(true);
-    expect(texto()).toContain('Guardado en la biblioteca');
+  it('nombra la etapa de imágenes en el avance', async () => {
+    await responder(ESTADO, estado('procesando', { etapa: 'fotogramas', progreso: 38 }));
+    expect(texto()).toContain('Descripción de imágenes…');
+    await vi.advanceTimersByTimeAsync(INTERVALO_MS);
+    await responder(ESTADO, estado('error', { error: 'x' }));
   });
 
   it('si la generación falla, muestra el error del video', async () => {

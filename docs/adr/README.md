@@ -28,6 +28,8 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 | [ADR-021](ADR-021-tiempos.md) | Tiempos: duración narrada (lista blanca de disparadores, gana siempre, §5.5) o medida; solo *excede* cuenta como fuera de tiempo | Aprobado por el equipo (8 nov) | 2026-11-08 |
 | [ADR-022](ADR-022-rescate-de-falta.md) | Rescatar un *Falta* en los fragmentos contiguos del video: ventana ≥ `UMBRAL_ALTO` y siempre con el juez (la segmentación de Gemma no es determinista; el juez sí) | Aprobado por el equipo (9 nov), con condiciones | 2026-11-09 |
 | [ADR-023](ADR-023-sop-generado.md) | SOP generado: agrupar los pasos del video en una llamada aparte, Gemma solo redacta valores y citas, el código pone evidencia, tiempos, responsables y menciones; evidencia en campos opcionales del contrato | Propuesto (decisiones de diseño del equipo, 9 nov) | 2026-11-09 |
+| [ADR-024](ADR-024-imagenes-opcionales-miniatura.md) | Imágenes opcionales y miniatura por paso: miniatura siempre con ffmpeg; descripción con Gemma apagada por defecto, N imágenes parejas antes de la ficha (tope 20); sin GPU se avisa y no se bloquea | Propuesto (decisiones del 10 nov) | 2026-11-11 |
+| [ADR-025](ADR-025-sop-revisado-por-persona.md) | SOP revisado por una persona: `revisado` en `Dato`, `Riesgo`, `Falla`, `PuntoClave` y `PasoSOP` (se conserva la fuente); `PUT /sops/{id}` recalcula la duración total desde los pasos; `generacion.grupos` no refleja ediciones | Aceptado | 2026-11-11 |
 
 Los ADR-002, 003 y 008 se aprueban con el documento "Requerimientos técnicos y funcionales de proyecto
 SOP V1.0", escrito por el patrocinador (16 oct 2026), que deja fuera de la versión 1.0 lo que el NDA

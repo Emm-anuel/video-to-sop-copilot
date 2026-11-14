@@ -116,7 +116,7 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 10 nov 2026 (resumen semanal en `docs/plan/estado.md`):
+> Estado al 13 nov 2026 (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -210,8 +210,50 @@ docs/
 >   14/14 corridas y RNF-01 se cumple (3.0 min estimados para 10 min); sin GPU, A pasa, E falla por
 >   un valor sin traducir y RNF-01 no se cumple (15–21 min). SOP generado (RF-22 a 25, 27) en
 >   `lenguaje/sop_generado.py` (ADR-023); RF-26 solo el endpoint.
-> - **Sin código todavía:** fotogramas y subida por partes (`percepcion/`, S5); PDF del reporte y del SOP, descargas y búsqueda (`lenguaje/`, S6); editor
->   de RF-26; pantallas fuera del MVP.
+> - **Imágenes (10–11 nov, rama `feat/s5-pantallas`, ADR-024, RF-11):** miniatura por paso
+>   siempre, con ffmpeg y sin modelo (`percepcion/miniaturas.py`, `GET /videos/{id}/thumb?t=`,
+>   aviso informativo `sin_imagen` que no vuelve provisional el reporte). Descripción con Gemma
+>   opcional y apagada (`FOTOGRAMAS_DESCRIBIR`, `analizar_imagenes` en `POST /videos`):
+>   `percepcion/fotogramas.py`, N imágenes parejas antes de la ficha (pasos del SOP o duración ×
+>   `PASOS_POR_MIN`, de 4 a 20), lotes de 8 (`prompts/fotogramas_v1.md`), aviso
+>   `imagenes_incompletas`; `metadatos.imagenes` en el reporte y en `sops.generacion`.
+>   `GET /videos/estimacion` avisa del tiempo extra con y sin GPU; nunca bloquea.
+> - **Editor del SOP (11 nov, rama `feat/s5-pantallas`, RF-26 y RF-04, ADR-025):** `frontend/src/app/sop/`
+>   (`SopEditor` en `/videos/:id/sop` y `/sops/:id`; unir, reordenar y quitar con deshacer; lógica pura en
+>   `edicion.ts`). `revisado` en `Dato`, `Riesgo`, `Falla`, `PuntoClave` y `PasoSOP`; `PUT /sops/{id}`
+>   pone al día la duración total sin pisar la narrada. RNF-05 de un SOP editado:
+>   `scripts/medir_sop_generado.py --sop-editado clave=sop_id|json`. Corregir un SOP no detiene el video: se revalida con `POST /videos/{id}/validar`.
+> - **Biblioteca y Nuevo análisis (12 nov, rama `feat/s5-pantallas`, RF-05 y RF-07):** `GET /sops`
+>   (listos y en la biblioteca, con videos validados) y `DELETE /sops/{id}` (204; 409 explicado si
+>   un video o reporte lo usa, nunca en cascada). `/sops` (`frontend/src/app/biblioteca/`) y
+>   `/nuevo` con tres modos, consentimiento (RNF-16) y la casilla de imágenes: duración leída en el
+>   navegador, `GET /videos/estimacion` (ahora con `sin_imagen` y `analizar_imagenes_defecto`) y
+>   `analizar_imagenes` siempre en `POST /videos`. La lista de videos (pantalla 6) pasa a S6.
+> - **Procesando (12 nov, rama `feat/s5-pantallas`, RF-08):** `/videos/:id/procesando`
+>   (`frontend/src/app/procesando/`); el avance sale de un solo servicio (`frontend/src/app/avance/`:
+>   sondeo de 1.5 s, finales, reintento con espera creciente y la única tabla de etapas), que
+>   también usan el reporte y el SOP generado. `/nuevo` navega ahí. `videos.analizar_imagenes`
+>   (migración `0007`) guarda la casilla ya resuelta, e `imagenes_hechas`/`imagenes_total` la
+>   cuenta exacta por lote; `GET /videos/{id}` devuelve las tres.
+> - **Subida por partes y AVI (12 nov, rama `feat/s5-pantallas`, RF-06):** `POST /uploads`,
+>   `PUT /uploads/{id}?offset=N`, `GET` y `DELETE /uploads/{id}` (`plataforma/api/subidas.py`);
+>   el armado vive en disco, sin tabla (`percepcion/subidas.py`, `media/subidas/<id>/`), con
+>   limpieza por edad (`SUBIDA_CADUCIDAD_H`) al arrancar y en cada `POST /uploads`. `POST /videos`
+>   acepta `upload_id` además de `archivo`, con los mismos campos, y valida con ffprobe. `/nuevo`
+>   sube siempre por partes (`frontend/src/app/subida/`). AVI se acepta y se analiza; el navegador no
+>   lo reproduce: el reporte y el editor lo dicen y ofrecen descargarlo (remux a MP4: issue de S6).
+> - **Cierre de S5 (13 nov, [informe](docs/adr/datos/s5/medicion-s5-20261113-0021.md)):** recorrido
+>   completo desde la pantalla (capturas en `docs/adr/datos/s5/pantallas/`) y medición en tres
+>   tandas intercaladas con la GPU enfriada a ≤ 50 °C (`medir_s5.py --informe` las une con
+>   `unir_tandas`): con GPU e imágenes apagadas, A–E 14/14 y RNF-01 3.2 min para 10 min (3.4–3.9
+>   con la carga de MiniLM que paga el primer video tras arrancar; "Cuánto tardó" no la suma, #20);
+>   MVP sin regresión. Issues #7–#10 cerrados. Del recorrido: las descripciones de imágenes no
+>   aportan y además inventan objetos que llegan al SOP generado (RNF-06, ADR-024, #16), así que
+>   **la demo del modo generar va sin imágenes** (13 nov); la estimación de imágenes se queda corta (#17); el SOP
+>   convertido no se puede marcar revisado sin editarlo (#18); sin GPU, Nuevo no avisa del tiempo
+>   total y la subida no reanuda sola al volver la red (#19).
+> - **Sin código todavía (S6):** pantalla `/videos`, PDF del reporte y del SOP con QR (RF-29, 30),
+>   descargas (RF-31), búsqueda (RF-32 a 37), juicios del juez guardados, Docker en máquina limpia.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

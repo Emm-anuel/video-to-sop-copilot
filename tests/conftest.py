@@ -51,29 +51,72 @@ def client() -> Iterator[TestClient]:
         yield test_client
 
 
+# Fuentes para `drawtext`: sin fontconfig (Windows), ffmpeg necesita la ruta del archivo.
+_FUENTES = (
+    "C:/Windows/Fonts/arial.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+)
+
+
+def _filtro_texto(texto: str) -> str | None:
+    """`drawtext` con `texto` y la primera fuente que exista, o None si no hay ninguna."""
+    fuente = next((f for f in _FUENTES if Path(f).is_file()), None)
+    if fuente is None:
+        return None
+    ruta = fuente.replace(":", r"\:")
+    return (
+        f"drawtext=fontfile='{ruta}':text='{texto}':fontsize=20:fontcolor=white:"
+        "box=1:boxcolor=black@0.7:x=8:y=8"
+    )
+
+
 @pytest.fixture
 def generar_video(tmp_path: Path) -> Callable[..., Path]:
     """Fábrica de videos sintéticos (lavfi: testsrc + sine) en `tmp_path`.
 
     Usa códecs nativos de ffmpeg (mpeg4 + aac), así que no depende de libx264. El audio va en
     estéreo a 44.1 kHz para que las pruebas demuestren la conversión a mono 16 kHz.
+
+    `imagen`: "testsrc" (barras de prueba), "negra" (pantalla negra, como una grabación de solo
+    voz) o "ninguna" (sin pista de video). `texto` lo dibuja con `drawtext` si hay una fuente y el
+    ffmpeg lo soporta; si no, el video sale sin texto (las pruebas no dependen de leerlo).
     """
     if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
         pytest.skip("ffmpeg/ffprobe no están instalados")
 
-    def generar(nombre: str = "video.mp4", con_audio: bool = True, segundos: int = 3) -> Path:
+    def generar(
+        nombre: str = "video.mp4",
+        con_audio: bool = True,
+        segundos: int = 3,
+        imagen: str = "testsrc",
+        texto: str | None = None,
+    ) -> Path:
         destino = tmp_path / nombre
-        args = [
-            "ffmpeg", "-nostdin", "-v", "error", "-y",
-            "-f", "lavfi", "-i", f"testsrc=duration={segundos}:size=160x120:rate=10",
-        ]  # fmt: skip
+        fuentes = {
+            "testsrc": f"testsrc=duration={segundos}:size=160x120:rate=10",
+            "negra": f"color=c=black:size=160x120:duration={segundos}:rate=10",
+        }
+        args = ["ffmpeg", "-nostdin", "-v", "error", "-y"]
+        if imagen != "ninguna":
+            args += ["-f", "lavfi", "-i", fuentes[imagen]]
         if con_audio:
             args += [
                 "-f", "lavfi", "-i", f"sine=frequency=440:duration={segundos}:sample_rate=44100",
                 "-c:a", "aac", "-ac", "2",
             ]  # fmt: skip
-        args += ["-c:v", "mpeg4", "-shortest", str(destino)]
-        subprocess.run(args, check=True, capture_output=True, timeout=60)
+        if imagen == "ninguna":
+            subprocess.run([*args, str(destino)], check=True, capture_output=True, timeout=60)
+            return destino
+        salida = ["-c:v", "mpeg4", "-shortest", str(destino)]
+        filtro = _filtro_texto(texto) if texto else None
+        if filtro is not None:
+            con_texto = subprocess.run(
+                [*args, "-vf", filtro, *salida], capture_output=True, timeout=60, check=False
+            )
+            if con_texto.returncode == 0:
+                return destino
+        subprocess.run([*args, *salida], check=True, capture_output=True, timeout=60)
         return destino
 
     return generar

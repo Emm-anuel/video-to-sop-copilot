@@ -1,22 +1,24 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import ejemplo from '../../../../tests/fixtures/reporte_ejemplo.json';
 import ejemploProvisional from '../../../../tests/fixtures/reporte_ejemplo_provisional.json';
 import { ReporteValidacion } from '../api/reporte-validacion';
 import { EstadoVideo, Proceso } from '../api/tipos';
+import { INTERVALO_MS } from '../avance/avance.service';
 import {
-  INTERVALO_MS,
   NO_CORRIO,
   NO_REGISTRADO,
   RESPALDO_CPU,
   Reporte,
+  avisosQueAfectan,
   dispositivosDeModelos,
   etapasConTiempo,
   formatoSegundos,
   mmss,
+  textoImagenes,
   totalSegundos,
 } from './reporte';
 
@@ -85,6 +87,36 @@ describe('Cómo se obtuvo (funciones puras)', () => {
     expect(totalSegundos([])).toBe(0);
   });
 
+  it('las imágenes van entre la transcripción y la ficha, y las miniaturas al final', () => {
+    const etapas = etapasConTiempo({
+      miniaturas: 0.4,
+      contexto: 8,
+      fotogramas: 6,
+      transcripcion: 9,
+    });
+    expect(etapas.map((e) => e.nombre)).toEqual([
+      'Transcripción',
+      'Descripción de imágenes',
+      'Ficha de contexto',
+      'Miniaturas',
+    ]);
+  });
+
+  it('textoImagenes dice "no" o "sí, N" y lee los reportes anteriores', () => {
+    expect(textoImagenes(undefined)).toBe('no');
+    expect(textoImagenes({ descritas: false, cantidad: 0 })).toBe('no');
+    expect(textoImagenes({ descritas: true, cantidad: 6 })).toBe('sí, 6');
+  });
+
+  it('avisosQueAfectan quita los informativos', () => {
+    const avisos = [
+      { tipo: 'sin_imagen' as const, detalle: 'a' },
+      { tipo: 'imagenes_incompletas' as const, detalle: 'b' },
+    ];
+    expect(avisosQueAfectan(avisos).map((a) => a.tipo)).toEqual(['imagenes_incompletas']);
+    expect(avisosQueAfectan(undefined)).toEqual([]);
+  });
+
   it('dispositivosDeModelos traduce cada caso', () => {
     expect(dispositivosDeModelos(null, 'gemma')).toBeNull();
     expect(dispositivosDeModelos(undefined, 'gemma')).toBeNull();
@@ -117,6 +149,7 @@ describe('Reporte', () => {
     TestBed.configureTestingModule({
       imports: [Reporte],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: '7' })) } },
@@ -176,13 +209,14 @@ describe('Reporte', () => {
       expect(dato('modelo', 'llm')).toBe('GPU');
       expect(dato('modelo', 'embedder')).toBe('CPU');
       expect(dato('modelo', 'gpu')).toBe('GPU de ejemplo');
+      expect(dato('modelo', 'imagenes')).toBe('no');
 
       const etapas = Array.from(recuadro().querySelectorAll('[data-etapa]')).map((dd) => [
         dd.previousElementSibling?.textContent?.trim(),
         dd.textContent?.trim(),
       ]);
       expect(etapas).toEqual([
-        ['Duración', '0.2 s'],
+        ['Duración del video', '0.2 s'],
         ['Audio', '0.6 s'],
         ['Transcripción', '11.8 s'],
         ['Pasos del video', '74.3 s'],
@@ -202,6 +236,17 @@ describe('Reporte', () => {
       expect(pantalla().querySelector('.porcentaje')?.textContent).toContain('71.43 %');
       expect(pantalla().querySelector('.semaforo-amarillo')).not.toBeNull();
       expect(filas()).toHaveLength(NORMAL.filas.length);
+    });
+
+    it('con imágenes descritas dice "sí, N" junto al dispositivo', () => {
+      llegaReporte(
+        conMetadatos((m) => {
+          m.imagenes = { descritas: true, cantidad: 6, tokens_entrada: 600, tokens_salida: 400 };
+          m.segundos = { ...m.segundos, fotogramas: 7.5 };
+        }),
+      );
+      expect(dato('modelo', 'imagenes')).toBe('sí, 6');
+      expect(dato('etapa', 'fotogramas')).toBe('7.5 s');
     });
 
     it('con dispositivos en null dice "No registrado…" y sigue mostrando los tiempos', () => {
@@ -252,11 +297,12 @@ describe('Reporte', () => {
     });
   });
 
-  it('consulta cada 3 s y, con "listo", pide el reporte y lo muestra', () => {
+  it('consulta cada 1.5 s y, con "listo", pide el reporte y lo muestra', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).flush(estado('procesando'));
     expect(texto()).toContain('procesando');
-    expect(texto()).toContain('transcripcion');
+    expect(texto()).toContain('Etapa: Transcripción');
+    expect(pantalla().querySelector('a[href="/videos/7/procesando"]')).not.toBeNull();
     expect(texto()).toContain('Progreso: 30 %');
     http.expectNone(REPORTE);
 
@@ -375,12 +421,48 @@ describe('Reporte', () => {
     const sobras = f.filter((fila) => fila.querySelector('.estado-sobra'));
     expect(sobras).toHaveLength(NORMAL.conteo.sobra);
 
-    // Espacio para la miniatura (S5), sin imagen y sin nada que se pueda llenar.
-    expect(f[0].querySelector('.miniatura')?.getAttribute('title')).toContain(
-      'Miniatura pendiente',
-    );
+    // Miniatura por fila con segundo (ADR-024), pedida por segundo y con carga diferida; el
+    // Falta (fila 6) no tiene segundo y deja la celda vacía.
+    const img = f[0].querySelector('img.miniatura') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe(`/api/videos/7/thumb?t=${NORMAL.filas[0].t_inicio}`);
+    expect(img.getAttribute('loading')).toBe('lazy');
+    expect(img.getAttribute('alt')).toBe(`Cuadro del video en ${mmss(NORMAL.filas[0].t_inicio!)}`);
+    expect(f[6].querySelector('img')).toBeNull();
+    const conSegundo = NORMAL.filas.filter((fila) => fila.t_inicio != null).length;
+    expect(pantalla().querySelectorAll('tbody img.miniatura')).toHaveLength(conSegundo);
+    expect(pantalla().querySelector('th.col-miniatura')).not.toBeNull();
     expect(pantalla().querySelector('tbody input')).toBeNull();
+  });
+
+  it('una miniatura que no carga se oculta, sin imagen rota', () => {
+    llegaReporte(NORMAL);
+    const img = filas()[0].querySelector('img.miniatura') as HTMLImageElement;
+    img.dispatchEvent(new Event('error'));
+    expect(filas()[0].querySelector('img')).toBeNull();
+    expect(filas()[1].querySelector('img.miniatura')).not.toBeNull();
+  });
+
+  it('con "sin_imagen" no hay columna de miniatura ni recuadro de provisional', () => {
+    llegaReporte(
+      conMetadatos((m) => (m.avisos = [{ tipo: 'sin_imagen', detalle: 'sin pista de video' }])),
+    );
+    expect(pantalla().querySelector('.col-miniatura')).toBeNull();
     expect(pantalla().querySelector('tbody img')).toBeNull();
+    expect(pantalla().querySelector('.avisos')).toBeNull();
+    // Las columnas siguen en su lugar: estado primero.
+    expect(filas()[0].children[0].querySelector('.estado-etiqueta')).not.toBeNull();
+  });
+
+  it('el recuadro de provisional no lista los avisos informativos', () => {
+    const reporte = structuredClone(PROVISIONAL);
+    reporte.metadatos.avisos = [
+      ...(reporte.metadatos.avisos ?? []),
+      { tipo: 'sin_imagen', detalle: 'sin pista de video' },
+    ];
+    llegaReporte(reporte);
+    const avisos = pantalla().querySelector('.avisos') as HTMLElement;
+    expect(avisos.textContent).toContain('Pares sin revisar por el juez');
+    expect(avisos.textContent).not.toContain('Video sin imagen');
   });
 
   it('con el ejemplo provisional muestra el aviso y la zona gris como "Sin revisar"', () => {
@@ -445,9 +527,62 @@ describe('Reporte', () => {
     expect(filas()).toHaveLength(NORMAL.filas.length);
   });
 
+  /** Un `error` del `<video>` con el `MediaError` de código `codigo`. */
+  function falla(codigo: number): void {
+    const video = pantalla().querySelector('video')!;
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: codigo } });
+    video.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+  }
+
+  it('un formato que el navegador no reproduce (AVI) lo dice y ofrece descargarlo', () => {
+    llegaReporte(NORMAL);
+    falla(4);
+    const sonda = http.expectOne('/api/videos/7/video');
+    expect(sonda.request.headers.get('Range')).toBe('bytes=0-0');
+    sonda.flush(new Blob(['R']), { status: 206, statusText: 'Partial Content' });
+    fixture.detectChanges();
+
+    const aviso = pantalla().querySelector('.aviso-video')!;
+    expect(aviso.textContent).toContain('El navegador no reproduce este formato.');
+    expect(aviso.textContent).toContain('Los segundos de cada hallazgo siguen en la tabla.');
+    const enlace = aviso.querySelector<HTMLAnchorElement>('a.descargar-video')!;
+    expect(enlace.getAttribute('href')).toBe('/api/videos/7/video');
+    expect(enlace.hasAttribute('download')).toBe(true);
+    expect(filas()).toHaveLength(NORMAL.filas.length);
+  });
+
+  it('con el mismo código pero sin archivo (404) dice que no cargó, sin enlace', () => {
+    llegaReporte(NORMAL);
+    falla(4);
+    http
+      .expectOne('/api/videos/7/video')
+      .flush(new Blob(['{"detail": {"mensaje": "el archivo del video no está en disco"}}']), {
+        status: 404,
+        statusText: 'Not Found',
+      });
+    fixture.detectChanges();
+
+    expect(pantalla().querySelector('.aviso-video')?.textContent).toContain(
+      'No se pudo cargar el video',
+    );
+    expect(pantalla().querySelector('a.descargar-video')).toBeNull();
+  });
+
+  it('otro error del video (red) no consulta el archivo', () => {
+    llegaReporte(NORMAL);
+    falla(2);
+    http.expectNone('/api/videos/7/video');
+    expect(pantalla().querySelector('.aviso-video')?.textContent).toContain(
+      'No se pudo cargar el video',
+    );
+  });
+
   it('con "error" a medio proceso, el tiempo se congela junto al mensaje', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).flush(estado('procesando'));
+    vi.advanceTimersByTime(INTERVALO_MS);
+    http.expectOne(ESTADO).flush(estado('procesando', { progreso: 35 }));
     vi.advanceTimersByTime(INTERVALO_MS);
     http
       .expectOne(ESTADO)
@@ -541,11 +676,26 @@ describe('Reporte', () => {
     http.expectNone(ESTADO);
   });
 
-  it('sin conexión con la API muestra el aviso en español', () => {
+  it('sin conexión con la API muestra el aviso en español y reintenta con espera creciente', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
-    expect(texto()).toContain('No hay conexión con la API (¿está corriendo en el puerto 8000?)');
-    vi.advanceTimersByTime(INTERVALO_MS);
+    expect(texto()).toContain('No hay conexión con la API: revisa la red o que el servidor esté encendido.');
+    expect(texto()).toContain('Reintento 1 en 1.5 s');
+    vi.advanceTimersByTime(1500);
+    http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
+    expect(texto()).toContain('Reintento 2 en 3 s');
+    vi.advanceTimersByTime(3000);
+    http.expectOne(ESTADO).flush(estado('listo'));
+    http.expectOne(REPORTE).flush(NORMAL);
+    expect(texto()).not.toContain('No hay conexión');
+    expect(filas()).toHaveLength(NORMAL.filas.length);
+  });
+
+  it('con "afinidad_baja" no vuelve a consultar aunque pase mucho tiempo (RF-08)', () => {
+    vi.advanceTimersByTime(0);
+    http.expectOne(ESTADO).flush(estado('afinidad_baja', { etapa: 'afinidad', progreso: 50 }));
+    vi.advanceTimersByTime(10 * 60_000);
     http.expectNone(ESTADO);
+    http.expectNone(REPORTE);
   });
 });

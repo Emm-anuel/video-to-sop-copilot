@@ -1,0 +1,153 @@
+<div class="encabezado">
+  <h1>Biblioteca de SOP</h1>
+  <button type="button" class="principal" (click)="archivo.click()">Subir SOP</button>
+  <input
+    #archivo
+    id="subir-sop"
+    type="file"
+    accept=".md,.txt,.pdf,.docx"
+    multiple
+    hidden
+    (change)="subir($event)"
+  />
+</div>
+<p class="nota">
+  Los SOP listos para usar como referencia al validar un video. Se suben en Markdown, texto, PDF o
+  Word; los generados desde un video entran al guardarlos desde su editor.
+</p>
+
+<div class="filtros">
+  <label class="filtro">
+    <span>Buscar</span>
+    <input
+      id="buscar"
+      type="search"
+      placeholder="Título o código"
+      [value]="consulta()"
+      (input)="consulta.set($any($event.target).value)"
+    />
+  </label>
+  <label class="filtro">
+    <span>Origen</span>
+    <select id="origen" [value]="origen()" (change)="cambiarOrigen($event)">
+      <option value="todos">Todos</option>
+      <option value="cargado">Cargados</option>
+      <option value="generado">Generados desde un video</option>
+    </select>
+  </label>
+</div>
+
+@if (subidas().length) {
+  <ul class="subidas" aria-label="SOP subiéndose">
+    @for (s of subidas(); track s.clave) {
+      <li class="subida" [class.fallo]="s.error || s.estado?.estado === 'error'">
+        <span class="nombre">{{ s.nombre }}</span>
+        @if (s.error; as e) {
+          <span class="detalle">{{ e }}</span>
+        } @else {
+          <span class="detalle" role="status">
+            {{ s.estado?.codigo ? s.estado!.codigo + ' · ' : '' }}{{ etapa(s) }}
+          </span>
+          @if (s.estado?.estado === 'error' && s.estado?.mensaje) {
+            <span class="detalle">{{ s.estado!.mensaje }}</span>
+          }
+        }
+        @if (s.error || s.estado?.estado === 'error') {
+          <button type="button" (click)="descartar(s)">Descartar</button>
+        }
+      </li>
+    }
+  </ul>
+}
+
+@if (errorCarga(); as e) {
+  <div class="error" role="alert">
+    <p>{{ e }}</p>
+    <button type="button" (click)="recargar()">Reintentar</button>
+  </div>
+} @else if (sops() === null) {
+  <p class="nota" role="status">Cargando la biblioteca…</p>
+} @else if (sops()!.length === 0) {
+  <p class="vacia">
+    Todavía no hay SOP. Sube uno con "Subir SOP" o
+    <a routerLink="/nuevo">genera uno desde un video</a>.
+  </p>
+} @else {
+  <p class="conteo">{{ visibles().length }} de {{ sops()!.length }} SOP</p>
+  @if (visibles().length === 0) {
+    <p class="nota">Ningún SOP coincide con la búsqueda.</p>
+  } @else {
+    <div class="cabecera" aria-hidden="true">
+      <span>Código</span><span>Título</span><span>Origen</span><span>Fecha</span
+      ><span>Validados</span><span>Acciones</span>
+    </div>
+    <ul class="sops">
+      @for (s of visibles(); track s.id) {
+        <li class="sop" [class.nuevo]="recientes().has(s.id)">
+          <span class="codigo">{{ s.codigo }}</span>
+          <span class="titulo">
+            {{ s.titulo }}
+            @if (recientes().has(s.id)) {
+              <span class="etiqueta">Nuevo</span>
+            }
+          </span>
+          <span class="origen">{{
+            s.origen === 'generado' ? 'Generado desde un video' : 'Cargado'
+          }}</span>
+          <span class="fecha"
+            ><time [attr.datetime]="s.creado">{{ fechaCorta(s.creado) }}</time></span
+          >
+          <span class="videos">
+            {{ s.videos_validados }}
+            {{ s.videos_validados === 1 ? 'video validado' : 'videos validados' }}
+          </span>
+          <span class="acciones">
+            <a class="boton" [routerLink]="['/sops', s.id]">Ver o editar</a>
+            <a class="boton" routerLink="/nuevo" [queryParams]="{ sop: s.id }">Usar para validar</a>
+            @if (confirmando() === s.id) {
+              <span class="confirmar">
+                <span>
+                  ¿Eliminar {{ s.codigo }}?
+                  {{
+                    s.origen === 'cargado'
+                      ? 'Se borra de la biblioteca y también el archivo original que se subió.'
+                      : 'Se borra de la biblioteca.'
+                  }}
+                  No se puede deshacer.
+                </span>
+                <button type="button" class="peligro" (click)="eliminar(s)">Sí, eliminar</button>
+                <button type="button" (click)="confirmando.set(null)">Cancelar</button>
+              </span>
+            } @else {
+              <button
+                type="button"
+                [disabled]="borrando() === s.id"
+                (click)="pedirConfirmacion(s.id)"
+                [attr.aria-label]="'Eliminar ' + s.codigo"
+              >
+                {{ borrando() === s.id ? 'Eliminando…' : 'Eliminar' }}
+              </button>
+            }
+          </span>
+          @if (avisos()[s.id]; as a) {
+            <p class="aviso" [class.conflicto]="a.conflicto" role="alert">{{ a.texto }}</p>
+          }
+          @if (recientes().get(s.id); as r) {
+            @if (r.advertencias.length || r.metodo === 'llm') {
+              <p class="nota revisar">
+                {{
+                  r.metodo === 'llm'
+                    ? 'No seguía la plantilla: lo convirtió el modelo.'
+                    : 'Se convirtió con ' + r.advertencias.length + ' advertencia(s).'
+                }}
+                <a [routerLink]="['/sops', s.id]">Revísalo</a> antes de usarlo.
+              </p>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+}
+
+<p class="sr-only" role="status" aria-live="polite">{{ anuncio() }}</p>

@@ -5,42 +5,48 @@
     "confianza": "alta",
     "fuente": "audio",
     "t": 6.36,
-    "cita": ""
+    "cita": "",
+    "revisado": false
   },
   "tema": {
     "valor": "Mantenimiento preventivo del filtro de agua",
     "confianza": "media",
     "fuente": "inferido",
     "t": null,
-    "cita": ""
+    "cita": "",
+    "revisado": false
   },
   "lugar": {
     "valor": "Línea de enjuague",
     "confianza": "alta",
     "fuente": "audio",
     "t": 0.4,
-    "cita": ""
+    "cita": "",
+    "revisado": false
   },
   "horario_mencionado": {
     "valor": "Cada tres meses o cuando el manómetro marca menos de dos bar",
     "confianza": "alta",
     "fuente": "audio",
     "t": 12.53,
-    "cita": ""
+    "cita": "",
+    "revisado": false
   },
   "proposito": {
     "valor": "Mostrar paso a paso cómo se cambia el cartucho del filtro de agua",
     "confianza": "alta",
     "fuente": "audio",
     "t": 6.36,
-    "cita": ""
+    "cita": "",
+    "revisado": false
   },
   "resumen": {
     "valor": "Laura, técnica de mantenimiento, cambia el cartucho del filtro de agua de la línea de enjuague: se pone guantes y lentes, cierra la llave de paso, libera la presión, cambia el cartucho y revisa que no haya fugas.",
     "confianza": "media",
     "fuente": "inferido",
     "t": null,
-    "cita": ""
+    "cita": "",
+    "revisado": false
   },
   "personas": [
     {

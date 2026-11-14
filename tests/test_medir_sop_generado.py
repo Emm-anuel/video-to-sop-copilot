@@ -1,7 +1,10 @@
 """Funciones puras de `scripts/medir_sop_generado.py` (sin Ollama ni Whisper)."""
 
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -97,3 +100,69 @@ def test_varios_pasos_en_un_mismo_paso_de_referencia_cuentan_y_el_orden_se_respe
         (3, True),
         (None, False),  # mezcla pasos de referencia
     ]
+
+
+# ── SOP editado en el editor (RF-26, ADR-025) ───────────────────────────────────────────────
+
+SOP_EDITADO = {
+    "titulo": "x",
+    "pasos": [
+        {"numero": 1, "nombre": "Cerrar la llave", "responsable": "T", "t_inicio": 10, "t_fin": 49},
+        {"numero": 2, "nombre": "Anotar", "responsable": "T"},
+    ],
+}
+
+
+def test_un_paso_agregado_a_mano_sin_tiempos_no_cae_en_ningun_tramo():
+    assert medir.correctos_por_tramos([(12.0, 29.0), (None, None)], TRAMOS) == [
+        (1, True),
+        (None, False),
+    ]
+    assert medir._tramo({"t_inicio": None, "t_fin": None}) == "sin tiempos"
+    assert medir._tramo({"t_inicio": 10.0, "t_fin": 49.0}) == "10.0–49.0"
+
+
+@pytest.mark.parametrize(
+    "contenido",
+    [
+        SOP_EDITADO,  # el SOP del contrato
+        {"id": 42, "codigo": "SOP-0042", "sop": SOP_EDITADO},  # GET /sops/{id}
+        {"sop": SOP_EDITADO, "advertencias": [], "generacion": {}},  # archivo de una corrida
+    ],
+)
+def test_el_sop_editado_se_lee_de_un_json(tmp_path, contenido):
+    ruta = tmp_path / "editado.json"
+    ruta.write_text(json.dumps(contenido), "utf-8")
+    sop = medir.leer_sop_editado(str(ruta))
+    assert [p.nombre for p in sop.pasos] == ["Cerrar la llave", "Anotar"]
+
+
+def test_el_sop_editado_se_lee_por_sop_id(monkeypatch):
+    class Fila:
+        contenido = SOP_EDITADO
+
+    class Sesion:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def get(self, modelo, sop_id):
+            return Fila() if sop_id == 42 else None
+
+    monkeypatch.setattr(medir, "get_sessionmaker", lambda: Sesion)
+    assert len(medir.leer_sop_editado("42").pasos) == 2
+    with pytest.raises(SystemExit, match="no existe"):
+        medir.leer_sop_editado("7")
+    with pytest.raises(SystemExit, match="ni un archivo"):
+        medir.leer_sop_editado("no_existe.json")
+
+
+def test_sop_editado_espera_clave_y_origen():
+    assert medir.ediciones(["video_e=42", "video_a=sop.json"]) == {
+        "video_e": "42",
+        "video_a": "sop.json",
+    }
+    with pytest.raises(SystemExit):
+        medir.ediciones(["42"])

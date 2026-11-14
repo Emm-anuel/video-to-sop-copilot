@@ -376,7 +376,13 @@
       "llm": "gpu",
       "embedder": "cpu"
     },
-    "segmentacion_reusada": false
+    "segmentacion_reusada": false,
+    "imagenes": {
+      "descritas": false,
+      "cantidad": 0,
+      "tokens_entrada": null,
+      "tokens_salida": null
+    }
   },
   "creado": "2026-10-27T12:00:00Z"
 }

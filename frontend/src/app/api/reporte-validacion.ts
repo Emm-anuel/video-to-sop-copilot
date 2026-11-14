@@ -86,7 +86,9 @@ export type Tipo =
   | "juez_sin_revisar"
   | "pasos_sin_redactar"
   | "contexto_sin_generar"
-  | "transcripcion_no_referencia";
+  | "transcripcion_no_referencia"
+  | "imagenes_incompletas"
+  | "sin_imagen";
 export type Detalle = string;
 export type Avisos = Aviso[];
 export type Gpu = string | null;
@@ -95,13 +97,17 @@ export type TranscripcionRespaldoCpu = boolean;
 export type Llm = "cpu" | "gpu" | "desconocido";
 export type Embedder1 = "cpu";
 export type SegmentacionReusada = boolean;
+export type Descritas = boolean;
+export type Cantidad = number;
+export type TokensEntrada = number | null;
+export type TokensSalida = number | null;
 export type Creado = string;
 
 /**
  * Respuesta de `GET /videos/{id}/reporte`.
  *
  * `cumplimiento` es el guardado (dos decimales); `semaforo`, el calculado con el valor sin
- * redondear. `provisional` es true si hay avisos (ADR-019).
+ * redondear. `provisional` es true si hay avisos que no son informativos (ADR-019, ADR-024).
  *
  * `afinidad` (RF-17), `roles` (RF-15), `tiempo_total` y `horario` (RF-16) siguen la sección 10
  * del documento; en los reportes guardados antes de ADR-020 y ADR-021 quedan en `None` o `[]`,
@@ -297,6 +303,7 @@ export interface MetadatosValidacion {
   avisos?: Avisos;
   dispositivos?: Dispositivos | null;
   segmentacion_reusada?: SegmentacionReusada;
+  imagenes?: Imagenes;
 }
 /**
  * Los umbrales de la configuración con que se calculó el reporte (RNF-14).
@@ -320,7 +327,8 @@ export interface Segundos {
   [k: string]: number;
 }
 /**
- * Falla del sistema que afecta al resultado. `detalle` no lleva texto del video ni del SOP.
+ * Falla del sistema que afecta al resultado, o un dato informativo del video
+ * (`AVISOS_INFORMATIVOS`). `detalle` no lleva texto del video ni del SOP.
  */
 export interface Aviso {
   tipo: Tipo;
@@ -340,4 +348,19 @@ export interface Dispositivos {
   transcripcion_respaldo_cpu?: TranscripcionRespaldoCpu;
   llm?: Llm;
   embedder?: Embedder1;
+}
+/**
+ * Si se describieron imágenes del video con Gemma (RF-11, ADR-024) y cuántas entraron.
+ *
+ * `descritas` es lo que se usó de verdad: false con la opción apagada, sin imagen o si ningún
+ * lote se pudo describir; `cantidad`, los fotogramas que recibió la ficha de contexto. Los
+ * tokens son los de todas las llamadas de visión de este proceso (None si no hubo o al repetir
+ * con las imágenes guardadas). Los resultados guardados antes de ADR-024 leen los valores por
+ * defecto.
+ */
+export interface Imagenes {
+  descritas?: Descritas;
+  cantidad?: Cantidad;
+  tokens_entrada?: TokensEntrada;
+  tokens_salida?: TokensSalida;
 }

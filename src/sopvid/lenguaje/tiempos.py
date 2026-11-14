@@ -538,6 +538,32 @@ def esperado_total(sop: SOP) -> float | None:
     return None
 
 
+def con_duracion_recalculada(sop: SOP, narrada: float | None = None) -> SOP:
+    """El SOP con `resumen.duracion_total_min` al día, al guardar una edición (`PUT /sops/{id}`,
+    RF-26, ADR-025): si alguien une, quita o agrega pasos, el total no puede quedarse con el
+    valor de antes, pero lo que dijo el operador no se pisa.
+
+    - Con total narrado (`narrada`, de `generacion.duracion_narrada`): ese, siempre. Lo narrado
+      gana (ADR-021) e incluye pausas que la suma de los pasos no captura.
+    - Sin él y con todos los pasos cronometrados: la suma, redondeada a centésimas.
+    - Sin tiempos en los pasos: la que había (un SOP cargado que solo da el total del documento).
+    - Solo algunos pasos con tiempo: None (una suma parcial engañaría, como en `esperado_total`).
+    """
+    esperados = [p.tiempo_esperado_min for p in sop.pasos]
+    if narrada is not None:
+        total: float | None = narrada
+    elif all(e is None for e in esperados):
+        return sop
+    elif any(e is None for e in esperados):
+        total = None
+    else:
+        total = round(sum(e for e in esperados if e is not None), 2)
+    if total == sop.resumen.duracion_total_min:
+        return sop
+    resumen = sop.resumen.model_copy(update={"duracion_total_min": total})
+    return sop.model_copy(update={"resumen": resumen})
+
+
 def tiempo_total(tiempos: Sequence[TiempoFila | None], sop: SOP, tolerancia: float) -> TiempoTotal:
     """La suma de lo observado en los pares (Falta y Sobra no suman) frente al total del SOP."""
     observado = round(sum(t.observado_min for t in tiempos if t is not None), 2)

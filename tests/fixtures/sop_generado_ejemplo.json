@@ -8,35 +8,40 @@
       "confianza": "alta",
       "fuente": "audio",
       "t": 6.36,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "alcance": {
       "valor": "Filtro de cartucho de la línea de enjuague; incluye revisar el anillo de hule.",
       "confianza": "media",
       "fuente": "inferido",
       "t": null,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "responsable": {
       "valor": "Técnica de mantenimiento",
       "confianza": "alta",
       "fuente": "audio",
       "t": 0.4,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "lugar": {
       "valor": "Línea de enjuague",
       "confianza": "alta",
       "fuente": "audio",
       "t": 0.4,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "horario_frecuencia": {
       "valor": "Cada tres meses o cuando el manómetro marca menos de dos bar",
       "confianza": "alta",
       "fuente": "audio",
       "t": 12.53,
-      "cita": ""
+      "cita": "",
+      "revisado": false
     },
     "duracion_total_min": 2.17,
     "equipo_operacion": [
@@ -104,7 +109,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       },
       {
         "descripcion": "Piso mojado",
@@ -114,7 +120,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       },
       {
         "descripcion": "Rosca barrida por apretar de más",
@@ -124,7 +131,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       }
     ],
     "en_caso_de_falla": [
@@ -134,7 +142,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       },
       {
         "situacion": "El anillo de hule está aplastado o cuarteado",
@@ -142,7 +151,8 @@
         "cita": "",
         "fuente": "documento",
         "confianza": "alta",
-        "t": null
+        "t": null,
+        "revisado": false
       }
     ]
   },
@@ -168,7 +178,8 @@
       ],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 2,
@@ -188,7 +199,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 3,
@@ -209,7 +221,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 4,
@@ -230,7 +243,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 5,
@@ -251,7 +265,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     },
     {
       "numero": 6,
@@ -273,7 +288,8 @@
       "campos_inferidos": [],
       "cita": "",
       "fuente": "documento",
-      "evidencia": []
+      "evidencia": [],
+      "revisado": false
     }
   ],
   "puntos_clave": [
@@ -282,28 +298,32 @@
       "t": 25.94,
       "cita": "",
       "fuente": "documento",
-      "confianza": "alta"
+      "confianza": "alta",
+      "revisado": false
     },
     {
       "texto": "Si la llave de paso está muy dura, no usar extensión: avisar al supervisor de turno.",
       "t": 47.68,
       "cita": "",
       "fuente": "documento",
-      "confianza": "alta"
+      "confianza": "alta",
+      "revisado": false
     },
     {
       "texto": "Revisar el anillo de hule; si está aplastado o cuarteado, se cambia.",
       "t": 91.42,
       "cita": "",
       "fuente": "documento",
-      "confianza": "alta"
+      "confianza": "alta",
+      "revisado": false
     },
     {
       "texto": "No apretar el vaso de más porque se barre la rosca.",
       "t": 121.83,
       "cita": "",
       "fuente": "documento",
-      "confianza": "alta"
+      "confianza": "alta",
+      "revisado": false
     }
   ],
   "palabras_clave": [

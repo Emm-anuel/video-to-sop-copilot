@@ -1,0 +1,134 @@
+<h1>
+  Procesando
+  @if (avance.estado(); as e) {
+    <span class="titulo">· {{ e.titulo }}</span>
+  } @else {
+    <span class="titulo">· video {{ videoId }}</span>
+  }
+</h1>
+
+@if (avance.estado(); as e) {
+  <section class="tarjeta avance" aria-labelledby="etapa-actual">
+    <p id="etapa-actual" class="etapa-actual" role="status">
+      @switch (e.proceso) {
+        @case ('en_cola') {
+          En cola: espera a que termine el video anterior.
+        }
+        @case ('error') {
+          Se detuvo en: {{ avance.etiqueta() }}
+        }
+        @case ('listo') {
+          Listo. Abriendo el resultado…
+        }
+        @case ('afinidad_baja') {
+          Se detuvo: el video parece no corresponder al SOP. Abriendo el reporte…
+        }
+        @default {
+          {{ avance.etiqueta() }}
+        }
+      }
+    </p>
+    <div class="porcentaje">
+      <progress id="progreso" max="100" [value]="avance.progreso()" aria-label="Avance"></progress>
+      <span class="cifra" data-progreso>{{ avance.progreso() }} %</span>
+    </div>
+    @if (imagenes(); as im) {
+      <p class="imagenes" data-imagenes>
+        {{ im.texto }}
+        @if (im.faltan) {
+          · {{ im.faltan }}
+        }
+        @if (im.supuesto) {
+          <span class="nota">(sin saber si hay GPU: se supuso CPU)</span>
+        }
+      </p>
+    }
+    <dl class="datos">
+      <div>
+        <dt>Modo</dt>
+        <dd>{{ e.modo === 'validar' ? 'Validar contra el SOP' : 'Generar el SOP' }}</dd>
+      </div>
+      @if (avance.segundos() != null) {
+        <div>
+          <dt>Tiempo</dt>
+          <dd data-tiempo>{{ mmss(avance.segundos()!) }}</dd>
+        </div>
+      }
+      @if (dispositivos(); as d) {
+        <div>
+          <dt>Transcripción</dt>
+          <dd data-dispositivo="whisper">{{ d.whisper }}</dd>
+        </div>
+        <div>
+          <dt>Modelo de lenguaje</dt>
+          <dd data-dispositivo="llm">{{ d.llm }}</dd>
+        </div>
+      }
+    </dl>
+    @if (avance.reintento(); as r) {
+      <p class="aviso" role="status" data-reintento>
+        {{ r.mensaje }} Reintento {{ r.intento }} en {{ r.esperaMs / 1000 }} s…
+      </p>
+    }
+  </section>
+
+  @if (e.proceso === 'error') {
+    <section class="tarjeta fallo" role="alert">
+      <p class="error" data-error>{{ e.error || 'El procesamiento falló.' }}</p>
+      @if (avance.interrumpido()) {
+        <p class="nota">
+          La API se reinició mientras procesaba el video. Reprocesar usa la transcripción guardada
+          si llegó a guardarse; si no, hay que volver a subir el video.
+        </p>
+      }
+      <div class="acciones">
+        <button type="button" class="principal" [disabled]="reprocesando()" (click)="reprocesar()">
+          {{ reprocesando() ? 'Enviando…' : 'Reprocesar' }}
+        </button>
+        <a class="boton" routerLink="/nuevo">Nuevo análisis</a>
+      </div>
+      @if (errorReproceso(); as m) {
+        <p class="error" data-error-reproceso>{{ m }}</p>
+      }
+    </section>
+  }
+
+  <section class="tarjeta" aria-labelledby="titulo-etapas">
+    <h2 id="titulo-etapas">Etapas</h2>
+    <ol class="etapas">
+      @for (etapa of etapas(); track etapa.clave) {
+        <li [class]="'etapa ' + etapa.estado" [attr.data-etapa]="etapa.clave">
+          <span class="marca" aria-hidden="true"></span>
+          <span class="nombre">{{ etapa.nombre }}</span>
+          <span class="estado">{{ textoEstado[etapa.estado] }}</span>
+        </li>
+      }
+    </ol>
+  </section>
+} @else if (avance.reintento(); as r) {
+  <p class="aviso" role="status" data-reintento>
+    {{ r.mensaje }} Reintento {{ r.intento }} en {{ r.esperaMs / 1000 }} s…
+  </p>
+} @else if (!avance.errorConsulta()) {
+  <p>Consultando el estado del video…</p>
+}
+
+@if (avance.errorConsulta(); as m) {
+  <p class="error" role="alert" data-error-consulta>{{ m }}</p>
+}
+
+<section class="tarjeta transcripcion" aria-labelledby="titulo-txt">
+  <div class="encabezado">
+    <h2 id="titulo-txt">Transcripción en vivo</h2>
+    <a
+      class="boton"
+      [href]="urlTxt"
+      [attr.download]="'transcripcion-' + videoId + '.txt'"
+      [class.inactivo]="!transcripcion()"
+      >Descargar TXT</a
+    >
+  </div>
+  <pre #cajaTxt class="txt" tabindex="0" aria-live="off">{{
+    transcripcion() || 'La transcripción aparece aquí en cuanto Whisper empieza a escribir.'
+  }}</pre>
+</section>

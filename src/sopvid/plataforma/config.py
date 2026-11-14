@@ -54,8 +54,13 @@ class Settings(BaseSettings):
     # Tope por llamada a ffmpeg/ffprobe. Extraer mp3 mono va decenas de veces más rápido que el
     # tiempo real: 300 s cubre videos de una hora con margen.
     ffmpeg_timeout_s: float = Field(default=300.0, gt=0)
-    # Tamaño máximo de un video en POST /videos (subida completa, RF-06 del MVP).
+    # Tamaño máximo de un video, en la subida completa (POST /videos) y por partes (POST /uploads).
     subida_max_mb: int = Field(default=1024, gt=0)
+    # Subida por partes (RF-06): tamaño de cada parte. Admite fracciones para las pruebas (KB).
+    subida_parte_mb: float = Field(default=16, gt=0)
+    # Una subida por partes sin actividad durante estas horas se borra (RNF-09): al arrancar la
+    # API y en cada POST /uploads.
+    subida_caducidad_h: float = Field(default=24, gt=0)
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es
@@ -97,6 +102,34 @@ class Settings(BaseSettings):
     # Dónde corre Gemma (ADR-018): "auto" deja que Ollama use la GPU si la ve; "cpu" pide
     # num_gpu=0 y lo fuerza a la CPU (medir sin GPU, o un equipo donde no cabe en la VRAM).
     llm_dispositivo: Literal["auto", "cpu"] = "auto"
+
+    # Imágenes del video (RF-11, ADR-024). La miniatura por paso se saca siempre, con ffmpeg y sin
+    # modelo: un JPEG con este lado mayor, en media/videos/<id>/miniaturas/.
+    miniatura_lado_px: int = Field(default=320, ge=32, le=1920)
+    # Describir imágenes con Gemma antes de la ficha de contexto: el valor por defecto de la
+    # instalación. `analizar_imagenes` de POST /videos gana sobre él, video por video.
+    fotogramas_describir: bool = False
+    # Cuántas se describen: los pasos del SOP (modo validar) o la duración por `pasos_por_min`
+    # (modo generar), entre `fotogramas_min` y `fotogramas_max` (tope de 20, ADR-002), repartidas
+    # de forma pareja en el video. SIN CALIBRAR: `pasos_por_min` es la mediana de pasos reales por
+    # minuto de A, B, C y E (2.67, 3.14, 1.79, 1.58; D no sigue su SOP), medida el 10 nov.
+    pasos_por_min: float = Field(default=2.2, gt=0)
+    fotogramas_min: int = Field(default=4, ge=1, le=20)
+    fotogramas_max: int = Field(default=20, ge=1, le=20)
+    # JPEG que recibe Gemma (lado mayor) y cuántos van por llamada. FOTOGRAMAS_LOTE es la palanca
+    # para equipos con menos memoria: con 8 la GPU de referencia (8 GB) llega a 7.2 GB (ADR-024).
+    # Si Ollama responde sin memoria, el lote baja solo a la mitad una vez y sigue así; si tampoco
+    # cabe, las imágenes que falten no se describen (aviso "imagenes_incompletas") y el análisis
+    # sigue. En un equipo con menos VRAM, baja este valor (4, 2…) para no perder la primera llamada.
+    fotogramas_lado_px: int = Field(default=512, ge=64, le=1920)
+    fotogramas_lote: int = Field(default=8, ge=1, le=20)
+    # Tope por lote, en flujo (primer token incluido: en CPU leer las imágenes tarda).
+    llm_timeout_fotogramas_s: float = Field(default=600.0, gt=0)
+    # Segundos que suma cada imagen descrita (imágenes + ficha con ellas − ficha sola), para avisar
+    # antes de procesar (GET /videos/estimacion). Mediana de C, D y E, una corrida por
+    # combinación (11 nov, ADR-024): GPU 0.4–1.3 s, CPU 10.4–12.9 s. Pocos videos: orientativo.
+    seg_imagen_gpu: float = Field(default=1.2, ge=0)
+    seg_imagen_cpu: float = Field(default=10.7, ge=0)
 
     # MiniLM para emparejar pasos (ADR-012), siempre en CPU. Los pesos se descargan la primera
     # vez a esta carpeta (ignorada por git; en Docker, el volumen "modelos").
@@ -175,6 +208,15 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _fotogramas_ordenados(self) -> Self:
+        if self.fotogramas_min > self.fotogramas_max:
+            raise ValueError(
+                f"FOTOGRAMAS_MIN ({self.fotogramas_min}) no puede ser mayor que "
+                f"FOTOGRAMAS_MAX ({self.fotogramas_max})"
+            )
+        return self
+
     @property
     def data_path(self) -> Path:
         """`data_dir` absoluto; si es relativo, se resuelve contra la raíz del proyecto."""
@@ -188,6 +230,10 @@ class Settings(BaseSettings):
     @property
     def subida_max_bytes(self) -> int:
         return self.subida_max_mb * 1024 * 1024
+
+    @property
+    def subida_parte_bytes(self) -> int:
+        return max(1, round(self.subida_parte_mb * 1024 * 1024))
 
     def modelo_whisper(self, dispositivo: str) -> str:
         """El modelo de Whisper para `dispositivo` ya resuelto ("cpu" o "cuda")."""

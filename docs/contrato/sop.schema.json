@@ -56,6 +56,12 @@
           "default": "",
           "title": "Cita",
           "type": "string"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "title": "Dato",
@@ -199,6 +205,12 @@
           ],
           "default": null,
           "title": "T"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "required": [
@@ -260,7 +272,7 @@
     },
     "PasoSOP": {
       "additionalProperties": false,
-      "description": "Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.\n\nEn el SOP generado (ADR-023), `cita` y `fuente` son la evidencia del paso (la cita de sus\npasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del\ntiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que\nla pantalla lo resalte. Un SOP cargado deja \"\", \"documento\" y [].",
+      "description": "Paso del SOP. Sin tiempos si el SOP se cargó; con tiempos si se generó desde el video.\n\nEn el SOP generado (ADR-023), `cita` y `fuente` son la evidencia del paso (la cita de sus\npasos del video) y `evidencia`, la de cada elemento de `equipo` y `puntos_validacion`, del\ntiempo y del responsable. Lo que no tiene evidencia va además en `campos_inferidos`, para que\nla pantalla lo resalte. Un SOP cargado deja \"\", \"documento\" y [].\n\nEn el editor (RF-26, ADR-025), editar o confirmar un campo lo saca de `campos_inferidos`, y\n`revisado` dice que una persona revisó el paso: su confianza baja o media deja de resaltarse.",
       "properties": {
         "numero": {
           "minimum": 1,
@@ -379,6 +391,12 @@
           },
           "title": "Evidencia",
           "type": "array"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "required": [
@@ -485,6 +503,12 @@
           ],
           "title": "Confianza",
           "type": "string"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "required": [
@@ -509,7 +533,8 @@
             "confianza": "alta",
             "fuente": "documento",
             "t": null,
-            "cita": ""
+            "cita": "",
+            "revisado": false
           }
         },
         "alcance": {
@@ -519,7 +544,8 @@
             "confianza": "alta",
             "fuente": "documento",
             "t": null,
-            "cita": ""
+            "cita": "",
+            "revisado": false
           }
         },
         "responsable": {
@@ -529,7 +555,8 @@
             "confianza": "alta",
             "fuente": "documento",
             "t": null,
-            "cita": ""
+            "cita": "",
+            "revisado": false
           }
         },
         "lugar": {
@@ -539,7 +566,8 @@
             "confianza": "alta",
             "fuente": "documento",
             "t": null,
-            "cita": ""
+            "cita": "",
+            "revisado": false
           }
         },
         "horario_frecuencia": {
@@ -549,7 +577,8 @@
             "confianza": "alta",
             "fuente": "documento",
             "t": null,
-            "cita": ""
+            "cita": "",
+            "revisado": false
           }
         },
         "duracion_total_min": {
@@ -682,6 +711,12 @@
           ],
           "default": null,
           "title": "T"
+        },
+        "revisado": {
+          "default": false,
+          "description": "Una persona lo editó o lo confirmó en el editor (ADR-025).",
+          "title": "Revisado",
+          "type": "boolean"
         }
       },
       "required": [
@@ -714,6 +749,7 @@
           "cita": "",
           "confianza": "alta",
           "fuente": "documento",
+          "revisado": false,
           "t": null,
           "valor": null
         },
@@ -721,6 +757,7 @@
           "cita": "",
           "confianza": "alta",
           "fuente": "documento",
+          "revisado": false,
           "t": null,
           "valor": null
         },
@@ -728,6 +765,7 @@
           "cita": "",
           "confianza": "alta",
           "fuente": "documento",
+          "revisado": false,
           "t": null,
           "valor": null
         },
@@ -735,6 +773,7 @@
           "cita": "",
           "confianza": "alta",
           "fuente": "documento",
+          "revisado": false,
           "t": null,
           "valor": null
         },
@@ -742,6 +781,7 @@
           "cita": "",
           "confianza": "alta",
           "fuente": "documento",
+          "revisado": false,
           "t": null,
           "valor": null
         },

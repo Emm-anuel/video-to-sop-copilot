@@ -43,6 +43,15 @@ Ollama no responde al empezar, o no hay pasos del video, el video queda en error
 guardado y `regenerar` lo repite sin Whisper; reusa la ficha y la segmentación guardadas (RNF-07),
 salvo `segmentar=True`. Un SOP generado que ya está en la biblioteca no se pisa: se crea otro.
 
+Imágenes (RF-11, ADR-024): con `imagenes=True` en `encolar` (la API resuelve `analizar_imagenes`
+contra `FOTOGRAMAS_DESCRIBIR`), en los dos modos se describen N imágenes antes de la ficha, en la
+misma carga de Gemma, y quedan en `videos.fotogramas`; el análisis llega entonces a 35 y la etapa
+"fotogramas" avanza de 35 a 45. Apagada, la etapa no aparece. Al repetir (`revalidar`,
+`regenerar`) no se vuelven a describir: se usan las guardadas. Al terminar la validación o la
+generación, ya sin Gemma, se saca una miniatura por fila del reporte con segundo o por paso del SOP
+generado (`percepcion.miniaturas`, solo ffmpeg); sin imagen visible, el aviso informativo
+"sin_imagen" (o la advertencia del SOP). Una falla de ffmpeg ahí no detiene nada.
+
 Dónde corrió cada modelo (ADR-018) va en los metadatos del reporte: la GPU que ve la API, el
 dispositivo con que transcribió Whisper (se toma de su `Transcripcion`) y, desde la validación,
 el de Gemma.
@@ -70,7 +79,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from decimal import Decimal
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
@@ -98,16 +107,30 @@ from sopvid.lenguaje.llm import ClienteLLM, LLMError, LLMNoDisponible, LLMTiempo
 from sopvid.lenguaje.sop_generado import SinPasosDelVideo, generar_sop
 from sopvid.lenguaje.validacion import (
     INICIO_ETAPA,
+    DescribirImagenes,
     Detenida,
     FabricaValidacion,
     Validacion,
     avisos_de,
+    inicio_etapas,
     segmentacion_de,
     segmentacion_guardada,
     validar,
 )
 from sopvid.percepcion.contexto import ResultadoContexto, generar_contexto
+from sopvid.percepcion.fotogramas import (
+    ResultadoFotogramas,
+    cuantas_imagenes,
+    describir_fotogramas,
+    imagenes_de,
+)
 from sopvid.percepcion.medios import ErrorMedios
+from sopvid.percepcion.miniaturas import (
+    ResultadoMiniaturas,
+    aviso_sin_imagen,
+    carpeta_miniaturas,
+    generar_miniaturas,
+)
 from sopvid.percepcion.pipeline import analizar_video
 from sopvid.percepcion.segmentacion import Segmentacion, segmentar
 from sopvid.percepcion.transcripcion import AlSegmento, Transcripcion, Transcriptor
@@ -163,6 +186,26 @@ INICIO_GENERAR = {
     "sop_resumen": 85,
     "sop_claves": 92,
 }
+# Con la descripción de imágenes (ADR-024): el análisis llega a 35 y las imágenes van de 35 a 45.
+INICIO_GENERAR_IMAGENES = {
+    "fotogramas": 35,
+    "contexto": 45,
+    "segmentacion": 55,
+    "sop_pasos": 68,
+    "sop_resumen": 86,
+    "sop_claves": 93,
+}
+
+
+def inicio_generar(imagenes: bool) -> dict[str, int]:
+    """La tabla de avance del modo generar, con o sin la etapa de imágenes."""
+    return INICIO_GENERAR_IMAGENES if imagenes else INICIO_GENERAR
+
+
+def fin_analisis(valida: bool, imagenes: bool) -> int:
+    """Hasta dónde llega el avance del análisis: la primera etapa de Gemma del modo."""
+    tabla = inicio_etapas(imagenes) if valida else inicio_generar(imagenes)
+    return min(tabla.values())
 
 
 def guardar_analisis(video: Video, analisis: Analisis) -> None:
@@ -220,6 +263,7 @@ def guardar_reporte(session: Session, video: Video, validacion: Validacion) -> N
     else:  # una Validacion armada a mano, sin la segmentación: solo los pasos, como antes
         video.pasos_video = [p.model_dump(mode="json") for p in validacion.pasos_video]
     _guardar_contexto(video, validacion.resultado_contexto)
+    _guardar_fotogramas(video, validacion.resultado_fotogramas)
 
 
 def leer_segmentacion(video: Video) -> SegmentacionGuardada | None:
@@ -256,6 +300,14 @@ def guardar_detencion(session: Session, video: Video, detenida: Detenida) -> Non
     )
     video.pasos_video = None
     _guardar_contexto(video, detenida.resultado_contexto)
+    _guardar_fotogramas(video, detenida.resultado_fotogramas)
+
+
+def _guardar_fotogramas(video: Video, descritos: ResultadoFotogramas | None) -> None:
+    """Las imágenes descritas en este proceso van a `videos.fotogramas` (y al `Analisis` que se
+    lee al repetir); sin descripción (apagada o repetida), no se tocan."""
+    if descritos is not None:
+        video.fotogramas = [f.model_dump(mode="json") for f in descritos.fotogramas]
 
 
 def _guardar_contexto(video: Video, generada: ResultadoContexto | None) -> None:
@@ -416,10 +468,15 @@ class Procesador:
         idioma: str | None,
         transcriptor: Transcriptor,
         validacion: FabricaValidacion | None = None,
+        *,
+        imagenes: bool = False,
     ) -> None:
         """Encola el análisis. `validacion` da las dependencias del LLM: en modo validar, para la
-        validación (con la ficha de contexto); en modo generar, solo para la ficha."""
-        self._cola.poner(lambda: self.procesar(video_id, idioma, transcriptor, validacion))
+        validación (con la ficha de contexto); en modo generar, para la ficha y el SOP. Con
+        `imagenes`, se describen imágenes antes de la ficha (ADR-024)."""
+        self._cola.poner(
+            lambda: self.procesar(video_id, idioma, transcriptor, validacion, imagenes=imagenes)
+        )
 
     def revalidar(
         self,
@@ -471,12 +528,14 @@ class Procesador:
         idioma: str | None,
         transcriptor: Transcriptor,
         validacion: FabricaValidacion | None = None,
+        *,
+        imagenes: bool = False,
     ) -> None:
         """Analiza (y valida) el video y guarda el resultado; nunca deja escapar una excepción.
         Corre con el candado de modelo pesado."""
         try:
             with self._candado.tomar(), self._sesiones() as session:
-                self._procesar(session, video_id, idioma, transcriptor, validacion)
+                self._procesar(session, video_id, idioma, transcriptor, validacion, imagenes)
         except Exception as exc:  # el hilo no tiene a quién avisar: se registra y sigue
             logger.error(
                 "Video %d: no se pudo registrar el resultado (%s)", video_id, type(exc).__name__
@@ -520,6 +579,7 @@ class Procesador:
         idioma: str | None,
         transcriptor: Transcriptor,
         validacion: FabricaValidacion | None,
+        imagenes: bool = False,
     ) -> None:
         video = session.get(Video, video_id)
         if video is None:
@@ -528,6 +588,8 @@ class Procesador:
         video.proceso, video.etapa, video.progreso, video.error = PROCESANDO, None, 0, None
         session.commit()
         valida = video.modo == "validar"
+        # Sin dependencias del LLM no hay quién describa las imágenes.
+        imagenes = imagenes and validacion is not None
         if valida and (video.sop is None or validacion is None):
             self._fallar(session, video_id, ERROR_SIN_SOP)
             return
@@ -535,7 +597,7 @@ class Procesador:
             self._fallar(session, video_id, error_de_sop(video.sop))
             return
         archivo = self._media / video.archivo
-        fin = FIN_ANALISIS_VALIDAR if valida else FIN_ANALISIS_GENERAR
+        fin = fin_analisis(valida, imagenes)
         cronometro = _Cronometro()
         registrado = _TranscriptorRegistrado(transcriptor)
 
@@ -561,7 +623,7 @@ class Procesador:
         guardar_analisis(video, analisis)
         if not valida and validacion is not None:
             session.commit()  # el análisis queda guardado aunque falle la generación
-            self._generar(session, video_id, analisis, validacion)
+            self._generar(session, video_id, analisis, validacion, imagenes=imagenes)
             return
         if not valida:  # sin dependencias del LLM: solo el análisis
             video.etapa, video.progreso = "listo", 100
@@ -577,7 +639,15 @@ class Procesador:
         session.commit()  # el análisis queda guardado aunque falle la validación (ADR-017)
         assert validacion is not None
         dispositivos = _dispositivos(self._gpu(), registrado.ultima)
-        self._validar(session, video, analisis, validacion, cronometro.segundos(), dispositivos)
+        self._validar(
+            session,
+            video,
+            analisis,
+            validacion,
+            cronometro.segundos(),
+            dispositivos,
+            imagenes=imagenes,
+        )
 
     def _revalidar(
         self,
@@ -662,25 +732,33 @@ class Procesador:
         *,
         contexto: Contexto | None = None,
         segmentacion: Segmentacion | None = None,
+        imagenes: bool = False,
     ) -> None:
-        """Modo generar (ADR-023): ficha → pasos del video → SOP generado, en una sola carga de
-        Gemma, y guarda el SOP. Con `contexto` o `segmentacion` (guardados) no se vuelven a pedir.
-        Sin Ollama al empezar o sin pasos del video, el video queda en error (y el SOP también, si
-        ya se había creado). Nunca lanza."""
+        """Modo generar (ADR-023): [imágenes →] ficha → pasos del video → SOP generado, en una
+        sola carga de Gemma, y guarda el SOP. Con `contexto` o `segmentacion` (guardados) no se
+        vuelven a pedir; con la ficha guardada tampoco se describen imágenes. Sin Ollama al
+        empezar o sin pasos del video, el video queda en error (y el SOP también, si ya se había
+        creado). Nunca lanza."""
         video = session.get(Video, video_id)
         video.proceso, video.error = PROCESANDO, None
+        imagenes = imagenes and contexto is None
+        tabla = inicio_generar(imagenes)
         primera = "contexto" if contexto is None else "segmentacion"
         if contexto is not None and segmentacion is not None:
             primera = "sop_pasos"
-        video.etapa, video.progreso = primera, INICIO_GENERAR[primera]
+        if imagenes:
+            primera = "fotogramas"
+        video.etapa, video.progreso = primera, tabla[primera]
         session.commit()
 
-        def avanzar(etapa: str) -> None:
-            video.etapa, video.progreso = etapa, INICIO_GENERAR[etapa]
+        def avanzar(etapa: str, porcentaje: int | None = None) -> None:
+            video.etapa = etapa
+            video.progreso = tabla[etapa] if porcentaje is None else porcentaje
             session.commit()
 
         contexto_reusado, segmentacion_reusada = contexto is not None, segmentacion is not None
         resultado_contexto: ResultadoContexto | None = None
+        resultado_fotogramas: ResultadoFotogramas | None = None
         fila: Sop | None = None
         deps = None
         try:
@@ -690,6 +768,20 @@ class Procesador:
                 self._fallar(session, video_id, ERROR_LLM_GENERAR.format(id=video_id))
                 return
             try:
+                if imagenes:
+                    rango = tabla["contexto"] - tabla["fotogramas"]
+                    n = cuantas_imagenes("generar", None, analisis.duracion_s)
+                    resultado_fotogramas = self._describidor(session, video, analisis, n)(
+                        llm,
+                        lambda fraccion: avanzar(
+                            "fotogramas", tabla["fotogramas"] + int(rango * min(fraccion, 1.0))
+                        ),
+                    )
+                    analisis = analisis.model_copy(
+                        update={"fotogramas": resultado_fotogramas.fotogramas}
+                    )
+                    _guardar_fotogramas(video, resultado_fotogramas)
+                    session.commit()
                 if contexto is None:
                     avanzar("contexto")
                     resultado_contexto = generar_contexto(analisis, llm)
@@ -737,8 +829,18 @@ class Procesador:
 
         avisos = [
             AvisoConversion(tipo=a.tipo, mensaje=a.detalle)
-            for a in avisos_de(segmentacion, None, resultado_contexto, analisis)
+            for a in avisos_de(
+                segmentacion, None, resultado_contexto, analisis, resultado_fotogramas
+            )
         ]
+        # Ya sin Gemma: una miniatura por paso del SOP generado, en su inicio (ADR-024).
+        video = session.get(Video, video_id)
+        miniaturas = self._miniaturas(
+            video, analisis, [p.t_inicio for p in generado.sop.pasos if p.t_inicio is not None]
+        )
+        if miniaturas.sin_imagen and not any(a.tipo == "sin_imagen" for a in avisos):
+            aviso = aviso_sin_imagen()
+            avisos.append(AvisoConversion(tipo=aviso.tipo, mensaje=aviso.detalle))
         fila = session.get(Sop, fila.id)
         fila.titulo = generado.sop.titulo
         fila.contenido = generado.sop.model_dump(mode="json")
@@ -748,6 +850,7 @@ class Procesador:
                 "dispositivo_llm": dispositivo,
                 "contexto_reusado": contexto_reusado,
                 "segmentacion_reusada": segmentacion_reusada,
+                "imagenes": imagenes_de(resultado_fotogramas, analisis),
             }
         ).model_dump(mode="json")
         fila.estado, fila.error = SOP_LISTO, None
@@ -775,11 +878,14 @@ class Procesador:
         *,
         continuar: bool = False,
         segmentacion: Segmentacion | None = None,
+        imagenes: bool = False,
     ) -> None:
         """Valida, guarda el reporte y deja el video listo; si algo falla, en error. Con
         `contexto` (la ficha guardada) no se vuelve a generar, y con `segmentacion` (la guardada,
-        RNF-07) no se vuelve a segmentar. Si la validación se detiene por
-        afinidad baja (sin `continuar`), guarda la detención y deja el video en "afinidad_baja".
+        RNF-07) no se vuelve a segmentar. Con `imagenes` (y sin ficha guardada), se describen N
+        imágenes antes de la ficha, N = los pasos del SOP (ADR-024). Si la validación se detiene
+        por afinidad baja (sin `continuar`), guarda la detención y deja el video en
+        "afinidad_baja". Con el reporte listo, una miniatura por fila con segundo.
 
         El SOP de referencia tiene que estar listo: el suyo va antes en la cola, así que aquí ya
         terminó; si quedó en error, el video falla con ese mensaje.
@@ -802,9 +908,13 @@ class Procesador:
             session.commit()
 
         deps = None
+        describir: DescribirImagenes | None = None
         try:
             deps = fabrica()
             sop = SOP.model_validate(sop_fila.contenido)
+            if imagenes and contexto is None:
+                n = cuantas_imagenes("validar", len(sop.pasos), analisis.duracion_s)
+                describir = self._describidor(session, video, analisis, n)
             validacion = validar(
                 analisis,
                 sop,
@@ -815,6 +925,7 @@ class Procesador:
                 contexto=contexto,
                 continuar=continuar,
                 segmentacion=segmentacion,
+                describir_imagenes=describir,
             )
         except LLMNoDisponible:
             self._fallar(session, video_id, ERROR_LLM.format(id=video_id))
@@ -829,7 +940,8 @@ class Procesador:
                 deps.cerrar()
         if isinstance(validacion, Detenida):
             guardar_detencion(session, video, validacion)
-            video.etapa, video.progreso = "afinidad", INICIO_ETAPA["segmentacion"]
+            video.etapa = "afinidad"
+            video.progreso = inicio_etapas(describir is not None)["segmentacion"]
             video.proceso, video.error = AFINIDAD_BAJA, None
             session.commit()
             logger.info(
@@ -838,6 +950,7 @@ class Procesador:
                 validacion.detencion.afinidad.valor,
             )
             return
+        validacion = self._con_miniaturas(video, analisis, validacion)
         guardar_reporte(session, video, validacion)
         video.etapa, video.progreso = "listo", 100
         video.proceso, video.error = LISTO, None
@@ -848,6 +961,71 @@ class Procesador:
             validacion.resultado.cumplimiento,
             validacion.resultado.semaforo,
         )
+
+    def _describidor(
+        self, session: Session, video: Video, analisis: Analisis, n: int
+    ) -> DescribirImagenes:
+        """Describe `n` imágenes del video con el cliente que se le pase (misma carga de Gemma).
+        Lleva la cuenta en `videos.imagenes_hechas` e `imagenes_total` para la pantalla de avance
+        (RF-08); el commit va aquí para que la cuenta inicial (0 de N) se vea antes del primer
+        lote."""
+        archivo = self._media / video.archivo
+
+        def contar(hechas: int, total: int) -> None:
+            video.imagenes_hechas, video.imagenes_total = hechas, total
+            session.commit()
+
+        def describir(llm: ClienteLLM, al_avanzar: Callable[[float], None]) -> ResultadoFotogramas:
+            return describir_fotogramas(
+                archivo,
+                archivo.parent,
+                analisis.duracion_s,
+                n,
+                llm,
+                al_avanzar=al_avanzar,
+                al_contar=contar,
+            )
+
+        return describir
+
+    def _miniaturas(
+        self, video: Video, analisis: Analisis, tiempos: list[float]
+    ) -> ResultadoMiniaturas:
+        """Una miniatura por segundo de `tiempos` (ADR-024); nunca lanza."""
+        archivo = self._media / video.archivo
+        try:
+            return generar_miniaturas(
+                archivo,
+                carpeta_miniaturas(archivo.parent),
+                tiempos,
+                analisis.duracion_s,
+                get_settings().miniatura_lado_px,
+            )
+        except Exception as exc:  # p. ej. sin permisos en la carpeta: el resultado se guarda igual
+            logger.warning("Video %d: miniaturas sin generar (%s)", video.id, type(exc).__name__)
+            return ResultadoMiniaturas()
+
+    def _con_miniaturas(
+        self, video: Video, analisis: Analisis, validacion: Validacion
+    ) -> Validacion:
+        """Saca una miniatura por fila del reporte con segundo y devuelve la validación con
+        `segundos["miniaturas"]` y, sin imagen visible, el aviso informativo "sin_imagen"."""
+        pasos = validacion.resultado.resultado.clasificacion.pasos
+        miniaturas = self._miniaturas(
+            video, analisis, [p.t_inicio for p in pasos if p.t_inicio is not None]
+        )
+        metadatos = validacion.resultado.metadatos
+        avisos = list(metadatos.avisos)
+        if miniaturas.sin_imagen and not any(a.tipo == "sin_imagen" for a in avisos):
+            avisos.append(aviso_sin_imagen())
+        metadatos = metadatos.model_copy(
+            update={
+                "avisos": avisos,
+                "segundos": {**metadatos.segundos, "miniaturas": miniaturas.segundos},
+            }
+        )
+        resultado = validacion.resultado.model_copy(update={"metadatos": metadatos})
+        return replace(validacion, resultado=resultado)
 
     def _convertir_sop(
         self, session: Session, sop_id: int, fabrica_llm: FabricaLLM, ajustes: AjustesConversion

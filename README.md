@@ -2,7 +2,16 @@
 
 Valida videos de operación contra su Procedimiento Operativo Estándar (SOP), redacta el SOP cuando no existe y permite buscar al segundo exacto. Todo corre local, con modelos abiertos y costo cero.
 
-> **Repositorio privado.** El código y la arquitectura son propiedad de Alignity IQ Edge conforme al NDA firmado. No es público y no se comparte fuera del equipo, el asesor y el patrocinador.
+> **Propiedad y confidencialidad.** El código fuente, la arquitectura, las lógicas de
+> flujo y los prompts de este proyecto son propiedad de Alignity IQ Edge / Dr. Jose
+> Jacobo Eluani Vázquez, bajo el NDA del 1 de septiembre de 2026 (cl. 3.1 y 3.2). La
+> entrega final se hace en el repositorio que designe el patrocinador (cl. 8).
+>
+> **Nada del cliente entra a este repositorio** (cl. 5): ni videos, ni SOP, ni
+> transcripciones, ni capturas, ni datos identificables, ni siquiera fragmentos. El
+> material del cliente se referencia por identificador y vive en el almacenamiento
+> aprobado. El desarrollo usa datasets públicos y video grabado por el equipo. En video
+> de planta aparecen rostros de trabajadores: dato personal bajo la LFPDPPP.
 
 ---
 

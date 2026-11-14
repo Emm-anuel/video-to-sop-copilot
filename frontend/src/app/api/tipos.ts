@@ -36,6 +36,16 @@ export interface EstadoSop {
   en_biblioteca?: boolean;
 }
 
+/**
+ * Lo que la pantalla usa de `generacion` (`GeneracionSOP`, ADR-023): el video del que salió.
+ * `grupos` registra lo que hizo el modelo y no refleja las ediciones (ADR-025).
+ */
+export interface GeneracionSop {
+  video_id: number;
+  /** La duración total que dijo el operador, en minutos como texto (ADR-021); gana al editar. */
+  duracion_narrada?: { valor: string | null } | null;
+}
+
 /** `GET /sops/{id}`: el SOP del contrato con su código y sus advertencias. */
 export interface SopDetalle {
   id: number;
@@ -45,6 +55,8 @@ export interface SopDetalle {
   metodo: 'plantilla' | 'llm' | null;
   advertencias: AdvertenciaSOP[];
   en_biblioteca: boolean;
+  /** Solo en un SOP generado desde un video; null en uno cargado. */
+  generacion?: GeneracionSop | null;
   sop: SOP;
 }
 
@@ -56,6 +68,18 @@ export interface VideoCreado {
   id: number;
   proceso: Proceso;
   sop_id?: number | null;
+}
+
+/**
+ * Subida por partes (RF-06): `POST /uploads` (201), `PUT /uploads/{id}?offset=N` y
+ * `GET /uploads/{id}`. `recibidos` es desde dónde sigue la subida.
+ */
+export interface EstadoSubida {
+  upload_id: string;
+  tamano: number;
+  tamano_parte: number;
+  recibidos: number;
+  completo: boolean;
 }
 
 /**
@@ -77,4 +101,67 @@ export interface EstadoVideo {
   /** Afinidad de contexto (ADR-020): con `afinidad_baja`, la de la detención; si no, la del reporte. */
   afinidad?: Afinidad | null;
   sop_id?: number | null;
+  /**
+   * Si se pidió describir imágenes (ADR-024), ya resuelto contra `FOTOGRAMAS_DESCRIBIR`: con
+   * true, la etapa "fotogramas" corre. Un video anterior a la columna llega en false.
+   */
+  analizar_imagenes?: boolean;
+  /**
+   * Imágenes que ya pasaron por Gemma de las sacadas, al día por lote durante "fotogramas": se
+   * muestran tal cual. null si el video nunca las describió.
+   */
+  imagenes_hechas?: number | null;
+  imagenes_total?: number | null;
+}
+
+/** `GET /health` (docs/dev/api.md): lo que usa la pantalla Procesando. */
+export interface Salud {
+  status: string;
+  db: string;
+  llm: string;
+  dispositivos?: {
+    gpu: { nombre: string; vram_mb: number } | null;
+    /** Lo que resolvió faster-whisper: "cuda/float16" o "cpu/int8". */
+    transcripcion: string;
+    /** Política de Gemma: "auto" (Ollama usa la GPU si la ve) o "cpu" (forzada). */
+    llm: 'auto' | 'cpu';
+    embedder: string;
+    avisos: string[];
+  };
+}
+
+/** Un SOP de la biblioteca en `GET /sops` (RF-05): listo y guardado en ella. */
+export interface SopResumen {
+  id: number;
+  codigo: string;
+  titulo: string;
+  origen: 'cargado' | 'generado';
+  creado: string;
+  /** Videos con reporte de validación contra este SOP. */
+  videos_validados: number;
+}
+
+/**
+ * `GET /videos/estimacion` (ADR-024): cuánto sumaría describir las imágenes. Solo informa: la
+ * pantalla nunca deshabilita la casilla por falta de GPU. `aviso` viene redactado por la API.
+ */
+export interface EstimacionImagenes {
+  imagenes_estimadas: number;
+  segundos_extra_gpu: number;
+  segundos_extra_cpu: number;
+  /** Dónde correría Gemma; con `dispositivo_supuesto`, no se pudo saber y se supuso CPU. */
+  dispositivo: 'cpu' | 'gpu';
+  dispositivo_supuesto: boolean;
+  aviso: string;
+  /** `FOTOGRAMAS_DESCRIBIR` de la instalación: el valor con el que arranca la casilla. */
+  analizar_imagenes_defecto: boolean;
+}
+
+/** Parámetros de `GET /videos/estimacion`. */
+export interface PedidoEstimacion {
+  duracionS: number;
+  modo: 'validar' | 'generar';
+  sopId?: number;
+  /** El navegador vio `videoWidth === 0`: no hay imágenes que describir. */
+  sinImagen?: boolean;
 }

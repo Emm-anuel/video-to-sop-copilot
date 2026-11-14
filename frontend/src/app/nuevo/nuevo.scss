@@ -18,6 +18,7 @@ label {
 
 input[type='text'],
 select {
+  min-height: 2.25rem;
   padding: 0.45rem 0.6rem;
   border: 1px solid #b8c0ca;
   border-radius: 0.3rem;
@@ -59,6 +60,8 @@ select {
   }
 }
 
+// Subida por partes (RF-06): porcentaje y MB a la izquierda, Cancelar a la derecha; en un
+// teléfono (RNF-13), si no caben, Cancelar baja a su propia línea.
 .subida {
   display: grid;
   gap: 0.35rem;
@@ -68,8 +71,34 @@ select {
   }
 }
 
+.subida-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+
+  label {
+    flex: 1 1 14rem;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.megas {
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.reanudar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 button {
   justify-self: start;
+  min-height: 2.25rem;
   padding: 0.55rem 1.5rem;
   border: 0;
   border-radius: 0.3rem;
@@ -83,10 +112,111 @@ button {
     background: #98a2b3;
     cursor: not-allowed;
   }
+
+  // Cancelar y Reintentar: secundarios, 36 px de alto como los demás (RNF-13).
+  &.secundario {
+    padding: 0.45rem 1rem;
+    background: #fff;
+    border: 1px solid #b8c0ca;
+    color: #1d2939;
+  }
 }
 
 .casilla {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+
+  input[type='checkbox'] {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    flex: none;
+  }
+}
+
+// Tres modos excluyentes (RF-07): cada opción es un objetivo táctil de 36 px o más (RNF-13).
+.modos {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+
+  legend {
+    padding: 0;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+  }
+}
+
+.modo {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #d8dde3;
+  border-radius: 0.3rem;
+  font-weight: 400;
+  cursor: pointer;
+
+  &:has(input:checked) {
+    background: #eff8ff;
+    border-color: #84caff;
+  }
+
+  input {
+    margin: 0;
+    flex: none;
+  }
+}
+
+// Casilla de imágenes (ADR-024): la etiqueta junto a la casilla; el indicador a su lado y, si no
+// cabe, en la línea de abajo alineado con el texto.
+.imagenes .casilla {
+  flex-wrap: wrap;
+
+  label {
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-weight: 400;
+  }
+}
+
+.indicador {
+  margin-left: 1.75rem;
+  color: #344054;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.aviso-ambar {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: #fffaeb;
+  border: 1px solid #fec84b;
+  border-radius: 0.3rem;
+  color: #93370d;
+  font-size: 0.9rem;
+}
+
+.consentimiento {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+
+  label {
+    font-weight: 400;
+  }
+
+  input[type='checkbox'] {
+    margin-top: 0.15rem;
+  }
+}
+
+input[type='file'] {
+  max-width: 100%;
+  min-height: 2.25rem;
 }

@@ -845,6 +845,26 @@ def test_la_ficha_sin_generar_es_un_aviso_que_vuelve_provisional_al_reporte():
         ReporteValidacion.model_validate(reporte)
 
 
+def test_sin_imagen_es_informativo_e_imagenes_incompletas_vuelve_provisional():
+    """ADR-024: un video sin imagen (A y B) no es una falla; un lote sin describir, sí."""
+    reporte = _fixture("reporte_ejemplo.json")
+    sin_imagen = {"tipo": "sin_imagen", "detalle": "el video no tiene imagen visible"}
+    reporte["metadatos"]["avisos"] = [sin_imagen]
+    assert not ReporteValidacion.model_validate(reporte).provisional
+    reporte["provisional"] = True
+    with pytest.raises(ValidationError, match="no informativos"):
+        ReporteValidacion.model_validate(reporte)
+    reporte["metadatos"]["avisos"].append({"tipo": "imagenes_incompletas", "detalle": "2 de 6"})
+    assert ReporteValidacion.model_validate(reporte).provisional
+
+
+def test_un_reporte_de_antes_de_las_imagenes_se_sigue_leyendo():
+    reporte = _fixture("reporte_ejemplo.json")
+    del reporte["metadatos"]["imagenes"]
+    imagenes = ReporteValidacion.model_validate(reporte).metadatos.imagenes
+    assert (imagenes.descritas, imagenes.cantidad, imagenes.tokens_entrada) == (False, 0, None)
+
+
 def test_las_citas_de_personas_roles_y_horario_son_literales(ejemplo):
     """Regla 4: cada cita aparece tal cual en el segmento que empieza en su segundo."""
     contexto = _fixture("contexto_ejemplo.json")

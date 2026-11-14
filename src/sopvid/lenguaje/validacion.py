@@ -5,9 +5,11 @@ Corre después del análisis (transcripción) y no toca la base: `validar` recib
 SOP y devuelve la ficha de contexto (RF-12), los pasos del video y el `ResultadoValidacion` que se
 guarda en `reportes` (RF-13, RF-14, RF-19).
 
-La ficha de contexto va primero, en la misma ventana de Gemma que los pasos y el juez (una sola
-carga del modelo, ADR-014). Nunca ve el SOP (regla 5). Si ya hay una guardada (repetir solo la
-validación, ADR-019), se reusa sin llamar al modelo. Si queda vacía (`generar_contexto` no lanza),
+Si se piden imágenes (RF-11, ADR-024; apagado por defecto), su descripción va antes que todo, en
+la misma ventana de Gemma, y la ficha las recibe como evidencia visual. La ficha de contexto va
+después, en la misma ventana de Gemma que los pasos y el juez (una sola carga del modelo,
+ADR-014). Nunca ve el SOP (regla 5). Si ya hay una guardada (repetir solo la validación, ADR-019),
+se reusa sin llamar al modelo. Si queda vacía (`generar_contexto` no lanza),
 la validación sigue y el reporte lleva el aviso "contexto_sin_generar".
 
 Después del emparejamiento, ya sin Gemma, los roles del SOP y el responsable de cada paso
@@ -65,6 +67,12 @@ from sopvid.lenguaje.personas import (
 from sopvid.lenguaje.reporte import porcentaje, semaforo
 from sopvid.lenguaje.tiempos import comparar_horario, tiempo_total, tiempos_por_paso
 from sopvid.percepcion.contexto import ResultadoContexto, aviso_contexto, generar_contexto
+from sopvid.percepcion.fotogramas import (
+    AlAvanzarFraccion,
+    ResultadoFotogramas,
+    avisos_fotogramas,
+    imagenes_de,
+)
 from sopvid.percepcion.segmentacion import Segmentacion, segmentar
 from sopvid.percepcion.transcripcion import aviso_transcripcion
 from sopvid.plataforma.config import Settings, get_settings
@@ -74,8 +82,25 @@ logger = logging.getLogger(__name__)
 # Avance global con que empieza cada etapa de la validación. El análisis ocupa de 0 a 40 (lo
 # escala el procesador) y "listo" (100) llega con el reporte guardado.
 INICIO_ETAPA = {"contexto": 40, "segmentacion": 50, "emparejamiento": 80, "reporte": 95}
+# Con la descripción de imágenes (ADR-024): el análisis llega a 35 y las imágenes avanzan de 35 a
+# 45 por lote. Apagada, la etapa no aparece y la tabla es la de siempre.
+INICIO_ETAPA_IMAGENES = {
+    "fotogramas": 35,
+    "contexto": 45,
+    "segmentacion": 55,
+    "emparejamiento": 80,
+    "reporte": 95,
+}
 
 AlAvanzar = Callable[[str, int], None]
+# Describe las imágenes con el cliente de la validación (misma carga de Gemma); lo arma el
+# procesador con la ruta del video y N ya puestos (`fotogramas.describir_fotogramas`).
+DescribirImagenes = Callable[[ClienteLLM, AlAvanzarFraccion], ResultadoFotogramas]
+
+
+def inicio_etapas(imagenes: bool) -> dict[str, int]:
+    """La tabla de avance de la validación, con o sin la etapa de imágenes."""
+    return INICIO_ETAPA_IMAGENES if imagenes else INICIO_ETAPA
 
 
 @dataclass
@@ -116,6 +141,8 @@ class Validacion:
     contexto: Contexto = field(default_factory=Contexto)
     resultado_contexto: ResultadoContexto | None = None
     segmentacion: Segmentacion | None = None
+    # Las imágenes descritas en esta validación (van a `videos.fotogramas`); None si no se pidieron.
+    resultado_fotogramas: ResultadoFotogramas | None = None
 
 
 def segmentacion_guardada(segmentacion: Segmentacion) -> SegmentacionGuardada:
@@ -153,6 +180,7 @@ class Detenida:
     detencion: DetencionAfinidad
     contexto: Contexto
     resultado_contexto: ResultadoContexto | None = None
+    resultado_fotogramas: ResultadoFotogramas | None = None
 
 
 def validar(
@@ -166,6 +194,7 @@ def validar(
     contexto: Contexto | None = None,
     continuar: bool = False,
     segmentacion: Segmentacion | None = None,
+    describir_imagenes: DescribirImagenes | None = None,
     reloj: Callable[[], float] = time.perf_counter,
 ) -> Validacion | Detenida:
     """Genera la ficha de contexto, calcula la afinidad, segmenta, empareja (con el juez) y
@@ -177,6 +206,9 @@ def validar(
     justificaciones del juez sí puede variar (ADR-022). Si la afinidad queda bajo
     `AFINIDAD_MIN`, devuelve una `Detenida` sin segmentar, salvo con `continuar` (quien carga ya
     vio la advertencia): entonces sigue y el reporte lleva la afinidad con `bajo_umbral`.
+
+    Con `describir_imagenes` (ADR-024) y sin ficha guardada, las imágenes se describen primero y
+    la ficha las recibe; con la ficha guardada no se describen (ya se usaron al generarla).
 
     `segundos_analisis` (duracion, audio, transcripcion) se copia a los metadatos junto con los
     de esta etapa (incluida "afinidad"). `dispositivos`
@@ -193,12 +225,28 @@ def validar(
     segundos = dict(segundos_analisis or {})
     llm_en: Dispositivo = "desconocido"
     resultado_contexto: ResultadoContexto | None = None
+    resultado_fotogramas: ResultadoFotogramas | None = None
     detencion: DetencionAfinidad | None = None
+    con_imagenes = describir_imagenes is not None and contexto is None
+    etapas = inicio_etapas(con_imagenes)
     try:
-        # Cuando existan los fotogramas (RF-11), su descripción con Gemma va antes de la ficha,
-        # en esta misma ventana: la ficha los usa como evidencia.
+        # Las imágenes (RF-11) van antes de la ficha, en esta misma ventana: la ficha las usa
+        # como evidencia visual.
+        if describir_imagenes is not None and con_imagenes:
+            avanzar("fotogramas", etapas["fotogramas"])
+            inicio = reloj()
+            rango = etapas["contexto"] - etapas["fotogramas"]
+            resultado_fotogramas = describir_imagenes(
+                deps.llm,
+                lambda fraccion: avanzar(
+                    "fotogramas", etapas["fotogramas"] + int(rango * min(fraccion, 1.0))
+                ),
+            )
+            segundos["fotogramas"] = reloj() - inicio
+            analisis = analisis.model_copy(update={"fotogramas": resultado_fotogramas.fotogramas})
+
         if contexto is None:
-            avanzar("contexto", INICIO_ETAPA["contexto"])
+            avanzar("contexto", etapas["contexto"])
             inicio = reloj()
             resultado_contexto = generar_contexto(analisis, deps.llm)
             segundos["contexto"] = reloj() - inicio
@@ -218,16 +266,16 @@ def validar(
                 avisos=[aviso] if aviso else [],
             )
             # El `finally` descarga Gemma; los dispositivos se completan abajo.
-            return Detenida(detencion, contexto, resultado_contexto)
+            return Detenida(detencion, contexto, resultado_contexto, resultado_fotogramas)
 
         reusada = segmentacion is not None
         if segmentacion is None:
-            avanzar("segmentacion", INICIO_ETAPA["segmentacion"])
+            avanzar("segmentacion", etapas["segmentacion"])
             inicio = reloj()
             segmentacion = segmentar(analisis, deps.llm)
             segundos["segmentacion"] = reloj() - inicio
 
-        avanzar("emparejamiento", INICIO_ETAPA["emparejamiento"])
+        avanzar("emparejamiento", etapas["emparejamiento"])
         inicio = reloj()
         # Sin transcripción no hay pasos ni narración que leer: el juez no hace falta.
         juez = deps.juez if analisis.transcripcion else None
@@ -256,7 +304,7 @@ def validar(
                 settings.afinidad_min,
             )
 
-    avanzar("reporte", INICIO_ETAPA["reporte"])
+    avanzar("reporte", etapas["reporte"])
     # Personas (RF-15, ADR-020): MiniLM y código, con Gemma ya descargado.
     inicio = reloj()
     personas = contexto.personas if con_ficha else []
@@ -291,7 +339,7 @@ def validar(
     )
     segundos["tiempos"] = reloj() - inicio
     pct = porcentaje(resultado)
-    avisos = avisos_de(segmentacion, resultado, resultado_contexto, analisis)
+    avisos = avisos_de(segmentacion, resultado, resultado_contexto, analisis, resultado_fotogramas)
     metadatos = MetadatosValidacion(
         segmentacion=segmentacion.metodo,
         motivo_respaldo=segmentacion.motivo_respaldo,
@@ -302,6 +350,7 @@ def validar(
         avisos=avisos,
         dispositivos=(dispositivos or Dispositivos()).model_copy(update={"llm": llm_en}),
         segmentacion_reusada=reusada,
+        imagenes=imagenes_de(resultado_fotogramas, analisis),
     )
     conteo = resultado.clasificacion.resumen.conteo
     logger.info(
@@ -329,6 +378,7 @@ def validar(
         contexto=contexto,
         resultado_contexto=resultado_contexto,
         segmentacion=segmentacion,
+        resultado_fotogramas=resultado_fotogramas,
     )
 
 
@@ -356,14 +406,17 @@ def avisos_de(
     resultado: ResultadoEmparejamiento | None,
     resultado_contexto: ResultadoContexto | None = None,
     analisis: Analisis | None = None,
+    resultado_fotogramas: ResultadoFotogramas | None = None,
 ) -> list[Aviso]:
     """Lo que vuelve provisional al reporte (ADR-019), en el orden de las etapas: Whisper que no
-    es el de referencia (ADR-018) y las fallas del LLM. Sin `resultado_contexto` (ficha
-    reusada), no hay aviso de la ficha; sin `resultado` (el SOP generado, ADR-023, no empareja),
-    no hay aviso del juez."""
+    es el de referencia (ADR-018) y las fallas del LLM, más "sin_imagen", que solo informa
+    (ADR-024). Sin `resultado_contexto` (ficha reusada), no hay aviso de la ficha; sin
+    `resultado` (el SOP generado, ADR-023, no empareja), no hay aviso del juez; sin
+    `resultado_fotogramas` (imágenes apagadas o reusadas), no hay aviso de imágenes."""
     avisos = []
     if analisis is not None and (aviso := aviso_transcripcion(analisis)):
         avisos.append(aviso)
+    avisos.extend(avisos_fotogramas(resultado_fotogramas))
     if resultado_contexto is not None and (aviso := aviso_contexto(resultado_contexto)):
         avisos.append(aviso)
     if segmentacion.metodo == "heuristica":
