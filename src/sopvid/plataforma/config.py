@@ -142,6 +142,14 @@ class Settings(BaseSettings):
     umbral_bajo: float = Field(default=0.55, ge=0, le=1)
     umbral_alto: float = Field(default=0.75, ge=0, le=1)
     umbral_fusion: float = Field(default=0.55, ge=0, le=1)
+    # Texto vectorizado del paso del video (ADR-026). "cita": nombre + descripción + cita, como
+    # desde ADR-012 (respaldo). "max_si_otro_idioma": si el idioma de la transcripción no es
+    # `sop_idioma`, el coseno de cada par es el mayor entre el texto con cita y sin ella, así que
+    # una cita en otro idioma solo puede ayudar; en el mismo idioma da lo mismo que "cita".
+    emparejar_texto: Literal["cita", "max_si_otro_idioma"] = "max_si_otro_idioma"
+    # Idioma de los SOP (ISO 639-1) contra el que se compara el de la transcripción (ADR-026).
+    # En 1.0 los SOP del patrocinador son en español y traducir el SOP está fuera de alcance.
+    sop_idioma: str = Field(default="es", min_length=2)
     # Candado del SOP generado (ADR-023): si Gemma dice que un paso del video "continua" el
     # anterior pero su coseno MiniLM (minúsculas, nombre, descripción y cita) es menor que
     # `umbral_fusion`, el código lo parte ahí en un paso nuevo.

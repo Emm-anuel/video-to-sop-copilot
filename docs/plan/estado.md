@@ -1,4 +1,4 @@
-# Estado del proyecto · 13 nov 2026
+# Estado del proyecto · 15 nov 2026
 
 Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md).
 
@@ -12,6 +12,21 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
   calificación y seguir los entregables de Canvas.
 - **17 oct:** se reescribió el plan para la versión 1.0 del documento (validar video contra SOP,
   generar SOP y búsqueda exacta). Decisiones en [plan.md §2](plan.md#2-decisiones).
+
+## Semana 6 (16–22 nov) · en curso
+
+- **#11 cerrado (15 nov), [ADR-026](../adr/ADR-026-texto-vectorizado-paso-video.md) (Propuesto).**
+  La cita en inglés hundía el coseno del paso del video: la causa es el idioma, no el ruido de
+  Whisper (con la cita corregida a mano, 0.51; traducida al español, 0.74). Ahora, si la
+  transcripción no está en el idioma del SOP (`SOP_IDIOMA=es`), cada par toma el mayor coseno con
+  y sin la cita (`EMPAREJAR_TEXTO=max_si_otro_idioma`, por defecto; `cita` queda de respaldo).
+  E contra su SOP generado pasa de 93.33 % a **100 % sin juez**; A–D, en español, dan resultados
+  idénticos. MVP 6/6 y §14 A–D 12/12 sin regresión
+  ([informes](../adr/datos/s6/emparejamiento/)); E falló 1 de 3 por un valor sin traducir del SOP
+  generado, ajeno a este cambio (#32).
+- **Pendientes de #11:** en SOP-9299 el juez deja el paso 6 en *Parcial* con el par equivocado
+  (2 de 2; cita y segundo de otro tramo, #14) y falta probar con otro narrador en otro idioma para
+  aceptar el ADR (#33).
 
 ## Semana 5 (9–15 nov) · cierre del 13 nov
 
@@ -121,7 +136,7 @@ corrida sin GPU de C (422 s) ya la incluye.
 **Pasa a S6**
 
 - Pantalla `/videos`: la lista de videos, para volver a un reporte sin saber su URL (pantalla 6).
-- Issue #11: la cita en otro idioma y los errores de Whisper hunden el coseno (prioridad alta).
+- Issue #11: la cita en otro idioma y los errores de Whisper hunden el coseno (prioridad alta). **Cerrado el 15 nov (ADR-026).**
 - PDF del reporte y del SOP con QR (RF-29, 30).
 - Descargas TXT, SRT y JSON (RF-31, Sara).
 - Búsqueda exacta (RF-32 a 37, Sara).

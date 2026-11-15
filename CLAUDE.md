@@ -260,7 +260,13 @@ docs/
 >   publicar y búsqueda exacta (RF-32, 33; `palabras` con su índice, `busquedas` y
 >   `videos.publicado` ya existen desde la `0002`; la `0008` agrega `publicado_en`; la
 >   normalización reusa `texto.forma_busqueda`), resultados con miniatura y salto (RF-34), `/buscar` tipo chat (RF-36) con filtros
->   (RF-37), pantalla `/videos` con "Publicar" y #11; además Docker en máquina limpia y RNF-01 a 07.
+>   (RF-37) y pantalla `/videos` con "Publicar"; además Docker en máquina limpia y RNF-01 a 07.
+>   **#11 cerrado (15 nov, ADR-026, Propuesto):** `EMPAREJAR_TEXTO=max_si_otro_idioma` por
+>   defecto (`cita` de respaldo) y `SOP_IDIOMA=es`: si la transcripción no está en el idioma del
+>   SOP, cada par toma el mayor coseno con y sin la cita (la causa era el idioma, no el ruido de
+>   Whisper). E contra su SOP pasa de 93.33 % a 100 % sin juez; A–D, en español, idénticos. Pendientes
+>   en S7: el juez deja con el par equivocado el paso 6 de SOP-9299 (#14) y otro narrador en otro
+>   idioma para aceptar el ADR (#33). Medición: `diagnosticar_emparejamiento.py --variantes-texto`.
 >   **Si alcanza:** juicios del juez guardados, #20 y RF-35. **Pasan a S7:** afinidad estable entre
 >   corridas (ADR-024), #12, #16 a #19, recalibrar `SEG_IMAGEN_*` y el remux de AVI.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar

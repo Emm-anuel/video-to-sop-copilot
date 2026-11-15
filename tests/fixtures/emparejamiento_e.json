@@ -1,0 +1,95 @@
+{
+  "descripcion": "Control de causa de #11 (ADR-026). Pares del video E, grabado y narrado en inglés por el equipo (no es material del cliente): el paso del SOP generado desde E (SOP-8158, en español) o del SOP de referencia escrito a mano (sop_filtro_agua.md), y el paso del video que lo narra (segmentación guardada del video 8659). Citas: 'whisper' es la de faster-whisper large-v3-turbo; 'corregida_en' es la misma frase según el guion del equipo (data/synthetic/video_e/GUION_VIDEO_E.md), en el mismo tramo; 'whisper_es' y 'corregida_es' son traducciones al español escritas a mano, literales, de cada una.",
+  "pares": [
+    {
+      "id": "e6",
+      "origen": "SOP-8158 paso 6 ↔ video 8659 paso 8 (133.76–145.88 s)",
+      "sop": {
+        "nombre": "Retirar carcasa con llave",
+        "descripcion": "Retirar la carcasa con la llave de carcasa, aflojando el perno girándolo hacia la izquierda y bajándola con cuidado porque está llena de agua."
+      },
+      "video": {
+        "nombre": "Retiro de la carcasa",
+        "descripcion": "Se retira la carcasa utilizando la llave de carcasa, aflojando el perno y bajándola con cuidado."
+      },
+      "citas": {
+        "whisper": "I removed the housing with the housing grant, I loosened the bolt by turning it",
+        "corregida_en": "I remove the housing. With the housing wrench, I loosen the bowl by turning it",
+        "whisper_es": "Retiré la carcasa con la concesión de la carcasa, aflojé el perno girándolo",
+        "corregida_es": "Retiro la carcasa. Con la llave de la carcasa aflojo el vaso girándolo"
+      }
+    },
+    {
+      "id": "e6_ref",
+      "origen": "sop_filtro_agua.md paso 4 ↔ video 8659 paso 8 (133.76–145.88 s)",
+      "sop": {
+        "nombre": "Retirar la carcasa y el cartucho usado",
+        "descripcion": "Aflojar el vaso con la llave de carcasa girando a la izquierda, bajarlo con cuidado y sacar el cartucho usado a la bolsa de residuos. Revisar el anillo de hule y cambiarlo si está aplastado o cuarteado."
+      },
+      "video": {
+        "nombre": "Retiro de la carcasa",
+        "descripcion": "Se retira la carcasa utilizando la llave de carcasa, aflojando el perno y bajándola con cuidado."
+      },
+      "citas": {
+        "whisper": "I removed the housing with the housing grant, I loosened the bolt by turning it",
+        "corregida_en": "I remove the housing. With the housing wrench, I loosen the bowl by turning it",
+        "whisper_es": "Retiré la carcasa con la concesión de la carcasa, aflojé el perno girándolo",
+        "corregida_es": "Retiro la carcasa. Con la llave de la carcasa aflojo el vaso girándolo"
+      }
+    },
+    {
+      "id": "e9",
+      "origen": "SOP-8158 paso 9 ↔ video 8659 paso 11 (165.62–169.64 s); Whisper no se equivocó",
+      "sop": {
+        "nombre": "Instalar cartucho nuevo",
+        "descripcion": "Instalar el cartucho nuevo, asegurándose de que sea del mismo modelo que el anterior."
+      },
+      "video": {
+        "nombre": "Instalación del cartucho nuevo",
+        "descripcion": "Se instala el cartucho nuevo, asegurándose de que sea del mismo modelo que el anterior."
+      },
+      "citas": {
+        "whisper": "I install the new cartridge, the same model as the old one.",
+        "corregida_en": "I install the new cartridge, the same model as the old one.",
+        "whisper_es": "Instalo el cartucho nuevo, del mismo modelo que el anterior.",
+        "corregida_es": "Instalo el cartucho nuevo, del mismo modelo que el anterior."
+      }
+    },
+    {
+      "id": "e11",
+      "origen": "SOP-8158 paso 11 ↔ video 8659 paso 13 (176.40–187.36 s)",
+      "sop": {
+        "nombre": "Apretar perno con llave",
+        "descripcion": "Enroscar el perno a mano y luego darle un cuarto de vuelta con la llave sin apretar en exceso."
+      },
+      "video": {
+        "nombre": "Aseguramiento del cartucho",
+        "descripcion": "Se enrosca el perno a mano y luego se gira un cuarto de vuelta con la llave sin excederse."
+      },
+      "citas": {
+        "whisper": "I screw the bolt on by hand and then I give it a quarter turn",
+        "corregida_en": "I screw the bowl on by hand and then I give it a quarter turn",
+        "whisper_es": "Enrosco el perno a mano y luego le doy un cuarto de vuelta",
+        "corregida_es": "Enrosco el vaso a mano y luego le doy un cuarto de vuelta"
+      }
+    },
+    {
+      "id": "e15",
+      "origen": "SOP-8158 paso 15 ↔ video 8659 paso 17 (205.47–219.77 s)",
+      "sop": {
+        "nombre": "Verificar ausencia de fugas",
+        "descripcion": "Verificar que esté seco y que no haya fugas; si hay una fuga en la junta del perno, cerrar la válvula, liberar la presión y revisar el anillo O. La guarda de presión debe leer hacia adelante."
+      },
+      "video": {
+        "nombre": "Verificación final de fugas",
+        "descripcion": "Se verifica que no haya fugas; si hay una en la junta del perno, se cierra la válvula y revisa el anillo."
+      },
+      "citas": {
+        "whisper": "If there is a leak at the bolt joint, close the valve, release the pressure",
+        "corregida_en": "If there is a leak at the bowl joint, close the valve, release the pressure",
+        "whisper_es": "Si hay una fuga en la junta del perno, cierra la válvula, libera la presión",
+        "corregida_es": "Si hay una fuga en la unión del vaso, cierra la válvula, libera la presión"
+      }
+    }
+  ]
+}

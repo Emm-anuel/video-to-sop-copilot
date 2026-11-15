@@ -255,7 +255,9 @@ def informe(datos: dict[str, Any], corridas: Sequence[Corrida]) -> str:
         + ".",
         f"- Whisper `{conf['whisper']}` · LLM `{conf['llm']}` · embedder `{conf['embedder']}`.",
         f"- Umbrales: bajo {conf['umbral_bajo']}, alto {conf['umbral_alto']}, fusión "
-        f"{conf['umbral_fusion']}; semáforo verde ≥ {conf['semaforo_verde']}, amarillo ≥ "
+        f"{conf['umbral_fusion']}; texto del paso del video "
+        f"`{conf.get('emparejar_texto', 'cita')}` (ADR-026); semáforo verde ≥ "
+        f"{conf['semaforo_verde']}, amarillo ≥ "
         f"{conf['semaforo_amarillo']}.",
         f"- GPU: {conf['gpu'] or 'ninguna'}. Whisper corre una vez por video; la validación se "
         "repite y Gemma se descarga antes de cada corrida.",
@@ -317,6 +319,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--idioma", help="ISO 639-1 para Whisper; sin él, lo detecta")
     parser.add_argument(
         "--docs", action="store_true", help="copia el informe a docs/adr/datos/mvp/"
+    )
+    parser.add_argument(
+        "--docs-dir", type=Path, help="copia el informe a esta carpeta en lugar de la de --docs"
     )
     args = parser.parse_args(argv)
     if args.repeticiones < 1:
@@ -380,6 +385,8 @@ def main(argv: list[str] | None = None) -> int:
             "umbral_bajo": settings.umbral_bajo,
             "umbral_alto": settings.umbral_alto,
             "umbral_fusion": settings.umbral_fusion,
+            "emparejar_texto": settings.emparejar_texto,
+            "sop_idioma": settings.sop_idioma,
             "semaforo_verde": settings.semaforo_verde,
             "semaforo_amarillo": settings.semaforo_amarillo,
             "gpu": None if gpu is None else gpu.nombre,
@@ -389,7 +396,8 @@ def main(argv: list[str] | None = None) -> int:
         "corridas": [asdict(c) | {"valida": c.valida, "pasa": c.pasa} for c in corridas],
     }
     texto = informe(datos, corridas)
-    for carpeta in [SALIDA] + ([DOCS] if args.docs else []):
+    docs = args.docs_dir or (DOCS if args.docs else None)
+    for carpeta in [SALIDA] + ([docs] if docs else []):
         carpeta.mkdir(parents=True, exist_ok=True)
         nombre = f"mvp-{marca}"
         (carpeta / f"{nombre}.json").write_text(

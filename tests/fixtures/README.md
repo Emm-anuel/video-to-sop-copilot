@@ -203,3 +203,15 @@ texto) y los juicios de Gemma por entrada exacta.
 
 Se regenera con `scripts/grabar_rescate.py` (necesita Ollama y los `analisis.json` de A y B, que
 viven fuera de git); no se edita a mano.
+
+## `emparejamiento_e.json`
+
+Control de causa de #11 (ADR-026): ¿el coseno del paso del video cae por los errores de Whisper o
+por el idioma? Como `rescate.json`, el texto **no es inventado aquí**: sale del video E, que el
+equipo grabó narrando en inglés el SOP inventado `sop_filtro_agua.md` (nada del cliente). Cada par
+trae el paso del SOP (del SOP-8158, generado por la app desde E, o del SOP de referencia), el
+nombre y la descripción del paso del video que redactó Gemma 4 (video 8659) y cuatro citas del
+mismo tramo: la de faster-whisper `large-v3-turbo`, la corregida según el guion del equipo
+(`data/synthetic/video_e/GUION_VIDEO_E.md`) y la traducción al español, escrita a mano, de cada una.
+`e9` es el control limpio del idioma: ahí Whisper no se equivocó. Lo usan
+`scripts/diagnosticar_emparejamiento.py --citas-corregidas` y la prueba lenta de MiniLM real.

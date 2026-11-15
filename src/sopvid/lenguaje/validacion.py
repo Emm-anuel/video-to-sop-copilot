@@ -285,6 +285,7 @@ def validar(
             embedder,
             juez=juez,
             transcripcion=analisis.transcripcion,
+            idioma=analisis.idioma.codigo,  # ADR-026: la cita en otro idioma solo ayuda
         )
         segundos["emparejamiento"] = reloj() - inicio
     finally:

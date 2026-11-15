@@ -15,6 +15,11 @@ interfaz `Emparejador`.
 S4: con un `Juez` (`lenguaje/juez.py`), `emparejar` pasa los pares de la zona gris por el juez
 Gemma 4 antes de revisar el orden; sin juez, la cascada queda como en S3.
 
+S6 (ADR-026): con `EMPAREJAR_TEXTO=max_si_otro_idioma`, si el video no está en `SOP_IDIOMA` el
+coseno de cada par es el mayor entre el paso del video con su cita y sin ella
+(`cita_en_otro_idioma`): MiniLM castiga la cita en otro idioma aunque diga lo mismo. En el mismo
+idioma, o sin idioma, el cálculo es exactamente el de antes.
+
 `sentence_transformers` (y con él torch) se importa al cargar el modelo, no al importar este
 módulo, para que la API arranque rápido y las pruebas puedan simular el modelo.
 """
@@ -177,6 +182,43 @@ def texto_para_embeber(paso: PasoSOP | PasoVideo) -> str:
     return texto
 
 
+def texto_sin_cita(paso: PasoVideo) -> str:
+    """`texto_para_embeber` de un paso del video sin su cita: "nombre. descripción" (ADR-026)."""
+    return texto_para_embeber(paso.model_copy(update={"cita": ""}))
+
+
+def _idioma_base(codigo: str) -> str:
+    """De "es-MX" queda "es": se compara el idioma, no la región."""
+    return codigo.strip().lower().replace("_", "-").split("-")[0]
+
+
+def cita_en_otro_idioma(idioma: str | None) -> bool:
+    """True si cada par debe tomar el mayor coseno entre con cita y sin cita (ADR-026): con
+    `EMPAREJAR_TEXTO=max_si_otro_idioma` y un idioma de la transcripción distinto de
+    `SOP_IDIOMA`. Sin idioma (`None`) se queda el texto con cita, como antes."""
+    settings = get_settings()
+    if settings.emparejar_texto != "max_si_otro_idioma" or not idioma:
+        return False
+    return _idioma_base(idioma) != _idioma_base(settings.sop_idioma)
+
+
+def _vectores_sin_cita(
+    pasos: Sequence[PasoVideo], embedder: "Embedder", otro_idioma: bool
+) -> np.ndarray | None:
+    """Los vectores de `pasos` sin cita si hacen falta (otro idioma); si no, None."""
+    if not otro_idioma or not pasos:
+        return None
+    return embedder.embed([texto_sin_cita(p) for p in pasos])
+
+
+def _similitud_video(
+    vectores_sop: np.ndarray, vectores_video: np.ndarray, vectores_sin: np.ndarray | None
+) -> np.ndarray:
+    """Coseno SOP × video; con `vectores_sin` (otro idioma), el mayor de los dos (ADR-026)."""
+    s = similitud(vectores_sop, vectores_video)
+    return s if vectores_sin is None else np.maximum(s, similitud(vectores_sop, vectores_sin))
+
+
 # ── Fusión de pasos del video (ADR-013) ──────────────────────────────────────────────────────
 
 # De la evidencia más sólida a la más débil: el paso fusionado se queda con la más débil.
@@ -190,12 +232,14 @@ def fusionar(
     embedder: Embedder,
     *,
     umbral: float | None = None,
+    idioma: str | None = None,
 ) -> tuple[list[PasoVideo], list[Fusion]]:
     """Une los pasos consecutivos del video que caen en el mismo paso del SOP (ADR-013).
 
     El mejor paso del SOP de cada paso del video es el de mayor coseno (`texto_para_embeber`;
-    en empate, el primero). Pasos seguidos en `pasos_video` con el mismo mejor paso del SOP y
-    coseno ≥ `umbral` (por defecto `UMBRAL_FUSION`) forman un grupo, que queda en un paso:
+    con un `idioma` distinto de `SOP_IDIOMA`, ver `cita_en_otro_idioma`; en empate, el
+    primero). Pasos seguidos en `pasos_video` con el mismo mejor paso del SOP y coseno ≥
+    `umbral` (por defecto `UMBRAL_FUSION`) forman un grupo, que queda en un paso:
 
     - `t_inicio` y `t_fin`: el menor inicio y el mayor fin de los originales (regla 4: ningún
       tiempo nuevo).
@@ -214,7 +258,8 @@ def fusionar(
         return [], []
     _verificar_fusion(pasos_sop, pasos_video)
     x = embedder.embed([texto_para_embeber(p) for p in (*pasos_sop, *pasos_video)])
-    return _fusionar(pasos_sop, pasos_video, x[: len(pasos_sop)], x[len(pasos_sop) :], umbral)
+    sin = _vectores_sin_cita(pasos_video, embedder, cita_en_otro_idioma(idioma))
+    return _fusionar(pasos_sop, pasos_video, x[: len(pasos_sop)], x[len(pasos_sop) :], umbral, sin)
 
 
 def _verificar_fusion(pasos_sop: Sequence[PasoSOP], pasos_video: Sequence[PasoVideo]) -> None:
@@ -231,11 +276,16 @@ def _fusionar(
     vectores_sop: np.ndarray,
     vectores_video: np.ndarray,
     umbral: float | None,
+    vectores_sin: np.ndarray | None = None,
 ) -> tuple[list[PasoVideo], list[Fusion]]:
-    """El cuerpo de `fusionar`, con los vectores ya calculados (lo reutiliza `emparejar`)."""
+    """El cuerpo de `fusionar`, con los vectores ya calculados (lo reutiliza `emparejar`).
+    `vectores_sin`: los de los pasos del video sin cita, solo en otro idioma (ADR-026)."""
     if umbral is None:
         umbral = get_settings().umbral_fusion
-    s = similitud(vectores_video, vectores_sop)  # video × SOP
+    if vectores_sin is None:
+        s = similitud(vectores_video, vectores_sop)  # video × SOP
+    else:
+        s = _similitud_video(vectores_sop, vectores_video, vectores_sin).T
     mejor = s.argmax(axis=1)
     coseno = s[np.arange(len(pasos_video)), mejor]
 
@@ -571,9 +621,15 @@ def emparejar(
     *,
     juez: Juez | None = None,
     transcripcion: Sequence[Segmento] = (),
+    idioma: str | None = None,
 ) -> ResultadoEmparejamiento:
     """Empareja los pasos del video con los del SOP: fusionar → asignar → clasificar → juez →
     rescate → orden.
+
+    `idioma` es el de la transcripción del video. Si no es `SOP_IDIOMA` (y
+    `EMPAREJAR_TEXTO=max_si_otro_idioma`), en la fusión, la asignación y el rescate cada par
+    toma el mayor coseno entre el paso del video con su cita y sin ella (ADR-026). Sin idioma o
+    en el mismo, el cálculo es exactamente el de la cita.
 
     1. `fusionar` (ADR-013) con `UMBRAL_FUSION`.
     2. Similitud recalculada entre el SOP y los pasos ya fusionados (`texto_para_embeber`). El
@@ -598,15 +654,24 @@ def emparejar(
         raise ValueError("el juez necesita la transcripción para leer la narración de cada paso")
     embedder = embedder or get_embedder()
     pasos_sop = sop.pasos
+    otro_idioma = cita_en_otro_idioma(idioma)
+    if otro_idioma:
+        logger.info("Video en otro idioma que el SOP: coseno máximo con y sin cita (ADR-026)")
+    sin_originales = None
     if pasos_video:
         _verificar_fusion(pasos_sop, pasos_video)
         x = embedder.embed([texto_para_embeber(p) for p in (*pasos_sop, *pasos_video)])
         vectores_sop = x[: len(pasos_sop)]
+        sin_originales = _vectores_sin_cita(pasos_video, embedder, otro_idioma)
         fusionados, fusiones = _fusionar(
-            pasos_sop, pasos_video, vectores_sop, x[len(pasos_sop) :], None
+            pasos_sop, pasos_video, vectores_sop, x[len(pasos_sop) :], None, sin_originales
         )
         vectores_video = embedder.embed([texto_para_embeber(p) for p in fusionados])
-        matriz = similitud(vectores_sop, vectores_video)
+        sin_fusionados = _vectores_sin_cita(fusionados, embedder, otro_idioma)
+        if sin_fusionados is None:
+            matriz = similitud(vectores_sop, vectores_video)
+        else:
+            matriz = _similitud_video(vectores_sop, vectores_video, sin_fusionados)
     else:
         fusionados, fusiones = [], []
         matriz = np.zeros((len(pasos_sop), 0))
@@ -627,6 +692,7 @@ def emparejar(
                 embedder,
                 juez,
                 transcripcion,
+                vectores_originales_sin=sin_originales,
             )
     clasificacion = marcar_marco(orden(clasificacion))
     return ResultadoEmparejamiento(
@@ -663,6 +729,7 @@ def rescatar(
     juez: Juez,
     transcripcion: Sequence[Segmento],
     *,
+    vectores_originales_sin: np.ndarray | None = None,
     reloj: Callable[[], float] = time.perf_counter,
 ) -> tuple[Clasificacion, list[PasoVideo], list[Fusion]]:
     """Busca cada paso del SOP en Falta en los fragmentos que quedaron como Sobra (ADR-022).
@@ -680,6 +747,9 @@ def rescatar(
     4. Solo si llega a `UMBRAL_ALTO` (evidencia fuerte), va al juez con la narración de toda la
        ventana: Cumple o Parcial la rescata; no_corresponde la descarta; un respaldo (Ollama
        caído) la deja como par sin revisar (zona_gris), y el reporte queda provisional.
+
+    Con `vectores_originales_sin` (video en otro idioma, ADR-026), el representante y el coseno
+    de cada ventana toman el mayor entre con cita y sin cita, como en `emparejar`.
 
     No vuelve a emparejar ni a juzgar los demás pares: sus juicios se conservan. Devuelve la
     clasificación, los pasos fusionados y su registro, con la ventana unida en un paso con
@@ -729,14 +799,22 @@ def rescatar(
         candidatas = []
         for a, b in ventanas:
             numeros = [n for j in range(a, b + 1) for n in fusiones[j].originales]
-            cosenos = similitud(
-                vectores_sop[i], vectores_originales[[por_numero[n][0] for n in numeros]]
-            )[0]
+            filas = [por_numero[n][0] for n in numeros]
+            if vectores_originales_sin is None:
+                cosenos = similitud(vectores_sop[i], vectores_originales[filas])[0]
+            else:
+                cosenos = _similitud_video(
+                    vectores_sop[i], vectores_originales[filas], vectores_originales_sin[filas]
+                )[0]
             grupo = [por_numero[n][1] for n in numeros]
             paso = _unir(grupo, grupo[int(np.argmax(cosenos))], fusionados[a].numero)
             candidatas.append((a, b, numeros, [float(c) for c in cosenos], paso))
         vectores = embedder.embed([texto_para_embeber(c[4]) for c in candidatas])
-        cosenos_ventana = similitud(vectores_sop[i], vectores)[0]
+        if vectores_originales_sin is None:
+            cosenos_ventana = similitud(vectores_sop[i], vectores)[0]
+        else:
+            sin = embedder.embed([texto_sin_cita(c[4]) for c in candidatas])
+            cosenos_ventana = _similitud_video(vectores_sop[i], vectores, sin)[0]
         mejor = int(np.argmax(cosenos_ventana))
         coseno = float(cosenos_ventana[mejor])
         if coseno < alto:
@@ -862,9 +940,11 @@ class Emparejador(Protocol):
         pasos_video: Sequence[PasoVideo],
         *,
         transcripcion: Sequence[Segmento] = (),
+        idioma: str | None = None,
     ) -> ResultadoEmparejamiento:
         """Clasifica los pasos del video contra el SOP, con el orden revisado. `transcripcion`
-        es la del mismo video; la necesita el juez de la zona gris, si lo hay."""
+        es la del mismo video; la necesita el juez de la zona gris, si lo hay. `idioma`, el de
+        esa transcripción (ADR-026)."""
         ...
 
 
@@ -886,7 +966,13 @@ class EmparejadorMiniLM:
         pasos_video: Sequence[PasoVideo],
         *,
         transcripcion: Sequence[Segmento] = (),
+        idioma: str | None = None,
     ) -> ResultadoEmparejamiento:
         return emparejar(
-            sop, pasos_video, self._embedder, juez=self._juez, transcripcion=transcripcion
+            sop,
+            pasos_video,
+            self._embedder,
+            juez=self._juez,
+            transcripcion=transcripcion,
+            idioma=idioma,
         )

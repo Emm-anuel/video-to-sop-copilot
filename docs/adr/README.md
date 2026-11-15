@@ -30,6 +30,7 @@ Registro de las decisiones de arquitectura del proyecto. Cada decisión relevant
 | [ADR-023](ADR-023-sop-generado.md) | SOP generado: agrupar los pasos del video en una llamada aparte, Gemma solo redacta valores y citas, el código pone evidencia, tiempos, responsables y menciones; evidencia en campos opcionales del contrato | Propuesto (decisiones de diseño del equipo, 9 nov) | 2026-11-09 |
 | [ADR-024](ADR-024-imagenes-opcionales-miniatura.md) | Imágenes opcionales y miniatura por paso: miniatura siempre con ffmpeg; descripción con Gemma apagada por defecto, N imágenes parejas antes de la ficha (tope 20); sin GPU se avisa y no se bloquea | Propuesto (decisiones del 10 nov) | 2026-11-11 |
 | [ADR-025](ADR-025-sop-revisado-por-persona.md) | SOP revisado por una persona: `revisado` en `Dato`, `Riesgo`, `Falla`, `PuntoClave` y `PasoSOP` (se conserva la fuente); `PUT /sops/{id}` recalcula la duración total desde los pasos; `generacion.grupos` no refleja ediciones | Aceptado | 2026-11-11 |
+| [ADR-026](ADR-026-texto-vectorizado-paso-video.md) | Texto vectorizado del paso del video: si la transcripción no está en `SOP_IDIOMA`, cada par toma el mayor coseno con y sin la cita (`EMPAREJAR_TEXTO=max_si_otro_idioma`; `cita` de respaldo); la causa de #11 es el idioma, no el ruido de Whisper | Propuesto | 2026-11-15 |
 
 Los ADR-002, 003 y 008 se aprueban con el documento "Requerimientos técnicos y funcionales de proyecto
 SOP V1.0", escrito por el patrocinador (16 oct 2026), que deja fuera de la versión 1.0 lo que el NDA

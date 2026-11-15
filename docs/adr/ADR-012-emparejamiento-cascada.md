@@ -85,6 +85,9 @@ Los umbrales viven en la configuración (RNF-14).
   rompe igual; el mejor paso del SOP de A 12 pasa de 6 a 3 (empate en 0.72). **Hay que
   recalibrar los umbrales** (0.55 / 0.75 / fusión 0.55) con el texto nuevo: se fijaron con el
   texto anterior y los cosenos de los pasos del video cambian (además de A 2, B 5 sube 0.09).
+  **Revisado en [ADR-026](ADR-026-texto-vectorizado-paso-video.md) (15 nov, #11):** si el video
+  no está en el idioma del SOP, cada par toma el mayor coseno entre el texto con cita y sin ella
+  (`EMPAREJAR_TEXTO=max_si_otro_idioma`); en el mismo idioma, el texto con cita no cambia.
 
 ## Referencias
 
