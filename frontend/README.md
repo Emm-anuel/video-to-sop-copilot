@@ -20,7 +20,8 @@ son de S5 y S6.
 | `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, el video por partes (`POST /uploads`, desde el 12 nov) y `POST /videos` con `upload_id`, `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al avance (`/videos/:id/procesando`, desde el 12 nov) cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
 | `/videos/:id/sop` | **SOP generado y su editor (RF-26):** avance y, al terminar, el editor del SOP (sección "Editor del SOP") | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov, solo lectura; editor desde el 11 nov): `src/app/sop/` |
 | `/sops` | **Biblioteca de SOP (RF-05):** búsqueda, filtro por origen, ver o editar, usar para validar, eliminar y subir (sección "Biblioteca y Nuevo análisis") | Emmanuel | Hecho (12 nov): `src/app/biblioteca/` |
-| `/v/:id?t=` | **Destino de los QR y enlaces del PDF (§11, RF-29, RF-30):** pregunta el modo del video (`GET /videos/{id}`) y lleva, reemplazando la URL, al reporte (validar) o al SOP generado (generar) con `?t=`; el reporte salta a ese segundo y marca su fila, el editor abre el video ahí. Sin reproductor propio. No exige que el video esté publicado. La dirección de los QR es `APP_URL_PUBLICA` (para un celular en la misma red, la IP del equipo) | Emmanuel | Hecho (15 nov): `src/app/ver/` |
+| `/v/:id?t=&k=` | **Destino de los QR y enlaces del PDF (§11, RF-29, RF-30, ADR-027):** página mínima sin el menú de carga, con el reproductor en el segundo `t`. El token `k` (firmado por la API con `SECRETO_ENLACES`) abre solo ese video, sin clave. Si la sesión ya tiene la vista de carga (o está abierta), ofrece además "Abrir el reporte" (validar) o "Abrir el SOP" (generar) con `?t=`; sin ella no pide la clave. No exige que el video esté publicado. La dirección de los QR es `APP_URL_PUBLICA` (para un celular en la misma red, la IP del equipo) | Emmanuel | Hecho (15 nov; página propia desde el 16 nov, #30): `src/app/ver/` |
+| `/acceso?vista=&volver=` | **Clave de acceso de una vista (§11, #30, ADR-027):** campo de contraseña y "Entrar" (`POST /acceso`, que deja una cookie de sesión); vuelve a `volver` (solo rutas de la app). Si la vista está abierta o ya hay sesión, sigue de largo. Sin menú (sección "Claves de acceso") | Emmanuel | Hecho (16 nov): `src/app/acceso/` |
 | `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
 | `/videos` | **Lista de videos (pantalla 6, #29):** del más reciente al más antiguo, con modo, SOP, cumplimiento con semáforo, estado, fecha, imágenes y si está publicado; cada fila lleva al avance, al reporte o al SOP generado; "Publicar" / "Quitar de la búsqueda" y descargas (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/videos/` |
 | `/buscar` | **Búsqueda con apariencia de chat (pantalla 7, RF-36, RF-37):** vista de consulta, sin el menú de carga; conversación, resultados con la frase resaltada y el video en el segundo (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/buscar/` |
@@ -425,7 +426,8 @@ scripts y las pruebas; la pantalla ya no la usa.
 
 Menú de la vista de carga en `app.html`: **Biblioteca**, **Nuevo análisis** y **Videos**. `/buscar`
 no está en el menú y no lleva la barra: la ruta trae `data: { consulta: true }` y la pantalla pone su
-propio encabezado mínimo. La separación de verdad llega con la clave de acceso (P7, #30). Las dos
+propio encabezado mínimo (`.cabecera-consulta`, en `styles.scss`, el mismo de `/acceso` y `/v/:id`).
+Cada vista pide su clave (sección "Claves de acceso"). Las dos
 rutas se cargan al entrar (`loadComponent`), así no suman al bundle inicial.
 
 **`/videos` (`src/app/videos/`).** Una sola consulta, `GET /videos` (`VideoResumen`, tipos generados
@@ -470,6 +472,8 @@ derecha (debajo en angosto, desde 56 rem en dos columnas). Tipos generados con `
 - **Video:** al elegir un resultado aparece el reproductor en la misma pantalla y salta a ese segundo.
   **Ver SOP** abre `GET /sops/{id}/pdf?ver=true` (inline) en otra pestaña, solo si el resultado trae
   SOP. No hay enlaces a `/v/`, al reporte ni a nada de la vista de carga: todos los `href` son de `/api`.
+  La miniatura, el video y "Ver SOP" van con la cookie de la vista de búsqueda (solo de videos
+  publicados, ADR-027).
 
 **Reproductor compartido (`src/app/reproductor/`).** El `<video>` del reporte se extrajo como
 `app-reproductor` y lo usan el reporte y la búsqueda: `videoId`, `inicio` (el `?t=` de los QR,
@@ -481,6 +485,29 @@ o de carga es el de siempre (`api/reproductor.ts`). El diálogo del editor del S
 780: publicar A, buscar «manometro», «cartuchos» y «llave de paso» y saltar al segundo. Sin desborde
 horizontal ni objetivos menores de 36 px en las dos pantallas. Capturas y detalle en
 [`docs/adr/datos/s6/pantallas/`](../docs/adr/datos/s6/pantallas/verificacion.md).
+
+## Claves de acceso (§11, 16 nov, #30, ADR-027)
+
+Cada vista pide su clave una vez por sesión del navegador: la de carga (`/nuevo`, `/sops`,
+`/videos`, el reporte, el editor) y la de búsqueda (`/buscar`). Las claves están en el `.env` de
+la API (`CLAVE_CARGA`, `CLAVE_BUSQUEDA`; cómo ponerlas en `docs/dev/api.md`); vacía, la vista está
+abierta y no se pide nada.
+
+- **La clave no se guarda en el navegador.** `/acceso` la manda una vez a `POST /acceso`, que deja
+  una cookie HttpOnly; la API la acepta en lugar de `X-Clave-Acceso`, también en `<img>`,
+  `<video>` y las descargas (que no pueden mandar encabezados). Como el código no ve esa cookie,
+  `AccesoService` (`src/app/acceso/`) pregunta a `GET /acceso` qué vistas están abiertas o con
+  sesión y guarda la respuesta hasta un 401, entrar o salir.
+- **Rutas:** las de carga cuelgan de un padre sin componente con `data: { vista: 'carga' }` y
+  `canActivateChild: [requiereVista]`; `/buscar` lleva `canActivate` y `vista: 'busqueda'`.
+  `/acceso` y `/v/:id` no llevan guard. Sin sesión, el guard manda a
+  `/acceso?vista=…&volver=<url>`.
+- **Interceptor (`app.config.ts`):** un 401 de la API en una pantalla con `data.vista` (la sesión
+  se cerró, la clave cambió) lleva a `/acceso` con `volver` y, con la clave, de vuelta a la
+  misma URL. No redirige los 401 de `/api/acceso` (clave equivocada) ni los de una pantalla sin
+  vista, como `/v/:id`. `volver` solo acepta rutas de la app (`destinoSeguro`).
+- **Salir:** botón en la barra de carga y en el encabezado de `/buscar`, solo si esa vista tiene
+  clave y esta sesión la escribió (`DELETE /acceso?vista=`).
 
 ## Desarrollo
 

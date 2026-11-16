@@ -6,7 +6,8 @@ encabezado (título, código del SOP y fecha) y el pie "Página X de Y" en todas
 Todo segundo, cita y conteo sale tal cual de lo guardado: el `ReporteValidacion` de
 `GET /videos/{id}/reporte` o el `SOP` de `sops.contenido` con las correcciones del editor
 (regla 4). Aquí no hay LLM; el código solo da formato. Los QR y los enlaces llevan a
-`<APP_URL_PUBLICA>/v/<id>?t=<segundo>` (§11), armados siempre con `url_video`.
+`<APP_URL_PUBLICA>/v/<id>?t=<segundo>&k=<token>` (§11, ADR-027), armados siempre con
+`url_video`; sin `SECRETO_ENLACES`, sin `k`.
 
 Funciones puras, como el resto de `salidas`: la API les pasa lo guardado, los datos del video y,
 para el reporte, una función que da la miniatura de un segundo (o None si el video no tiene
@@ -220,12 +221,16 @@ class InfoVideo:
     titulo: str
     duracion: float | None = None
     idioma: str | None = None
+    # Token firmado del enlace (`acceso.token_enlace`, ADR-027): abre este video sin clave.
+    token_enlace: str | None = None
 
 
-def url_video(base: str, video_id: int, t: float) -> str:
-    """`<base>/v/<id>?t=<segundo>` (§11): el destino de cada QR y de cada enlace del PDF. El
-    segundo va con un decimal (RNF-03 pide ±1 s); `base` sin "/" final."""
-    return f"{base.rstrip('/')}/v/{video_id}?t={t:.1f}"
+def url_video(base: str, video_id: int, t: float, token: str | None = None) -> str:
+    """`<base>/v/<id>?t=<segundo>[&k=<token>]` (§11, ADR-027): el destino de cada QR y de cada
+    enlace del PDF. El segundo va con un decimal (RNF-03 pide ±1 s); `base` sin "/" final. El
+    token es base64url: no hace falta escaparlo."""
+    url = f"{base.rstrip('/')}/v/{video_id}?t={t:.1f}"
+    return f"{url}&k={token}" if token else url
 
 
 def dibujo_qr(url: str, lado: float = LADO_QR) -> Drawing:
@@ -447,7 +452,7 @@ def pdf_reporte(
     historia += _faltan(reporte, e)
     historia += _sobran(reporte, e)
     historia += _personas_y_tiempos(reporte, e)
-    historia += _evidencia(reporte, video.id, base_url, miniatura, e)
+    historia += _evidencia(reporte, video, base_url, miniatura, e)
     titulo = f"Reporte de cumplimiento · {reporte.sop.titulo}"
     return _construir(historia, titulo, (titulo, reporte.sop.codigo, fecha))
 
@@ -708,7 +713,7 @@ def _personas_y_tiempos(r: ReporteValidacion, e: _Estilos) -> list[Flowable]:
 
 def _evidencia(
     r: ReporteValidacion,
-    video_id: int,
+    video: InfoVideo,
     base_url: str,
     miniatura: Callable[[float], Path | None],
     e: _Estilos,
@@ -728,14 +733,14 @@ def _evidencia(
         )
     for f in hallazgos:
         partes.append(
-            KeepTogether([Spacer(1, 6), _bloque_evidencia(f, video_id, base_url, miniatura, e)])
+            KeepTogether([Spacer(1, 6), _bloque_evidencia(f, video, base_url, miniatura, e)])
         )
     return partes
 
 
 def _bloque_evidencia(
     f: FilaReporte,
-    video_id: int,
+    video: InfoVideo,
     base_url: str,
     miniatura: Callable[[float], Path | None],
     e: _Estilos,
@@ -752,7 +757,7 @@ def _bloque_evidencia(
     celdas: list[Any] = []
     anchos: list[float] = []
     if f.t_inicio is not None:
-        url = url_video(base_url, video_id, f.t_inicio)
+        url = url_video(base_url, video.id, f.t_inicio, video.token_enlace)
         lineas.append(f"Segundo {mmss(f.t_inicio)} · {_enlace(url)}")
         ruta = miniatura(f.t_inicio)
         if ruta is not None:
@@ -864,7 +869,7 @@ def _portada_sop(
         )
     )
     if video is not None:
-        url = url_video(base_url, video.id, 0)
+        url = url_video(base_url, video.id, 0, video.token_enlace)
         qr = Table(
             [
                 [

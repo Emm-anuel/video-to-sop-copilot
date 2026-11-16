@@ -67,6 +67,7 @@ from sqlalchemy.orm import Session
 
 from sopvid.contrato import Analisis
 from sopvid.lenguaje import busqueda
+from sopvid.plataforma import acceso
 from sopvid.plataforma.api.main import create_app
 from sopvid.plataforma.config import PROJECT_ROOT, get_settings
 from sopvid.plataforma.db import get_sessionmaker
@@ -337,7 +338,11 @@ def medir(args: argparse.Namespace) -> dict[str, Any]:
     corpus = _corpus(args.videos)
     referencia = next(iter(corpus))
     consultas = elegir_consultas(corpus)
-    cliente = TestClient(create_app(recuperar_interrumpidos=False))
+    # X-Clave-Acceso con CLAVE_BUSQUEDA del entorno o de `.env` (ADR-027); vacía, sin encabezado.
+    cliente = TestClient(
+        create_app(recuperar_interrumpidos=False),
+        headers=acceso.encabezados(get_settings(), "busqueda"),
+    )
     fabrica = get_sessionmaker()
     with fabrica() as session:
         restos = limpiar(session)

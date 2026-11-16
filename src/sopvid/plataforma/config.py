@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     # Dirección del frontend con la que se arman los QR y los enlaces de los PDF (RF-29, RF-30):
     # `<APP_URL_PUBLICA>/v/<id>?t=<segundo>` abre el video en ese segundo (§11). Sin "/" final.
     app_url_publica: str = "http://localhost:4200"
+    # Clave de acceso por vista (§11, RNF-10, ADR-027): solo en `.env`, nunca en el código. Vacía
+    # (o solo espacios), esa vista queda abierta (desarrollo) y /health lo avisa. Las dos claves
+    # no pueden ser iguales: la de búsqueda abriría la carga. `secreto_enlaces` firma el token
+    # `k` de los QR del PDF (`/v/<id>?t=…&k=…`); vacío, los enlaces van sin token y el video queda
+    # abierto a quien tenga la URL. Cambiarlo invalida los QR ya impresos.
+    clave_carga: SecretStr = SecretStr("")
+    clave_busqueda: SecretStr = SecretStr("")
+    secreto_enlaces: SecretStr = SecretStr("")
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es
@@ -223,6 +231,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AFINIDAD_COS_CERO ({self.afinidad_cos_cero}) debe ser menor que "
                 f"AFINIDAD_COS_CIEN ({self.afinidad_cos_cien})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _claves_distintas(self) -> Self:
+        carga = self.clave_carga.get_secret_value().strip()
+        if carga and carga == self.clave_busqueda.get_secret_value().strip():
+            raise ValueError(
+                "CLAVE_CARGA y CLAVE_BUSQUEDA no pueden ser iguales: la clave de búsqueda "
+                "abriría la vista de carga"
             )
         return self
 

@@ -71,6 +71,31 @@ app-buscar .sr-only {
   white-space: nowrap;
 }
 
+// Encabezado oscuro de las pantallas sin el menú de la vista de carga: /buscar, /acceso y /v/:id
+// (§11, ADR-027). Ocupa el ancho del contenido (sale de su relleno).
+.cabecera-consulta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -1.5rem;
+  padding: 0.5rem 1.5rem;
+  color: #fff;
+  background: #1f2a37;
+
+  .marca span {
+    opacity: 0.8;
+  }
+}
+
+@media (max-width: 40rem) {
+  .cabecera-consulta {
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem;
+  }
+}
+
 // Reproductor que no puede mostrar el video (RF-06, RF-20): el reporte y el diálogo del editor del
 // SOP. Con un formato que el navegador no reproduce (p. ej. AVI) va el enlace para descargarlo,
 // con un objetivo de 36 px (RNF-13). Aquí y no en cada componente: lo comparten los dos.

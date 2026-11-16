@@ -40,6 +40,11 @@ export class Reproductor {
   readonly textoCarga = input('No se pudo cargar el video.');
   /** Texto para lectores de pantalla (`aria-label` del `<video>`). */
   readonly etiqueta = input<string | null>(null);
+  /**
+   * El token `k` de un enlace del PDF (`/v/:id`, ADR-027): abre este video sin la clave de una
+   * vista. Sin él, el video va con la cookie de la sesión.
+   */
+  readonly enlace = input<string | null>(null);
 
   /** Por qué no se ve el video (`formato`: p. ej. un AVI; `carga`: no cargó), o `null`. */
   protected readonly fallo = signal<FalloVideo | null>(null);
@@ -61,7 +66,8 @@ export class Reproductor {
   }
 
   protected url(id: number): string {
-    return `${API}/videos/${id}/video`;
+    const k = this.enlace();
+    return `${API}/videos/${id}/video${k ? `?k=${encodeURIComponent(k)}` : ''}`;
   }
 
   /** Salta al segundo `t` y, salvo que se pida lo contrario, reproduce. */
@@ -109,7 +115,7 @@ export class Reproductor {
       this.fallo.set('carga');
       return;
     }
-    this.api.videoDisponible(id).subscribe((esta) => {
+    this.api.videoDisponible(id, this.enlace()).subscribe((esta) => {
       if (this.videoId() === id) {
         this.fallo.set(esta ? 'formato' : 'carga');
       }

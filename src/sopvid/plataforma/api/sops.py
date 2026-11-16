@@ -45,6 +45,8 @@ from sopvid.lenguaje.lectura_sop import (
 from sopvid.lenguaje.llm import ClienteLLM
 from sopvid.lenguaje.sop_markdown import sop_a_markdown
 from sopvid.lenguaje.tiempos import con_duracion_recalculada
+from sopvid.plataforma import acceso
+from sopvid.plataforma.api.acceso import requiere_carga, requiere_pdf_sop
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import Reporte, Sop, Video
@@ -65,7 +67,10 @@ __all__ = ["FabricaLLM", "carpeta_sop", "get_fabrica_llm", "get_procesador", "le
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["sops"])
+# Vista de carga (§11, ADR-027). El PDF va aparte: con `?ver=true` también lo abre la clave de
+# búsqueda ("Ver SOP" de /buscar) si el SOP tiene un video publicado.
+router = APIRouter(tags=["sops"], dependencies=[Depends(requiere_carga)])
+router_pdf = APIRouter(tags=["sops"], dependencies=[Depends(requiere_pdf_sop)])
 
 SOP_MAX_BYTES = 1024 * 1024
 SOP_DOCUMENTO_MAX_BYTES = 20 * 1024 * 1024
@@ -300,7 +305,7 @@ def sop_en_markdown(
     return PlainTextResponse(texto, media_type="text/markdown; charset=utf-8")
 
 
-@router.get(
+@router_pdf.get(
     "/sops/{sop_id}/pdf",
     response_class=Response,
     responses={200: {"content": {"application/pdf": {}}}},
@@ -333,6 +338,7 @@ def respuesta_pdf_sop(
                 titulo=guardado.titulo,
                 duracion=guardado.duracion,
                 idioma=guardado.idioma,
+                token_enlace=acceso.token_enlace(settings, guardado.id),
             )
     contenido = pdf.pdf_sop(
         SOP.model_validate(fila.contenido),

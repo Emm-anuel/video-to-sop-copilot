@@ -40,7 +40,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, insert, select, text
+from sqlalchemy import Exists, delete, func, insert, select, text
 from sqlalchemy.orm import Session
 
 from sopvid.contrato import (
@@ -443,11 +443,25 @@ def opciones(session: Session) -> OpcionesBusqueda:
         .where(Video.publicado)
         .order_by(Video.creado.desc(), Video.id.desc())
     ).all()
-    con_publicado = select(Video.id).where(Video.sop_id == Sop.id, Video.publicado).exists()
     sops = session.execute(
-        select(Sop.id, Sop.codigo, Sop.titulo).where(con_publicado).order_by(Sop.id)
+        select(Sop.id, Sop.codigo, Sop.titulo).where(_con_publicado()).order_by(Sop.id)
     ).all()
     return OpcionesBusqueda(
         videos=[VideoPublicado(id=i, titulo=t, sop_id=s) for i, t, s in videos],
         sops=[SopDeVideo(id=i, codigo=c, titulo=t) for i, c, t in sops],
     )
+
+
+def _con_publicado() -> Exists:
+    """`EXISTS`: el SOP de la fila tiene al menos un video publicado (de referencia o generado)."""
+    return select(Video.id).where(Video.sop_id == Sop.id, Video.publicado).exists()
+
+
+def video_publicado(session: Session, video_id: int) -> bool:
+    """True si el video existe y está publicado: lo que la vista de búsqueda puede ver (ADR-027)."""
+    return bool(session.scalar(select(Video.publicado).where(Video.id == video_id)))
+
+
+def sop_con_publicado(session: Session, sop_id: int) -> bool:
+    """True si el SOP existe y tiene un video publicado ("Ver SOP" de `/buscar`, ADR-027)."""
+    return session.scalar(select(Sop.id).where(Sop.id == sop_id, _con_publicado())) is not None

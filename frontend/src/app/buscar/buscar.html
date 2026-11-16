@@ -1,8 +1,13 @@
-<header class="cabecera">
+<header class="cabecera-consulta">
   <p class="marca"><strong>SOPVID</strong><span>&nbsp;· Búsqueda en los videos publicados</span></p>
-  <button type="button" class="limpiar" [disabled]="turnos().length === 0" (click)="limpiar()">
-    Limpiar
-  </button>
+  <span class="acciones">
+    <button type="button" class="limpiar" [disabled]="turnos().length === 0" (click)="limpiar()">
+      Limpiar
+    </button>
+    @if (conSesion()) {
+      <button type="button" class="limpiar" (click)="salir()">Salir</button>
+    }
+  </span>
 </header>
 
 <h1 class="sr-only">Búsqueda en los videos publicados</h1>

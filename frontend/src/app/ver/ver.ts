@@ -1,47 +1,71 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { EMPTY, catchError, filter, switchMap } from 'rxjs';
+import { AccesoService } from '../acceso/acceso.service';
 import { ApiService } from '../api/api.service';
-import { mensajeDeError } from '../api/errores';
 import { segundoDeConsulta } from '../api/reproductor';
+import { EstadoVideo } from '../api/tipos';
+import { mmss } from '../reporte/reporte';
+import { Reproductor } from '../reproductor/reproductor';
 
 /**
- * `/v/:id?t=N` (§11): el destino de los QR y de los enlaces del PDF (RF-29, RF-30). No tiene
- * reproductor propio: pregunta el modo del video y lleva al reporte (validar) o al SOP generado
- * (generar) con `?t=`, y esas pantallas abren su video en ese segundo. Reemplaza la URL, así que
- * "Atrás" no vuelve aquí. No exige que el video esté publicado (decisión de #21).
+ * `/v/:id?t=N&k=…` (§11, RF-29, RF-30, ADR-027): el destino de los QR y de los enlaces del PDF.
+ * Página mínima, sin el menú de la vista de carga: el video en el segundo `t`. El token `k` (lo
+ * firma la API con `SECRETO_ENLACES`) abre solo este video y su miniatura, sin clave; sin
+ * `SECRETO_ENLACES`, el enlace va sin `k` y el video queda abierto, como en desarrollo.
+ *
+ * Si la sesión ya tiene la clave de carga (o la vista está abierta), ofrece además "Abrir el
+ * reporte" (validar) o "Abrir el SOP" (generar) con `?t=`. Sin ella no pide la clave: la ruta no
+ * tiene `data.vista`, así que un 401 no lleva a `/acceso`. No exige que el video esté publicado
+ * (decisión de #21).
  */
 @Component({
   selector: 'app-ver',
-  template: `
-    @if (error(); as mensaje) {
-      <p class="error" role="alert">No se pudo abrir el video. {{ mensaje }}</p>
-    } @else {
-      <p role="status">Abriendo el video…</p>
-    }
-  `,
+  imports: [Reproductor, RouterLink],
+  templateUrl: './ver.html',
+  styleUrl: './ver.scss',
 })
 export class Ver {
   private readonly api = inject(ApiService);
-  private readonly router = inject(Router);
-  protected readonly error = signal<string | null>(null);
+  private readonly acceso = inject(AccesoService);
+
+  protected readonly id: number;
+  protected readonly t: number | null;
+  protected readonly k: string | null;
+  protected readonly mmss = mmss;
+  /** El video, solo si la sesión tiene la vista de carga (`GET /videos/{id}` la pide). */
+  protected readonly video = signal<EstadoVideo | null>(null);
+
+  /** "Abrir el reporte" o "Abrir el SOP", con su ruta, o null sin la vista de carga. */
+  protected readonly abrir = computed(() => {
+    const video = this.video();
+    if (video === null) {
+      return null;
+    }
+    const validar = video.modo === 'validar';
+    return {
+      ruta: ['/videos', this.id, validar ? 'reporte' : 'sop'],
+      texto: validar ? 'Abrir el reporte' : 'Abrir el SOP',
+    };
+  });
+
+  protected readonly consulta = computed(() => (this.t === null ? {} : { t: this.t }));
 
   constructor() {
     const ruta = inject(ActivatedRoute).snapshot;
-    const id = Number(ruta.paramMap.get('id'));
-    const t = segundoDeConsulta(ruta.queryParamMap.get('t'));
-    this.api
-      .estadoVideo(id)
-      .pipe(takeUntilDestroyed())
-      .subscribe({
-        next: (video) => {
-          const pantalla = video.modo === 'validar' ? 'reporte' : 'sop';
-          void this.router.navigate(['/videos', id, pantalla], {
-            queryParams: t === null ? {} : { t },
-            replaceUrl: true,
-          });
-        },
-        error: (e: unknown) => this.error.set(mensajeDeError(e)),
-      });
+    this.id = Number(ruta.paramMap.get('id'));
+    this.t = segundoDeConsulta(ruta.queryParamMap.get('t'));
+    this.k = ruta.queryParamMap.get('k') || null;
+    this.acceso
+      .estado()
+      .pipe(
+        filter((estado) => estado.carga.abierta || estado.carga.sesion),
+        switchMap(() => this.api.estadoVideo(this.id)),
+        // Sin la API o sin el video, la página se queda con el reproductor (que dice si no carga).
+        catchError(() => EMPTY),
+        takeUntilDestroyed(),
+      )
+      .subscribe((video) => this.video.set(video));
   }
 }

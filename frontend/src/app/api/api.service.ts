@@ -151,12 +151,14 @@ export class ApiService {
 
   /**
    * Si el archivo del video está en la API: pide solo su primer byte (`Range: bytes=0-0`, 206).
-   * Sirve para distinguir un formato que el navegador no reproduce de un archivo que falta.
+   * Sirve para distinguir un formato que el navegador no reproduce de un archivo que falta. `k`:
+   * el token del enlace del PDF (`/v/:id`, ADR-027), si el video se abrió con él.
    */
-  videoDisponible(id: number): Observable<boolean> {
+  videoDisponible(id: number, k: string | null = null): Observable<boolean> {
     return this.http
       .get(`${API}/videos/${id}/video`, {
         headers: { Range: 'bytes=0-0' },
+        params: k ? { k } : {},
         responseType: 'blob',
       })
       .pipe(

@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { EstadoAcceso } from '../acceso/acceso.service';
 import { EstadoVideo } from '../api/tipos';
 import { Ver } from './ver';
 
@@ -20,10 +21,16 @@ function estado(modo: EstadoVideo['modo']): EstadoVideo {
   };
 }
 
-describe('Ver (/v/:id?t=, destino de los QR del PDF)', () => {
+function acceso(carga: Partial<EstadoAcceso['carga']>): EstadoAcceso {
+  return {
+    carga: { abierta: false, sesion: false, ...carga },
+    busqueda: { abierta: false, sesion: false },
+  };
+}
+
+describe('Ver (/v/:id?t=&k=, destino de los QR del PDF)', () => {
   let fixture: ComponentFixture<Ver>;
   let http: HttpTestingController;
-  let navegar: ReturnType<typeof vi.spyOn>;
 
   function crear(consulta: Record<string, string>): void {
     TestBed.configureTestingModule({
@@ -44,51 +51,66 @@ describe('Ver (/v/:id?t=, destino de los QR del PDF)', () => {
       ],
     });
     http = TestBed.inject(HttpTestingController);
-    navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(Ver);
     fixture.detectChanges();
   }
 
   afterEach(() => http.verify());
 
-  it('modo validar: va al reporte con el segundo y reemplaza la URL', () => {
-    crear({ t: '55.5' });
-    http.expectOne('/api/videos/12').flush(estado('validar'));
+  const el = () => fixture.nativeElement as HTMLElement;
+  const abrir = () => el().querySelector<HTMLAnchorElement>('.abrir a');
 
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte'], {
-      queryParams: { t: 55.5 },
-      replaceUrl: true,
-    });
-  });
-
-  it('modo generar: va al SOP generado (el editor abre el video en t)', () => {
-    crear({ t: '0.0' });
-    http.expectOne('/api/videos/12').flush(estado('generar'));
-
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'sop'], {
-      queryParams: { t: 0 },
-      replaceUrl: true,
-    });
-  });
-
-  it('sin t (o con uno inválido) abre la pantalla sin segundo', () => {
-    crear({ t: 'abc' });
-    http.expectOne('/api/videos/12').flush(estado('validar'));
-
-    expect(navegar).toHaveBeenCalledWith(['/videos', 12, 'reporte'], {
-      queryParams: {},
-      replaceUrl: true,
-    });
-  });
-
-  it('si el video no existe lo dice', () => {
-    crear({ t: '3' });
-    http
-      .expectOne('/api/videos/12')
-      .flush({ detail: 'video no encontrado' }, { status: 404, statusText: 'Not Found' });
+  it('sin sesión de carga: solo el video en el segundo, con el token del enlace', () => {
+    crear({ t: '55.5', k: 'tok_en-1' });
+    http.expectOne('/api/acceso').flush(acceso({}));
     fixture.detectChanges();
 
-    expect(navegar).not.toHaveBeenCalled();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No se pudo abrir');
+    expect(el().querySelector('video')?.getAttribute('src')).toBe(
+      '/api/videos/12/video?k=tok_en-1',
+    );
+    expect(el().textContent).toContain('Desde el segundo 00:55');
+    expect(abrir()).toBeNull();
+    http.expectNone('/api/videos/12'); // no pregunta por el video sin la vista de carga
+  });
+
+  it('con la sesión de carga, modo validar: ofrece abrir el reporte en ese segundo', () => {
+    crear({ t: '55.5', k: 'tok' });
+    http.expectOne('/api/acceso').flush(acceso({ sesion: true }));
+    http.expectOne('/api/videos/12').flush(estado('validar'));
+    fixture.detectChanges();
+
+    expect(el().querySelector('h1')?.textContent).toContain('video_a');
+    expect(abrir()?.textContent).toContain('Abrir el reporte');
+    expect(abrir()?.getAttribute('href')).toBe('/videos/12/reporte?t=55.5');
+  });
+
+  it('con la vista de carga abierta, modo generar: ofrece abrir el SOP', () => {
+    crear({ t: '0.0' });
+    http.expectOne('/api/acceso').flush(acceso({ abierta: true }));
+    http.expectOne('/api/videos/12').flush(estado('generar'));
+    fixture.detectChanges();
+
+    expect(el().querySelector('video')?.getAttribute('src')).toBe('/api/videos/12/video');
+    expect(abrir()?.textContent).toContain('Abrir el SOP');
+    expect(abrir()?.getAttribute('href')).toBe('/videos/12/sop?t=0');
+  });
+
+  it('sin t (o con uno inválido) abre el video desde el principio, sin segundo', () => {
+    crear({ t: 'abc' });
+    http.expectOne('/api/acceso').flush(acceso({ sesion: true }));
+    http.expectOne('/api/videos/12').flush(estado('validar'));
+    fixture.detectChanges();
+
+    expect(el().querySelector('.segundo')).toBeNull();
+    expect(abrir()?.getAttribute('href')).toBe('/videos/12/reporte');
+  });
+
+  it('si la API no responde se queda con el reproductor, sin enlaces', () => {
+    crear({ t: '3' });
+    http.expectOne('/api/acceso').flush(null, { status: 0, statusText: 'Unknown Error' });
+    fixture.detectChanges();
+
+    expect(el().querySelector('video')).not.toBeNull();
+    expect(abrir()).toBeNull();
   });
 });

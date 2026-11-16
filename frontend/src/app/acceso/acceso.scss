@@ -1,0 +1,46 @@
+// Sin el menú de la vista de carga: el encabezado es `.cabecera-consulta` (styles.scss).
+.acceso {
+  max-width: 24rem;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #d0d5dd;
+  border-radius: 0.5rem;
+}
+
+form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+label {
+  font-weight: 600;
+}
+
+input {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  border: 1px solid #98a2b3;
+  border-radius: 0.3rem;
+}
+
+button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  color: #fff;
+  background: #1f2a37;
+  border: 0;
+  border-radius: 0.3rem;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.error {
+  color: #b42318;
+}

@@ -7,8 +7,13 @@ siguiente video) y consulta del avance, el TXT en vivo (RF-10), el `Analisis`, l
 contexto (RF-12) y el reporte (RF-14, RF-19). Código: `sopvid.plataforma.api` (`sops`, `videos`), `sopvid.plataforma.procesamiento` y
 `sopvid.lenguaje.validacion`.
 
+Cada ruta pide la clave de su vista (§11, ADR-027): ver [Claves de acceso](#claves-de-acceso).
+
 | Método y ruta | Qué hace |
 |---|---|
+| `POST /acceso` | JSON `{"vista": "carga"\|"busqueda", "clave"}`. Con la clave correcta, **204** y la cookie de sesión de esa vista (`sopvid_carga` o `sopvid_busqueda`: HttpOnly, SameSite=Strict, sin caducidad: dura la sesión del navegador). **401** tras 1 s si no es la clave; 204 sin cookie si la vista está abierta. Sin clave |
+| `GET /acceso` | `{"carga": {"abierta", "sesion"}, "busqueda": {…}}`: si la vista no tiene clave y si esta petición trae la clave o la cookie. Sin clave |
+| `DELETE /acceso?vista=` | Borra la cookie de esa vista, o de las dos sin `vista`: **204**. Sin clave |
 | `POST /sops` | Multipart: `archivo` (.md, .txt, .pdf o .docx; texto hasta 1 MB, PDF y Word hasta 20 MB). Revisa que se pueda leer y responde **202** con el `EstadoSop` (`docs/contrato/sop_estado.schema.json`, `estado: "en_cola"`) y `Location: /sops/<id>/estado`; la conversión (plantilla o Gemma 4, ADR-015) corre en el trabajador. 415 si la extensión no está permitida, 413 si pasa del límite, 422 si no se puede leer (PDF escaneado, archivo dañado, texto que no es UTF-8) |
 | `GET /sops` | La biblioteca (RF-05): los SOP en `listo` y con `en_biblioteca`, del más nuevo al más viejo, como `[{"id", "codigo", "titulo", "origen", "creado", "videos_validados"}]` (`videos_validados`: videos con reporte contra ese SOP). No lista los que están en cola, convirtiendo o con error, ni los generados sin guardar |
 | `DELETE /sops/{id}` | Borra un SOP que nadie usa y su original en `MEDIA_DIR/sops/<id>/`: **204**. **409** con `{"mensaje", "videos", "reportes"}` si algún video o reporte lo referencia (el mensaje dice por qué: "1 video lo usa como referencia y su reporte depende de él", "se generó desde el video N, que lo sigue usando"), o con `{"mensaje", "estado"}` si se está convirtiendo. Nunca en cascada: la base lo protege con RESTRICT. 404 si no existe |
@@ -16,7 +21,7 @@ contexto (RF-12) y el reporte (RF-14, RF-19). Código: `sopvid.plataforma.api` (
 | `GET /sops/{id}` | `{"id", "codigo", "origen", "creado", "metodo", "advertencias", "en_biblioteca", "generacion", "sop"}` con el `SOP` del contrato (`generacion`: cómo se generó desde el video, ADR-023; null en un SOP cargado); **409** con `{"mensaje", "estado", "error"}` mientras no esté listo |
 | `PUT /sops/{id}` | Guarda la versión corregida (RF-04, RF-26): el cuerpo es el `SOP` completo del contrato. Pone al día `resumen.duracion_total_min` (ADR-025): la narrada por el operador si la hay (`generacion.duracion_narrada`, ADR-021); si no, la suma si todos los pasos tienen tiempo, la que había si ninguno y `null` si solo algunos; `revisado` (lo editó o lo confirmó una persona) se guarda tal cual. **422** si no lo cumple (sin pasos, numeración rota, un campo de más) o si el título pasa de 300 caracteres, sin tocar el guardado; **409** si no está listo |
 | `POST /sops/{id}/biblioteca` | Guarda el SOP en la biblioteca (RF-27): desde ahí sirve como `sop_id` en `POST /videos`, sin conversión. Responde el `EstadoSop` (`en_biblioteca: true`); idempotente; **409** si no está listo. Los SOP cargados ya están |
-| `GET /sops/{id}/pdf?ver=` | El PDF del SOP (RF-30, §13; `salidas/pdf.py`) como adjunto `application/pdf`; con `ver=true`, `inline` para abrirlo en otra pestaña ("Ver SOP" de `/buscar`): el guardado, con las correcciones del editor. Uno generado lleva un QR a su video (`<APP_URL_PUBLICA>/v/<video_id>?t=0.0`) con el mismo enlace en texto; uno cargado, sin QR, idioma ni duración. **409** si no está listo |
+| `GET /sops/{id}/pdf?ver=` | El PDF del SOP (RF-30, §13; `salidas/pdf.py`) como adjunto `application/pdf`; con `ver=true`, `inline` para abrirlo en otra pestaña ("Ver SOP" de `/buscar`): el guardado, con las correcciones del editor. Uno generado lleva un QR a su video (`<APP_URL_PUBLICA>/v/<video_id>?t=0.0&k=<token>`) con el mismo enlace en texto; uno cargado, sin QR, idioma ni duración. **409** si no está listo |
 | `GET /sops/{id}.md` | El SOP en la plantilla Markdown (`text/markdown`, `sop_a_markdown`); `convertir_sop` lo vuelve a leer con el mismo contenido de la plantilla (la evidencia, los tiempos del video y los puntos y palabras clave solo van en el JSON). **409** si no está listo |
 | `POST /uploads` | Subida por partes (RF-06). JSON `{"nombre", "tamano"}` (bytes; del nombre solo se usa la extensión, no se guarda). **201** con `{"upload_id", "tamano", "tamano_parte", "recibidos": 0, "completo": false}` y `Location: /uploads/<id>`; `tamano_parte` sale de `SUBIDA_PARTE_MB` (16). 415 si la extensión no es de video, 413 si `tamano` pasa de `SUBIDA_MAX_MB`, 422 si no es positivo. Antes borra las subidas sin actividad desde hace `SUBIDA_CADUCIDAD_H` horas (24; también al arrancar la API). Lo armado vive en `MEDIA_DIR/subidas/<id>/`, sin tabla |
 | `PUT /uploads/{id}?offset=N` | La parte en el cuerpo (binario, `application/octet-stream`). **200** con el mismo estado. Idempotente: una parte que empieza en un offset ya recibido no reescribe nada (si se extiende más allá, solo se anexa lo que falta). **409** `{"detail": {"mensaje", "offset", "tamano"}}` si el offset está adelantado (con el offset correcto) o si la parte pasa del tamaño declarado; **413** si la parte pasa de `tamano_parte` (antes de leerla si el `Content-Length` ya lo dice); 404 si la subida no existe, ya se usó, se canceló o caducó. Una parte cortada a la mitad no deja bytes: se anexa solo si llegó entera |
@@ -33,7 +38,7 @@ contexto (RF-12) y el reporte (RF-14, RF-19). Código: `sopvid.plataforma.api` (
 | `POST /videos/{id}/generar` | Repite la generación del SOP con la transcripción guardada, sin Whisper (ADR-023); reusa la ficha y los pasos del video guardados (RNF-07), salvo `?segmentar=true`. Reescribe el SOP del video salvo que ya esté en la biblioteca: entonces crea uno nuevo. **202**; 422 si el video no es de modo generar; 409 si está en cola o procesando, o si no tiene análisis guardado |
 | `GET /videos/{id}/transcripcion.txt` | El TXT tal como va, `[mm:ss] texto` por línea. 200 vacío si la transcripción no ha empezado |
 | `GET /videos/{id}/download/{tipo}` | Descarga de la transcripción (RF-31, §11 vista de carga), con `tipo` `txt`, `srt` o `json`, como adjunto en UTF-8: `Content-Disposition: attachment; filename="<titulo>.<tipo>"` con el título en minúsculas, sin acentos (ñ → n), signos ni espacios (`_` entre palabras; `video_<id>` si no queda nada; `salidas/transcripcion.py`). Sale del `Analisis` guardado, no del TXT en vivo: **TXT** (`text/plain`) en el mismo formato `[mm:ss] texto` de `transcripcion.txt`, completo (los segmentos de `resegmentar`, no las ventanas crudas de Whisper); **SRT** (`application/x-subrip`) con un bloque por segmento con texto, índices seguidos desde 1 y tiempos `HH:MM:SS,mmm` de la transcripción, sin solaparse (si un segmento empieza antes de que termine el anterior, el fin del anterior se recorta) y sin segmentos vacíos; **JSON** (`application/json`) el mismo `Analisis` de `GET …/analisis` (`docs/contrato/analisis.schema.json`). También con el video en `error` o `afinidad_baja` si la transcripción quedó guardada. **409** con `{"mensaje", "proceso"}` en cola o procesando; **404** con `{"mensaje", "proceso"}` si no tiene transcripción; **422** si `tipo` no es uno de los tres |
-| `GET /videos/{id}/pdf` | El PDF según el modo (§11; `salidas/pdf.py`), como adjunto `application/pdf`, tamaño carta, DejaVu Sans embebida, encabezado (título, código, fecha) y "Página X de Y" en cada hoja. **Validar:** el reporte de cumplimiento (RF-29) en el orden de §13 (portada con porcentaje, semáforo, afinidad y "provisional" si lo es; resumen; tabla paso a paso; faltan; sobran con segundo y cita; personas y tiempos; evidencia de cada hallazgo que no es un *Cumple* limpio, con miniatura, cita, QR a `<APP_URL_PUBLICA>/v/<id>?t=<s>` y el mismo enlace en texto; sin la sección de revisión hasta RF-21). Las miniaturas salen como en `/thumb`; sin imagen, la evidencia va sin esa columna. **Generar:** el SOP generado, como `GET /sops/{id}/pdf`. Todo segundo sale de lo guardado (regla 4). **409** con `{"mensaje", "proceso"}` en cola o procesando, o detenido por afinidad baja (hay que continuar la validación); **404** sin reporte o sin SOP generado listo. Fechas en la zona del servidor: en Docker, `TZ` (por defecto `America/Mexico_City`) |
+| `GET /videos/{id}/pdf` | El PDF según el modo (§11; `salidas/pdf.py`), como adjunto `application/pdf`, tamaño carta, DejaVu Sans embebida, encabezado (título, código, fecha) y "Página X de Y" en cada hoja. **Validar:** el reporte de cumplimiento (RF-29) en el orden de §13 (portada con porcentaje, semáforo, afinidad y "provisional" si lo es; resumen; tabla paso a paso; faltan; sobran con segundo y cita; personas y tiempos; evidencia de cada hallazgo que no es un *Cumple* limpio, con miniatura, cita, QR a `<APP_URL_PUBLICA>/v/<id>?t=<s>&k=<token>` y el mismo enlace en texto; sin la sección de revisión hasta RF-21). Las miniaturas salen como en `/thumb`; sin imagen, la evidencia va sin esa columna. **Generar:** el SOP generado, como `GET /sops/{id}/pdf`. Todo segundo sale de lo guardado (regla 4). **409** con `{"mensaje", "proceso"}` en cola o procesando, o detenido por afinidad baja (hay que continuar la validación); **404** sin reporte o sin SOP generado listo. Fechas en la zona del servidor: en Docker, `TZ` (por defecto `America/Mexico_City`) |
 | `GET /videos/{id}/analisis` | El `Analisis` validado cuando `proceso` es `listo`; si no, **409** con el proceso actual |
 | `GET /videos/{id}/contexto` | La ficha de contexto (`Contexto`, esquema en `docs/contrato/contexto.schema.json`; ejemplo en `tests/fixtures/contexto_ejemplo.json`). **409** con `{"mensaje", "proceso"}` mientras no se genere: el video sigue en proceso, Ollama falló (en modo validar el reporte lleva el aviso `contexto_sin_generar`) o el video se procesó antes de que existiera la ficha |
 | `GET /videos/{id}/reporte` | El `ReporteValidacion` (esquema en `docs/contrato/reporte.schema.json`; ejemplos en `tests/fixtures/reporte_ejemplo*.json`). **409** si no está listo, 404 si el video no tiene reporte (p. ej. modo generar) |
@@ -149,9 +154,46 @@ La cola vive en memoria: al arrancar, la API pasa a `error` ("interrumpido por r
 que quedaron en `en_cola` o `procesando`, y los SOP en `en_cola` o `convirtiendo`. Se vuelven a
 subir.
 
+## Claves de acceso
+
+§11 separa dos vistas, cada una con su clave (ADR-027). Las claves van **solo en tu `.env`**
+(`.env.example` las trae vacías):
+
+```dotenv
+CLAVE_CARGA=…          # corta, para escribirla en la demo
+CLAVE_BUSQUEDA=…       # otra, distinta de la de carga (si son iguales, la API no arranca)
+SECRETO_ENLACES=…      # largo: python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Reinicia la API después de cambiarlas. Una clave **vacía deja su vista abierta** (desarrollo y
+pruebas; `pytest` siempre corre con las tres vacías) y `GET /health` lo dice en `avisos`.
+
+| Vista | Rutas |
+|---|---|
+| Carga (`CLAVE_CARGA`) | Todo `/sops`, `/uploads` y `/videos`, salvo lo de abajo |
+| Búsqueda (`CLAVE_BUSQUEDA`) | `POST /buscar` y `GET /buscar/opciones` |
+| Cualquiera de las dos | `GET /videos/{id}/video`, `GET /videos/{id}/thumb` y `GET /sops/{id}/pdf?ver=true` (los usa `/buscar`). Con la de búsqueda, solo de videos publicados (o de un SOP con uno publicado); si no, 404 |
+| Ninguna | `/health`, `/docs`, `/openapi.json` y `/acceso` |
+
+- **Encabezado o cookie.** La API acepta `X-Clave-Acceso: <clave>` (scripts, curl, `/docs` con
+  "Authorize") o la cookie de `POST /acceso` (el frontend: `<img>`, `<video>` y las descargas no
+  mandan encabezados). La cookie guarda un HMAC, no la clave; cambiar la clave cierra las
+  sesiones. Sin clave o con una equivocada: **401** `{"detail": "Falta la clave de la vista de
+  carga o no es correcta."}`.
+- **Enlaces del PDF (`/v/<id>?t=…&k=…`).** Con `SECRETO_ENLACES`, cada QR lleva un token `k` que
+  abre solo el video y la miniatura de ese video, sin clave (`?k=` en `/video` y `/thumb`).
+  Cambiar `SECRETO_ENLACES` invalida todos los QR ya impresos (así se revocan). Sin él, los
+  enlaces van sin `k` y el video y su miniatura quedan abiertos a quien tenga la URL.
+- **Scripts:** `scripts/medir_busqueda.py` manda `X-Clave-Acceso` con `CLAVE_BUSQUEDA` del
+  entorno o de `.env` (`acceso.encabezados`).
+
 ## Probar con curl
 
+Con claves en `.env`, agrega `-H "X-Clave-Acceso: <clave de carga>"` a cada línea (o la de
+búsqueda en `/buscar`):
+
 ```powershell
+curl.exe -H "X-Clave-Acceso: <clave de carga>" http://127.0.0.1:8000/sops   # sin ella: 401
 curl.exe -F archivo=@tests/fixtures/sop_filtro_agua.md http://127.0.0.1:8000/sops
 # {"id":3,"codigo":"SOP-0003","estado":"en_cola","titulo":null,"metodo":null,"mensaje":null,"advertencias":[]}
 curl.exe http://127.0.0.1:8000/sops/3/estado

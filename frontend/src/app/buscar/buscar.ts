@@ -10,6 +10,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
+import { AccesoService } from '../acceso/acceso.service';
 import { ApiService } from '../api/api.service';
 import { ResultadoBusqueda, SopDeVideo } from '../api/busqueda';
 import { OpcionesBusqueda, VideoPublicado } from '../api/busqueda-opciones';
@@ -64,6 +66,11 @@ export class Buscar {
   private readonly caja = viewChild<ElementRef<HTMLInputElement>>('caja');
   private readonly conversacion = viewChild<ElementRef<HTMLElement>>('conversacion');
   private readonly reproductor = viewChild(Reproductor);
+  private readonly acceso = inject(AccesoService);
+  private readonly router = inject(Router);
+
+  /** "Salir" solo si la vista de búsqueda tiene clave y esta sesión la escribió (#30). */
+  protected readonly conSesion = computed(() => this.acceso.ultimo()?.busqueda.sesion === true);
 
   protected readonly largo = LARGO_CONSULTA;
   protected readonly mmss = mmss;
@@ -163,6 +170,14 @@ export class Buscar {
     this.historial.actualizar(turno.clave, { estado: 'buscando', error: null, respuesta: null });
     this.ejecutar(turno);
     this.enfocar();
+  }
+
+  /** Cierra la sesión de la vista de búsqueda (`DELETE /acceso`) y vuelve a pedir la clave. */
+  protected salir(): void {
+    this.acceso.salir('busqueda').subscribe({
+      next: () => void this.router.navigate(['/acceso'], { queryParams: { vista: 'busqueda' } }),
+      error: () => undefined,
+    });
   }
 
   protected limpiar(): void {

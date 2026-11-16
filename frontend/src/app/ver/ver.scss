@@ -1,0 +1,26 @@
+// Página mínima del enlace del PDF (/v/:id), sin el menú de la vista de carga: el encabezado
+// es `.cabecera-consulta` (styles.scss).
+.ver {
+  max-width: 56rem;
+  margin: 1.5rem auto;
+}
+
+.segundo {
+  margin: -0.5rem 0 0.75rem;
+  color: #475467;
+}
+
+app-reproductor {
+  display: block;
+}
+
+.abrir a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  color: #fff;
+  background: #1f2a37;
+  border-radius: 0.3rem;
+  text-decoration: none;
+}

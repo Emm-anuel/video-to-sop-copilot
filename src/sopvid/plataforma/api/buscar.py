@@ -22,11 +22,13 @@ from sopvid.contrato import (
 )
 from sopvid.lenguaje import busqueda
 from sopvid.percepcion import miniaturas
+from sopvid.plataforma.api.acceso import requiere_busqueda
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.modelos import Busqueda
 
-router = APIRouter(tags=["búsqueda"])
+# Vista de búsqueda (§11, ADR-027).
+router = APIRouter(tags=["búsqueda"], dependencies=[Depends(requiere_busqueda)])
 
 SIN_PALABRAS = "La consulta no tiene palabras que buscar: escribe al menos una palabra o número."
 

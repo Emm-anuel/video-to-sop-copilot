@@ -107,4 +107,19 @@ describe('Reproductor', () => {
     expect(enlace?.getAttribute('href')).toBe('/api/videos/5/video');
     expect(enlace?.hasAttribute('download')).toBe(true);
   });
+
+  it('con el token de un enlace del PDF lo pasa como ?k= al video, la sonda y la descarga', async () => {
+    fixture.componentRef.setInput('enlace', 'ab_-12');
+    await fixture.whenStable();
+    expect(video().getAttribute('src')).toBe('/api/videos/5/video?k=ab_-12');
+
+    Object.defineProperty(video(), 'error', { configurable: true, value: { code: 4 } });
+    video().dispatchEvent(new Event('error'));
+    const sonda = http.expectOne((r) => r.url === '/api/videos/5/video');
+    expect(sonda.request.params.get('k')).toBe('ab_-12');
+    sonda.flush(new Blob(['R']), { status: 206, statusText: 'Partial Content' });
+    fixture.detectChanges();
+    const enlace = aviso()?.querySelector('a.descargar-video');
+    expect(enlace?.getAttribute('href')).toBe('/api/videos/5/video?k=ab_-12');
+  });
 });

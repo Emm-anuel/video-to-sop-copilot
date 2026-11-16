@@ -104,6 +104,8 @@ from sopvid.percepcion.medios import (
 )
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
+from sopvid.plataforma import acceso
+from sopvid.plataforma.api.acceso import requiere_carga, requiere_medios
 from sopvid.plataforma.api.sops import (
     ArchivoSop,
     FabricaLLM,
@@ -138,7 +140,10 @@ from sopvid.salidas import transcripcion as salidas_txt
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["videos"])
+# Vista de carga (§11, ADR-027). El video y la miniatura van aparte: también los abren la clave
+# de búsqueda (videos publicados) y el token `k` de los enlaces del PDF (`/v/<id>`).
+router = APIRouter(tags=["videos"], dependencies=[Depends(requiere_carga)])
+router_medios = APIRouter(tags=["videos"], dependencies=[Depends(requiere_medios)])
 
 # AVI se analiza igual, pero Chrome y Edge no lo reproducen: el reporte lo dice y lo deja bajar.
 EXTENSIONES = (".mp4", ".mov", ".mkv", ".webm", ".avi")
@@ -793,7 +798,7 @@ def transcripcion_txt(
     )
 
 
-@router.get("/videos/{video_id}/video", response_class=FileResponse)
+@router_medios.get("/videos/{video_id}/video", response_class=FileResponse)
 def archivo_video(
     video_id: int,
     session: Annotated[Session, Depends(get_session)],
@@ -813,7 +818,7 @@ def archivo_video(
     return FileResponse(ruta, media_type=tipo)
 
 
-@router.get("/videos/{video_id}/thumb", response_class=FileResponse)
+@router_medios.get("/videos/{video_id}/thumb", response_class=FileResponse)
 def miniatura_video(
     video_id: int,
     t: Annotated[float, Query(description="Segundo del video, p. ej. 12.5")],
@@ -997,7 +1002,11 @@ def pdf_video(
     contenido = pdf.pdf_reporte(
         armado,
         video=pdf.InfoVideo(
-            id=video.id, titulo=video.titulo, duracion=video.duracion, idioma=video.idioma
+            id=video.id,
+            titulo=video.titulo,
+            duracion=video.duracion,
+            idioma=video.idioma,
+            token_enlace=acceso.token_enlace(settings, video.id),
         ),
         base_url=settings.app_url_publica,
         miniatura=_miniaturas_pdf(video, armado, settings),

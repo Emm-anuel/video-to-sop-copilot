@@ -8,6 +8,9 @@
         >Nuevo análisis</a
       >
       <a routerLink="/videos" routerLinkActive="activo" ariaCurrentWhenActive="page">Videos</a>
+      @if (conSesionDeCarga()) {
+        <button type="button" class="salir" (click)="salir()">Salir</button>
+      }
     </nav>
   </header>
 }

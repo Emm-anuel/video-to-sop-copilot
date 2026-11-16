@@ -130,6 +130,8 @@ export interface Salud {
     embedder: string;
     avisos: string[];
   };
+  /** Configuración de acceso (ADR-027): vista abierta por clave vacía, enlaces sin firma. */
+  avisos?: string[];
 }
 
 /** Un SOP de la biblioteca en `GET /sops` (RF-05): listo y guardado en ella. */

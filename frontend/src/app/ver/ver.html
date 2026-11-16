@@ -1,0 +1,22 @@
+<header class="cabecera-consulta">
+  <p class="marca"><strong>SOPVID</strong><span>&nbsp;· Video del procedimiento</span></p>
+</header>
+
+<section class="ver">
+  <h1>{{ video()?.titulo ?? 'Video' }}</h1>
+  @if (t !== null) {
+    <p class="segundo">Desde el segundo {{ mmss(t) }}</p>
+  }
+  <app-reproductor
+    [videoId]="id"
+    [inicio]="t"
+    [enlace]="k"
+    etiqueta="Video del enlace del PDF"
+    textoCarga="No se pudo cargar el video: el enlace no es válido o el video ya no está."
+  />
+  @if (abrir(); as a) {
+    <p class="abrir">
+      <a [routerLink]="a.ruta" [queryParams]="consulta()">{{ a.texto }}</a>
+    </p>
+  }
+</section>
