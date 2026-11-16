@@ -101,8 +101,6 @@ from sopvid.percepcion.medios import (
     ErrorMedios,
     FfmpegNoDisponible,
     duracion,
-    imagen_visible,
-    tiene_imagen,
 )
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
@@ -113,6 +111,7 @@ from sopvid.plataforma.api.sops import (
     get_fabrica_llm,
     get_procesador,
     leer_archivo_sop,
+    respuesta_pdf_sop,
 )
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
@@ -134,6 +133,7 @@ from sopvid.plataforma.procesamiento import (
     error_de_sop,
     leer_analisis,
 )
+from sopvid.salidas import pdf
 from sopvid.salidas import transcripcion as salidas_txt
 
 logger = logging.getLogger(__name__)
@@ -839,20 +839,14 @@ def miniatura_video(
         raise HTTPException(404, {"mensaje": "el video no se pudo leer"}) from None
     if not math.isfinite(t) or t < 0 or t > total:
         raise HTTPException(400, f"t debe estar entre 0 y {total:g} s")
-    ruta = miniaturas.buscar(carpeta, t)
-    if ruta is None:
-        try:
-            # La primera vez (un video procesado antes de las miniaturas) se revisa que tenga
-            # imagen visible; después basta con que tenga pista de video.
-            primera = not carpeta.is_dir() or not any(carpeta.glob("t*.jpg"))
-            visible = imagen_visible(archivo, total) if primera else tiene_imagen(archivo)
-            if not visible:
-                miniaturas.marcar_sin_imagen(carpeta)
-                raise HTTPException(404, {"mensaje": "el video no tiene imagen"})
-            ruta = miniaturas.asegurar(archivo, carpeta, t, total, settings.miniatura_lado_px)
-        except ErrorMedios as exc:
-            logger.warning("Video %d: miniatura en %.1f s sin generar (%s)", video_id, t, exc)
-            raise HTTPException(404, {"mensaje": "no se pudo sacar la miniatura"}) from None
+    try:
+        ruta = miniaturas.miniatura_en(archivo, t, total, settings.miniatura_lado_px)
+    except miniaturas.SinMiniatura as exc:
+        if exc.falla_medios:
+            logger.warning(
+                "Video %d: miniatura en %.1f s sin generar (%s)", video_id, t, exc.__cause__
+            )
+        raise HTTPException(404, {"mensaje": str(exc)}) from None
     return FileResponse(ruta, media_type="image/jpeg", headers={"Cache-Control": CACHE_MINIATURA})
 
 
@@ -936,6 +930,10 @@ def reporte_video(
     reporte = video.reporte
     if reporte is None:
         raise HTTPException(404, "el video no tiene reporte")
+    return _armar(video, reporte)
+
+
+def _armar(video: Video, reporte: Reporte) -> ReporteValidacion:
     return armar_reporte(
         ResultadoValidacion.model_validate(reporte.resultado),
         SOP.model_validate(reporte.sop.contenido),
@@ -945,6 +943,94 @@ def reporte_video(
         cumplimiento=float(reporte.cumplimiento),
         creado=reporte.creado,
     )
+
+
+@router.get(
+    "/videos/{video_id}/pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def pdf_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
+    """El PDF según el modo (§11): el reporte de cumplimiento (RF-29) en modo validar o el SOP
+    generado (RF-30) en modo generar, como adjunto. Sale de lo guardado: el reporte de
+    `GET /videos/{id}/reporte` o el SOP con las correcciones del editor.
+
+    409 explicado si el video sigue en cola o procesando, o si la validación se detuvo por
+    afinidad baja (sin reporte de pasos hasta continuar). 404 sin reporte o sin SOP generado
+    listo (p. ej. el proceso terminó en error).
+    """
+    video = _buscar(session, video_id)
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el video sigue en proceso; el PDF estará al terminar",
+                "proceso": video.proceso,
+            },
+        )
+    if video.proceso == AFINIDAD_BAJA:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "la validación se detuvo por afinidad baja: el video parece no ser de "
+                "este SOP. Continúa la validación para tener el reporte y su PDF",
+                "proceso": video.proceso,
+            },
+        )
+    if video.modo == "generar":
+        fila = session.get(Sop, video.sop_id) if video.sop_id is not None else None
+        if video.proceso != LISTO or fila is None or fila.estado != SOP_LISTO:
+            raise HTTPException(
+                404, {"mensaje": "el video no tiene un SOP generado", "proceso": video.proceso}
+            )
+        return respuesta_pdf_sop(session, fila, settings)
+    reporte = video.reporte
+    if video.proceso != LISTO or reporte is None:
+        raise HTTPException(404, {"mensaje": "el video no tiene reporte", "proceso": video.proceso})
+    armado = _armar(video, reporte)
+    contenido = pdf.pdf_reporte(
+        armado,
+        video=pdf.InfoVideo(
+            id=video.id, titulo=video.titulo, duracion=video.duracion, idioma=video.idioma
+        ),
+        base_url=settings.app_url_publica,
+        miniatura=_miniaturas_pdf(video, armado, settings),
+    )
+    nombre = salidas_txt.nombre_archivo(
+        f"reporte {video.titulo}", "pdf", respaldo=f"reporte_video_{video.id}"
+    )
+    return Response(
+        content=contenido,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
+
+
+def _miniaturas_pdf(
+    video: Video, reporte: ReporteValidacion, settings: Settings
+) -> Callable[[float], Path | None]:
+    """Las miniaturas de la evidencia del PDF, con la misma función que `GET /thumb` (caché en
+    `media/videos/<id>/miniaturas/`). Sin imagen (aviso "sin_imagen" o la marca), sin archivo o
+    con un segundo fuera de la duración, None: el PDF va sin la columna de la imagen."""
+    archivo = settings.media_path / video.archivo
+    total = video.duracion
+    sin_imagen = any(a.tipo == "sin_imagen" for a in reporte.metadatos.avisos)
+    if sin_imagen or total is None or not video.archivo or not archivo.is_file():
+        return lambda _t: None
+
+    def miniatura(t: float) -> Path | None:
+        if not 0 <= t <= total:
+            return None
+        try:
+            return miniaturas.miniatura_en(archivo, t, total, settings.miniatura_lado_px)
+        except miniaturas.SinMiniatura:
+            return None
+
+    return miniatura
 
 
 def _buscar(session: Session, video_id: int, *, para_actualizar: bool = False) -> Video:

@@ -18,7 +18,10 @@ import { SopEditor } from './sop-editor';
 })
 export class SopGenerado implements ConCambios {
   protected readonly avance = inject(AvanceVideo);
-  protected readonly videoId = Number(inject(ActivatedRoute).snapshot.paramMap.get('id'));
+  private readonly ruta = inject(ActivatedRoute).snapshot;
+  protected readonly videoId = Number(this.ruta.paramMap.get('id'));
+  /** `?t=N` (de `/v/:id`, un QR del PDF): el editor abre el video en ese segundo. */
+  protected readonly t = this.ruta.queryParamMap.get('t') ?? undefined;
   private readonly editor = viewChild(SopEditor);
 
   constructor() {

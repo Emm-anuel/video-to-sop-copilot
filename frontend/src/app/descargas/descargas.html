@@ -3,10 +3,17 @@
   <ul>
     @for (f of formatos(); track $index) {
       <li>
-        <a [href]="f.url" download (click)="cerrar()">
-          <span class="etiqueta">{{ f.etiqueta }}</span>
-          <span class="descripcion">{{ f.descripcion }}</span>
-        </a>
+        @if (f.deshabilitado) {
+          <span class="opcion deshabilitada" aria-disabled="true">
+            <span class="etiqueta">{{ f.etiqueta }}</span>
+            <span class="descripcion">{{ f.descripcion }}</span>
+          </span>
+        } @else {
+          <a class="opcion" [href]="f.url" download (click)="cerrar()">
+            <span class="etiqueta">{{ f.etiqueta }}</span>
+            <span class="descripcion">{{ f.descripcion }}</span>
+          </a>
+        }
       </li>
     }
   </ul>

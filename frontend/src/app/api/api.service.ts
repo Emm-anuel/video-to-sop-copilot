@@ -180,6 +180,19 @@ export class ApiService {
     return `${API}/videos/${id}/download/${tipo}`;
   }
 
+  /**
+   * `GET /videos/{id}/pdf` (§11): el PDF del reporte (modo validar, RF-29) o del SOP generado
+   * (modo generar, RF-30), como adjunto. Para un enlace `download`.
+   */
+  urlPdfVideo(id: number): string {
+    return `${API}/videos/${id}/pdf`;
+  }
+
+  /** `GET /sops/{id}/pdf`: el PDF de un SOP de la biblioteca (RF-30), el guardado. */
+  urlPdfSop(id: number): string {
+    return `${API}/sops/${id}/pdf`;
+  }
+
   /** `GET /health`: estado de la API y dónde corre cada modelo (`dispositivos`, ADR-018). */
   salud(): Observable<Salud> {
     return this.http.get<Salud>(`${API}/health`);

@@ -26,6 +26,9 @@ cliente/
 *.srt
 *.vtt
 media/
+# PDF generados para revisar a mano (llevan miniaturas, citas y nombres del video): se regeneran
+# con GET /videos/{id}/pdf. Lo comprobado va en verificacion.md, que sí se versiona.
+docs/adr/datos/s6/pdf/*.pdf
 
 # ─────────────────────────────────────────────
 # Datos y modelos pesados  (se documentan, no se versionan)

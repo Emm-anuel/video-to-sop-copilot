@@ -60,17 +60,23 @@ ul {
   box-shadow: 0 6px 16px rgb(16 24 40 / 0.12);
 }
 
-a {
+.opcion {
   display: grid;
   min-height: 2.25rem;
   padding: 0.4rem 0.6rem;
   color: #1f2a37;
   text-decoration: none;
   border-radius: 0.3rem;
+}
 
-  &:hover {
-    background: #f2f4f7;
-  }
+a.opcion:hover {
+  background: #f2f4f7;
+}
+
+// Sin enlace: no se puede elegir (p. ej. el PDF con cambios sin guardar).
+.deshabilitada {
+  color: #667085;
+  cursor: not-allowed;
 }
 
 .etiqueta {

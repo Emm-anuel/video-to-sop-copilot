@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # estos segundos de la anterior; con 0 no se une nada. Tope de resultados de POST /buscar.
     busqueda_unir_s: float = Field(default=3.0, ge=0)
     busqueda_max_resultados: int = Field(default=50, ge=1, le=500)
+    # Dirección del frontend con la que se arman los QR y los enlaces de los PDF (RF-29, RF-30):
+    # `<APP_URL_PUBLICA>/v/<id>?t=<segundo>` abre el video en ese segundo (§11). Sin "/" final.
+    app_url_publica: str = "http://localhost:4200"
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es

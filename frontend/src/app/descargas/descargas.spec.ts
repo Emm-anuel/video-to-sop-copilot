@@ -61,6 +61,22 @@ describe('Descargas', () => {
     expect(enlaces()[3].textContent).toContain('Reporte (.pdf)');
   });
 
+  it('un formato deshabilitado va sin enlace y dice por qué (PDF con cambios sin guardar)', async () => {
+    await crear(12, [
+      {
+        etiqueta: 'SOP (.pdf)',
+        descripcion: 'Guarda los cambios para descargar el PDF',
+        url: '/api/sops/3/pdf',
+        deshabilitado: true,
+      },
+    ]);
+
+    expect(enlaces().map((a) => a.getAttribute('href'))).not.toContain('/api/sops/3/pdf');
+    const opcion = el().querySelector('[aria-disabled="true"]')!;
+    expect(opcion.textContent).toContain('SOP (.pdf)');
+    expect(opcion.textContent).toContain('Guarda los cambios para descargar el PDF');
+  });
+
   it('es un menú plegable que se cierra al elegir, con Escape y con un clic fuera', async () => {
     await crear(12);
     const resumen = el().querySelector('summary')!;

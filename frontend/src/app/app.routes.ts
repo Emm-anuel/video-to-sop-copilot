@@ -6,6 +6,7 @@ import { Reporte } from './reporte/reporte';
 import { sinGuardar } from './sop/sin-guardar.guard';
 import { SopEditor } from './sop/sop-editor';
 import { SopGenerado } from './sop/sop-generado';
+import { Ver } from './ver/ver';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'nuevo' },
@@ -44,4 +45,6 @@ export const routes: Routes = [
     canDeactivate: [sinGuardar],
     title: 'Revisar el SOP · SOPVID',
   },
+  // Destino de los QR del PDF (§11): lleva al reporte o al SOP generado con `?t=`.
+  { path: 'v/:id', component: Ver, title: 'Abriendo el video · SOPVID' },
 ];

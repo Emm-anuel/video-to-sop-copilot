@@ -23,7 +23,7 @@
       >
     </div>
   } @else if (v.sop_id != null) {
-    <app-sop-editor [id]="v.sop_id" [videoId]="videoId" />
+    <app-sop-editor [id]="v.sop_id" [videoId]="videoId" [t]="t" />
   } @else {
     <p class="error" role="alert">El video terminó sin SOP generado.</p>
   }

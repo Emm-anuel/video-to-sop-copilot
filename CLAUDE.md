@@ -67,7 +67,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Transcripción | faster-whisper `large-v3-turbo`, el mismo modelo en CPU (int8) y en GPU (float16) (ADR-018, `WHISPER_MODELO_CPU`); otro modelo da el aviso `transcripcion_no_referencia`. Tiempo por palabra, VAD, detección de idioma |
 | LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir SOP sin plantilla (S5, [ADR-015](docs/adr/ADR-015-sop-plantilla-markdown.md)), describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
-| Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
+| Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab con su QR (`reportlab.graphics.barcode.qr`, sin la librería qrcode) y DejaVu Sans embebida (`salidas/fuentes/`) |
 | ML académico | pandas, scikit-learn, LightGBM |
 | Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` en el servicio `web` de compose (puerto 4200) con proxy `/api` → la API según `API_URL` (`frontend/proxy.conf.js`; la API no tiene CORS). MVP: `frontend/README.md` |
 | Calidad | pytest, ruff, GitHub Actions |
@@ -256,12 +256,22 @@ docs/
 >   total y la subida no reanuda sola al volver la red (#19).
 > - **Semana 6 (16–22 nov, rama `feat/s6`, sale de `main` en `ef9e60e`; plan §6):** todo a
 >   nombre de Emmanuel; Sara no participa en S6 y RF-31 a 37 pasaron a Emmanuel el 14 nov
->   (registro de decisiones). **Núcleo, sin código todavía:** PDF del reporte y del SOP con QR
->   (RF-29, 30; `qrcode` aún no está en `pyproject.toml`), descargas TXT, SRT y JSON (RF-31),
->   publicar y búsqueda exacta (RF-32, 33; `palabras` con su índice, `busquedas` y
->   `videos.publicado` ya existen desde la `0002`; la `0008` agrega `publicado_en`; la
->   normalización reusa `texto.forma_busqueda`), resultados con miniatura y salto (RF-34), `/buscar` tipo chat (RF-36) con filtros
->   (RF-37) y pantalla `/videos` con "Publicar"; además Docker en máquina limpia y RNF-01 a 07.
+>   (registro de decisiones). **Con código:**
+>   - RF-32 y RF-33 (`1cfccb3`, #24, #29): `GET /videos` con filtros, `POST`/`DELETE
+>     /videos/{id}/publicar` e índice en `palabras` (`lenguaje/busqueda.py`, migración `0008`
+>     con `publicado_en`; la normalización es `texto.forma_busqueda`).
+>   - RF-34, RF-35 y RF-37 en la API (`c1f3dcf`, #25, #26, #28): `POST /buscar` con frase
+>     exacta, segundo y miniatura, unión a `BUSQUEDA_UNIR_S` y filtros por SOP o video.
+>   - RF-31 (`3a1f940`, #23): `GET /videos/{id}/download/{txt|srt|json}` (`salidas/transcripcion.py`)
+>     y el menú `descargas` del frontend.
+>   - RF-29 y RF-30 (#21, #22): `salidas/pdf.py` (ReportLab, QR de reportlab, DejaVu Sans
+>     embebida), `GET /videos/{id}/pdf` según el modo y `GET /sops/{id}/pdf`; los QR van a
+>     `<APP_URL_PUBLICA>/v/<id>?t=` (`frontend/src/app/ver/`, que lleva al reporte o al editor
+>     con `?t=`); fechas con `TZ` en Docker. Verificación en `docs/adr/datos/s6/pdf/verificacion.md`
+>     (los PDF no se versionan; se regeneran con `GET /videos/{id}/pdf`).
+>
+>   **Sin código todavía:** `/buscar` tipo chat (RF-36), la pantalla `/videos` con "Publicar"
+>   y los resultados de búsqueda en el frontend; además Docker en máquina limpia y RNF-01 a 07.
 >   **#11 cerrado (15 nov, ADR-026, Propuesto):** `EMPAREJAR_TEXTO=max_si_otro_idioma` por
 >   defecto (`cita` de respaldo) y `SOP_IDIOMA=es`: si la transcripción no está en el idioma del
 >   SOP, cada par toma el mayor coseno con y sin la cita (la causa era el idioma, no el ruido de

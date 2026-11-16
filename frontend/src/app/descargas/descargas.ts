@@ -1,11 +1,16 @@
 import { Component, ElementRef, computed, inject, input, viewChild } from '@angular/core';
 import { ApiService, TipoDescarga } from '../api/api.service';
 
-/** Una opción del menú: un enlace de descarga normal (`<a href download>`). */
+/**
+ * Una opción del menú: un enlace de descarga normal (`<a href download>`). Con `deshabilitado`
+ * (p. ej. el PDF del SOP con cambios sin guardar) va como texto, sin enlace, y la descripción
+ * dice por qué.
+ */
 export interface FormatoDescarga {
   etiqueta: string;
   descripcion: string;
   url: string;
+  deshabilitado?: boolean;
 }
 
 /** Los archivos de la transcripción (RF-31), en el orden del menú. */

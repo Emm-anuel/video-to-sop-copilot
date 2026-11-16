@@ -57,7 +57,12 @@ describe('SopGenerado', () => {
         provideHttpClientTesting(),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ id: '9' }) } },
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ id: '9' }),
+              queryParamMap: convertToParamMap({}),
+            },
+          },
         },
       ],
     });

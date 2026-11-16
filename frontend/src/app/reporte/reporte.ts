@@ -5,7 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, catchError, filter, map, switchMap } from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
-import { FalloVideo, SIN_SOPORTE, codigoDeError } from '../api/reproductor';
+import { FalloVideo, SIN_SOPORTE, codigoDeError, segundoDeConsulta } from '../api/reproductor';
 import {
   Aviso,
   Dispositivos,
@@ -20,7 +20,7 @@ import {
 } from '../api/reporte-validacion';
 import { AvanceVideo } from '../avance/avance.service';
 import { etiquetaEtapa } from '../avance/etapas';
-import { Descargas } from '../descargas/descargas';
+import { Descargas, FormatoDescarga } from '../descargas/descargas';
 
 /** Estado de la fila tal como se muestra; "zona_gris" es un par que el juez no revisó. */
 const ETIQUETA_ESTADO: Record<Estado, string> = {
@@ -191,6 +191,23 @@ export function urlMiniatura(id: number, t: number): string {
   return `${API}/videos/${id}/thumb?t=${t}`;
 }
 
+/**
+ * La fila cuyo segundo es `t` (±1 s, RNF-03; el QR lleva el segundo con un decimal), o null.
+ * Si hay varias, la más cercana.
+ */
+export function filaDelSegundo(filas: readonly FilaReporte[], t: number): number | null {
+  let mejor: number | null = null;
+  let menor = Infinity;
+  for (const [indice, fila] of filas.entries()) {
+    const distancia = fila.t_inicio == null ? Infinity : Math.abs(fila.t_inicio - t);
+    if (distancia <= 1 && distancia < menor) {
+      mejor = indice;
+      menor = distancia;
+    }
+  }
+  return mejor;
+}
+
 /** Segundos con un decimal: `11.8 s`. */
 export function formatoSegundos(segundos: number): string {
   return `${segundos.toFixed(1)} s`;
@@ -237,6 +254,25 @@ export class Reporte {
   protected readonly filaActiva = signal<number | null>(null);
   /** Por qué no se ve el video (`formato`: p. ej. un AVI; `carga`: no cargó), o `null`. */
   protected readonly falloVideo = signal<FalloVideo | null>(null);
+  /**
+   * `?t=N` (de `/v/:id`, el destino de los QR del PDF, §11): el video salta ahí al cargar y la
+   * fila de ese segundo se marca. `saltoPendiente` se consume con el primer `loadedmetadata`.
+   */
+  private segundoConsulta: number | null = null;
+  private saltoPendiente: number | null = null;
+  /** El PDF del reporte (RF-29) en el menú "Descargar". */
+  protected readonly extrasPdf = computed<FormatoDescarga[]>(() => {
+    const id = this.videoId();
+    return id == null
+      ? []
+      : [
+          {
+            etiqueta: 'Reporte (.pdf)',
+            descripcion: 'Para imprimir, con QR al segundo de cada hallazgo',
+            url: this.api.urlPdfVideo(id),
+          },
+        ];
+  });
   /** Mientras se envía "Continuar de todos modos" (evita el doble envío). */
   protected readonly continuando = signal(false);
 
@@ -298,6 +334,8 @@ export class Reporte {
         this.filaActiva.set(null);
         this.falloVideo.set(null);
         this.miniaturasFallidas.set(new Set());
+        this.segundoConsulta = segundoDeConsulta(this.ruta.snapshot.queryParamMap.get('t'));
+        this.saltoPendiente = this.segundoConsulta;
         this.avance.seguir(id);
       });
 
@@ -314,7 +352,12 @@ export class Reporte {
         ),
         takeUntilDestroyed(),
       )
-      .subscribe((reporte) => this.reporte.set(reporte));
+      .subscribe((reporte) => {
+        this.reporte.set(reporte);
+        if (this.segundoConsulta !== null) {
+          this.filaActiva.set(filaDelSegundo(reporte.filas, this.segundoConsulta));
+        }
+      });
   }
 
   /**
@@ -358,6 +401,16 @@ export class Reporte {
         this.falloVideo.set(esta ? 'formato' : 'carga');
       }
     });
+  }
+
+  /** El video ya tiene sus metadatos: si llegó con `?t=`, salta a ese segundo (sin reproducir). */
+  protected alCargarVideo(): void {
+    this.falloVideo.set(null);
+    const video = this.reproductor()?.nativeElement;
+    if (video && this.saltoPendiente !== null) {
+      video.currentTime = this.saltoPendiente;
+      this.saltoPendiente = null;
+    }
   }
 
   /** Miniatura del segundo de la fila (`GET /videos/{id}/thumb`, ADR-024): se pide por segundo. */

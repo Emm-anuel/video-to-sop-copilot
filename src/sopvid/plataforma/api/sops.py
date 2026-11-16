@@ -58,6 +58,8 @@ from sopvid.plataforma.procesamiento import (
     carpeta_sop,
     crear_sop_en_cola,
 )
+from sopvid.salidas import pdf
+from sopvid.salidas.transcripcion import nombre_archivo
 
 __all__ = ["FabricaLLM", "carpeta_sop", "get_fabrica_llm", "get_procesador", "leer_archivo_sop"]
 
@@ -296,6 +298,49 @@ def sop_en_markdown(
     fila = _listo(session, sop_id)
     texto = sop_a_markdown(SOP.model_validate(fila.contenido))
     return PlainTextResponse(texto, media_type="text/markdown; charset=utf-8")
+
+
+@router.get(
+    "/sops/{sop_id}/pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def sop_en_pdf(
+    sop_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
+    """El PDF del SOP (RF-30, §13) de la biblioteca: el guardado, con las correcciones del
+    editor. Uno generado lleva el QR a su video; uno cargado, no. 409 si no está listo."""
+    return respuesta_pdf_sop(session, _listo(session, sop_id), settings)
+
+
+def respuesta_pdf_sop(session: Session, fila: Sop, settings: Settings) -> Response:
+    """El PDF de un SOP listo como adjunto. El video sale de `generacion.video_id` (SOP generado);
+    sin él, la portada no lleva QR, idioma ni duración."""
+    video = None
+    if fila.generacion:
+        guardado = session.get(Video, GeneracionSOP.model_validate(fila.generacion).video_id)
+        if guardado is not None:
+            video = pdf.InfoVideo(
+                id=guardado.id,
+                titulo=guardado.titulo,
+                duracion=guardado.duracion,
+                idioma=guardado.idioma,
+            )
+    contenido = pdf.pdf_sop(
+        SOP.model_validate(fila.contenido),
+        codigo=fila.codigo,
+        fecha=fila.creado,
+        base_url=settings.app_url_publica,
+        video=video,
+    )
+    nombre = nombre_archivo(f"{fila.codigo} {fila.titulo or ''}", "pdf", respaldo=fila.codigo)
+    return Response(
+        content=contenido,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.get("/sops/{sop_id}", response_model=SopDetalle)

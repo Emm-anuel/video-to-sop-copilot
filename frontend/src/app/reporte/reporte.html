@@ -10,7 +10,7 @@
           preload="metadata"
           [src]="urlVideo(id)"
           (error)="alFallarVideo($event, id)"
-          (loadedmetadata)="falloVideo.set(null)"
+          (loadedmetadata)="alCargarVideo()"
         ></video>
         @if (falloVideo() === 'formato') {
           <div class="aviso-video" role="status">
@@ -51,7 +51,7 @@
         }
         @if (videoId(); as id) {
           <div class="descargas">
-            <app-descargas [videoId]="id" />
+            <app-descargas [videoId]="id" [extras]="extrasPdf()" />
           </div>
         }
         @if (r.provisional) {
