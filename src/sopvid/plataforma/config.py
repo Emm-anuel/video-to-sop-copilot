@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     # Búsqueda exacta (RF-32): con true, cada video se publica solo al quedar listo; con false
     # (por defecto), se publica a mano desde /videos (POST /videos/{id}/publicar).
     publicar_al_terminar: bool = False
+    # RF-35: las coincidencias del mismo video se unen en cadena si cada una empieza a menos de
+    # estos segundos de la anterior; con 0 no se une nada. Tope de resultados de POST /buscar.
+    busqueda_unir_s: float = Field(default=3.0, ge=0)
+    busqueda_max_resultados: int = Field(default=50, ge=1, le=500)
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es

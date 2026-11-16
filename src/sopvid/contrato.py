@@ -1546,6 +1546,86 @@ class EstadoPublicacion(_Modelo):
         return self
 
 
+LARGO_CONSULTA = 500  # caracteres de `ConsultaBusqueda.consulta`
+
+
+class ConsultaBusqueda(_Modelo):
+    """Cuerpo de `POST /buscar` (§11, RF-33, RF-37). `consulta`: una palabra o una frase, tal como
+    la escribió la persona. `video_id` y `sop_id` filtran (se combinan); uno que no existe, sin
+    publicar o que no se cruza con el otro da cero resultados, no un error."""
+
+    # Vacía o solo signos no es un error de forma: `POST /buscar` responde 400 con el motivo.
+    consulta: str = Field(max_length=LARGO_CONSULTA)
+    video_id: int | None = None
+    sop_id: int | None = None
+
+
+class VideoDeBusqueda(_Modelo):
+    id: int
+    titulo: str
+
+
+class ResultadoBusqueda(_Modelo):
+    """Una coincidencia (RF-34) o una cadena de coincidencias del mismo video unidas (RF-35).
+
+    `t_inicio` es el de la primera palabra de la coincidencia y `t_fin` el de la última, tal cual
+    de Whisper (RNF-03). `miniatura` es la ruta de `GET /videos/{id}/thumb?t=`, o None si el
+    video no tiene imagen. `frase`: hasta 8 palabras originales antes y después, sin HTML;
+    `frase[rango[0]:rango[1]]` es la coincidencia (fin exclusivo, palabras originales completas).
+    `recorte_inicio` / `recorte_fin`: hay más palabras antes o después de la frase. Unida,
+    conserva todo de la primera coincidencia de la cadena y `coincidencias` dice cuántas se
+    unieron (1 si va sola).
+    """
+
+    video: VideoDeBusqueda
+    sop: SopDeVideo | None = None
+    t_inicio: float = Field(ge=0)
+    t_fin: float = Field(ge=0)
+    miniatura: str | None = None
+    frase: str
+    rango: tuple[int, int]
+    recorte_inicio: bool = False
+    recorte_fin: bool = False
+    coincidencias: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def _rangos(self) -> Self:
+        _verificar_rango(self.t_inicio, self.t_fin)
+        inicio, fin = self.rango
+        if not 0 <= inicio < fin <= len(self.frase):
+            raise ValueError(f"rango {self.rango} fuera de la frase ({len(self.frase)} caracteres)")
+        return self
+
+
+class RespuestaBusqueda(_Modelo):
+    """Respuesta de `POST /buscar`. `consulta_normalizada`: las palabras como se buscaron
+    (`texto.forma_busqueda`). `total`: resultados ya unidos (RF-35), antes del tope
+    `BUSQUEDA_MAX_RESULTADOS`; `resultados` trae a lo más ese tope, por video (el más reciente
+    primero) y dentro, por segundo. `milisegundos`: lo que tardó del lado del servidor."""
+
+    consulta: str
+    consulta_normalizada: str
+    total: int = Field(ge=0)
+    resultados: list[ResultadoBusqueda]
+    milisegundos: float = Field(ge=0)
+
+
+class VideoPublicado(_Modelo):
+    """Un video del selector de `/buscar`: publicado, con su SOP (de referencia o generado)."""
+
+    id: int
+    titulo: str
+    sop_id: int | None = None
+
+
+class OpcionesBusqueda(_Modelo):
+    """`GET /buscar/opciones` (RF-37): los videos publicados (el más reciente primero) y los SOP
+    con al menos un video publicado (por código)."""
+
+    videos: list[VideoPublicado]
+    sops: list[SopDeVideo]
+
+
 def esquema_analisis() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `Analisis`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **Analisis.model_json_schema()}
@@ -1579,3 +1659,13 @@ def esquema_video_resumen() -> dict[str, Any]:
 def esquema_publicacion() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `EstadoPublicacion`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **EstadoPublicacion.model_json_schema()}
+
+
+def esquema_busqueda() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `RespuestaBusqueda` (`POST /buscar`)."""
+    return {"$schema": URI_JSON_SCHEMA, **RespuestaBusqueda.model_json_schema()}
+
+
+def esquema_opciones_busqueda() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `OpcionesBusqueda` (`GET /buscar/opciones`)."""
+    return {"$schema": URI_JSON_SCHEMA, **OpcionesBusqueda.model_json_schema()}

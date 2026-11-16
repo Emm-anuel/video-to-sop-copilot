@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ResultadoBusqueda": {
+      "additionalProperties": false,
+      "description": "Una coincidencia (RF-34) o una cadena de coincidencias del mismo video unidas (RF-35).\n\n`t_inicio` es el de la primera palabra de la coincidencia y `t_fin` el de la última, tal cual\nde Whisper (RNF-03). `miniatura` es la ruta de `GET /videos/{id}/thumb?t=`, o None si el\nvideo no tiene imagen. `frase`: hasta 8 palabras originales antes y después, sin HTML;\n`frase[rango[0]:rango[1]]` es la coincidencia (fin exclusivo, palabras originales completas).\n`recorte_inicio` / `recorte_fin`: hay más palabras antes o después de la frase. Unida,\nconserva todo de la primera coincidencia de la cadena y `coincidencias` dice cuántas se\nunieron (1 si va sola).",
+      "properties": {
+        "video": {
+          "$ref": "#/$defs/VideoDeBusqueda"
+        },
+        "sop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SopDeVideo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "t_inicio": {
+          "minimum": 0,
+          "title": "T Inicio",
+          "type": "number"
+        },
+        "t_fin": {
+          "minimum": 0,
+          "title": "T Fin",
+          "type": "number"
+        },
+        "miniatura": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Miniatura"
+        },
+        "frase": {
+          "title": "Frase",
+          "type": "string"
+        },
+        "rango": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Rango",
+          "type": "array"
+        },
+        "recorte_inicio": {
+          "default": false,
+          "title": "Recorte Inicio",
+          "type": "boolean"
+        },
+        "recorte_fin": {
+          "default": false,
+          "title": "Recorte Fin",
+          "type": "boolean"
+        },
+        "coincidencias": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Coincidencias",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "video",
+        "t_inicio",
+        "t_fin",
+        "frase",
+        "rango"
+      ],
+      "title": "ResultadoBusqueda",
+      "type": "object"
+    },
+    "SopDeVideo": {
+      "additionalProperties": false,
+      "description": "El SOP de un video en la lista: el de referencia (validar) o el generado (generar).\n`titulo` es None mientras el SOP se convierte o se redacta.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "codigo": {
+          "title": "Codigo",
+          "type": "string"
+        },
+        "titulo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Titulo"
+        }
+      },
+      "required": [
+        "id",
+        "codigo"
+      ],
+      "title": "SopDeVideo",
+      "type": "object"
+    },
+    "VideoDeBusqueda": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "titulo": {
+          "title": "Titulo",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "titulo"
+      ],
+      "title": "VideoDeBusqueda",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Respuesta de `POST /buscar`. `consulta_normalizada`: las palabras como se buscaron\n(`texto.forma_busqueda`). `total`: resultados ya unidos (RF-35), antes del tope\n`BUSQUEDA_MAX_RESULTADOS`; `resultados` trae a lo más ese tope, por video (el más reciente\nprimero) y dentro, por segundo. `milisegundos`: lo que tardó del lado del servidor.",
+  "properties": {
+    "consulta": {
+      "title": "Consulta",
+      "type": "string"
+    },
+    "consulta_normalizada": {
+      "title": "Consulta Normalizada",
+      "type": "string"
+    },
+    "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+    },
+    "resultados": {
+      "items": {
+        "$ref": "#/$defs/ResultadoBusqueda"
+      },
+      "title": "Resultados",
+      "type": "array"
+    },
+    "milisegundos": {
+      "minimum": 0,
+      "title": "Milisegundos",
+      "type": "number"
+    }
+  },
+  "required": [
+    "consulta",
+    "consulta_normalizada",
+    "total",
+    "resultados",
+    "milisegundos"
+  ],
+  "title": "RespuestaBusqueda",
+  "type": "object"
+}

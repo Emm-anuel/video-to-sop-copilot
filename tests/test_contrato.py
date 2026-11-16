@@ -38,8 +38,10 @@ from sopvid.contrato import (
     Umbrales,
     VideoResumen,
     esquema_analisis,
+    esquema_busqueda,
     esquema_contexto,
     esquema_estado_sop,
+    esquema_opciones_busqueda,
     esquema_publicacion,
     esquema_reporte,
     esquema_sop,
@@ -1141,6 +1143,8 @@ def test_umbrales_anteriores_a_s5_validan():
         ("sop_estado.schema.json", esquema_estado_sop),
         ("video_resumen.schema.json", esquema_video_resumen),
         ("publicacion.schema.json", esquema_publicacion),
+        ("busqueda.schema.json", esquema_busqueda),
+        ("busqueda_opciones.schema.json", esquema_opciones_busqueda),
     ],
 )
 def test_el_esquema_exportado_coincide_con_el_modelo(archivo, esquema):

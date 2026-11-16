@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sopvid import __version__
 from sopvid.lenguaje.busqueda import publicar_al_terminar
 from sopvid.percepcion.subidas import limpiar_caducadas
-from sopvid.plataforma.api import health, sops, subidas, videos
+from sopvid.plataforma.api import buscar, health, sops, subidas, videos
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_sessionmaker
 from sopvid.plataforma.hardware import get_hardware, get_plan_dispositivos, registrar
@@ -83,6 +83,7 @@ def create_app(
     app.include_router(sops.router)
     app.include_router(videos.router)
     app.include_router(subidas.router)
+    app.include_router(buscar.router)
     return app
 
 
