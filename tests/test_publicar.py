@@ -51,6 +51,17 @@ def test_publicar_indexa_y_marca_el_video(client: TestClient, entorno: Entorno) 
     assert busqueda.contar(entorno.session, guardado) == PALABRAS
 
 
+def test_el_estado_del_video_dice_si_esta_publicado(client: TestClient, entorno: Entorno) -> None:
+    video = guardar_video(entorno.session)
+    assert client.get(f"/videos/{video.id}").json()["publicado"] is False
+
+    client.post(f"/videos/{video.id}/publicar")
+    assert client.get(f"/videos/{video.id}").json()["publicado"] is True
+
+    client.delete(f"/videos/{video.id}/publicar")
+    assert client.get(f"/videos/{video.id}").json()["publicado"] is False
+
+
 def test_publicar_otra_vez_reemplaza_sin_duplicar(client: TestClient, entorno: Entorno) -> None:
     video = guardar_video(entorno.session)
 

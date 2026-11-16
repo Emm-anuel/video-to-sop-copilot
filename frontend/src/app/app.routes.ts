@@ -18,6 +18,21 @@ export const routes: Routes = [
     data: { ancho: true },
     title: 'Biblioteca de SOP · SOPVID',
   },
+  // Lista de videos (pantalla 6, #29): cada fila lleva al avance, al reporte o al SOP generado.
+  // Las dos pantallas de S6 se cargan al entrar (loadComponent): no suman al bundle inicial.
+  {
+    path: 'videos',
+    loadComponent: () => import('./videos/videos').then((m) => m.Videos),
+    data: { ancho: true },
+    title: 'Videos · SOPVID',
+  },
+  // Búsqueda (pantalla 7, RF-36): vista de consulta, sin el menú de la vista de carga (app.html).
+  {
+    path: 'buscar',
+    loadComponent: () => import('./buscar/buscar').then((m) => m.Buscar),
+    data: { ancho: true, consulta: true },
+    title: 'Búsqueda · SOPVID',
+  },
   // Avance en vivo por etapa (RF-08): /nuevo llega aquí al enviar; al terminar sigue al resultado.
   {
     path: 'videos/:id/procesando',

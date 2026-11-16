@@ -112,6 +112,8 @@ export interface EstadoVideo {
    */
   imagenes_hechas?: number | null;
   imagenes_total?: number | null;
+  /** Si está en la búsqueda exacta (RF-32). */
+  publicado?: boolean;
 }
 
 /** `GET /health` (docs/dev/api.md): lo que usa la pantalla Procesando. */

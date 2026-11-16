@@ -309,15 +309,21 @@ def sop_en_pdf(
     sop_id: int,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    ver: bool = False,
 ) -> Response:
     """El PDF del SOP (RF-30, §13) de la biblioteca: el guardado, con las correcciones del
-    editor. Uno generado lleva el QR a su video; uno cargado, no. 409 si no está listo."""
-    return respuesta_pdf_sop(session, _listo(session, sop_id), settings)
+    editor. Uno generado lleva el QR a su video; uno cargado, no. 409 si no está listo. Con
+    `ver=true` va `inline`, para abrirlo en otra pestaña ("Ver SOP" de `/buscar`); si no, como
+    adjunto."""
+    return respuesta_pdf_sop(session, _listo(session, sop_id), settings, inline=ver)
 
 
-def respuesta_pdf_sop(session: Session, fila: Sop, settings: Settings) -> Response:
-    """El PDF de un SOP listo como adjunto. El video sale de `generacion.video_id` (SOP generado);
-    sin él, la portada no lleva QR, idioma ni duración."""
+def respuesta_pdf_sop(
+    session: Session, fila: Sop, settings: Settings, *, inline: bool = False
+) -> Response:
+    """El PDF de un SOP listo, como adjunto o, con `inline`, para verlo en el navegador. El video
+    sale de `generacion.video_id` (SOP generado); sin él, la portada no lleva QR, idioma ni
+    duración."""
     video = None
     if fila.generacion:
         guardado = session.get(Video, GeneracionSOP.model_validate(fila.generacion).video_id)
@@ -339,7 +345,9 @@ def respuesta_pdf_sop(session: Session, fila: Sop, settings: Settings) -> Respon
     return Response(
         content=contenido,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+        headers={
+            "Content-Disposition": f'{"inline" if inline else "attachment"}; filename="{nombre}"'
+        },
     )
 
 

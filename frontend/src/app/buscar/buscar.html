@@ -1,0 +1,230 @@
+<header class="cabecera">
+  <p class="marca"><strong>SOPVID</strong><span>&nbsp;· Búsqueda en los videos publicados</span></p>
+  <button type="button" class="limpiar" [disabled]="turnos().length === 0" (click)="limpiar()">
+    Limpiar
+  </button>
+</header>
+
+<h1 class="sr-only">Búsqueda en los videos publicados</h1>
+
+<div class="disposicion">
+  <section class="chat" aria-label="Conversación">
+    <ol #conversacion class="mensajes" aria-live="polite">
+      @if (sinPublicados()) {
+        <li class="aviso-publicados" role="status">
+          Todavía no hay videos publicados: por ahora la búsqueda no encontrará nada.
+        </li>
+      }
+      @if (turnos().length === 0) {
+        <li class="bienvenida">
+          Escribe una palabra o una frase que se dijo en los videos. Encuentro la coincidencia
+          exacta, sin importar acentos ni mayúsculas, y te llevo al segundo en que se dijo.
+        </li>
+      }
+      @for (t of turnos(); track t.clave) {
+        <li class="turno">
+          <div class="burbuja persona">
+            <p class="consulta">{{ t.consulta }}</p>
+            @if (tieneFiltros(t.filtros)) {
+              <p class="chips-burbuja">
+                @if (t.filtros.sop; as s) {
+                  <span class="chip">SOP: {{ etiquetaSop(s) }}</span>
+                }
+                @if (t.filtros.video; as v) {
+                  <span class="chip">Video: {{ v.titulo }}</span>
+                }
+              </p>
+            }
+            <button
+              type="button"
+              class="repetir"
+              [disabled]="buscando()"
+              (click)="repetir(t)"
+              [attr.aria-label]="'Repetir la búsqueda «' + t.consulta + '»'"
+            >
+              Repetir
+            </button>
+          </div>
+          <div
+            class="burbuja sistema"
+            [class.elegida]="turnoVisible()?.clave === t.clave"
+            [class.fallo]="t.estado === 'error'"
+          >
+            @switch (t.estado) {
+              @case ('buscando') {
+                <p>Buscando…</p>
+              }
+              @case ('error') {
+                <p>{{ t.error }}</p>
+                <button type="button" [disabled]="buscando()" (click)="reintentar(t)">
+                  Reintentar
+                </button>
+              }
+              @default {
+                @if (t.respuesta; as r) {
+                  @if (r.total === 0) {
+                    <p>{{ sinResultados(t) }}</p>
+                  } @else {
+                    <p>
+                      {{ r.total }} {{ r.total === 1 ? 'coincidencia' : 'coincidencias' }} en
+                      {{ videosEn(t) }} {{ videosEn(t) === 1 ? 'video' : 'videos' }}.
+                      @if (r.total > r.resultados.length) {
+                        Muestro las primeras {{ r.resultados.length }}.
+                      }
+                    </p>
+                    @if (turnoVisible()?.clave !== t.clave) {
+                      <button type="button" (click)="verResultados(t)">Ver estos resultados</button>
+                    }
+                  }
+                } @else {
+                  <p>Los resultados de esta búsqueda no se guardaron. Repítela para verlos.</p>
+                }
+              }
+            }
+          </div>
+        </li>
+      }
+    </ol>
+
+    <form class="caja" (submit)="enviar($event)">
+      @if (errorOpciones(); as e) {
+        <p class="nota-filtros" role="status">
+          {{ e }}
+          <button type="button" class="enlace" (click)="cargarOpciones()">Reintentar</button>
+        </p>
+      }
+      @if (opciones(); as o) {
+        @if (o.videos.length) {
+          <div class="filtros" role="group" aria-label="Filtros de la búsqueda">
+            @if (filtroSop(); as s) {
+              <span class="chip activo">
+                SOP: {{ etiquetaSop(s) }}
+                <button
+                  type="button"
+                  class="quitar"
+                  (click)="filtroSop.set(null)"
+                  [attr.aria-label]="'Quitar el filtro por ' + s.codigo"
+                >
+                  ×
+                </button>
+              </span>
+            }
+            @if (filtroVideo(); as v) {
+              <span class="chip activo">
+                Video: {{ v.titulo }}
+                <button
+                  type="button"
+                  class="quitar"
+                  (click)="filtroVideo.set(null)"
+                  [attr.aria-label]="'Quitar el filtro por el video ' + v.titulo"
+                >
+                  ×
+                </button>
+              </span>
+            }
+            @if (filtroSop() === null && o.sops.length) {
+              <select class="elegir" aria-label="Filtrar por SOP" (change)="elegirSop($event)">
+                <option value="" selected>+ SOP</option>
+                @for (s of o.sops; track s.id) {
+                  <option [value]="s.id">{{ etiquetaSop(s) }}</option>
+                }
+              </select>
+            }
+            @if (filtroVideo() === null && videosFiltro().length) {
+              <select class="elegir" aria-label="Filtrar por video" (change)="elegirVideo($event)">
+                <option value="" selected>+ Video</option>
+                @for (v of videosFiltro(); track v.id) {
+                  <option [value]="v.id">{{ v.titulo }}</option>
+                }
+              </select>
+            }
+            @if (hayFiltros()) {
+              <button type="button" class="enlace" (click)="quitarFiltros()">Quitar filtros</button>
+            }
+          </div>
+        }
+      }
+      <div class="entrada">
+        <label class="sr-only" for="consulta">Palabra o frase a buscar</label>
+        <input
+          #caja
+          id="consulta"
+          type="text"
+          autocomplete="off"
+          placeholder="Escribe una palabra o una frase"
+          [maxLength]="largo"
+          [value]="texto()"
+          (input)="texto.set($any($event.target).value)"
+        />
+        <button type="submit" class="enviar" [disabled]="!texto().trim() || buscando()">
+          Buscar
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="resultados" aria-label="Resultados">
+    @if (seleccion(); as s) {
+      <div class="visor">
+        <app-reproductor
+          [videoId]="s.resultado.video.id"
+          [etiqueta]="'Video ' + s.resultado.video.titulo"
+          textoFormato="Los resultados siguen en la lista."
+        />
+        <p class="visor-pie">
+          <span class="visor-titulo">{{ s.resultado.video.titulo }}</span>
+          <span class="segundo">{{ mmss(s.resultado.t_inicio) }}</span>
+          @if (s.resultado.sop; as sop) {
+            <a class="ver-sop" [href]="urlSop(sop.id)" target="_blank" rel="noopener">
+              Ver SOP {{ sop.codigo }}
+            </a>
+          }
+        </p>
+      </div>
+    }
+
+    @if (resultados().length) {
+      <ul class="lista">
+        @for (v of resultados(); track v.indice) {
+          <li>
+            <button
+              type="button"
+              class="resultado"
+              [class.activo]="activo(turnoVisible(), v.indice)"
+              [attr.aria-pressed]="activo(turnoVisible(), v.indice)"
+              (click)="elegirResultado(turnoVisible()!, v)"
+            >
+              @if (v.miniatura && !miniaturasFallidas().has(v.miniatura)) {
+                <img
+                  class="miniatura"
+                  loading="lazy"
+                  [src]="v.miniatura"
+                  alt=""
+                  (error)="ocultarMiniatura(v.miniatura)"
+                />
+              }
+              <span class="texto">
+                <span class="encabezado-resultado">
+                  <span class="titulo">{{ v.resultado.video.titulo }}</span>
+                  <span class="segundo">{{ mmss(v.resultado.t_inicio) }}</span>
+                  @if ((v.resultado.coincidencias ?? 1) > 1) {
+                    <span
+                      class="unidas"
+                      [attr.aria-label]="v.resultado.coincidencias + ' coincidencias unidas'"
+                      >×{{ v.resultado.coincidencias }}</span
+                    >
+                  }
+                </span>
+                <!-- Sin espacios entre la frase y la marca (p. ej. "válvula," no debe quedar "válvula ,"). -->
+                <!-- prettier-ignore -->
+                <span class="frase">{{ v.partes.antes }}@if (v.partes.coincidencia) {<mark>{{ v.partes.coincidencia }}</mark>}{{ v.partes.despues }}</span>
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else if (turnos().length === 0) {
+      <p class="nota">Los resultados aparecen aquí.</p>
+    }
+  </section>
+</div>

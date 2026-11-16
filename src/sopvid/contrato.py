@@ -1571,7 +1571,8 @@ class ResultadoBusqueda(_Modelo):
     `t_inicio` es el de la primera palabra de la coincidencia y `t_fin` el de la última, tal cual
     de Whisper (RNF-03). `miniatura` es la ruta de `GET /videos/{id}/thumb?t=`, o None si el
     video no tiene imagen. `frase`: hasta 8 palabras originales antes y después, sin HTML;
-    `frase[rango[0]:rango[1]]` es la coincidencia (fin exclusivo, palabras originales completas).
+    `frase[rango[0]:rango[1]]` es la coincidencia (fin exclusivo, palabras originales completas
+    sin los signos de puntuación del inicio de la primera ni del final de la última).
     `recorte_inicio` / `recorte_fin`: hay más palabras antes o después de la frase. Unida,
     conserva todo de la primera coincidencia de la cadena y `coincidencias` dice cuántas se
     unieron (1 si va sola).

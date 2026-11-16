@@ -22,6 +22,9 @@ export function mensajeDeError(error: unknown): string {
   switch (error.status) {
     case 0:
       return SIN_CONEXION;
+    case 400:
+      // La API explica qué falta (p. ej. una búsqueda sin palabras): se muestra tal cual.
+      return detalle ? conPunto(detalle) : 'La API no pudo atender la petición.';
     case 413:
       return conDetalle('Archivo demasiado grande', detalle);
     case 415:

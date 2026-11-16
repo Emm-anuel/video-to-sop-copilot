@@ -270,8 +270,15 @@ docs/
 >     con `?t=`); fechas con `TZ` en Docker. Verificación en `docs/adr/datos/s6/pdf/verificacion.md`
 >     (los PDF no se versionan; se regeneran con `GET /videos/{id}/pdf`).
 >
->   **Sin código todavía:** `/buscar` tipo chat (RF-36), la pantalla `/videos` con "Publicar"
->   y los resultados de búsqueda en el frontend; además Docker en máquina limpia y RNF-01 a 07.
+>   - Pantallas `/videos` y `/buscar` (16 nov, #27, #28, #29): `/videos` (`frontend/src/app/videos/`,
+>     una sola `GET /videos` con filtros en el navegador, refresco cada 3 s mientras haya videos en
+>     proceso, "Publicar"/"Quitar de la búsqueda" y descargas con el PDF) y `/buscar`
+>     (`frontend/src/app/buscar/`, chat con historial en `sessionStorage`, filtros por SOP y video,
+>     resaltado por rango y el reproductor del reporte extraído a `frontend/src/app/reproductor/`).
+>     `/buscar` no lleva el menú de carga; la separación de verdad llega con la clave (#30).
+>     `publicado` en `GET /videos/{id}` y `GET /sops/{id}/pdf?ver=true` (inline).
+>
+>   **Sin código todavía:** Docker en máquina limpia y RNF-01 a 07.
 >   **#11 cerrado (15 nov, ADR-026, Propuesto):** `EMPAREJAR_TEXTO=max_si_otro_idioma` por
 >   defecto (`cita` de respaldo) y `SOP_IDIOMA=es`: si la transcripción no está en el idioma del
 >   SOP, cada par toma el mayor coseno con y sin la cita (la causa era el idioma, no el ruido de

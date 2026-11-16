@@ -1,0 +1,361 @@
+// Vista de consulta (RF-36): conversación a la izquierda con la caja abajo y resultados a la
+// derecha; en angosto, una columna con los resultados debajo (RNF-13). Objetivos de 36 px; nada
+// se sale a lo ancho (los títulos y las frases se parten donde haga falta).
+:host {
+  display: grid;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+select {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #1f2a37;
+  background: #fff;
+  border: 1px solid #98a2b3;
+  border-radius: 0.3rem;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+button.enlace {
+  padding: 0 0.35rem;
+  color: #175cd3;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -1.5rem;
+  padding: 0.5rem 1.5rem;
+  color: #fff;
+  background: #1f2a37;
+
+  .marca span {
+    opacity: 0.8;
+  }
+
+  .limpiar {
+    color: #fff;
+    background: transparent;
+    border-color: rgb(255 255 255 / 0.5);
+  }
+}
+
+.disposicion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.chat {
+  display: grid;
+  // Columna con mínimo 0: un <select> con opciones largas no ensancha la conversación.
+  grid: minmax(0, 1fr) auto / minmax(0, 1fr);
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+}
+
+.mensajes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 55vh;
+  min-height: 8rem;
+  margin: 0;
+  padding: 0.75rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.bienvenida,
+.aviso-publicados {
+  padding: 0.6rem 0.75rem;
+  color: #475467;
+  font-size: 0.9rem;
+  background: #f6f7f9;
+  border-radius: 0.5rem;
+}
+
+.aviso-publicados {
+  color: #93370d;
+  background: #fffaeb;
+}
+
+.turno {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.burbuja {
+  display: grid;
+  gap: 0.35rem;
+  max-width: min(32rem, 92%);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  overflow-wrap: anywhere;
+  justify-items: start;
+}
+
+.persona {
+  justify-self: end;
+  color: #fff;
+  background: #1f6feb;
+
+  .consulta {
+    font-weight: 600;
+  }
+
+  .repetir {
+    justify-self: end;
+    color: #fff;
+    background: transparent;
+    border-color: rgb(255 255 255 / 0.6);
+  }
+}
+
+.sistema {
+  justify-self: start;
+  background: #f2f4f7;
+
+  &.elegida {
+    box-shadow: inset 3px 0 0 #1f6feb;
+  }
+
+  &.fallo {
+    color: #b42318;
+    background: #fef3f2;
+  }
+}
+
+.chips-burbuja,
+.filtros,
+.visor-pie,
+.encabezado-resultado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.85rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 1rem;
+  overflow-wrap: anywhere;
+
+  &.activo {
+    min-height: 2.25rem;
+    padding-right: 0;
+    color: #175cd3;
+    background: #eff8ff;
+    border-color: #b2ddff;
+  }
+
+  .quitar {
+    flex: none;
+    width: 2.25rem;
+    padding: 0;
+    color: inherit;
+    background: none;
+    border: 0;
+    font-size: 1.1rem;
+  }
+}
+
+// Sin ancho propio: el <select> no se mide por su opción más larga (desbordaba a 360 px).
+.elegir {
+  flex: 1 1 8rem;
+  width: 0;
+}
+
+.caja {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid #d8dde3;
+}
+
+.nota-filtros,
+.nota {
+  color: #475467;
+  font-size: 0.9rem;
+}
+
+.entrada {
+  display: flex;
+  gap: 0.5rem;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.6rem;
+    font: inherit;
+    border: 1px solid #98a2b3;
+    border-radius: 0.3rem;
+  }
+
+  .enviar {
+    flex: none;
+    color: #fff;
+    background: #1f6feb;
+    border-color: #1f6feb;
+    font-weight: 600;
+  }
+}
+
+.resultados {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.visor {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+  --alto-video: 40vh;
+  --alto-video-ancho: 50vh;
+}
+
+.visor-titulo {
+  font-weight: 600;
+  min-width: 0;
+}
+
+.ver-sop {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  margin-left: auto;
+  font-weight: 600;
+  color: #175cd3;
+}
+
+.segundo {
+  font-variant-numeric: tabular-nums;
+  color: #475467;
+}
+
+.lista {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resultado {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.6rem;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.5rem;
+
+  &.activo {
+    border-color: #1f6feb;
+    box-shadow: 0 0 0 1px #1f6feb;
+  }
+}
+
+.miniatura {
+  flex: none;
+  width: 6.5rem;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #e4e7ec;
+  border-radius: 0.3rem;
+}
+
+.texto {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.titulo {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.unidas {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #175cd3;
+}
+
+.frase {
+  color: #344054;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+mark {
+  background: #fef0c7;
+  font-weight: 600;
+}
+
+@media (max-width: 40rem) {
+  .cabecera {
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem;
+  }
+}
+
+// Escritorio: la conversación ocupa el alto de la ventana con la caja siempre abajo; el video
+// queda fijo arriba de los resultados mientras se recorren.
+@media (min-width: 56rem) {
+  .disposicion {
+    grid-template-columns: minmax(20rem, 2fr) minmax(0, 3fr);
+  }
+
+  .chat {
+    position: sticky;
+    top: 0.75rem;
+    height: calc(100vh - 5.5rem);
+  }
+
+  .mensajes {
+    max-height: none;
+  }
+
+  .visor {
+    position: sticky;
+    top: 0.75rem;
+    z-index: 1;
+  }
+}

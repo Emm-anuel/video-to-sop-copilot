@@ -1,11 +1,11 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, catchError, filter, map, switchMap } from 'rxjs';
 import { API, ApiService } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
-import { FalloVideo, SIN_SOPORTE, codigoDeError, segundoDeConsulta } from '../api/reproductor';
+import { segundoDeConsulta } from '../api/reproductor';
 import {
   Aviso,
   Dispositivos,
@@ -21,6 +21,7 @@ import {
 import { AvanceVideo } from '../avance/avance.service';
 import { etiquetaEtapa } from '../avance/etapas';
 import { Descargas, FormatoDescarga } from '../descargas/descargas';
+import { Reproductor } from '../reproductor/reproductor';
 
 /** Estado de la fila tal como se muestra; "zona_gris" es un par que el juez no revisó. */
 const ETIQUETA_ESTADO: Record<Estado, string> = {
@@ -31,7 +32,7 @@ const ETIQUETA_ESTADO: Record<Estado, string> = {
   zona_gris: 'Sin revisar',
 };
 
-const ETIQUETA_SEMAFORO: Record<Semaforo, string> = {
+export const ETIQUETA_SEMAFORO: Record<Semaforo, string> = {
   verde: 'Verde',
   amarillo: 'Amarillo',
   rojo: 'Rojo',
@@ -231,7 +232,7 @@ export function mmss(segundos: number): string {
  */
 @Component({
   selector: 'app-reporte',
-  imports: [DecimalPipe, Descargas, RouterLink],
+  imports: [DecimalPipe, Descargas, Reproductor, RouterLink],
   providers: [AvanceVideo],
   templateUrl: './reporte.html',
   styleUrl: './reporte.scss',
@@ -240,7 +241,7 @@ export class Reporte {
   private readonly api = inject(ApiService);
   private readonly ruta = inject(ActivatedRoute);
   protected readonly avance = inject(AvanceVideo);
-  private readonly reproductor = viewChild<ElementRef<HTMLVideoElement>>('reproductor');
+  private readonly reproductor = viewChild(Reproductor);
 
   protected readonly videoId = signal<number | null>(null);
   protected readonly estado = this.avance.estado;
@@ -252,14 +253,11 @@ export class Reporte {
   );
   /** Índice en `filas` de la última fila a la que se saltó. */
   protected readonly filaActiva = signal<number | null>(null);
-  /** Por qué no se ve el video (`formato`: p. ej. un AVI; `carga`: no cargó), o `null`. */
-  protected readonly falloVideo = signal<FalloVideo | null>(null);
   /**
-   * `?t=N` (de `/v/:id`, el destino de los QR del PDF, §11): el video salta ahí al cargar y la
-   * fila de ese segundo se marca. `saltoPendiente` se consume con el primer `loadedmetadata`.
+   * `?t=N` (de `/v/:id`, el destino de los QR del PDF, §11): el video salta ahí al cargar (el
+   * `inicio` del reproductor) y la fila de ese segundo se marca.
    */
-  private segundoConsulta: number | null = null;
-  private saltoPendiente: number | null = null;
+  protected readonly segundoConsulta = signal<number | null>(null);
   /** El PDF del reporte (RF-29) en el menú "Descargar". */
   protected readonly extrasPdf = computed<FormatoDescarga[]>(() => {
     const id = this.videoId();
@@ -332,10 +330,8 @@ export class Reporte {
         this.reporte.set(null);
         this.errorReporte.set(null);
         this.filaActiva.set(null);
-        this.falloVideo.set(null);
         this.miniaturasFallidas.set(new Set());
-        this.segundoConsulta = segundoDeConsulta(this.ruta.snapshot.queryParamMap.get('t'));
-        this.saltoPendiente = this.segundoConsulta;
+        this.segundoConsulta.set(segundoDeConsulta(this.ruta.snapshot.queryParamMap.get('t')));
         this.avance.seguir(id);
       });
 
@@ -354,8 +350,9 @@ export class Reporte {
       )
       .subscribe((reporte) => {
         this.reporte.set(reporte);
-        if (this.segundoConsulta !== null) {
-          this.filaActiva.set(filaDelSegundo(reporte.filas, this.segundoConsulta));
+        const t = this.segundoConsulta();
+        if (t !== null) {
+          this.filaActiva.set(filaDelSegundo(reporte.filas, t));
         }
       });
   }
@@ -381,36 +378,6 @@ export class Reporte {
         this.errorReporte.set(mensajeDeError(e));
       },
     });
-  }
-
-  protected urlVideo(id: number): string {
-    return `${API}/videos/${id}/video`;
-  }
-
-  /**
-   * El `<video>` no se pudo reproducir. Con `MediaError` 4 se pregunta si el archivo está: si
-   * está, es el formato (p. ej. AVI) y se ofrece descargarlo; si no, no cargó.
-   */
-  protected alFallarVideo(evento: Event, id: number): void {
-    if (codigoDeError(evento) !== SIN_SOPORTE) {
-      this.falloVideo.set('carga');
-      return;
-    }
-    this.api.videoDisponible(id).subscribe((esta) => {
-      if (this.videoId() === id) {
-        this.falloVideo.set(esta ? 'formato' : 'carga');
-      }
-    });
-  }
-
-  /** El video ya tiene sus metadatos: si llegó con `?t=`, salta a ese segundo (sin reproducir). */
-  protected alCargarVideo(): void {
-    this.falloVideo.set(null);
-    const video = this.reproductor()?.nativeElement;
-    if (video && this.saltoPendiente !== null) {
-      video.currentTime = this.saltoPendiente;
-      this.saltoPendiente = null;
-    }
   }
 
   /** Miniatura del segundo de la fila (`GET /videos/{id}/thumb`, ADR-024): se pide por segundo. */
@@ -448,12 +415,6 @@ export class Reporte {
       return;
     }
     this.filaActiva.set(indice);
-    const video = this.reproductor()?.nativeElement;
-    if (!video) {
-      return;
-    }
-    video.currentTime = fila.t_inicio;
-    // play() puede rechazarse (p. ej. si el video no cargó); el aviso ya lo da el evento error.
-    void video.play()?.catch(() => undefined);
+    this.reproductor()?.saltar(fila.t_inicio);
   }
 }

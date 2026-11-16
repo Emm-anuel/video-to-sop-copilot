@@ -35,6 +35,7 @@ cada resultado (`frases`); `armar_frase` vuelve a juntar en una palabra los toke
 """
 
 import logging
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -303,7 +304,8 @@ def buscar(
 
 @dataclass(frozen=True)
 class Frase:
-    """La frase de un resultado (RF-34): `texto[rango[0]:rango[1]]` es la coincidencia."""
+    """La frase de un resultado (RF-34): `texto[rango[0]:rango[1]]` es la coincidencia, sin los
+    signos de puntuación pegados al inicio de su primera palabra ni al final de la última."""
 
     texto: str
     rango: tuple[int, int]
@@ -375,13 +377,32 @@ def armar_frase(
     despues = " ".join(p.original for p in palabras[b + 1 : hasta])
     inicio = len(antes) + (1 if antes else 0)
     fin = inicio + len(coincidencia)
+    texto = " ".join(t for t in (antes, coincidencia, despues) if t)
+    inicio, fin = _sin_signos_en_bordes(texto, inicio, fin)
     ultima_fila = filas[-1][0]
     return Frase(
-        texto=" ".join(t for t in (antes, coincidencia, despues) if t),
+        texto=texto,
         rango=(inicio, fin),
         recorte_inicio=palabras[desde].primera > 0,
         recorte_fin=palabras[hasta - 1].ultima < ultima_fila or ultima_fila >= ventana_hasta,
     )
+
+
+def _es_signo(caracter: str) -> bool:
+    """Un signo de puntuación de Unicode (categorías P*: . , ; ¿ ? ¡ ! « » " ' ( ) …)."""
+    return unicodedata.category(caracter).startswith("P")
+
+
+def _sin_signos_en_bordes(texto: str, inicio: int, fin: int) -> tuple[int, int]:
+    """El rango `[inicio, fin)` sin los signos de puntuación del principio y del final: se
+    resalta «cartucho», no «cartucho.», ni las comillas de «“válvula». Los signos de en medio
+    ("O-rings", "11:30") se quedan. Si el rango es solo signos, no se toca (nunca queda vacío)."""
+    a, b = inicio, fin
+    while a < b and _es_signo(texto[a]):
+        a += 1
+    while b > a and _es_signo(texto[b - 1]):
+        b -= 1
+    return (a, b) if a < b else (inicio, fin)
 
 
 SQL_VENTANAS = """SELECT r.orden, p.posicion, p.palabra_normalizada, p.palabra_original

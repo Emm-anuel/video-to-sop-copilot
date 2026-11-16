@@ -1,0 +1,169 @@
+<div class="encabezado">
+  <h1>Videos</h1>
+  <a class="boton principal" routerLink="/nuevo">Nuevo análisis</a>
+</div>
+
+@if (errorCarga(); as e) {
+  <div class="error" role="alert">
+    <p>{{ e }}</p>
+    <button type="button" (click)="recargar()">Reintentar</button>
+  </div>
+} @else if (videos() === null) {
+  <p class="nota" role="status">Cargando los videos…</p>
+} @else if (videos()!.length === 0) {
+  <p class="vacia">Todavía no hay videos. <a routerLink="/nuevo">Sube uno en Nuevo análisis</a>.</p>
+} @else {
+  <div class="filtros">
+    <label class="filtro">
+      <span>Buscar</span>
+      <input
+        id="buscar-video"
+        type="search"
+        placeholder="Título del video o del SOP"
+        [value]="filtros().texto"
+        (input)="cambiarFiltro('texto', $any($event.target).value)"
+      />
+    </label>
+    <label class="filtro">
+      <span>Modo</span>
+      <select id="filtro-modo" [value]="filtros().modo" (change)="cambiarModo($event)">
+        <option value="todos">Todos</option>
+        <option value="validar">Validar contra un SOP</option>
+        <option value="generar">Generar el SOP</option>
+      </select>
+    </label>
+    <label class="filtro">
+      <span>Estado</span>
+      <select id="filtro-estado" [value]="filtros().estado" (change)="cambiarEstado($event)">
+        <option value="todos">Todos</option>
+        <option value="en_proceso">En cola o procesando</option>
+        <option value="listo">Listo</option>
+        <option value="afinidad_baja">Detenido por afinidad baja</option>
+        <option value="error">Con error</option>
+      </select>
+    </label>
+    <label class="filtro">
+      <span>SOP</span>
+      <select id="filtro-sop" (change)="cambiarSop($event)">
+        <option value="" [selected]="filtros().sop === null">Todos</option>
+        @for (o of opcionesSop(); track o.id) {
+          <option [value]="o.id" [selected]="filtros().sop === o.id">{{ o.etiqueta }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <p class="conteo" role="status">
+    {{ filas().length }} de {{ videos()!.length }} videos
+    @if (enCurso()) {
+      · {{ enCurso() }} en proceso, la lista se actualiza sola
+    }
+    @if (hayFiltros()) {
+      <button type="button" class="enlace" (click)="quitarFiltros()">Quitar filtros</button>
+    }
+  </p>
+  @if (errorSondeo(); as e) {
+    <div class="error" role="alert">
+      <p>{{ e }}</p>
+      <button type="button" (click)="recargar()">Reintentar</button>
+    </div>
+  }
+
+  @if (filas().length === 0) {
+    <p class="nota">Ningún video coincide con la búsqueda o los filtros.</p>
+  } @else {
+    <div class="cabecera" aria-hidden="true">
+      <span>Título</span><span>Modo</span><span>SOP</span><span>Cumplimiento</span
+      ><span>Estado</span><span>Fecha</span><span>Imágenes</span><span>Búsqueda</span>
+    </div>
+    <ul class="videos">
+      @for (f of filas(); track f.video.id) {
+        @let v = f.video;
+        <li class="video" [class]="'proceso-' + v.proceso">
+          <a class="titulo" [routerLink]="f.destino.ruta">{{ v.titulo }}</a>
+          <span class="modo">{{ v.modo === 'generar' ? 'Generar' : 'Validar' }}</span>
+          <span class="sop">
+            @if (v.sop; as s) {
+              <span class="sop-codigo">{{ s.codigo }}</span>
+              @if (s.titulo) {
+                <span class="sop-titulo">{{ s.titulo }}</span>
+              }
+            } @else {
+              <span class="sin-dato">Sin SOP</span>
+            }
+          </span>
+          <span class="cumplimiento">
+            @if (v.cumplimiento != null) {
+              @if (v.semaforo; as sem) {
+                <span
+                  class="semaforo"
+                  [class]="'semaforo semaforo-' + sem"
+                  aria-hidden="true"
+                ></span>
+              }
+              <strong>{{ v.cumplimiento | number: '1.2-2' }} %</strong>
+              @if (v.semaforo; as sem) {
+                <span class="semaforo-texto">{{ etiquetaSemaforo[sem] }}</span>
+              }
+            } @else {
+              <span class="sin-dato" aria-label="Sin cumplimiento">—</span>
+            }
+          </span>
+          <span class="estado">
+            <span class="estado-texto">{{ estado(v) }}</span>
+            @if (v.proceso === 'error' && v.error) {
+              <span class="detalle-error">{{ v.error }}</span>
+            }
+          </span>
+          <span class="fecha"
+            ><time [attr.datetime]="v.creado">{{ fechaHora(v.creado) }}</time></span
+          >
+          <span class="imagenes"
+            ><span class="solo-tarjeta">Imágenes: </span
+            >{{ v.analizar_imagenes ? 'Sí' : 'No' }}</span
+          >
+          <span class="publicado">
+            @if (v.publicado) {
+              <span class="marca-publicado">Publicado</span>
+              @if (v.publicado_en) {
+                <time [attr.datetime]="v.publicado_en">{{ fechaCorta(v.publicado_en) }}</time>
+              }
+            } @else {
+              <span class="sin-dato">No publicado</span>
+            }
+          </span>
+          <span class="acciones">
+            <a class="boton" [routerLink]="f.destino.ruta">{{ f.destino.etiqueta }}</a>
+            @if (v.proceso === 'listo' || v.proceso === 'afinidad_baja') {
+              <app-descargas [videoId]="v.id" [extras]="f.extras" />
+            }
+            @if (v.proceso === 'listo') {
+              <button
+                type="button"
+                class="publicar"
+                [disabled]="publicando().has(v.id)"
+                (click)="alternarPublicacion(v)"
+              >
+                @if (publicando().has(v.id)) {
+                  {{ v.publicado ? 'Quitando…' : 'Publicando…' }}
+                } @else {
+                  {{ v.publicado ? 'Quitar de la búsqueda' : 'Publicar' }}
+                }
+              </button>
+            }
+          </span>
+          @if (avisos()[v.id]; as a) {
+            <p
+              class="aviso"
+              [class.conflicto]="a.tipo === 'conflicto'"
+              [class.hecho]="a.tipo === 'hecho'"
+              [attr.role]="a.tipo === 'hecho' ? 'status' : 'alert'"
+            >
+              {{ a.texto }}
+            </p>
+          }
+        </li>
+      }
+    </ul>
+  }
+}

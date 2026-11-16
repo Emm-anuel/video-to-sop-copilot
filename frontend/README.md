@@ -22,6 +22,8 @@ son de S5 y S6.
 | `/sops` | **Biblioteca de SOP (RF-05):** búsqueda, filtro por origen, ver o editar, usar para validar, eliminar y subir (sección "Biblioteca y Nuevo análisis") | Emmanuel | Hecho (12 nov): `src/app/biblioteca/` |
 | `/v/:id?t=` | **Destino de los QR y enlaces del PDF (§11, RF-29, RF-30):** pregunta el modo del video (`GET /videos/{id}`) y lleva, reemplazando la URL, al reporte (validar) o al SOP generado (generar) con `?t=`; el reporte salta a ese segundo y marca su fila, el editor abre el video ahí. Sin reproductor propio. No exige que el video esté publicado. La dirección de los QR es `APP_URL_PUBLICA` (para un celular en la misma red, la IP del equipo) | Emmanuel | Hecho (15 nov): `src/app/ver/` |
 | `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
+| `/videos` | **Lista de videos (pantalla 6, #29):** del más reciente al más antiguo, con modo, SOP, cumplimiento con semáforo, estado, fecha, imágenes y si está publicado; cada fila lleva al avance, al reporte o al SOP generado; "Publicar" / "Quitar de la búsqueda" y descargas (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/videos/` |
+| `/buscar` | **Búsqueda con apariencia de chat (pantalla 7, RF-36, RF-37):** vista de consulta, sin el menú de carga; conversación, resultados con la frase resaltada y el video en el segundo (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/buscar/` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -37,7 +39,7 @@ Word (desde el 8 nov), modo `validar` y subida simple. Le falta:
 | Qué falta | RF | Responsable | Semana |
 |---|---|---|---|
 | ~~Elegir un SOP de la biblioteca~~ Hecho el 12 nov: tres modos (biblioteca, subir, generar), consentimiento y casilla de imágenes | RF-07, RF-02 | Emmanuel | S5 |
-| Lista de videos (`/videos`, pantalla 6): título, fecha, modo, estado, porcentaje con semáforo e imágenes, con enlace al reporte o al SOP generado. Falta `GET /videos` | — | Emmanuel | S6 |
+| ~~Lista de videos (`/videos`, pantalla 6)~~ Hecho el 16 nov (sección "Videos y búsqueda") | — | Emmanuel | S6 |
 | ~~Mostrar el SOP convertido para corregirlo~~ Hecho el 11 nov: enlace "Revisar y corregir el SOP" a `/sops/:id?video=N` (el video no espera; se revalida desde el editor) | RF-04 | Emmanuel | S5 |
 | Subida por partes de 16 MB con reintentos, en lugar de la subida simple | RF-06 | Emmanuel | S5 |
 | Avance en vivo por etapa y transcripción parcial (hoy el avance se ve en la pantalla del reporte mientras procesa) | RF-08 | Emmanuel | S5 |
@@ -418,6 +420,67 @@ scripts y las pruebas; la pantalla ya no la usa.
   casilla "Analizar también las imágenes" (PS3) mide 24 px de alto: queda anotado, no se tocó.
 - Pruebas: `subida/partes.spec.ts` (partidor), `subida/subida.service.spec.ts` (orden, reintento,
   reanudación, 409, 413, cancelar) y `nuevo/nuevo.spec.ts`.
+
+## Videos y búsqueda (pantallas 6 y 7, 16 nov, #27, #28, #29)
+
+Menú de la vista de carga en `app.html`: **Biblioteca**, **Nuevo análisis** y **Videos**. `/buscar`
+no está en el menú y no lleva la barra: la ruta trae `data: { consulta: true }` y la pantalla pone su
+propio encabezado mínimo. La separación de verdad llega con la clave de acceso (P7, #30). Las dos
+rutas se cargan al entrar (`loadComponent`), así no suman al bundle inicial.
+
+**`/videos` (`src/app/videos/`).** Una sola consulta, `GET /videos` (`VideoResumen`, tipos generados
+con `npm run tipos:videos`). La búsqueda (sin acentos, en el título del video y en el código y el
+título de su SOP) y los filtros por modo, estado (en cola y procesando van juntos) y SOP se aplican en
+el navegador (`filtro-videos.ts`), así el refresco sigue siendo una sola consulta.
+- **Refresco:** mientras algún video esté en cola o procesando, `GET /videos` cada 3 s
+  (`SONDEO_VIDEOS_MS`, `timer` + `exhaustMap`, nunca dos consultas a la vez). Se detiene cuando ya no
+  queda ninguno o al salir. Si falla, lo dice y ofrece "Reintentar".
+- **Destino de la fila** (`destino`): en cola o procesando → `/videos/:id/procesando`; listo → reporte
+  (validar) o `/videos/:id/sop` (generar); error → Procesando (mensaje y "Reprocesar"); afinidad
+  baja → el reporte. La lista **no** ofrece "Continuar": RF-17 pide leer el aviso antes, y el botón
+  está en el reporte.
+- **Cumplimiento** tal como viene (`cumplimiento`, `semaforo`; no se recalcula). Sin reporte, "—".
+- **Publicar / Quitar de la búsqueda** (RF-32), solo con `listo`: `POST` o `DELETE
+  /videos/{id}/publicar`. Con éxito, la fila dice "Publicado: N palabras indexadas" (de la respuesta).
+  Un **409** muestra la frase de la API en ámbar y vuelve a pedir la lista.
+- **Descargar** (`app-descargas`) con `listo` o `afinidad_baja`; el PDF (reporte o SOP) solo con `listo`.
+- Sin videos: "Todavía no hay videos" con el enlace a `/nuevo`. 360 px: tarjetas; desde 60 rem del
+  componente, filas con cabecera (container query, como la biblioteca).
+
+**`/buscar` (`src/app/buscar/`).** Conversación a la izquierda con la caja abajo; resultados a la
+derecha (debajo en angosto, desde 56 rem en dos columnas). Tipos generados con `npm run tipos:busqueda`
+(`busqueda.ts`, `busqueda-opciones.ts`).
+- **Caja:** Enter envía (`<form (submit)>`), el foco vuelve a la caja; máximo 500 caracteres. La
+  burbuja de la persona lleva la consulta, los chips de sus filtros y **Repetir**. La del sistema dice
+  cuántas coincidencias en cuántos videos; sin resultados, "No encontré «…». Revisa la ortografía" (y
+  "o quita los filtros" si tenía). Un error de la API va en la burbuja con **Reintentar**; el 400 de
+  una consulta sin palabras muestra la frase de la API.
+- **Historial** (`HistorialBusqueda`, servicio de la aplicación): sobrevive a navegar y volver, y a
+  recargar (`sessionStorage`, clave `sopvid.busqueda.v1`, hasta 30 turnos, todo en `try/catch`; si no
+  cabe, se guarda sin respuestas). **Limpiar** lo borra. Una búsqueda que seguía en curso al recargar
+  queda con "Reintentar". El `POST /buscar` no se cancela al salir: la respuesta llega al historial.
+- **Filtros** (RF-37): `GET /buscar/opciones` al entrar; "+ SOP" y "+ Video" agregan chips sobre la
+  caja (con un SOP elegido, el de video ofrece solo sus videos). "Quitar filtros" hace que la
+  siguiente búsqueda sea en todo. Sin videos publicados: "Todavía no hay videos publicados", sin
+  enlaces.
+- **Resultado:** miniatura (`loading="lazy"`, la ruta de la API con `/api` delante; sin imagen o si
+  falla, no deja hueco), título, `mm:ss`, la frase con `<mark>` y "×N" si se unieron coincidencias
+  (RF-35). El resaltado (`resaltado.ts`) corta con `Array.from` (puntos de código, como el
+  `frase[inicio:fin]` de Python) y pinta solo nodos de texto, sin `innerHTML`.
+- **Video:** al elegir un resultado aparece el reproductor en la misma pantalla y salta a ese segundo.
+  **Ver SOP** abre `GET /sops/{id}/pdf?ver=true` (inline) en otra pestaña, solo si el resultado trae
+  SOP. No hay enlaces a `/v/`, al reporte ni a nada de la vista de carga: todos los `href` son de `/api`.
+
+**Reproductor compartido (`src/app/reproductor/`).** El `<video>` del reporte se extrajo como
+`app-reproductor` y lo usan el reporte y la búsqueda: `videoId`, `inicio` (el `?t=` de los QR,
+una vez por video y sin reproducir) y `saltar(t)`, que pone `currentTime` y, si los metadatos no
+han llegado (el video acaba de cambiar), lo repite con `loadedmetadata`. El aviso de formato (AVI)
+o de carga es el de siempre (`api/reproductor.ts`). El diálogo del editor del SOP no cambió.
+
+**Revisado el 16 nov** en Edge headless por CDP con la API en el host, a 1280 × 900 y emulando 360 ×
+780: publicar A, buscar «manometro», «cartuchos» y «llave de paso» y saltar al segundo. Sin desborde
+horizontal ni objetivos menores de 36 px en las dos pantallas. Capturas y detalle en
+[`docs/adr/datos/s6/pantallas/`](../docs/adr/datos/s6/pantallas/verificacion.md).
 
 ## Desarrollo
 

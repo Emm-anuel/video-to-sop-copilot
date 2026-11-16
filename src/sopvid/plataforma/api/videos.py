@@ -186,8 +186,10 @@ class EstadoVideo(BaseModel):
     # "fotogramas": la pantalla las muestra tal cual. None si el video nunca las describió.
     imagenes_hechas: int | None = None
     imagenes_total: int | None = None
+    # Si está en la búsqueda exacta (RF-32): `POST`/`DELETE /videos/{id}/publicar`.
+    publicado: bool = False
 
-    @field_validator("analizar_imagenes", mode="before")
+    @field_validator("analizar_imagenes", "publicado", mode="before")
     @classmethod
     def _nulo_es_no(cls, valor: bool | None) -> bool:
         return bool(valor)

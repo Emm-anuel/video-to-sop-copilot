@@ -22,7 +22,7 @@
   font-size: 0.9rem;
 }
 
-// Menú (Biblioteca, Nuevo análisis): enlaces de 36 px; en pantallas angostas baja a su propia
+// Menú (Biblioteca, Nuevo análisis, Videos): enlaces de 36 px; en pantallas angostas baja a su propia
 // línea y el lema se oculta (RNF-13).
 .menu {
   display: flex;
@@ -80,4 +80,10 @@
 // Pantallas que piden todo el ancho en la ruta (`data: { ancho: true }`), como el reporte.
 .contenido.ancho {
   max-width: 100rem;
+}
+
+// La vista de consulta (/buscar) trae su encabezado y usa el alto de la ventana.
+.contenido.consulta {
+  margin-top: 0;
+  margin-bottom: 0;
 }

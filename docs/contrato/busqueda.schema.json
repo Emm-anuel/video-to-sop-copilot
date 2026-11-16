@@ -3,7 +3,7 @@
   "$defs": {
     "ResultadoBusqueda": {
       "additionalProperties": false,
-      "description": "Una coincidencia (RF-34) o una cadena de coincidencias del mismo video unidas (RF-35).\n\n`t_inicio` es el de la primera palabra de la coincidencia y `t_fin` el de la última, tal cual\nde Whisper (RNF-03). `miniatura` es la ruta de `GET /videos/{id}/thumb?t=`, o None si el\nvideo no tiene imagen. `frase`: hasta 8 palabras originales antes y después, sin HTML;\n`frase[rango[0]:rango[1]]` es la coincidencia (fin exclusivo, palabras originales completas).\n`recorte_inicio` / `recorte_fin`: hay más palabras antes o después de la frase. Unida,\nconserva todo de la primera coincidencia de la cadena y `coincidencias` dice cuántas se\nunieron (1 si va sola).",
+      "description": "Una coincidencia (RF-34) o una cadena de coincidencias del mismo video unidas (RF-35).\n\n`t_inicio` es el de la primera palabra de la coincidencia y `t_fin` el de la última, tal cual\nde Whisper (RNF-03). `miniatura` es la ruta de `GET /videos/{id}/thumb?t=`, o None si el\nvideo no tiene imagen. `frase`: hasta 8 palabras originales antes y después, sin HTML;\n`frase[rango[0]:rango[1]]` es la coincidencia (fin exclusivo, palabras originales completas\nsin los signos de puntuación del inicio de la primera ni del final de la última).\n`recorte_inicio` / `recorte_fin`: hay más palabras antes o después de la frase. Unida,\nconserva todo de la primera coincidencia de la cadena y `coincidencias` dice cuántas se\nunieron (1 si va sola).",
       "properties": {
         "video": {
           "$ref": "#/$defs/VideoDeBusqueda"

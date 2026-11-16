@@ -60,7 +60,9 @@ app-sop-editor .boton.deshabilitado {
   cursor: not-allowed;
 }
 
-app-sop-editor .sr-only {
+// Solo para lectores de pantalla (el editor del SOP y la búsqueda).
+app-sop-editor .sr-only,
+app-buscar .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;

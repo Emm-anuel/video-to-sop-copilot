@@ -22,10 +22,11 @@ from sopvid.contrato import (
     Segmento,
 )
 from sopvid.lenguaje import busqueda
-from sopvid.lenguaje.busqueda import armar_frase
+from sopvid.lenguaje.busqueda import _sin_signos_en_bordes, armar_frase
 from sopvid.percepcion import miniaturas
 from sopvid.plataforma.api.buscar import SIN_PALABRAS, url_miniatura
 from sopvid.plataforma.modelos import Busqueda, Sop, Video
+from sopvid.texto import forma_busqueda
 
 AHORA = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -100,7 +101,7 @@ def test_palabra_sola(client: TestClient, entorno: Entorno) -> None:
     assert (resultado.video.id, resultado.video.titulo) == (video.id, "Video de prueba")
     assert (resultado.t_inicio, resultado.t_fin) == (11.5, pytest.approx(11.9))
     assert resultado.frase == "Primero reviso el manómetro."
-    assert _resaltado(r) == "manómetro."
+    assert _resaltado(r) == "manómetro"  # el punto queda en la frase, no en el rango
     assert resultado.miniatura == f"/videos/{video.id}/thumb?t=11.50"
     assert resultado.coincidencias == 1
     assert not resultado.recorte_inicio and not resultado.recorte_fin
@@ -428,6 +429,49 @@ def test_frase_no_duplica_las_palabras_de_varios_tokens() -> None:
     assert frase.texto == "cambio los O-rings hoy"
     assert frase.texto[frase.rango[0] : frase.rango[1]] == "O-rings"
     assert (frase.recorte_inicio, frase.recorte_fin) == (True, False)
+
+
+@pytest.mark.parametrize(
+    ("originales", "pos", "resaltado"),
+    [
+        # Punto al final de la última palabra.
+        (["saco", "el", "cartucho."], (2, 2), "cartucho"),
+        # Coma al final de la última palabra de una frase de varias.
+        (["abre", "la", "válvula,", "despacio"], (1, 2), "la válvula"),
+        # Comillas de apertura al inicio de la primera palabra.
+        (["dijo", "“llave", "de", "paso”", "y"], (1, 3), "llave de paso"),
+        (["el", "«filtro»."], (1, 1), "filtro"),
+    ],
+)
+def test_el_rango_no_incluye_signos_en_los_bordes(
+    originales: list[str], pos: tuple[int, int], resaltado: str
+) -> None:
+    """Solo el rango: la frase se queda con sus signos."""
+    filas = [(i, forma_busqueda(o), o) for i, o in enumerate(originales)]
+
+    frase = armar_frase(filas, *pos, ventana_hasta=30)
+
+    assert frase.texto == " ".join(originales)
+    assert frase.texto[frase.rango[0] : frase.rango[1]] == resaltado
+
+
+def test_signos_de_en_medio_se_quedan_y_solo_signos_no_se_toca() -> None:
+    texto = "cambio los O-rings. hoy"
+    frase = armar_frase(
+        [
+            (0, "cambio", "cambio"),
+            (1, "los", "los"),
+            (2, "o", "O-rings."),
+            (3, "ring", "O-rings."),
+            (4, "hoy", "hoy"),
+        ],
+        2,
+        3,
+        ventana_hasta=30,
+    )
+    assert frase.texto == texto
+    assert texto[frase.rango[0] : frase.rango[1]] == "O-rings"
+    assert _sin_signos_en_bordes("a ¿? b", 2, 4) == (2, 4)
 
 
 def test_frase_recorta_si_la_ventana_llega_al_tope() -> None:

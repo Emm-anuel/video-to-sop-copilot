@@ -387,6 +387,18 @@ def test_pdf_usa_el_sop_corregido_en_el_editor(
     assert "Revisión corregida de la línea" in _paginas(contenido)[0]
 
 
+def test_pdf_de_sop_para_ver_va_inline(client: TestClient, entorno: Entorno) -> None:
+    """`?ver=true` ("Ver SOP" de `/buscar`): el mismo PDF, para abrirlo en otra pestaña."""
+    sop = guardar_sop(entorno.session)
+
+    r = client.get(f"/sops/{sop.id}/pdf", params={"ver": "true"})
+
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"].startswith('inline; filename="')
+    assert r.content.startswith(b"%PDF")
+
+
 def test_pdf_de_un_sop_cargado_sin_qr(client: TestClient, entorno: Entorno) -> None:
     sop = guardar_sop(entorno.session)
 
