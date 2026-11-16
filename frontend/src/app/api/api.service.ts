@@ -15,6 +15,9 @@ import {
   VideoCreado,
 } from './tipos';
 
+/** Los archivos de la transcripción que entrega `GET /videos/{id}/download/{tipo}` (RF-31). */
+export type TipoDescarga = 'txt' | 'srt' | 'json';
+
 /** Prefijo que el proxy de `ng serve` reenvía a la API sin `/api` (proxy.conf.json). */
 export const API = '/api';
 
@@ -167,6 +170,14 @@ export class ApiService {
   /** La URL del TXT de la transcripción, para descargarlo tal como va. */
   urlTranscripcion(id: number): string {
     return `${API}/videos/${id}/transcripcion.txt`;
+  }
+
+  /**
+   * `GET /videos/{id}/download/{tipo}` (RF-31): la transcripción completa como adjunto, con el
+   * título como nombre del archivo. Para un enlace `download`, no para pedirla con `HttpClient`.
+   */
+  urlDescarga(id: number, tipo: TipoDescarga): string {
+    return `${API}/videos/${id}/download/${tipo}`;
   }
 
   /** `GET /health`: estado de la API y dónde corre cada modelo (`dispositivos`, ADR-018). */

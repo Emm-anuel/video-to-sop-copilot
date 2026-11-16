@@ -140,6 +140,22 @@ describe('SopEditor', () => {
     expect(boton('00:16', fila)).toBeTruthy();
   });
 
+  it('un SOP generado ofrece descargar la transcripción de su video (RF-31); uno cargado, no', async () => {
+    await abrir(detalle(), { videoId: 9 });
+    const hrefs = Array.from(el().querySelectorAll('.acciones app-descargas a')).map((a) =>
+      a.getAttribute('href'),
+    );
+    expect(hrefs).toEqual([
+      '/api/videos/9/download/txt',
+      '/api/videos/9/download/srt',
+      '/api/videos/9/download/json',
+    ]);
+    fixture.destroy();
+
+    await abrir(detalle({ origen: 'cargado', generacion: null }));
+    expect(el().querySelector('app-descargas')).toBeNull();
+  });
+
   it('si el navegador no reproduce el formato del video (AVI), el diálogo lo dice y ofrece descargarlo', async () => {
     await abrir();
     const video = el().querySelector<HTMLVideoElement>('dialog video')!;

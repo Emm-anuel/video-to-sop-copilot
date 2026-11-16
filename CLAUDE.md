@@ -100,6 +100,7 @@ src/sopvid/            paquete instalable (src layout)
   percepcion/          subida, ffmpeg, transcripción, fotogramas, pasos del video
   lenguaje/            cliente del LLM, lectura y redacción del SOP, emparejamiento, reporte, búsqueda exacta
   features/            limpieza e ingeniería de características (avances y pipeline)
+  salidas/             TXT, SRT, JSON y PDF a partir de lo guardado
 migrations/            Alembic
 scripts/               benchmark del LLM, evaluación de segmentación, preparación de datos
 tests/                 pytest

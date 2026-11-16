@@ -382,6 +382,20 @@ describe('Reporte', () => {
     expect(conteo('fuera_de_orden')).toBe(String(NORMAL.conteo.fuera_de_orden));
   });
 
+  it('ofrece descargar la transcripción del video en TXT, SRT y JSON (RF-31)', () => {
+    llegaReporte(NORMAL);
+
+    const enlaces = Array.from(
+      pantalla().querySelectorAll<HTMLAnchorElement>('.encabezado app-descargas a'),
+    );
+    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual([
+      '/api/videos/7/download/txt',
+      '/api/videos/7/download/srt',
+      '/api/videos/7/download/json',
+    ]);
+    expect(enlaces.every((a) => a.hasAttribute('download'))).toBe(true);
+  });
+
   it('pinta cada fila con su estado, marca, cita y segundo', () => {
     llegaReporte(NORMAL);
     const f = filas();
@@ -679,7 +693,9 @@ describe('Reporte', () => {
   it('sin conexión con la API muestra el aviso en español y reintenta con espera creciente', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
-    expect(texto()).toContain('No hay conexión con la API: revisa la red o que el servidor esté encendido.');
+    expect(texto()).toContain(
+      'No hay conexión con la API: revisa la red o que el servidor esté encendido.',
+    );
     expect(texto()).toContain('Reintento 1 en 1.5 s');
     vi.advanceTimersByTime(1500);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });

@@ -23,6 +23,7 @@ import { ErrorCampo, erroresPorCampo, mensajeDeError } from '../api/errores';
 import { FalloVideo, SIN_SOPORTE, codigoDeError } from '../api/reproductor';
 import { Elemento, Evidencia1 as Evidencia } from '../api/sop';
 import { AdvertenciaSOP, SopDetalle } from '../api/tipos';
+import { Descargas } from '../descargas/descargas';
 import { Chips } from './chips';
 import { PalabrasClave } from './palabras-clave';
 import {
@@ -129,7 +130,7 @@ function aNumero(v: unknown): number | undefined {
  */
 @Component({
   selector: 'app-sop-editor',
-  imports: [Chips, DecimalPipe, NombresPipe, PalabrasClave],
+  imports: [Chips, DecimalPipe, Descargas, NombresPipe, PalabrasClave],
   templateUrl: './sop-editor.html',
   styleUrl: './sop-editor.scss',
   host: { '(window:beforeunload)': 'alCerrar($event)' },

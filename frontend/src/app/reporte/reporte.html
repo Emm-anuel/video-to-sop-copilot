@@ -49,6 +49,11 @@
         @if (r.afinidad != null) {
           <p class="afinidad">Afinidad: {{ r.afinidad.valor }}</p>
         }
+        @if (videoId(); as id) {
+          <div class="descargas">
+            <app-descargas [videoId]="id" />
+          </div>
+        }
         @if (r.provisional) {
           <div class="avisos" role="status">
             <p>

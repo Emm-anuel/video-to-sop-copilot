@@ -1,0 +1,13 @@
+<details #menu class="menu" (keydown.escape)="cerrar(true)">
+  <summary>Descargar</summary>
+  <ul>
+    @for (f of formatos(); track $index) {
+      <li>
+        <a [href]="f.url" download (click)="cerrar()">
+          <span class="etiqueta">{{ f.etiqueta }}</span>
+          <span class="descripcion">{{ f.descripcion }}</span>
+        </a>
+      </li>
+    }
+  </ul>
+</details>

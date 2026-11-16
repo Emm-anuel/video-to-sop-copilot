@@ -20,6 +20,7 @@ import {
 } from '../api/reporte-validacion';
 import { AvanceVideo } from '../avance/avance.service';
 import { etiquetaEtapa } from '../avance/etapas';
+import { Descargas } from '../descargas/descargas';
 
 /** Estado de la fila tal como se muestra; "zona_gris" es un par que el juez no revisó. */
 const ETIQUETA_ESTADO: Record<Estado, string> = {
@@ -213,7 +214,7 @@ export function mmss(segundos: number): string {
  */
 @Component({
   selector: 'app-reporte',
-  imports: [DecimalPipe, RouterLink],
+  imports: [DecimalPipe, Descargas, RouterLink],
   providers: [AvanceVideo],
   templateUrl: './reporte.html',
   styleUrl: './reporte.scss',

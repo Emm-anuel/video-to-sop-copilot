@@ -42,6 +42,11 @@ antiguo (`VideoResumen`), con filtros opcionales. `POST /videos/{id}/publicar` a
 la búsqueda exacta (`lenguaje/busqueda.py`) con el análisis terminado (409 si no) y lo reemplaza
 si se repite; `DELETE /videos/{id}/publicar` lo quita (extensión nuestra: §11 solo define
 publicar). Los dos responden `EstadoPublicacion`.
+
+Descargas (RF-31): `GET /videos/{id}/download/{tipo}` entrega la transcripción guardada como
+adjunto en TXT (`[mm:ss]`, completo), SRT o JSON (el `Analisis`), con el título como nombre del
+archivo (`salidas/transcripcion.py`). 409 mientras el video está en cola o procesando; 404 si no
+tiene transcripción.
 """
 
 import logging
@@ -129,6 +134,7 @@ from sopvid.plataforma.procesamiento import (
     error_de_sop,
     leer_analisis,
 )
+from sopvid.salidas import transcripcion as salidas_txt
 
 logger = logging.getLogger(__name__)
 
@@ -858,6 +864,48 @@ def analisis_video(video_id: int, session: Annotated[Session, Depends(get_sessio
             409, {"mensaje": "el análisis no ha terminado", "proceso": video.proceso}
         )
     return leer_analisis(video)
+
+
+TipoDescarga = Literal["txt", "srt", "json"]
+TIPO_MEDIA_DESCARGA: dict[str, str] = {
+    "txt": "text/plain; charset=utf-8",
+    "srt": "application/x-subrip; charset=utf-8",
+    "json": "application/json; charset=utf-8",
+}
+
+
+@router.get("/videos/{video_id}/download/{tipo}")
+def descargar_transcripcion(
+    video_id: int, tipo: TipoDescarga, session: Annotated[Session, Depends(get_session)]
+) -> Response:
+    """La transcripción guardada como adjunto (RF-31, §11): TXT, SRT o JSON, en UTF-8.
+
+    Sale del `Analisis` guardado, el mismo de `GET /videos/{id}/analisis`: el TXT en el formato
+    del TXT en vivo pero completo, el SRT con un bloque por segmento y el JSON tal cual. Sirve
+    también con el video en error o detenido por afinidad, si la transcripción quedó guardada.
+    409 mientras el video está en cola o procesando; 404 si no tiene transcripción; 422 (de
+    FastAPI) con un tipo que no es txt, srt ni json.
+    """
+    video = _buscar(session, video_id)
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(409, {"mensaje": "el video sigue en proceso", "proceso": video.proceso})
+    if video.transcripcion is None:
+        raise HTTPException(
+            404, {"mensaje": "el video no tiene transcripción", "proceso": video.proceso}
+        )
+    analisis = leer_analisis(video)
+    if tipo == "txt":
+        contenido = salidas_txt.txt(analisis.transcripcion)
+    elif tipo == "srt":
+        contenido = salidas_txt.srt(analisis.transcripcion)
+    else:
+        contenido = analisis.model_dump_json(indent=2)
+    nombre = salidas_txt.nombre_archivo(video.titulo, tipo, respaldo=f"video_{video.id}")
+    return Response(
+        content=contenido.encode("utf-8"),
+        media_type=TIPO_MEDIA_DESCARGA[tipo],
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.get("/videos/{video_id}/contexto", response_model=Contexto)

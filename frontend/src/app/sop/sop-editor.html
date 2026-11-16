@@ -63,6 +63,9 @@
           >Descargar .md</a
         >
       }
+      @if (idVideo(); as video) {
+        <app-descargas [videoId]="video" />
+      }
     </div>
     @if (sucio()) {
       <p class="sin-guardar" role="status">
