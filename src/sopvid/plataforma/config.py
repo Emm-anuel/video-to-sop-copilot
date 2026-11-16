@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Una subida por partes sin actividad durante estas horas se borra (RNF-09): al arrancar la
     # API y en cada POST /uploads.
     subida_caducidad_h: float = Field(default=24, gt=0)
+    # Búsqueda exacta (RF-32): con true, cada video se publica solo al quedar listo; con false
+    # (por defecto), se publica a mano desde /videos (POST /videos/{id}/publicar).
+    publicar_al_terminar: bool = False
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es

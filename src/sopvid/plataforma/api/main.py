@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from sqlalchemy.exc import SQLAlchemyError
 
 from sopvid import __version__
+from sopvid.lenguaje.busqueda import publicar_al_terminar
 from sopvid.percepcion.subidas import limpiar_caducadas
 from sopvid.plataforma.api import health, sops, subidas, videos
 from sopvid.plataforma.config import get_settings
@@ -68,7 +69,10 @@ def create_app(
                     marcar_sops_interrumpidos(session)
             except SQLAlchemyError as exc:
                 logger.warning("No se revisaron videos interrumpidos: %s", type(exc).__name__)
-        app.state.procesador = Procesador.con_hilo(fabrica, get_settings().media_path)
+        al_terminar = publicar_al_terminar if settings.publicar_al_terminar else None
+        app.state.procesador = Procesador.con_hilo(
+            fabrica, get_settings().media_path, al_terminar=al_terminar
+        )
         yield
         app.state.procesador.cerrar()
 

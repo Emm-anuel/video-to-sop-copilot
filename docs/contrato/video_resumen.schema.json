@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "SopDeVideo": {
+      "additionalProperties": false,
+      "description": "El SOP de un video en la lista: el de referencia (validar) o el generado (generar).\n`titulo` es None mientras el SOP se convierte o se redacta.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "codigo": {
+          "title": "Codigo",
+          "type": "string"
+        },
+        "titulo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Titulo"
+        }
+      },
+      "required": [
+        "id",
+        "codigo"
+      ],
+      "title": "SopDeVideo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Un video en `GET /videos` (pantalla 6), del más reciente al más antiguo.\n\n`cumplimiento` (el porcentaje) y `semaforo` solo van con `proceso` \"listo\" y un reporte de\nvalidación: None en modo generar, en una detención por afinidad baja (sin cumplimiento) y\nmientras se repite la validación. `analizar_imagenes`: si se describieron imágenes (ADR-024;\nfalse en los videos anteriores a la columna). `publicado_en`: la última vez que se publicó,\nNone si no está publicado.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "integer"
+    },
+    "titulo": {
+      "title": "Titulo",
+      "type": "string"
+    },
+    "creado": {
+      "format": "date-time",
+      "title": "Creado",
+      "type": "string"
+    },
+    "duracion": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duracion"
+    },
+    "modo": {
+      "enum": [
+        "validar",
+        "generar"
+      ],
+      "title": "Modo",
+      "type": "string"
+    },
+    "proceso": {
+      "enum": [
+        "en_cola",
+        "procesando",
+        "listo",
+        "error",
+        "afinidad_baja"
+      ],
+      "title": "Proceso",
+      "type": "string"
+    },
+    "etapa": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Etapa"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "cumplimiento": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cumplimiento"
+    },
+    "semaforo": {
+      "anyOf": [
+        {
+          "enum": [
+            "verde",
+            "amarillo",
+            "rojo"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Semaforo"
+    },
+    "sop": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SopDeVideo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "analizar_imagenes": {
+      "default": false,
+      "title": "Analizar Imagenes",
+      "type": "boolean"
+    },
+    "publicado": {
+      "default": false,
+      "title": "Publicado",
+      "type": "boolean"
+    },
+    "publicado_en": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Publicado En"
+    }
+  },
+  "required": [
+    "id",
+    "titulo",
+    "creado",
+    "modo",
+    "proceso"
+  ],
+  "title": "VideoResumen",
+  "type": "object"
+}

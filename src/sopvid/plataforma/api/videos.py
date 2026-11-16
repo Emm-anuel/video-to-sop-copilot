@@ -36,6 +36,12 @@ Gemma antes de la ficha y gana sobre `FOTOGRAMAS_DESCRIBIR` (apagado por defecto
 sumarían con y sin GPU, y el valor de la instalación para la casilla; nunca prohíbe nada.
 `GET /videos/{id}/thumb?t=` entrega la miniatura del segundo `t` (la guardada a ≤ 1 s o una
 nueva, solo ffmpeg), con cabeceras de caché.
+
+Lista y publicación (pantalla 6, RF-32): `GET /videos` lista los videos del más reciente al más
+antiguo (`VideoResumen`), con filtros opcionales. `POST /videos/{id}/publicar` arma el índice de
+la búsqueda exacta (`lenguaje/busqueda.py`) con el análisis terminado (409 si no) y lo reemplaza
+si se repite; `DELETE /videos/{id}/publicar` lo quita (extensión nuestra: §11 solo define
+publicar). Los dos responden `EstadoPublicacion`.
 """
 
 import logging
@@ -46,7 +52,7 @@ import re
 import shutil
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, BinaryIO, Literal
 
@@ -63,6 +69,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, field_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sopvid.contrato import (
@@ -70,9 +77,15 @@ from sopvid.contrato import (
     Afinidad,
     Analisis,
     Contexto,
+    EstadoPublicacion,
+    ModoVideo,
+    ProcesoVideo,
     ReporteValidacion,
     ResultadoValidacion,
+    SopDeVideo,
+    VideoResumen,
 )
+from sopvid.lenguaje import busqueda
 from sopvid.lenguaje.lectura_sop import AjustesConversion
 from sopvid.lenguaje.llm import ClienteLLM, get_cliente_llm
 from sopvid.lenguaje.reporte import armar_reporte
@@ -103,7 +116,7 @@ from sopvid.plataforma.hardware import (
     dispositivo_llm_probable,
     get_plan_dispositivos,
 )
-from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
+from sopvid.plataforma.modelos import MODOS_VIDEO, Reporte, Sop, Video
 from sopvid.plataforma.procesamiento import (
     AFINIDAD_BAJA,
     EN_COLA,
@@ -470,6 +483,110 @@ def _mover(origen: Path, destino: Path) -> None:
     os.replace(origen, destino)
 
 
+@router.get("/videos", response_model=list[VideoResumen])
+def listar_videos(
+    session: Annotated[Session, Depends(get_session)],
+    modo: ModoVideo | None = None,
+    proceso: ProcesoVideo | None = None,
+    publicado: bool | None = None,
+    sop_id: int | None = None,
+) -> list[VideoResumen]:
+    """Los videos del más reciente al más antiguo (pantalla 6), con su SOP y, si ya tienen
+    reporte de validación, el cumplimiento y el semáforo. Los filtros se combinan; sin filtros,
+    todos. `sop_id` es el SOP de referencia (validar) o el generado (generar)."""
+    consulta = (
+        select(
+            Video,
+            Sop.id,
+            Sop.codigo,
+            Sop.titulo,
+            Reporte.cumplimiento,
+            Reporte.resultado["semaforo"].astext,
+        )
+        .outerjoin(Sop, Sop.id == Video.sop_id)
+        .outerjoin(Reporte, Reporte.video_id == Video.id)
+        .order_by(Video.creado.desc(), Video.id.desc())
+    )
+    if modo is not None:
+        consulta = consulta.where(Video.modo == modo)
+    if proceso is not None:
+        consulta = consulta.where(Video.proceso == proceso)
+    if publicado is not None:
+        consulta = consulta.where(Video.publicado.is_(publicado))
+    if sop_id is not None:
+        consulta = consulta.where(Video.sop_id == sop_id)
+    return [
+        _resumen(
+            video,
+            SopDeVideo(id=id_sop, codigo=codigo, titulo=titulo) if id_sop else None,
+            cumplimiento,
+            semaforo,
+        )
+        for video, id_sop, codigo, titulo, cumplimiento, semaforo in session.execute(consulta)
+    ]
+
+
+def _resumen(
+    video: Video, sop: SopDeVideo | None, cumplimiento: object, semaforo: str | None
+) -> VideoResumen:
+    """El `VideoResumen` de una fila. El cumplimiento y el semáforo solo con el video listo y un
+    reporte de pasos: una detención por afinidad no tiene cumplimiento y, mientras se repite la
+    validación, el reporte anterior no se muestra."""
+    con_reporte = video.proceso == LISTO and cumplimiento is not None
+    return VideoResumen(
+        id=video.id,
+        titulo=video.titulo,
+        creado=video.creado,
+        duracion=video.duracion,
+        modo=video.modo,
+        proceso=video.proceso,
+        etapa=video.etapa,
+        error=video.error,
+        cumplimiento=float(cumplimiento) if con_reporte else None,
+        semaforo=semaforo if con_reporte else None,
+        sop=sop,
+        analizar_imagenes=bool(video.analizar_imagenes),
+        publicado=video.publicado,
+        publicado_en=video.publicado_en,
+    )
+
+
+@router.post("/videos/{video_id}/publicar", response_model=EstadoPublicacion)
+def publicar_video(
+    video_id: int, session: Annotated[Session, Depends(get_session)]
+) -> EstadoPublicacion:
+    """Publica el video en la búsqueda exacta (RF-32): una fila de `palabras` por palabra de la
+    transcripción, `publicado` y `publicado_en`, en una transacción. Publicar otra vez reemplaza
+    el índice y pone la fecha al día. 409 si el análisis no ha terminado (el video no está
+    "listo": en cola, procesando, con error o detenido por afinidad baja)."""
+    video = _buscar(session, video_id, para_actualizar=True)
+    if video.proceso != LISTO:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el análisis no ha terminado: publica el video cuando esté listo",
+                "proceso": video.proceso,
+            },
+        )
+    estado = busqueda.publicar(session, video, datetime.now(UTC))
+    session.commit()
+    logger.info("Video %d publicado: %d palabras", video_id, estado.palabras_indexadas)
+    return estado
+
+
+@router.delete("/videos/{video_id}/publicar", response_model=EstadoPublicacion)
+def despublicar_video(
+    video_id: int, session: Annotated[Session, Depends(get_session)]
+) -> EstadoPublicacion:
+    """Quita el video de la búsqueda exacta: borra sus palabras y lo marca sin publicar. Se puede
+    en cualquier estado y repetirlo no falla. Extensión nuestra: §11 solo define publicar."""
+    video = _buscar(session, video_id, para_actualizar=True)
+    estado = busqueda.despublicar(session, video)
+    session.commit()
+    logger.info("Video %d quitado de la búsqueda", video_id)
+    return estado
+
+
 @router.get("/videos/estimacion", response_model=EstimacionImagenes)
 def estimar_imagenes(
     duracion_s: Annotated[float, Query(gt=0, description="Duración del video en segundos")],
@@ -782,8 +899,10 @@ def reporte_video(
     )
 
 
-def _buscar(session: Session, video_id: int) -> Video:
-    video = session.get(Video, video_id)
+def _buscar(session: Session, video_id: int, *, para_actualizar: bool = False) -> Video:
+    """El video o 404. `para_actualizar` bloquea la fila hasta el commit (SELECT … FOR UPDATE):
+    dos publicaciones a la vez del mismo video no chocan con el único de `palabras`."""
+    video = session.get(Video, video_id, with_for_update=para_actualizar)
     if video is None:
         raise HTTPException(404, "video no encontrado")
     return video

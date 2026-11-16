@@ -20,12 +20,16 @@ reporte lleva además, por fila, `ResponsableFila` y `TiempoFila` (RF-15, RF-16)
 `Afinidad` (RF-17), `RolReporte`, `TiempoTotal` y `Horario`; en los reportes guardados antes de
 su lógica (ADR-020, ADR-021) van en `None` o vacíos.
 
+`VideoResumen` es cada video de `GET /videos` (pantalla 6) y `EstadoPublicacion`, la respuesta de
+publicar o quitar un video de la búsqueda exacta (RF-32).
+
 Todo tiempo de estos contratos sale de la transcripción o del video, nunca del LLM (regla 4 de
 CLAUDE.md). Reglas comunes: campos extra prohibidos, tiempos finitos y ≥ 0, fin ≥ inicio, y las
 listas vacías se escriben `[]`, nunca `null`. Los mensajes de error solo citan ids, números de
 paso y tiempos, nunca texto de la transcripción ni del SOP (puede ser material del cliente).
 
-Los JSON Schema se exportan a docs/contrato/ (analisis, sop, contexto y reporte .schema.json) con
+Los JSON Schema se exportan a docs/contrato/ (analisis, sop, contexto, reporte, sop_estado,
+video_resumen y publicacion .schema.json) con
 `python scripts/exportar_contrato.py`; no se editan a mano.
 """
 
@@ -1472,6 +1476,76 @@ class GeneracionSOP(_Modelo):
         return self
 
 
+# ── Lista de videos y publicación (pantalla 6, RF-32) ────────────────────────────────────────
+
+# Los valores de `videos.modo` y `videos.proceso` (CHECK de `plataforma/modelos.py`, que no se
+# importa aquí; una prueba comprueba que coinciden).
+ModoVideo = Literal["validar", "generar"]
+ProcesoVideo = Literal["en_cola", "procesando", "listo", "error", "afinidad_baja"]
+
+
+class SopDeVideo(_Modelo):
+    """El SOP de un video en la lista: el de referencia (validar) o el generado (generar).
+    `titulo` es None mientras el SOP se convierte o se redacta."""
+
+    id: int
+    codigo: str
+    titulo: str | None = None
+
+
+class VideoResumen(_Modelo):
+    """Un video en `GET /videos` (pantalla 6), del más reciente al más antiguo.
+
+    `cumplimiento` (el porcentaje) y `semaforo` solo van con `proceso` "listo" y un reporte de
+    validación: None en modo generar, en una detención por afinidad baja (sin cumplimiento) y
+    mientras se repite la validación. `analizar_imagenes`: si se describieron imágenes (ADR-024;
+    false en los videos anteriores a la columna). `publicado_en`: la última vez que se publicó,
+    None si no está publicado.
+    """
+
+    id: int
+    titulo: str
+    creado: datetime
+    duracion: float | None = Field(default=None, ge=0)
+    modo: ModoVideo
+    proceso: ProcesoVideo
+    etapa: str | None = None
+    error: str | None = None
+    cumplimiento: float | None = Field(default=None, ge=0, le=100)
+    semaforo: Semaforo | None = None
+    sop: SopDeVideo | None = None
+    analizar_imagenes: bool = False
+    publicado: bool = False
+    publicado_en: datetime | None = None
+
+    @model_validator(mode="after")
+    def _publicacion(self) -> Self:
+        if (self.publicado_en is not None) != self.publicado:
+            raise ValueError(f"video {self.id}: publicado_en si y solo si está publicado")
+        return self
+
+
+class EstadoPublicacion(_Modelo):
+    """Respuesta de `POST /videos/{id}/publicar` (RF-32) y de `DELETE /videos/{id}/publicar`.
+
+    `palabras_indexadas`: las filas que el video tiene en el índice de búsqueda exacta (una por
+    token de `forma_busqueda`; 0 al quitarlo). `publicado_en` va si y solo si está publicado.
+    """
+
+    video_id: int
+    publicado: bool
+    publicado_en: datetime | None = None
+    palabras_indexadas: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _publicacion(self) -> Self:
+        if (self.publicado_en is not None) != self.publicado:
+            raise ValueError(f"video {self.video_id}: publicado_en si y solo si está publicado")
+        if not self.publicado and self.palabras_indexadas:
+            raise ValueError(f"video {self.video_id}: sin publicar no tiene palabras indexadas")
+        return self
+
+
 def esquema_analisis() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `Analisis`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **Analisis.model_json_schema()}
@@ -1495,3 +1569,13 @@ def esquema_contexto() -> dict[str, Any]:
 def esquema_reporte() -> dict[str, Any]:
     """JSON Schema (draft 2020-12) de `ReporteValidacion`, tal como se exporta a docs/contrato/."""
     return {"$schema": URI_JSON_SCHEMA, **ReporteValidacion.model_json_schema()}
+
+
+def esquema_video_resumen() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `VideoResumen` (cada elemento de `GET /videos`)."""
+    return {"$schema": URI_JSON_SCHEMA, **VideoResumen.model_json_schema()}
+
+
+def esquema_publicacion() -> dict[str, Any]:
+    """JSON Schema (draft 2020-12) de `EstadoPublicacion`, tal como se exporta a docs/contrato/."""
+    return {"$schema": URI_JSON_SCHEMA, **EstadoPublicacion.model_json_schema()}
