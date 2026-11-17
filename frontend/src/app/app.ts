@@ -47,6 +47,12 @@ export class App {
    */
   protected readonly consulta = computed(() => this.datos()['consulta'] === true);
 
+  /**
+   * Barra principal: en toda la vista de carga y, con `data: { menu: true }`, también en una
+   * pantalla de consulta (`/buscar`), para navegar sin escribir la URL.
+   */
+  protected readonly barra = computed(() => !this.consulta() || this.datos()['menu'] === true);
+
   /** "Salir" solo si la vista de carga tiene clave y esta sesión la escribió. */
   protected readonly conSesionDeCarga = computed(() => this.acceso.ultimo()?.carga.sesion === true);
 

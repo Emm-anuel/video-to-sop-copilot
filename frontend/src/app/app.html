@@ -1,6 +1,6 @@
-@if (!consulta()) {
+@if (barra()) {
   <header class="barra">
-    <a routerLink="/nuevo" class="marca">SOPVID</a>
+    <a routerLink="/" class="marca">SOPVID</a>
     <span class="lema">Validación de video contra SOP</span>
     <nav class="menu" aria-label="Principal">
       <a routerLink="/sops" routerLinkActive="activo" ariaCurrentWhenActive="page">Biblioteca</a>
@@ -8,6 +8,7 @@
         >Nuevo análisis</a
       >
       <a routerLink="/videos" routerLinkActive="activo" ariaCurrentWhenActive="page">Videos</a>
+      <a routerLink="/buscar" routerLinkActive="activo" ariaCurrentWhenActive="page">Búsqueda</a>
       @if (conSesionDeCarga()) {
         <button type="button" class="salir" (click)="salir()">Salir</button>
       }

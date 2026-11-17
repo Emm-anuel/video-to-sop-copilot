@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { Acceso } from './acceso/acceso';
 import { requiereVista } from './acceso/acceso.guard';
 import { Biblioteca } from './biblioteca/biblioteca';
+import { Inicio } from './inicio/inicio';
 import { Nuevo } from './nuevo/nuevo';
 import { Procesando } from './procesando/procesando';
 import { Reporte } from './reporte/reporte';
@@ -11,7 +12,6 @@ import { SopGenerado } from './sop/sop-generado';
 import { Ver } from './ver/ver';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'nuevo' },
   // Clave de acceso de una vista (§11, ADR-027): `?vista=carga|busqueda&volver=<url>`. Sin menú.
   {
     path: 'acceso',
@@ -19,13 +19,14 @@ export const routes: Routes = [
     data: { consulta: true },
     title: 'Clave de acceso · SOPVID',
   },
-  // Búsqueda (pantalla 7, RF-36): vista de consulta, sin el menú de la vista de carga (app.html).
-  // Pide la clave de búsqueda.
+  // Búsqueda (pantalla 7, RF-36): vista de consulta que pide la clave de búsqueda. Muestra la
+  // barra principal (`menu`) para navegar a las demás pantallas; los enlaces a la vista de carga
+  // piden su propia clave.
   {
     path: 'buscar',
     loadComponent: () => import('./buscar/buscar').then((m) => m.Buscar),
     canActivate: [requiereVista],
-    data: { ancho: true, consulta: true, vista: 'busqueda' },
+    data: { ancho: true, consulta: true, menu: true, vista: 'busqueda' },
     title: 'Búsqueda · SOPVID',
   },
   // Destino de los QR del PDF (§11): el video en ese segundo, sin clave si el enlace trae su
@@ -43,6 +44,8 @@ export const routes: Routes = [
     canActivateChild: [requiereVista],
     data: { vista: 'carga' },
     children: [
+      // Inicio (`/`): una tarjeta por pantalla.
+      { path: '', pathMatch: 'full', component: Inicio, title: 'Inicio · SOPVID' },
       { path: 'nuevo', component: Nuevo, title: 'Nuevo análisis · SOPVID' },
       // Biblioteca de SOP (RF-05): en escritorio, filas de tabla a todo el ancho.
       {
@@ -89,4 +92,6 @@ export const routes: Routes = [
       },
     ],
   },
+  // Una URL que no existe cae en Inicio (y, si falta, en la clave de carga).
+  { path: '**', redirectTo: '' },
 ];

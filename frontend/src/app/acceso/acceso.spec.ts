@@ -17,7 +17,7 @@ describe('destinoSeguro', () => {
 
   it('nunca a otro sitio ni a /acceso; sin volver, al inicio de la vista', () => {
     for (const malo of ['//otro.sitio/x', '/\\otro.sitio', 'https://otro.sitio', '/acceso?x=1']) {
-      expect(destinoSeguro(malo, 'carga'), malo).toBe('/nuevo');
+      expect(destinoSeguro(malo, 'carga'), malo).toBe('/');
     }
     expect(destinoSeguro(null, 'busqueda')).toBe('/buscar');
   });
@@ -107,6 +107,6 @@ describe('Acceso (/acceso, pantalla de la clave)', () => {
     http
       .expectOne((r) => r.url === '/api/acceso' && r.method === 'POST')
       .flush(null, { status: 204, statusText: 'No Content' });
-    expect(navegar).toHaveBeenCalledWith('/nuevo', { replaceUrl: true });
+    expect(navegar).toHaveBeenCalledWith('/', { replaceUrl: true });
   });
 });

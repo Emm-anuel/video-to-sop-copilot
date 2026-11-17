@@ -17,14 +17,15 @@ son de S5 y S6.
 | Ruta | Qué hace | Responsable | Estado |
 |---|---|---|---|
 | `/videos/:id/reporte` | **Reporte de validación (RF-20):** semáforo, resumen, tabla paso a paso con cita y segundo, y el video al lado que salta al segundo de cada fila | Sara | Versión de respaldo de Emmanuel en la rama feat/reporte-rf20-respaldo; si Sara entrega la suya, se elige una antes de unir a main |
-| `/nuevo` (y `/` redirige ahí) | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, el video por partes (`POST /uploads`, desde el 12 nov) y `POST /videos` con `upload_id`, `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al avance (`/videos/:id/procesando`, desde el 12 nov) cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
+| `/` | **Inicio (17 nov):** una tarjeta por pantalla (Nuevo análisis, Biblioteca, Videos, Búsqueda); estática, en la vista de carga. Una URL desconocida (`**`) redirige aquí | Emmanuel | Hecho (17 nov): `src/app/inicio/` |
+| `/nuevo` | **Subir SOP y video (opcional):** `POST /sops` (202) y, sin esperar la conversión, el video por partes (`POST /uploads`, desde el 12 nov) y `POST /videos` con `upload_id`, `modo=validar` y `sop_id`; consulta el estado del SOP cada 2 s y navega al avance (`/videos/:id/procesando`, desde el 12 nov) cuando los dos terminan. Con **"No tengo SOP"**, solo el video con `modo=generar` | Emmanuel | Hecho (7 nov): `src/app/nuevo/`. PDF, Word y `POST /sops` asíncrono desde el 8 nov; "No tengo SOP" desde el 9 nov (sección "SOP generado") |
 | `/videos/:id/sop` | **SOP generado y su editor (RF-26):** avance y, al terminar, el editor del SOP (sección "Editor del SOP") | Emmanuel (base y RF-26, tomado de Sara el 10 nov) | Hecho (9 nov, solo lectura; editor desde el 11 nov): `src/app/sop/` |
 | `/sops` | **Biblioteca de SOP (RF-05):** búsqueda, filtro por origen, ver o editar, usar para validar, eliminar y subir (sección "Biblioteca y Nuevo análisis") | Emmanuel | Hecho (12 nov): `src/app/biblioteca/` |
 | `/v/:id?t=&k=` | **Destino de los QR y enlaces del PDF (§11, RF-29, RF-30, ADR-027):** página mínima sin el menú de carga, con el reproductor en el segundo `t`. El token `k` (firmado por la API con `SECRETO_ENLACES`) abre solo ese video, sin clave. Si la sesión ya tiene la vista de carga (o está abierta), ofrece además "Abrir el reporte" (validar) o "Abrir el SOP" (generar) con `?t=`; sin ella no pide la clave. No exige que el video esté publicado. La dirección de los QR es `APP_URL_PUBLICA` (para un celular en la misma red, la IP del equipo) | Emmanuel | Hecho (15 nov; página propia desde el 16 nov, #30): `src/app/ver/` |
 | `/acceso?vista=&volver=` | **Clave de acceso de una vista (§11, #30, ADR-027):** campo de contraseña y "Entrar" (`POST /acceso`, que deja una cookie de sesión); vuelve a `volver` (solo rutas de la app). Si la vista está abierta o ya hay sesión, sigue de largo. Sin menú (sección "Claves de acceso") | Emmanuel | Hecho (16 nov): `src/app/acceso/` |
 | `/sops/:id` | **Revisar el SOP convertido (RF-04):** el mismo editor en modo SOP de referencia; con `?video=N` ofrece revalidar ese video después de guardar | Emmanuel | Hecho (11 nov): `src/app/sop/sop-editor.ts` |
 | `/videos` | **Lista de videos (pantalla 6, #29):** del más reciente al más antiguo, con modo, SOP, cumplimiento con semáforo, estado, fecha, imágenes y si está publicado; cada fila lleva al avance, al reporte o al SOP generado; "Publicar" / "Quitar de la búsqueda" y descargas (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/videos/` |
-| `/buscar` | **Búsqueda con apariencia de chat (pantalla 7, RF-36, RF-37):** vista de consulta, sin el menú de carga; conversación, resultados con la frase resaltada y el video en el segundo (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/buscar/` |
+| `/buscar` | **Búsqueda con apariencia de chat (pantalla 7, RF-36, RF-37):** vista de consulta con la barra principal (`data.menu`, 17 nov); conversación, resultados con la frase resaltada y el video en el segundo (sección "Videos y búsqueda") | Emmanuel | Hecho (16 nov): `src/app/buscar/` |
 
 **Criterio del MVP:** en la pantalla del reporte, el video **A** sale en verde con 100 % y sin
 *Falta*; el **B** muestra *Falta* en los pasos 2 y 6 (sin segundo) y una *Sobra* (limpiar la
@@ -424,9 +425,10 @@ scripts y las pruebas; la pantalla ya no la usa.
 
 ## Videos y búsqueda (pantallas 6 y 7, 16 nov, #27, #28, #29)
 
-Menú de la vista de carga en `app.html`: **Biblioteca**, **Nuevo análisis** y **Videos**. `/buscar`
-no está en el menú y no lleva la barra: la ruta trae `data: { consulta: true }` y la pantalla pone su
-propio encabezado mínimo (`.cabecera-consulta`, en `styles.scss`, el mismo de `/acceso` y `/v/:id`).
+Menú en `app.html`: **Biblioteca**, **Nuevo análisis**, **Videos** y **Búsqueda**; la marca lleva a
+Inicio (`/`). `/buscar` muestra la misma barra (17 nov): la ruta trae `data: { consulta: true,
+menu: true }` y debajo va su encabezado (`.cabecera-consulta`, en `styles.scss`, el mismo de
+`/acceso` y `/v/:id`, que siguen sin barra). Los enlaces a la vista de carga piden su clave.
 Cada vista pide su clave (sección "Claves de acceso"). Las dos
 rutas se cargan al entrar (`loadComponent`), así no suman al bundle inicial.
 

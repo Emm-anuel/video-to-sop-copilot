@@ -6,7 +6,7 @@ import { mensajeDeError } from '../api/errores';
 import { AccesoService, NOMBRE_VISTA, Vista, esVista } from './acceso.service';
 
 /** Adónde va cada vista si `volver` no sirve. */
-const INICIO: Record<Vista, string> = { carga: '/nuevo', busqueda: '/buscar' };
+const INICIO: Record<Vista, string> = { carga: '/', busqueda: '/buscar' };
 
 /**
  * Adónde volver tras escribir la clave: `volver` si es una ruta de la app ("/…", sin "//" ni "/\"
