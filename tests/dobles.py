@@ -31,7 +31,7 @@ import httpx
 import numpy as np
 from sqlalchemy.orm import Session
 
-from sopvid.contrato import SOP, Idioma, Juicio, Palabra, PasoSOP, PasoVideo, Segmento
+from sopvid.contrato import SOP, Analisis, Idioma, Juicio, Palabra, PasoSOP, PasoVideo, Segmento
 from sopvid.lenguaje import emparejamiento as emp
 from sopvid.lenguaje import sop_generado as gen
 from sopvid.lenguaje.juez import respaldo
@@ -49,7 +49,7 @@ from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.hardware import CandadoModeloPesado
 from sopvid.plataforma.modelos import Sop, Video
-from sopvid.plataforma.procesamiento import ColaTrabajos, Procesador
+from sopvid.plataforma.procesamiento import AlTerminar, ColaTrabajos, Procesador, guardar_analisis
 from sopvid.texto import comparable
 
 # ── Transcripción ────────────────────────────────────────────────────────────────────────────
@@ -138,6 +138,39 @@ def guardar_sop(session: Session, sop: SOP = SOP_PRUEBA) -> Sop:
     session.add(fila)
     session.commit()
     return fila
+
+
+def guardar_video(
+    session: Session,
+    segmentos: list[Segmento] | None = None,
+    *,
+    titulo: str = "Video de prueba",
+    modo: str = "generar",
+    proceso: str = "listo",
+    sop: Sop | None = None,
+    **columnas: Any,
+) -> Video:
+    """Un video ya analizado, sin pasar por la cola: la fila con su transcripción guardada como
+    la deja el trabajador (`guardar_analisis`). Por defecto, SEGMENTOS."""
+    segmentos = SEGMENTOS if segmentos is None else segmentos
+    video = Video(
+        titulo=titulo,
+        archivo="videos/0/video.mp4",
+        modo=modo,
+        proceso=proceso,
+        sop_id=sop.id if sop is not None else None,
+        **columnas,
+    )
+    analisis = Analisis(
+        video_id=0,
+        duracion_s=max((s.t_fin for s in segmentos), default=0.0),
+        idioma=Idioma(codigo="es", confianza=0.97),
+        transcripcion=segmentos,
+    )
+    guardar_analisis(video, analisis)
+    session.add(video)
+    session.commit()
+    return video
 
 
 # ── Ollama simulado ──────────────────────────────────────────────────────────────────────────
@@ -535,7 +568,7 @@ def embedder_guionado(
 class Entorno:
     """App con la sesión de la prueba, ajustes en `tmp_path` y trabajos que corren a mano."""
 
-    def __init__(self, db_session: Session, tmp_path: Path):
+    def __init__(self, db_session: Session, tmp_path: Path, al_terminar: AlTerminar | None = None):
         self.session = db_session
         self.settings = Settings(media_dir=tmp_path / "media", subida_max_mb=1)
         self.cola = ColaTrabajos()
@@ -553,6 +586,7 @@ class Entorno:
             self.cola,
             gpu=lambda: "GPU de prueba",
             candado=self.candado,
+            al_terminar=al_terminar,
         )
 
         def dependencias() -> DependenciasValidacion:

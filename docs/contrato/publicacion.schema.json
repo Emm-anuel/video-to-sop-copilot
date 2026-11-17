@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Respuesta de `POST /videos/{id}/publicar` (RF-32) y de `DELETE /videos/{id}/publicar`.\n\n`palabras_indexadas`: las filas que el video tiene en el índice de búsqueda exacta (una por\ntoken de `forma_busqueda`; 0 al quitarlo). `publicado_en` va si y solo si está publicado.",
+  "properties": {
+    "video_id": {
+      "title": "Video Id",
+      "type": "integer"
+    },
+    "publicado": {
+      "title": "Publicado",
+      "type": "boolean"
+    },
+    "publicado_en": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Publicado En"
+    },
+    "palabras_indexadas": {
+      "minimum": 0,
+      "title": "Palabras Indexadas",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "video_id",
+    "publicado",
+    "palabras_indexadas"
+  ],
+  "title": "EstadoPublicacion",
+  "type": "object"
+}

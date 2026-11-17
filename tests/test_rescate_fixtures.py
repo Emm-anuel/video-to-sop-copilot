@@ -114,3 +114,31 @@ def test_b_adversario_el_paso_6_omitido_sigue_en_falta(embedder: emp.Embedder) -
     assert r.clasificacion.resumen.rescatados == 0
     assert not any(f.rescate for f in r.fusiones)
     assert porcentaje(r) == pytest.approx(200 / 3)
+
+
+@pytest.mark.parametrize("caso", [*CASOS_A, "b_adversario"])
+def test_un_video_en_espanol_no_cambia_con_max_si_otro_idioma(
+    caso: str, embedder: emp.Embedder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-026: con la transcripción en el idioma del SOP, `max_si_otro_idioma` da exactamente
+    lo mismo que `cita` (mismos textos pedidos a MiniLM, mismos juicios), rescate incluido."""
+    from sopvid.plataforma import config
+
+    datos = DATOS["casos"][caso]
+    pasos = [PasoVideo.model_validate(p) for p in datos["pasos_video"]]
+    transcripcion = [
+        Segmento.model_validate(s) for s in datos.get("transcripcion", DATOS["transcripcion_a"])
+    ]
+    resultados = []
+    for valor in ("cita", "max_si_otro_idioma"):
+        monkeypatch.setenv("EMPAREJAR_TEXTO", valor)
+        monkeypatch.setenv("SOP_IDIOMA", "es")
+        config.get_settings.cache_clear()
+        r = emp.emparejar(
+            SOP, pasos, embedder, juez=JuezGrabado(), transcripcion=transcripcion, idioma="es"
+        )
+        datos_r = r.model_dump()
+        datos_r["clasificacion"]["resumen"]["segundos_juez"] = None  # tiempo medido
+        resultados.append(datos_r)
+    config.get_settings.cache_clear()
+    assert resultados[0] == resultados[1]

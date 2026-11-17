@@ -61,6 +61,24 @@ class Settings(BaseSettings):
     # Una subida por partes sin actividad durante estas horas se borra (RNF-09): al arrancar la
     # API y en cada POST /uploads.
     subida_caducidad_h: float = Field(default=24, gt=0)
+    # Búsqueda exacta (RF-32): con true, cada video se publica solo al quedar listo; con false
+    # (por defecto), se publica a mano desde /videos (POST /videos/{id}/publicar).
+    publicar_al_terminar: bool = False
+    # RF-35: las coincidencias del mismo video se unen en cadena si cada una empieza a menos de
+    # estos segundos de la anterior; con 0 no se une nada. Tope de resultados de POST /buscar.
+    busqueda_unir_s: float = Field(default=3.0, ge=0)
+    busqueda_max_resultados: int = Field(default=50, ge=1, le=500)
+    # Dirección del frontend con la que se arman los QR y los enlaces de los PDF (RF-29, RF-30):
+    # `<APP_URL_PUBLICA>/v/<id>?t=<segundo>` abre el video en ese segundo (§11). Sin "/" final.
+    app_url_publica: str = "http://localhost:4200"
+    # Clave de acceso por vista (§11, RNF-10, ADR-027): solo en `.env`, nunca en el código. Vacía
+    # (o solo espacios), esa vista queda abierta (desarrollo) y /health lo avisa. Las dos claves
+    # no pueden ser iguales: la de búsqueda abriría la carga. `secreto_enlaces` firma el token
+    # `k` de los QR del PDF (`/v/<id>?t=…&k=…`); vacío, los enlaces van sin token y el video queda
+    # abierto a quien tenga la URL. Cambiarlo invalida los QR ya impresos.
+    clave_carga: SecretStr = SecretStr("")
+    clave_busqueda: SecretStr = SecretStr("")
+    secreto_enlaces: SecretStr = SecretStr("")
 
     # Transcripción con faster-whisper (RF-09, RF-10). El mismo modelo en CPU y en GPU
     # (ADR-018, decidido el 8 nov): large-v3-turbo, int8 en CPU y float16 en cuda. El modelo es
@@ -142,6 +160,14 @@ class Settings(BaseSettings):
     umbral_bajo: float = Field(default=0.55, ge=0, le=1)
     umbral_alto: float = Field(default=0.75, ge=0, le=1)
     umbral_fusion: float = Field(default=0.55, ge=0, le=1)
+    # Texto vectorizado del paso del video (ADR-026). "cita": nombre + descripción + cita, como
+    # desde ADR-012 (respaldo). "max_si_otro_idioma": si el idioma de la transcripción no es
+    # `sop_idioma`, el coseno de cada par es el mayor entre el texto con cita y sin ella, así que
+    # una cita en otro idioma solo puede ayudar; en el mismo idioma da lo mismo que "cita".
+    emparejar_texto: Literal["cita", "max_si_otro_idioma"] = "max_si_otro_idioma"
+    # Idioma de los SOP (ISO 639-1) contra el que se compara el de la transcripción (ADR-026).
+    # En 1.0 los SOP del patrocinador son en español y traducir el SOP está fuera de alcance.
+    sop_idioma: str = Field(default="es", min_length=2)
     # Candado del SOP generado (ADR-023): si Gemma dice que un paso del video "continua" el
     # anterior pero su coseno MiniLM (minúsculas, nombre, descripción y cita) es menor que
     # `umbral_fusion`, el código lo parte ahí en un paso nuevo.
@@ -205,6 +231,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AFINIDAD_COS_CERO ({self.afinidad_cos_cero}) debe ser menor que "
                 f"AFINIDAD_COS_CIEN ({self.afinidad_cos_cien})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _claves_distintas(self) -> Self:
+        carga = self.clave_carga.get_secret_value().strip()
+        if carga and carga == self.clave_busqueda.get_secret_value().strip():
+            raise ValueError(
+                "CLAVE_CARGA y CLAVE_BUSQUEDA no pueden ser iguales: la clave de búsqueda "
+                "abriría la vista de carga"
             )
         return self
 

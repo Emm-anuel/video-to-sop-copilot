@@ -15,6 +15,7 @@ from sopvid.contrato import (
     Clasificacion,
     Contexto,
     Dato,
+    EstadoPublicacion,
     FilaReporte,
     Fotograma,
     Fusion,
@@ -35,12 +36,18 @@ from sopvid.contrato import (
     TiempoFila,
     TiempoTotal,
     Umbrales,
+    VideoResumen,
     esquema_analisis,
+    esquema_busqueda,
     esquema_contexto,
     esquema_estado_sop,
+    esquema_opciones_busqueda,
+    esquema_publicacion,
     esquema_reporte,
     esquema_sop,
+    esquema_video_resumen,
 )
+from sopvid.plataforma.modelos import MODOS_VIDEO, PROCESOS_VIDEO
 
 RAIZ = Path(__file__).resolve().parents[1]
 EJEMPLO = RAIZ / "tests" / "fixtures" / "analisis_ejemplo.json"
@@ -1134,6 +1141,10 @@ def test_umbrales_anteriores_a_s5_validan():
         ("contexto.schema.json", esquema_contexto),
         ("reporte.schema.json", esquema_reporte),
         ("sop_estado.schema.json", esquema_estado_sop),
+        ("video_resumen.schema.json", esquema_video_resumen),
+        ("publicacion.schema.json", esquema_publicacion),
+        ("busqueda.schema.json", esquema_busqueda),
+        ("busqueda_opciones.schema.json", esquema_opciones_busqueda),
     ],
 )
 def test_el_esquema_exportado_coincide_con_el_modelo(archivo, esquema):
@@ -1154,3 +1165,80 @@ def test_el_esquema_sop_prohibe_extras_y_exige_titulo_y_pasos():
     assert set(esquema["required"]) == {"titulo", "pasos"}
     assert esquema["properties"]["pasos"]["minItems"] == 1
     assert all(d["additionalProperties"] is False for d in esquema["$defs"].values())
+
+
+# ── Lista de videos y publicación (pantalla 6, RF-32) ────────────────────────────────────────
+
+
+def test_modo_y_proceso_del_contrato_coinciden_con_las_check_de_la_base():
+    def valores(campo: str) -> tuple[str, ...]:
+        return tuple(VideoResumen.model_json_schema()["properties"][campo]["enum"])
+
+    assert valores("modo") == MODOS_VIDEO
+    assert valores("proceso") == PROCESOS_VIDEO
+
+
+def _resumen(**cambios) -> dict:
+    return {
+        "id": 1,
+        "titulo": "Cambio de filtro",
+        "creado": "2026-11-15T10:00:00Z",
+        "modo": "validar",
+        "proceso": "listo",
+        **cambios,
+    }
+
+
+def test_video_resumen_minimo_valida_con_valores_por_defecto():
+    v = VideoResumen.model_validate(_resumen())
+    assert (v.cumplimiento, v.semaforo, v.sop, v.publicado, v.analizar_imagenes) == (
+        None,
+        None,
+        None,
+        False,
+        False,
+    )
+
+
+@pytest.mark.parametrize(
+    "cambios",
+    [
+        {"publicado": True},
+        {"publicado_en": "2026-11-15T10:00:00Z"},
+        {"proceso": "terminado"},
+        {"cumplimiento": 101},
+        {"extra": 1},
+    ],
+)
+def test_video_resumen_rechaza(cambios):
+    with pytest.raises(ValidationError):
+        VideoResumen.model_validate(_resumen(**cambios))
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        {"video_id": 1, "publicado": True, "palabras_indexadas": 3},
+        {
+            "video_id": 1,
+            "publicado": False,
+            "publicado_en": "2026-11-15T10:00:00Z",
+            "palabras_indexadas": 0,
+        },
+        {"video_id": 1, "publicado": False, "palabras_indexadas": 3},
+        {
+            "video_id": 1,
+            "publicado": True,
+            "publicado_en": "2026-11-15T10:00:00Z",
+            "palabras_indexadas": -1,
+        },
+    ],
+)
+def test_estado_publicacion_rechaza_combinaciones_imposibles(datos):
+    with pytest.raises(ValidationError):
+        EstadoPublicacion.model_validate(datos)
+
+
+def test_estado_publicacion_valida():
+    p = EstadoPublicacion(video_id=1, publicado=False, palabras_indexadas=0)
+    assert p.publicado_en is None

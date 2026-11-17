@@ -174,6 +174,9 @@ PRIORIDAD_SOP, PRIORIDAD_VIDEO = 0, 1
 # Crea el cliente del LLM para una conversión (la API inyecta Gemma 4 por Ollama).
 FabricaLLM = Callable[[], AbstractContextManager[ClienteLLM]]
 Trabajo = Callable[[], None]
+# Lo que corre cuando un video queda "listo", después del commit, con la sesión del trabajo y el
+# id del video (la API inyecta la publicación de PUBLICAR_AL_TERMINAR, RF-32). Hace su commit.
+AlTerminar = Callable[[Session, int], None]
 # En modo validar el análisis llega hasta aquí; la validación (desde la ficha de contexto)
 # sigue hasta 100.
 FIN_ANALISIS_VALIDAR = INICIO_ETAPA["contexto"]
@@ -446,9 +449,12 @@ class Procesador:
         cola: ColaTrabajos,
         gpu: Callable[[], str | None] | None = None,
         candado: CandadoModeloPesado = CANDADO_MODELO_PESADO,
+        al_terminar: AlTerminar | None = None,
     ):
         """`gpu` da el nombre de la GPU para los metadatos (por defecto, la que detecta la API);
-        `candado`, el de modelo pesado (ADR-014)."""
+        `candado`, el de modelo pesado (ADR-014); `al_terminar`, lo que corre cuando un video
+        queda "listo" (si falla, el video sigue listo y queda en el log)."""
+        self._al_terminar = al_terminar
         self._candado = candado
         self._sesiones = sesiones
         self._gpu = gpu or _gpu_detectada
@@ -456,11 +462,13 @@ class Procesador:
         self._cola = cola
 
     @classmethod
-    def con_hilo(cls, sesiones: FabricaSesiones, media: Path) -> "Procesador":
+    def con_hilo(
+        cls, sesiones: FabricaSesiones, media: Path, al_terminar: AlTerminar | None = None
+    ) -> "Procesador":
         """Procesador de producción: un hilo trabajador (un modelo pesado a la vez)."""
         cola = ColaTrabajos()
         cola.iniciar()
-        return cls(sesiones, media, cola)
+        return cls(sesiones, media, cola, al_terminar=al_terminar)
 
     def encolar(
         self,
@@ -635,6 +643,7 @@ class Procesador:
                 analisis.duracion_s,
                 len(analisis.transcripcion),
             )
+            self._terminar(session, video_id)
             return
         session.commit()  # el análisis queda guardado aunque falle la validación (ADR-017)
         assert validacion is not None
@@ -865,6 +874,7 @@ class Procesador:
             len(generado.sop.pasos),
             len(fila.advertencias),
         )
+        self._terminar(session, video_id)
 
     def _validar(
         self,
@@ -961,6 +971,7 @@ class Procesador:
             validacion.resultado.cumplimiento,
             validacion.resultado.semaforo,
         )
+        self._terminar(session, video_id)
 
     def _describidor(
         self, session: Session, video: Video, analisis: Analisis, n: int
@@ -1070,6 +1081,17 @@ class Procesador:
         fila.estado, fila.error = SOP_ERROR, mensaje
         session.commit()
         logger.error("SOP %d: %s", sop_id, mensaje)
+
+    def _terminar(self, session: Session, video_id: int) -> None:
+        """Corre `al_terminar` con el video ya listo y guardado. Si falla, deshace lo suyo y lo
+        deja en el log: el video sigue listo (publicar se puede repetir a mano)."""
+        if self._al_terminar is None:
+            return
+        try:
+            self._al_terminar(session, video_id)
+        except Exception as exc:
+            session.rollback()
+            logger.warning("Video %d: al terminar falló (%s)", video_id, type(exc).__name__)
 
     @staticmethod
     def _fallar(

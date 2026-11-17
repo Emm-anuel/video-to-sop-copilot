@@ -22,7 +22,7 @@
   font-size: 0.9rem;
 }
 
-// Menú (Biblioteca, Nuevo análisis): enlaces de 36 px; en pantallas angostas baja a su propia
+// Menú (Biblioteca, Nuevo análisis, Videos): enlaces de 36 px; en pantallas angostas baja a su propia
 // línea y el lema se oculta (RNF-13).
 .menu {
   display: flex;
@@ -48,6 +48,23 @@
       color: #fff;
       background: rgb(255 255 255 / 0.16);
       font-weight: 600;
+    }
+  }
+
+  // Cierra la sesión de la vista de carga (#30): un botón con el aspecto de los enlaces.
+  .salir {
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    font: inherit;
+    color: #d0d5dd;
+    background: transparent;
+    border: 1px solid rgb(255 255 255 / 0.3);
+    border-radius: 0.3rem;
+    cursor: pointer;
+
+    &:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 0.08);
     }
   }
 }
@@ -80,4 +97,10 @@
 // Pantallas que piden todo el ancho en la ruta (`data: { ancho: true }`), como el reporte.
 .contenido.ancho {
   max-width: 100rem;
+}
+
+// La vista de consulta (/buscar) trae su encabezado y usa el alto de la ventana.
+.contenido.consulta {
+  margin-top: 0;
+  margin-bottom: 0;
 }

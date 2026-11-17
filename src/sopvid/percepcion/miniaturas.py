@@ -21,7 +21,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from sopvid.contrato import Aviso
-from sopvid.percepcion.medios import ErrorMedios, extraer_cuadro, extraer_cuadros, imagen_visible
+from sopvid.percepcion.medios import (
+    ErrorMedios,
+    extraer_cuadro,
+    extraer_cuadros,
+    imagen_visible,
+    tiene_imagen,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +91,40 @@ def asegurar(
         return guardada
     t_cuadro = min(max(t, 0.0), max(duracion_s - MARGEN_FINAL_S, 0.0))
     return extraer_cuadro(video, t_cuadro, carpeta / nombre_miniatura(t), lado_px)
+
+
+class SinMiniatura(Exception):  # noqa: N818 (nombre de dominio)
+    """No hay miniatura para ese segundo: el video no tiene imagen visible o ffmpeg falló.
+    `falla_medios` distingue lo segundo (se registra en el log)."""
+
+    def __init__(self, mensaje: str, *, falla_medios: bool = False) -> None:
+        super().__init__(mensaje)
+        self.falla_medios = falla_medios
+
+
+def miniatura_en(video: Path, t: float, duracion_s: float, lado_px: int) -> Path:
+    """La miniatura del segundo `t` del archivo `video` para `GET /videos/{id}/thumb` y el PDF del
+    reporte (RF-29): la guardada a `TOLERANCIA_S` o menos (RNF-03) o una nueva, que queda como
+    caché. La primera vez (un video procesado antes de las miniaturas) se revisa que tenga imagen
+    visible; después basta con que tenga pista de video. Sin imagen, deja la marca `SIN_IMAGEN`.
+    `t` ya viene revisado contra la duración.
+
+    Errores: `SinMiniatura` si el video no tiene imagen o ffmpeg no pudo sacar el cuadro.
+    """
+    carpeta = carpeta_miniaturas(video.parent)
+    if sin_imagen_marcado(carpeta):
+        raise SinMiniatura("el video no tiene imagen")
+    if (guardada := buscar(carpeta, t)) is not None:
+        return guardada
+    try:
+        primera = not carpeta.is_dir() or not any(carpeta.glob("t*.jpg"))
+        visible = imagen_visible(video, duracion_s) if primera else tiene_imagen(video)
+        if not visible:
+            marcar_sin_imagen(carpeta)
+            raise SinMiniatura("el video no tiene imagen")
+        return asegurar(video, carpeta, t, duracion_s, lado_px)
+    except ErrorMedios as exc:
+        raise SinMiniatura("no se pudo sacar la miniatura", falla_medios=True) from exc
 
 
 @dataclass

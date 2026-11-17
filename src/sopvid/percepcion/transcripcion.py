@@ -348,10 +348,16 @@ def escritor_txt(ruta: Path) -> Iterator[AlSegmento]:
     with ruta.open("w", encoding="utf-8", newline="\n") as archivo:
 
         def escribir(segmento: Segmento) -> None:
-            archivo.write(f"[{marca_tiempo(segmento.t_inicio)}] {segmento.texto}\n")
+            archivo.write(linea_txt(segmento))
             archivo.flush()
 
         yield escribir
+
+
+def linea_txt(segmento: Segmento) -> str:
+    """La línea del TXT de un segmento, `[mm:ss] texto` con su salto: la del TXT en vivo y la del
+    descargado (`salidas.transcripcion.txt`)."""
+    return f"[{marca_tiempo(segmento.t_inicio)}] {segmento.texto}\n"
 
 
 def marca_tiempo(segundos: float) -> str:

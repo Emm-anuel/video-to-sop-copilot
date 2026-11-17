@@ -8,8 +8,9 @@ from fastapi import FastAPI
 from sqlalchemy.exc import SQLAlchemyError
 
 from sopvid import __version__
+from sopvid.lenguaje.busqueda import publicar_al_terminar
 from sopvid.percepcion.subidas import limpiar_caducadas
-from sopvid.plataforma.api import health, sops, subidas, videos
+from sopvid.plataforma.api import acceso, buscar, health, sops, subidas, videos
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_sessionmaker
 from sopvid.plataforma.hardware import get_hardware, get_plan_dispositivos, registrar
@@ -68,17 +69,25 @@ def create_app(
                     marcar_sops_interrumpidos(session)
             except SQLAlchemyError as exc:
                 logger.warning("No se revisaron videos interrumpidos: %s", type(exc).__name__)
-        app.state.procesador = Procesador.con_hilo(fabrica, get_settings().media_path)
+        al_terminar = publicar_al_terminar if settings.publicar_al_terminar else None
+        app.state.procesador = Procesador.con_hilo(
+            fabrica, get_settings().media_path, al_terminar=al_terminar
+        )
         yield
         app.state.procesador.cerrar()
 
     _configurar_logs()
     app = FastAPI(title="AI Co-Pilot Video-to-SOP", version=__version__, lifespan=lifespan)
     app.middleware("http")(videos.limitar_content_length)
+    # Cada router pide su vista (§11, ADR-027); /health, /docs y /acceso no piden nada.
     app.include_router(health.router)
+    app.include_router(acceso.router)
     app.include_router(sops.router)
+    app.include_router(sops.router_pdf)
     app.include_router(videos.router)
+    app.include_router(videos.router_medios)
     app.include_router(subidas.router)
+    app.include_router(buscar.router)
     return app
 
 

@@ -45,21 +45,43 @@ def contar_palabras(texto: str) -> int:
 
 
 def forma_busqueda(palabra: str) -> str:
-    """Forma de una palabra para contar menciones y buscar (RF-24, ADR-023): `comparable` (sin
-    acentos ni mayúsculas) y en singular por un plural simple: "-es" se quita tras r, l, n, d, z
-    o j ("presiones" → "presion", "valores" → "valor") y "-s" tras cualquier otra letra
-    ("valves" → "valve", "filtros" → "filtro"), en palabras de más de 3 letras y sin tocar "-ss"
-    ("glass"). Es un recorte de terminaciones, no un lematizador: es la misma regla de plural de
-    `personas.forma_base`, sin quitar el género. Una frase da sus palabras unidas por espacios.
+    """Forma de una palabra para contar menciones (RF-24, ADR-023) y para la búsqueda exacta
+    (RF-33): la consulta y el índice pasan por aquí. `comparable` (sin acentos, ñ → n, sin
+    mayúsculas ni signos) y en singular por un plural simple:
+
+    - "-es" se quita tras r, l, n, d o j ("presiones" → "presion", "valores" → "valor");
+    - "-s" se quita tras cualquier otra letra ("valves" → "valve", "filtros" → "filtro"), en
+      palabras de más de 3 letras y sin tocar "-ss" ("glass");
+    - una "z" final se vuelve "ce" ("luz" → "luce"), la raíz de su plural ("luces" → "luce"),
+      sin tocar "-zz" ("jazz"). Así el inglés en "-ces" no cambia ("services" → "service");
+    - al final, una "e" tras r, l, n, d o j se quita en formas de más de 3 letras, para que el
+      singular en "-e" alcance a su plural en "-es": "cable" y "cables" → "cabl", "calle" y
+      "calles" → "call", "mensaje" y "mensajes" → "mensaj"; "flor" y "flores" siguen en "flor".
+
+    Es un recorte de terminaciones, no un lematizador: lo que importa es que el singular y el
+    plural den lo mismo, no que la forma sea una palabra ("lunes" → "lun", "análisis" →
+    "analisi"). Choques aceptados (probados en tests/test_texto.py): "año" = "ano",
+    "haz" = "hace", "cruz" = "cruce", "paz" = "pace", "sale" = "sal", "pare" = "par" y, en
+    inglés, "here" = "her", "plane" = "plan", "care" = "car", "made" = "mad", "done" = "don"
+    (de "don't").
+    `personas.forma_base` usa su propia regla, que además quita el género (ADR-020). Una frase
+    da sus palabras unidas por espacios; una palabra de solo signos da "".
+
+    El índice de búsqueda guarda esta forma: si la regla cambia, hay que volver a publicar los
+    videos publicados (docs/dev/api.md).
     """
     return " ".join(_singular(p) for p in comparable(palabra).split())
 
 
 def _singular(p: str) -> str:
-    if len(p) > 4 and p.endswith("es") and p[-3] in "rlndzj":
-        return p[:-2]
-    if len(p) > 3 and p.endswith("s") and not p.endswith("ss"):
-        return p[:-1]
+    if len(p) > 4 and p.endswith("es") and p[-3] in "rlndj":
+        p = p[:-2]
+    elif len(p) > 3 and p.endswith("s") and not p.endswith("ss"):
+        p = p[:-1]
+    elif len(p) > 2 and p.endswith("z") and not p.endswith("zz"):
+        p = p[:-1] + "ce"
+    if len(p) > 3 and p.endswith("e") and p[-2] in "rlndj":
+        p = p[:-1]
     return p
 
 

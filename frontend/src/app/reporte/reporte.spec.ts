@@ -16,6 +16,7 @@ import {
   avisosQueAfectan,
   dispositivosDeModelos,
   etapasConTiempo,
+  filaDelSegundo,
   formatoSegundos,
   mmss,
   textoImagenes,
@@ -140,6 +141,75 @@ describe('Cómo se obtuvo (funciones puras)', () => {
   });
 });
 
+describe('filaDelSegundo', () => {
+  it('da la fila con ese segundo (±1 s), la más cercana, o null', () => {
+    const filas = NORMAL.filas;
+    expect(filaDelSegundo(filas, 55.5)).toBe(2); // t_inicio 55.51; el QR lleva un decimal
+    expect(filaDelSegundo(filas, 47.7)).toBe(8);
+    expect(filaDelSegundo(filas, 47.0)).toBe(8);
+    expect(filaDelSegundo(filas, 90)).toBeNull();
+  });
+});
+
+describe('Reporte con ?t= (destino de un QR del PDF)', () => {
+  let fixture: ComponentFixture<Reporte>;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    TestBed.configureTestingModule({
+      imports: [Reporte],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            paramMap: of(convertToParamMap({ id: '7' })),
+            snapshot: { queryParamMap: convertToParamMap({ t: '55.5' }) },
+          },
+        },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(Reporte);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    http.verify();
+    vi.useRealTimers();
+  });
+
+  it('salta a ese segundo al cargar el video (sin reproducir) y marca la fila', () => {
+    vi.advanceTimersByTime(0);
+    http.expectOne(ESTADO).flush(estado('listo'));
+    http.expectOne(REPORTE).flush(NORMAL);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const video = el.querySelector('video') as HTMLVideoElement;
+    let actual = 0;
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => actual,
+      set: (valor: number) => (actual = valor),
+    });
+    const reproducir = vi.spyOn(video, 'play').mockResolvedValue(undefined);
+
+    video.dispatchEvent(new Event('loadedmetadata'));
+    expect(video.currentTime).toBe(55.5);
+    expect(reproducir).not.toHaveBeenCalled();
+    fixture.detectChanges();
+    expect(el.querySelectorAll('tbody tr')[2].classList).toContain('activa');
+
+    // Solo la primera vez: si el navegador vuelve a cargar los metadatos, no regresa ahí.
+    actual = 80;
+    video.dispatchEvent(new Event('loadedmetadata'));
+    expect(video.currentTime).toBe(80);
+  });
+});
+
 describe('Reporte', () => {
   let fixture: ComponentFixture<Reporte>;
   let http: HttpTestingController;
@@ -152,7 +222,13 @@ describe('Reporte', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: '7' })) } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            paramMap: of(convertToParamMap({ id: '7' })),
+            snapshot: { queryParamMap: convertToParamMap({}) },
+          },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -380,6 +456,22 @@ describe('Reporte', () => {
     expect(conteo('sobra')).toBe(String(NORMAL.conteo.sobra));
     expect(conteo('sin_revisar')).toBe(String(NORMAL.conteo.sin_revisar));
     expect(conteo('fuera_de_orden')).toBe(String(NORMAL.conteo.fuera_de_orden));
+  });
+
+  it('ofrece descargar la transcripción (RF-31) y el PDF del reporte (RF-29)', () => {
+    llegaReporte(NORMAL);
+
+    const enlaces = Array.from(
+      pantalla().querySelectorAll<HTMLAnchorElement>('.encabezado app-descargas a'),
+    );
+    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual([
+      '/api/videos/7/download/txt',
+      '/api/videos/7/download/srt',
+      '/api/videos/7/download/json',
+      '/api/videos/7/pdf',
+    ]);
+    expect(enlaces[3].textContent).toContain('Reporte (.pdf)');
+    expect(enlaces.every((a) => a.hasAttribute('download'))).toBe(true);
   });
 
   it('pinta cada fila con su estado, marca, cita y segundo', () => {
@@ -679,7 +771,9 @@ describe('Reporte', () => {
   it('sin conexión con la API muestra el aviso en español y reintenta con espera creciente', () => {
     vi.advanceTimersByTime(0);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });
-    expect(texto()).toContain('No hay conexión con la API: revisa la red o que el servidor esté encendido.');
+    expect(texto()).toContain(
+      'No hay conexión con la API: revisa la red o que el servidor esté encendido.',
+    );
     expect(texto()).toContain('Reintento 1 en 1.5 s');
     vi.advanceTimersByTime(1500);
     http.expectOne(ESTADO).error(new ProgressEvent('error'), { status: 0, statusText: '' });

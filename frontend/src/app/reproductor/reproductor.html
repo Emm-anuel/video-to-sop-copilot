@@ -1,0 +1,17 @@
+<video
+  #video
+  controls
+  preload="metadata"
+  [src]="url(videoId())"
+  [attr.aria-label]="etiqueta()"
+  (error)="alFallar($event)"
+  (loadedmetadata)="alCargar()"
+></video>
+@if (fallo() === 'formato') {
+  <div class="aviso-video" role="status">
+    <p>El navegador no reproduce este formato. {{ textoFormato() }}</p>
+    <a class="descargar-video" [href]="url(videoId())" download>Descargar el video</a>
+  </div>
+} @else if (fallo() === 'carga') {
+  <p class="aviso-video" role="status">{{ textoCarga() }}</p>
+}

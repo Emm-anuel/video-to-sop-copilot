@@ -23,6 +23,7 @@ import { ErrorCampo, erroresPorCampo, mensajeDeError } from '../api/errores';
 import { FalloVideo, SIN_SOPORTE, codigoDeError } from '../api/reproductor';
 import { Elemento, Evidencia1 as Evidencia } from '../api/sop';
 import { AdvertenciaSOP, SopDetalle } from '../api/tipos';
+import { Descargas, FormatoDescarga } from '../descargas/descargas';
 import { Chips } from './chips';
 import { PalabrasClave } from './palabras-clave';
 import {
@@ -129,7 +130,7 @@ function aNumero(v: unknown): number | undefined {
  */
 @Component({
   selector: 'app-sop-editor',
-  imports: [Chips, DecimalPipe, NombresPipe, PalabrasClave],
+  imports: [Chips, DecimalPipe, Descargas, NombresPipe, PalabrasClave],
   templateUrl: './sop-editor.html',
   styleUrl: './sop-editor.scss',
   host: { '(window:beforeunload)': 'alCerrar($event)' },
@@ -146,6 +147,11 @@ export class SopEditor implements OnInit, ConCambios {
   readonly videoId = input<number | undefined, unknown>(undefined, { transform: aNumero });
   /** `?video=N`: el video validado con este SOP, para revalidarlo después de corregir. */
   readonly video = input<number | undefined, unknown>(undefined, { transform: aNumero });
+  /**
+   * `?t=N`: abre el video en ese segundo al cargar. Llega de `/v/:id?t=`, el destino de los QR
+   * del PDF (§11).
+   */
+  readonly t = input<number | undefined, unknown>(undefined, { transform: aNumero });
 
   protected readonly camposDato = CAMPOS_DATO;
   protected readonly etiquetasDato = ETIQUETAS_DATO;
@@ -197,6 +203,18 @@ export class SopEditor implements OnInit, ConCambios {
     return id === null ? '' : `${API}/videos/${id}/video`;
   });
   protected readonly urlMarkdown = computed(() => this.api.urlMarkdown(this.id()));
+  /** El PDF del SOP guardado (RF-30); con cambios sin guardar no se ofrece. */
+  protected readonly urlPdf = computed(() => this.api.urlPdfSop(this.id()));
+  protected readonly extrasPdf = computed<FormatoDescarga[]>(() => [
+    {
+      etiqueta: 'SOP (.pdf)',
+      descripcion: this.sucio()
+        ? 'Guarda los cambios para descargar el PDF'
+        : 'Para imprimir, con QR al video',
+      url: this.urlPdf(),
+      deshabilitado: this.sucio(),
+    },
+  ]);
   protected readonly grupos = computed<GrupoAdvertencias[]>(() => {
     const grupos = new Map<string, AdvertenciaSOP[]>();
     for (const a of this.detalle()?.advertencias ?? []) {
@@ -639,6 +657,7 @@ export class SopEditor implements OnInit, ConCambios {
           this.detalle.set(detalle);
           this.borrador.set(aBorrador(detalle.sop, duracionNarrada(detalle)));
           this.guardado.set(huella(detalle.sop));
+          this.abrirSegundoInicial();
         },
         error: (e: unknown) => {
           if (e instanceof HttpErrorResponse && e.status === 409) {
@@ -649,6 +668,15 @@ export class SopEditor implements OnInit, ConCambios {
           }
         },
       });
+  }
+
+  /** Con `?t=` (un QR del PDF), abre el video en ese segundo cuando ya está el diálogo. */
+  private abrirSegundoInicial(): void {
+    const t = this.t();
+    if (t === undefined || this.idVideo() === null) {
+      return;
+    }
+    afterNextRender(() => this.abrirVideo(t), { injector: this.injector });
   }
 
   private esperarConversion(): void {

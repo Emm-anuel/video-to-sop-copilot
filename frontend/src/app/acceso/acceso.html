@@ -1,0 +1,31 @@
+<header class="cabecera-consulta">
+  <p class="marca"><strong>SOPVID</strong></p>
+</header>
+
+<section class="acceso">
+  <h1>Vista de {{ nombre }}</h1>
+  <p>
+    Escribe la clave de acceso de la vista de {{ nombre }}. Se pide una vez por sesión del
+    navegador.
+  </p>
+  <form (submit)="entrar($event)">
+    <label for="clave">Clave de acceso</label>
+    <input
+      id="clave"
+      name="clave"
+      type="password"
+      autocomplete="current-password"
+      autofocus
+      [value]="clave()"
+      [attr.aria-invalid]="error() ? true : null"
+      [attr.aria-describedby]="error() ? 'error-clave' : null"
+      (input)="escribir($event)"
+    />
+    <button type="submit" [disabled]="enviando() || !clave().trim()">
+      {{ enviando() ? 'Revisando…' : 'Entrar' }}
+    </button>
+  </form>
+  @if (error(); as mensaje) {
+    <p id="error-clave" class="error" role="alert">{{ mensaje }}</p>
+  }
+</section>

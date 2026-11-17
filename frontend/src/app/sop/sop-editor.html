@@ -63,11 +63,18 @@
           >Descargar .md</a
         >
       }
+      @if (idVideo(); as video) {
+        <app-descargas [videoId]="video" [extras]="extrasPdf()" />
+      } @else if (sucio()) {
+        <span class="boton deshabilitado" aria-disabled="true">Descargar .pdf</span>
+      } @else {
+        <a class="boton" [href]="urlPdf()" download>Descargar .pdf</a>
+      }
     </div>
     @if (sucio()) {
       <p class="sin-guardar" role="status">
-        Hay cambios sin guardar. Guárdalos antes de pasar el SOP a la biblioteca, descargarlo o
-        usarlo para validar.
+        Hay cambios sin guardar. Guárdalos antes de pasar el SOP a la biblioteca, descargarlo (.md o
+        PDF) o usarlo para validar.
       </p>
     }
   </header>

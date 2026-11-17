@@ -20,3 +20,15 @@ export function codigoDeError(evento: Event): number | null {
   const video = evento.target as HTMLVideoElement | null;
   return video?.error?.code ?? null;
 }
+
+/**
+ * `?t=N` (de `/v/:id`, el destino de los QR del PDF, §11) como segundo del video, o null si no
+ * viene o no es un número ≥ 0.
+ */
+export function segundoDeConsulta(valor: string | null): number | null {
+  if (valor === null || valor.trim() === '') {
+    return null;
+  }
+  const t = Number(valor);
+  return Number.isFinite(t) && t >= 0 ? t : null;
+}

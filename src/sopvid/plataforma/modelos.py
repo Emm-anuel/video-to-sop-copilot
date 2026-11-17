@@ -141,7 +141,10 @@ class Video(Base):
     contexto: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # `SegmentacionGuardada` (dict, RNF-07); las filas anteriores guardaban solo la lista.
     pasos_video: Mapped[dict[str, Any] | list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # Búsqueda exacta (RF-32): con `publicado`, sus palabras están en `palabras`. `publicado_en`
+    # (migración 0008): la última vez que se publicó; NULL si no está publicado.
     publicado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    publicado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     creado: Mapped[datetime] = _creado()
 
     sop: Mapped[Sop | None] = relationship(back_populates="videos")

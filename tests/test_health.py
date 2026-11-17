@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from sopvid.lenguaje.llm import ClienteLLM, get_cliente_llm
+from sopvid.plataforma.acceso import avisos
 from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_session
 from sopvid.plataforma.hardware import GPU, PlanDispositivos, get_plan_dispositivos
@@ -14,6 +15,10 @@ DISPOSITIVOS = {
     "embedder": "cpu",
     "avisos": [],
 }
+
+# conftest deja las claves vacías: las dos vistas abiertas y los enlaces sin firma (ADR-027; el
+# texto de cada aviso se prueba en test_acceso.py).
+AVISOS_ABIERTAS = avisos(get_settings())
 
 
 class LLMFalso:
@@ -47,6 +52,7 @@ def test_health_ok_con_base_real(client, llm_caido):
         "db": "ok",
         "llm": "no_disponible",
         "dispositivos": DISPOSITIVOS,
+        "avisos": AVISOS_ABIERTAS,
     }
 
 
@@ -65,6 +71,7 @@ def test_health_503_si_la_base_no_responde(client, llm_caido):
         "db": "error",
         "llm": "no_disponible",
         "dispositivos": DISPOSITIVOS,
+        "avisos": AVISOS_ABIERTAS,
     }
 
 

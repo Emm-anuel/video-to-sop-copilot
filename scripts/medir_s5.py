@@ -124,6 +124,8 @@ SETTINGS_PUBLICOS = (
     "umbral_bajo",
     "umbral_alto",
     "umbral_fusion",
+    "emparejar_texto",
+    "sop_idioma",
     "sop_candado",
     "umbral_equipo",
     "semaforo_verde",
@@ -1044,14 +1046,14 @@ def armar_informe(fases: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
     return datos, "\n".join(lineas) + "\n"
 
 
-def informe(rutas: list[Path]) -> int:
+def informe(rutas: list[Path], docs: Path = DOCS) -> int:
     fases = [json.loads(r.read_text(encoding="utf-8")) for r in rutas]
     datos, texto = armar_informe(fases)
     marca = datetime.now().strftime("%Y%m%d-%H%M")
-    DOCS.mkdir(parents=True, exist_ok=True)
-    guardar(datos, DOCS / f"medicion-s5-{marca}.json")
-    (DOCS / f"medicion-s5-{marca}.md").write_text(texto, "utf-8", newline="\n")
-    print(f"escrito: {DOCS / f'medicion-s5-{marca}.md'}")
+    docs.mkdir(parents=True, exist_ok=True)
+    guardar(datos, docs / f"medicion-s5-{marca}.json")
+    (docs / f"medicion-s5-{marca}.md").write_text(texto, "utf-8", newline="\n")
+    print(f"escrito: {docs / f'medicion-s5-{marca}.md'}")
     return 0
 
 
@@ -1063,9 +1065,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--videos", nargs="+", choices=sorted(VIDEOS), help="solo estos videos")
     parser.add_argument("--repeticiones", type=int, help="cambia las repeticiones de todos")
     parser.add_argument("--regeneraciones", type=int, default=2, help="RNF-07 con A·1")
+    parser.add_argument(
+        "--docs-dir", type=Path, default=DOCS, help="con --informe: carpeta del informe"
+    )
     args = parser.parse_args(argv)
     if args.informe:
-        return informe(args.informe)
+        return informe(args.informe, args.docs_dir)
     return fase(args)
 
 

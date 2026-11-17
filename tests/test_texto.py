@@ -112,3 +112,117 @@ def test_forma_busqueda_quita_acentos_mayusculas_y_plural_simple(palabra, espera
 def test_forma_busqueda_iguala_singular_y_plural():
     assert forma_busqueda("llave de paso") == forma_busqueda("Llaves de paso")
     assert forma_busqueda("shut-off valve") == forma_busqueda("Shut-off valves")
+
+
+# La consulta y el índice de la búsqueda exacta (RF-33) pasan por `forma_busqueda`: lo que
+# importa es que las dos formas de cada par den lo mismo. La salida se fija para que un cambio
+# de regla se note aquí y no en una búsqueda que deja de encontrar.
+@pytest.mark.parametrize(
+    ("una", "otra", "forma"),
+    [
+        # Acentos y mayúsculas.
+        ("Válvula", "valvula", "valvula"),
+        ("PRESIÓN", "presión", "presion"),
+        ("Manómetro", "MANOMETRO", "manometro"),
+        # Ñ → n (la regla de `normalizar`); "año" = "ano" está en los choques.
+        ("Niño", "nino", "nino"),
+        # Signos pegados a la palabra.
+        ("válvula,", "Válvula", "valvula"),
+        ("¿cerró?", "cerró", "cerro"),
+        ('"filtro".', "filtro", "filtro"),
+        ("(manómetro)", "manómetro", "manometro"),
+        # Plural en -s.
+        ("filtros", "filtro", "filtro"),
+        ("llaves", "llave", "llave"),
+        ("valves", "valve", "valve"),
+        # Plural en -es tras r, l, n, d, j.
+        ("valores", "valor", "valor"),
+        ("niveles", "nivel", "nivel"),
+        ("presiones", "presión", "presion"),
+        ("paredes", "pared", "pared"),
+        ("relojes", "reloj", "reloj"),
+        ("botones", "botón", "boton"),
+        ("papeles", "papel", "papel"),
+        ("flores", "flor", "flor"),
+        # Singular en -e tras r, l, n, d, j: la e final se quita y alcanza al plural en -es.
+        ("cables", "cable", "cabl"),
+        ("calles", "calle", "call"),
+        ("nombres", "nombre", "nombr"),
+        ("detalles", "detalle", "detall"),
+        ("torres", "torre", "torr"),
+        ("grandes", "grande", "grand"),
+        ("mensajes", "mensaje", "mensaj"),
+        ("voltajes", "voltaje", "voltaj"),
+        # Plural en -ces de una palabra en -z: la z final se vuelve "ce".
+        ("luces", "luz", "luce"),
+        ("veces", "vez", "vece"),
+        ("lápices", "lápiz", "lapice"),
+        ("peces", "pez", "pece"),
+        ("voces", "voz", "voce"),
+        ("nueces", "nuez", "nuece"),
+        # Inglés: "-zes" ya no pierde la e y "-ces" no cambia.
+        ("Cables", "cable", "cabl"),
+        ("lines", "line", "lin"),
+        ("sizes", "size", "size"),
+        ("services", "service", "service"),
+        ("devices", "device", "device"),
+        ("pieces", "piece", "piece"),
+        ("jazz", "Jazz", "jazz"),
+    ],
+)
+def test_forma_busqueda_iguala_las_dos_formas(una, otra, forma):
+    assert forma_busqueda(una) == forma_busqueda(otra) == forma
+
+
+@pytest.mark.parametrize(
+    ("una", "otra", "forma"),
+    [
+        ("año", "ano", "ano"),  # ñ → n (decisión del 15 nov)
+        ("haz", "hace", "hace"),  # z final → ce
+        ("cruz", "cruce", "cruce"),
+        ("paz", "pace", "pace"),
+        ("sale", "sal", "sal"),  # e tras l, r: se quita
+        ("pare", "par", "par"),
+        # Inglés, por la misma regla de la e (vistos al comparar el video E el 15 nov).
+        ("here", "her", "her"),
+        ("plane", "plan", "plan"),
+        ("care", "car", "car"),
+        ("made", "mad", "mad"),
+        ("done", "don", "don"),  # "don't" da "don t": "done" encuentra "don't"
+    ],
+)
+def test_forma_busqueda_choques_aceptados(una, otra, forma):
+    """Palabras distintas con la misma forma: una búsqueda de una encuentra la otra. Se aceptan
+    a cambio de que singular y plural coincidan; si alguno deja de chocar, la regla cambió."""
+    assert forma_busqueda(una) == forma_busqueda(otra) == forma
+
+
+@pytest.mark.parametrize(
+    ("palabra", "forma"),
+    [
+        ("gas", "gas"),  # 3 letras: no se toca
+        ("lunes", "lun"),
+        ("análisis", "analisi"),
+        ("crisis", "crisi"),
+        ("glass", "glass"),
+    ],
+)
+def test_forma_busqueda_de_palabras_que_no_se_singularizan_es_estable(palabra, forma):
+    """Singular y plural son la misma palabra: la forma no es una palabra real, pero la consulta
+    y el índice la recortan igual, así que se encuentran."""
+    assert forma_busqueda(palabra) == forma_busqueda(palabra.upper()) == forma
+
+
+@pytest.mark.parametrize(
+    ("texto", "forma"),
+    [
+        ("11:30", "11 30"),  # una palabra de Whisper, dos tokens
+        ("O-rings", "o ring"),
+        ("—", ""),
+        ("%", ""),
+        ("¿?", ""),
+        ("", ""),
+    ],
+)
+def test_forma_busqueda_parte_en_tokens_y_vacia_los_signos(texto, forma):
+    assert forma_busqueda(texto) == forma

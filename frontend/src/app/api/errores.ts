@@ -22,6 +22,13 @@ export function mensajeDeError(error: unknown): string {
   switch (error.status) {
     case 0:
       return SIN_CONEXION;
+    case 400:
+      // La API explica qué falta (p. ej. una búsqueda sin palabras): se muestra tal cual.
+      return detalle ? conPunto(detalle) : 'La API no pudo atender la petición.';
+    case 401:
+      // Falta la clave de la vista o la sesión se cerró (§11, ADR-027); el interceptor ya lleva
+      // a pedirla si la pantalla es de una vista.
+      return 'Falta la clave de acceso o no es correcta.';
     case 413:
       return conDetalle('Archivo demasiado grande', detalle);
     case 415:

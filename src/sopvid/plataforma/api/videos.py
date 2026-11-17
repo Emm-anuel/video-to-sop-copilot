@@ -36,6 +36,17 @@ Gemma antes de la ficha y gana sobre `FOTOGRAMAS_DESCRIBIR` (apagado por defecto
 sumarían con y sin GPU, y el valor de la instalación para la casilla; nunca prohíbe nada.
 `GET /videos/{id}/thumb?t=` entrega la miniatura del segundo `t` (la guardada a ≤ 1 s o una
 nueva, solo ffmpeg), con cabeceras de caché.
+
+Lista y publicación (pantalla 6, RF-32): `GET /videos` lista los videos del más reciente al más
+antiguo (`VideoResumen`), con filtros opcionales. `POST /videos/{id}/publicar` arma el índice de
+la búsqueda exacta (`lenguaje/busqueda.py`) con el análisis terminado (409 si no) y lo reemplaza
+si se repite; `DELETE /videos/{id}/publicar` lo quita (extensión nuestra: §11 solo define
+publicar). Los dos responden `EstadoPublicacion`.
+
+Descargas (RF-31): `GET /videos/{id}/download/{tipo}` entrega la transcripción guardada como
+adjunto en TXT (`[mm:ss]`, completo), SRT o JSON (el `Analisis`), con el título como nombre del
+archivo (`salidas/transcripcion.py`). 409 mientras el video está en cola o procesando; 404 si no
+tiene transcripción.
 """
 
 import logging
@@ -46,7 +57,7 @@ import re
 import shutil
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, BinaryIO, Literal
 
@@ -63,6 +74,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, field_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sopvid.contrato import (
@@ -70,9 +82,15 @@ from sopvid.contrato import (
     Afinidad,
     Analisis,
     Contexto,
+    EstadoPublicacion,
+    ModoVideo,
+    ProcesoVideo,
     ReporteValidacion,
     ResultadoValidacion,
+    SopDeVideo,
+    VideoResumen,
 )
+from sopvid.lenguaje import busqueda
 from sopvid.lenguaje.lectura_sop import AjustesConversion
 from sopvid.lenguaje.llm import ClienteLLM, get_cliente_llm
 from sopvid.lenguaje.reporte import armar_reporte
@@ -83,11 +101,11 @@ from sopvid.percepcion.medios import (
     ErrorMedios,
     FfmpegNoDisponible,
     duracion,
-    imagen_visible,
-    tiene_imagen,
 )
 from sopvid.percepcion.pipeline import ARCHIVO_TXT
 from sopvid.percepcion.transcripcion import Transcriptor, TranscriptorWhisper
+from sopvid.plataforma import acceso
+from sopvid.plataforma.api.acceso import requiere_carga, requiere_medios
 from sopvid.plataforma.api.sops import (
     ArchivoSop,
     FabricaLLM,
@@ -95,6 +113,7 @@ from sopvid.plataforma.api.sops import (
     get_fabrica_llm,
     get_procesador,
     leer_archivo_sop,
+    respuesta_pdf_sop,
 )
 from sopvid.plataforma.config import Settings, get_settings
 from sopvid.plataforma.db import get_session
@@ -103,7 +122,7 @@ from sopvid.plataforma.hardware import (
     dispositivo_llm_probable,
     get_plan_dispositivos,
 )
-from sopvid.plataforma.modelos import MODOS_VIDEO, Sop, Video
+from sopvid.plataforma.modelos import MODOS_VIDEO, Reporte, Sop, Video
 from sopvid.plataforma.procesamiento import (
     AFINIDAD_BAJA,
     EN_COLA,
@@ -116,10 +135,15 @@ from sopvid.plataforma.procesamiento import (
     error_de_sop,
     leer_analisis,
 )
+from sopvid.salidas import pdf
+from sopvid.salidas import transcripcion as salidas_txt
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["videos"])
+# Vista de carga (§11, ADR-027). El video y la miniatura van aparte: también los abren la clave
+# de búsqueda (videos publicados) y el token `k` de los enlaces del PDF (`/v/<id>`).
+router = APIRouter(tags=["videos"], dependencies=[Depends(requiere_carga)])
+router_medios = APIRouter(tags=["videos"], dependencies=[Depends(requiere_medios)])
 
 # AVI se analiza igual, pero Chrome y Edge no lo reproducen: el reporte lo dice y lo deja bajar.
 EXTENSIONES = (".mp4", ".mov", ".mkv", ".webm", ".avi")
@@ -167,8 +191,10 @@ class EstadoVideo(BaseModel):
     # "fotogramas": la pantalla las muestra tal cual. None si el video nunca las describió.
     imagenes_hechas: int | None = None
     imagenes_total: int | None = None
+    # Si está en la búsqueda exacta (RF-32): `POST`/`DELETE /videos/{id}/publicar`.
+    publicado: bool = False
 
-    @field_validator("analizar_imagenes", mode="before")
+    @field_validator("analizar_imagenes", "publicado", mode="before")
     @classmethod
     def _nulo_es_no(cls, valor: bool | None) -> bool:
         return bool(valor)
@@ -470,6 +496,110 @@ def _mover(origen: Path, destino: Path) -> None:
     os.replace(origen, destino)
 
 
+@router.get("/videos", response_model=list[VideoResumen])
+def listar_videos(
+    session: Annotated[Session, Depends(get_session)],
+    modo: ModoVideo | None = None,
+    proceso: ProcesoVideo | None = None,
+    publicado: bool | None = None,
+    sop_id: int | None = None,
+) -> list[VideoResumen]:
+    """Los videos del más reciente al más antiguo (pantalla 6), con su SOP y, si ya tienen
+    reporte de validación, el cumplimiento y el semáforo. Los filtros se combinan; sin filtros,
+    todos. `sop_id` es el SOP de referencia (validar) o el generado (generar)."""
+    consulta = (
+        select(
+            Video,
+            Sop.id,
+            Sop.codigo,
+            Sop.titulo,
+            Reporte.cumplimiento,
+            Reporte.resultado["semaforo"].astext,
+        )
+        .outerjoin(Sop, Sop.id == Video.sop_id)
+        .outerjoin(Reporte, Reporte.video_id == Video.id)
+        .order_by(Video.creado.desc(), Video.id.desc())
+    )
+    if modo is not None:
+        consulta = consulta.where(Video.modo == modo)
+    if proceso is not None:
+        consulta = consulta.where(Video.proceso == proceso)
+    if publicado is not None:
+        consulta = consulta.where(Video.publicado.is_(publicado))
+    if sop_id is not None:
+        consulta = consulta.where(Video.sop_id == sop_id)
+    return [
+        _resumen(
+            video,
+            SopDeVideo(id=id_sop, codigo=codigo, titulo=titulo) if id_sop else None,
+            cumplimiento,
+            semaforo,
+        )
+        for video, id_sop, codigo, titulo, cumplimiento, semaforo in session.execute(consulta)
+    ]
+
+
+def _resumen(
+    video: Video, sop: SopDeVideo | None, cumplimiento: object, semaforo: str | None
+) -> VideoResumen:
+    """El `VideoResumen` de una fila. El cumplimiento y el semáforo solo con el video listo y un
+    reporte de pasos: una detención por afinidad no tiene cumplimiento y, mientras se repite la
+    validación, el reporte anterior no se muestra."""
+    con_reporte = video.proceso == LISTO and cumplimiento is not None
+    return VideoResumen(
+        id=video.id,
+        titulo=video.titulo,
+        creado=video.creado,
+        duracion=video.duracion,
+        modo=video.modo,
+        proceso=video.proceso,
+        etapa=video.etapa,
+        error=video.error,
+        cumplimiento=float(cumplimiento) if con_reporte else None,
+        semaforo=semaforo if con_reporte else None,
+        sop=sop,
+        analizar_imagenes=bool(video.analizar_imagenes),
+        publicado=video.publicado,
+        publicado_en=video.publicado_en,
+    )
+
+
+@router.post("/videos/{video_id}/publicar", response_model=EstadoPublicacion)
+def publicar_video(
+    video_id: int, session: Annotated[Session, Depends(get_session)]
+) -> EstadoPublicacion:
+    """Publica el video en la búsqueda exacta (RF-32): una fila de `palabras` por palabra de la
+    transcripción, `publicado` y `publicado_en`, en una transacción. Publicar otra vez reemplaza
+    el índice y pone la fecha al día. 409 si el análisis no ha terminado (el video no está
+    "listo": en cola, procesando, con error o detenido por afinidad baja)."""
+    video = _buscar(session, video_id, para_actualizar=True)
+    if video.proceso != LISTO:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el análisis no ha terminado: publica el video cuando esté listo",
+                "proceso": video.proceso,
+            },
+        )
+    estado = busqueda.publicar(session, video, datetime.now(UTC))
+    session.commit()
+    logger.info("Video %d publicado: %d palabras", video_id, estado.palabras_indexadas)
+    return estado
+
+
+@router.delete("/videos/{video_id}/publicar", response_model=EstadoPublicacion)
+def despublicar_video(
+    video_id: int, session: Annotated[Session, Depends(get_session)]
+) -> EstadoPublicacion:
+    """Quita el video de la búsqueda exacta: borra sus palabras y lo marca sin publicar. Se puede
+    en cualquier estado y repetirlo no falla. Extensión nuestra: §11 solo define publicar."""
+    video = _buscar(session, video_id, para_actualizar=True)
+    estado = busqueda.despublicar(session, video)
+    session.commit()
+    logger.info("Video %d quitado de la búsqueda", video_id)
+    return estado
+
+
 @router.get("/videos/estimacion", response_model=EstimacionImagenes)
 def estimar_imagenes(
     duracion_s: Annotated[float, Query(gt=0, description="Duración del video en segundos")],
@@ -668,7 +798,7 @@ def transcripcion_txt(
     )
 
 
-@router.get("/videos/{video_id}/video", response_class=FileResponse)
+@router_medios.get("/videos/{video_id}/video", response_class=FileResponse)
 def archivo_video(
     video_id: int,
     session: Annotated[Session, Depends(get_session)],
@@ -688,7 +818,7 @@ def archivo_video(
     return FileResponse(ruta, media_type=tipo)
 
 
-@router.get("/videos/{video_id}/thumb", response_class=FileResponse)
+@router_medios.get("/videos/{video_id}/thumb", response_class=FileResponse)
 def miniatura_video(
     video_id: int,
     t: Annotated[float, Query(description="Segundo del video, p. ej. 12.5")],
@@ -716,20 +846,14 @@ def miniatura_video(
         raise HTTPException(404, {"mensaje": "el video no se pudo leer"}) from None
     if not math.isfinite(t) or t < 0 or t > total:
         raise HTTPException(400, f"t debe estar entre 0 y {total:g} s")
-    ruta = miniaturas.buscar(carpeta, t)
-    if ruta is None:
-        try:
-            # La primera vez (un video procesado antes de las miniaturas) se revisa que tenga
-            # imagen visible; después basta con que tenga pista de video.
-            primera = not carpeta.is_dir() or not any(carpeta.glob("t*.jpg"))
-            visible = imagen_visible(archivo, total) if primera else tiene_imagen(archivo)
-            if not visible:
-                miniaturas.marcar_sin_imagen(carpeta)
-                raise HTTPException(404, {"mensaje": "el video no tiene imagen"})
-            ruta = miniaturas.asegurar(archivo, carpeta, t, total, settings.miniatura_lado_px)
-        except ErrorMedios as exc:
-            logger.warning("Video %d: miniatura en %.1f s sin generar (%s)", video_id, t, exc)
-            raise HTTPException(404, {"mensaje": "no se pudo sacar la miniatura"}) from None
+    try:
+        ruta = miniaturas.miniatura_en(archivo, t, total, settings.miniatura_lado_px)
+    except miniaturas.SinMiniatura as exc:
+        if exc.falla_medios:
+            logger.warning(
+                "Video %d: miniatura en %.1f s sin generar (%s)", video_id, t, exc.__cause__
+            )
+        raise HTTPException(404, {"mensaje": str(exc)}) from None
     return FileResponse(ruta, media_type="image/jpeg", headers={"Cache-Control": CACHE_MINIATURA})
 
 
@@ -741,6 +865,48 @@ def analisis_video(video_id: int, session: Annotated[Session, Depends(get_sessio
             409, {"mensaje": "el análisis no ha terminado", "proceso": video.proceso}
         )
     return leer_analisis(video)
+
+
+TipoDescarga = Literal["txt", "srt", "json"]
+TIPO_MEDIA_DESCARGA: dict[str, str] = {
+    "txt": "text/plain; charset=utf-8",
+    "srt": "application/x-subrip; charset=utf-8",
+    "json": "application/json; charset=utf-8",
+}
+
+
+@router.get("/videos/{video_id}/download/{tipo}")
+def descargar_transcripcion(
+    video_id: int, tipo: TipoDescarga, session: Annotated[Session, Depends(get_session)]
+) -> Response:
+    """La transcripción guardada como adjunto (RF-31, §11): TXT, SRT o JSON, en UTF-8.
+
+    Sale del `Analisis` guardado, el mismo de `GET /videos/{id}/analisis`: el TXT en el formato
+    del TXT en vivo pero completo, el SRT con un bloque por segmento y el JSON tal cual. Sirve
+    también con el video en error o detenido por afinidad, si la transcripción quedó guardada.
+    409 mientras el video está en cola o procesando; 404 si no tiene transcripción; 422 (de
+    FastAPI) con un tipo que no es txt, srt ni json.
+    """
+    video = _buscar(session, video_id)
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(409, {"mensaje": "el video sigue en proceso", "proceso": video.proceso})
+    if video.transcripcion is None:
+        raise HTTPException(
+            404, {"mensaje": "el video no tiene transcripción", "proceso": video.proceso}
+        )
+    analisis = leer_analisis(video)
+    if tipo == "txt":
+        contenido = salidas_txt.txt(analisis.transcripcion)
+    elif tipo == "srt":
+        contenido = salidas_txt.srt(analisis.transcripcion)
+    else:
+        contenido = analisis.model_dump_json(indent=2)
+    nombre = salidas_txt.nombre_archivo(video.titulo, tipo, respaldo=f"video_{video.id}")
+    return Response(
+        content=contenido.encode("utf-8"),
+        media_type=TIPO_MEDIA_DESCARGA[tipo],
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.get("/videos/{video_id}/contexto", response_model=Contexto)
@@ -771,6 +937,10 @@ def reporte_video(
     reporte = video.reporte
     if reporte is None:
         raise HTTPException(404, "el video no tiene reporte")
+    return _armar(video, reporte)
+
+
+def _armar(video: Video, reporte: Reporte) -> ReporteValidacion:
     return armar_reporte(
         ResultadoValidacion.model_validate(reporte.resultado),
         SOP.model_validate(reporte.sop.contenido),
@@ -782,8 +952,102 @@ def reporte_video(
     )
 
 
-def _buscar(session: Session, video_id: int) -> Video:
-    video = session.get(Video, video_id)
+@router.get(
+    "/videos/{video_id}/pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def pdf_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
+    """El PDF según el modo (§11): el reporte de cumplimiento (RF-29) en modo validar o el SOP
+    generado (RF-30) en modo generar, como adjunto. Sale de lo guardado: el reporte de
+    `GET /videos/{id}/reporte` o el SOP con las correcciones del editor.
+
+    409 explicado si el video sigue en cola o procesando, o si la validación se detuvo por
+    afinidad baja (sin reporte de pasos hasta continuar). 404 sin reporte o sin SOP generado
+    listo (p. ej. el proceso terminó en error).
+    """
+    video = _buscar(session, video_id)
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el video sigue en proceso; el PDF estará al terminar",
+                "proceso": video.proceso,
+            },
+        )
+    if video.proceso == AFINIDAD_BAJA:
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "la validación se detuvo por afinidad baja: el video parece no ser de "
+                "este SOP. Continúa la validación para tener el reporte y su PDF",
+                "proceso": video.proceso,
+            },
+        )
+    if video.modo == "generar":
+        fila = session.get(Sop, video.sop_id) if video.sop_id is not None else None
+        if video.proceso != LISTO or fila is None or fila.estado != SOP_LISTO:
+            raise HTTPException(
+                404, {"mensaje": "el video no tiene un SOP generado", "proceso": video.proceso}
+            )
+        return respuesta_pdf_sop(session, fila, settings)
+    reporte = video.reporte
+    if video.proceso != LISTO or reporte is None:
+        raise HTTPException(404, {"mensaje": "el video no tiene reporte", "proceso": video.proceso})
+    armado = _armar(video, reporte)
+    contenido = pdf.pdf_reporte(
+        armado,
+        video=pdf.InfoVideo(
+            id=video.id,
+            titulo=video.titulo,
+            duracion=video.duracion,
+            idioma=video.idioma,
+            token_enlace=acceso.token_enlace(settings, video.id),
+        ),
+        base_url=settings.app_url_publica,
+        miniatura=_miniaturas_pdf(video, armado, settings),
+    )
+    nombre = salidas_txt.nombre_archivo(
+        f"reporte {video.titulo}", "pdf", respaldo=f"reporte_video_{video.id}"
+    )
+    return Response(
+        content=contenido,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
+
+
+def _miniaturas_pdf(
+    video: Video, reporte: ReporteValidacion, settings: Settings
+) -> Callable[[float], Path | None]:
+    """Las miniaturas de la evidencia del PDF, con la misma función que `GET /thumb` (caché en
+    `media/videos/<id>/miniaturas/`). Sin imagen (aviso "sin_imagen" o la marca), sin archivo o
+    con un segundo fuera de la duración, None: el PDF va sin la columna de la imagen."""
+    archivo = settings.media_path / video.archivo
+    total = video.duracion
+    sin_imagen = any(a.tipo == "sin_imagen" for a in reporte.metadatos.avisos)
+    if sin_imagen or total is None or not video.archivo or not archivo.is_file():
+        return lambda _t: None
+
+    def miniatura(t: float) -> Path | None:
+        if not 0 <= t <= total:
+            return None
+        try:
+            return miniaturas.miniatura_en(archivo, t, total, settings.miniatura_lado_px)
+        except miniaturas.SinMiniatura:
+            return None
+
+    return miniatura
+
+
+def _buscar(session: Session, video_id: int, *, para_actualizar: bool = False) -> Video:
+    """El video o 404. `para_actualizar` bloquea la fila hasta el commit (SELECT … FOR UPDATE):
+    dos publicaciones a la vez del mismo video no chocan con el único de `palabras`."""
+    video = session.get(Video, video_id, with_for_update=para_actualizar)
     if video is None:
         raise HTTPException(404, "video no encontrado")
     return video

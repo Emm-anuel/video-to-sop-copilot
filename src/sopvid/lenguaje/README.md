@@ -87,5 +87,10 @@ su segundo; fotograma → visual; si no, inferido con confianza baja y el campo 
 `campos_inferidos`) y las menciones de cada palabra clave con su forma literal
 (`texto.forma_busqueda`). Si una llamada falla, el SOP sale con la advertencia `sop_incompleto`.
 
-Búsqueda y chat siguen reservados. La extensión `vector` ya queda
+`busqueda.py` (RF-32, RF-33) arma el índice de la búsqueda exacta al publicar un video: una fila
+de `palabras` por token de `texto.forma_busqueda` de cada palabra de Whisper, con su original,
+sus tiempos y una posición consecutiva en todo el video (las palabras de solo signos no se
+indexan). La consulta pasa por la misma función. `POST /buscar` sigue pendiente (S6).
+
+La búsqueda semántica y el chat siguen reservados (versión 2). La extensión `vector` ya queda
 habilitada en la base desde la primera migración.

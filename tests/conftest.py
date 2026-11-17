@@ -7,6 +7,7 @@ de GitHub Actions en CI). Si la base no está arriba, fallan: no se saltan.
 pruebas que la usan se saltan si ffmpeg no está instalado.
 """
 
+import os
 import shutil
 import subprocess
 from collections.abc import Callable, Iterator
@@ -18,7 +19,15 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from sopvid.plataforma.api.main import create_app
+from sopvid.plataforma.config import get_settings
 from sopvid.plataforma.db import get_engine
+
+# Las pruebas corren con las vistas abiertas aunque el `.env` de quien las corre tenga claves
+# (ADR-027): el entorno gana sobre `.env`, y se vacía la caché por si algo ya leyó los ajustes.
+# Las pruebas de acceso (`test_acceso.py`) inyectan sus propios `Settings`.
+for _variable in ("CLAVE_CARGA", "CLAVE_BUSQUEDA", "SECRETO_ENLACES"):
+    os.environ[_variable] = ""
+get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session")

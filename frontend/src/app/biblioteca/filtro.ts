@@ -23,3 +23,11 @@ export function fechaCorta(iso: string): string {
     ? ''
     : new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(fecha);
 }
+
+/** Fecha y hora cortas en español de México ("14 nov 2026, 18:02"). */
+export function fechaHora(iso: string): string {
+  const fecha = new Date(iso);
+  return Number.isNaN(fecha.getTime())
+    ? ''
+    : new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(fecha);
+}

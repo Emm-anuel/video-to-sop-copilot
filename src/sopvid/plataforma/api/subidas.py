@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from sopvid.percepcion import subidas
+from sopvid.plataforma.api.acceso import requiere_carga
 from sopvid.plataforma.api.videos import (
     SUBIDA_NO_ENCONTRADA,
     detalle_parte,
@@ -30,7 +31,8 @@ from sopvid.plataforma.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["uploads"])
+# Vista de carga (§11, ADR-027).
+router = APIRouter(tags=["uploads"], dependencies=[Depends(requiere_carga)])
 
 
 class PedidoSubida(BaseModel):

@@ -1,0 +1,1731 @@
+{
+  "corridas": [
+    {
+      "fecha": "2026-11-15T22:14:16",
+      "git": {
+        "commit": "1cfccb3e7cf667912e54caf3e5cbf5fa20203b77",
+        "rama": "feat/s6",
+        "cambios_sin_commit": 8
+      },
+      "videos_sembrados": 50,
+      "palabras_sembradas": 16300,
+      "videos_publicados": 50,
+      "palabras_indice": 16300,
+      "repeticiones": 5,
+      "unir_s": 3.0,
+      "consultas": [
+        {
+          "tipo": "comun",
+          "consulta": "el",
+          "tokens": 1,
+          "total": 650,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.4,
+            15.22,
+            17.04,
+            15.52,
+            15.33
+          ],
+          "punta_ms": [
+            19.89510000021255,
+            19.531699999788543,
+            21.56009999998787,
+            19.847399999889603,
+            19.629800000075193
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "de",
+          "tokens": 1,
+          "total": 510,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.13,
+            15.19,
+            15.44,
+            14.56,
+            14.99
+          ],
+          "punta_ms": [
+            19.461599999885948,
+            19.660899999962567,
+            19.617400000242924,
+            18.72109999976601,
+            19.540600000254926
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "la",
+          "tokens": 1,
+          "total": 510,
+          "devueltos": 50,
+          "servidor_ms": [
+            14.77,
+            15.28,
+            14.66,
+            14.99,
+            14.74
+          ],
+          "punta_ms": [
+            19.03809999976147,
+            19.854699999996228,
+            18.930400000044756,
+            19.131900000047608,
+            19.053099999837286
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "the",
+          "tokens": 1,
+          "total": 240,
+          "devueltos": 50,
+          "servidor_ms": [
+            13.94,
+            14.16,
+            14.04,
+            14.15,
+            14.22
+          ],
+          "punta_ms": [
+            18.511900000248716,
+            18.53769999979704,
+            18.17010000013397,
+            18.465499999820167,
+            18.366799999967043
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "y",
+          "tokens": 1,
+          "total": 310,
+          "devueltos": 50,
+          "servidor_ms": [
+            13.95,
+            13.66,
+            13.61,
+            13.74,
+            13.73
+          ],
+          "punta_ms": [
+            18.50860000013199,
+            17.7653000000646,
+            17.83720000003086,
+            18.07760000019698,
+            17.820099999880767
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "I",
+          "tokens": 1,
+          "total": 240,
+          "devueltos": 50,
+          "servidor_ms": [
+            13.51,
+            13.56,
+            13.51,
+            13.12,
+            13.12
+          ],
+          "punta_ms": [
+            17.877499999940483,
+            18.04919999995036,
+            17.600300000140123,
+            17.267100000026403,
+            17.325300000265997
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "a",
+          "tokens": 1,
+          "total": 210,
+          "devueltos": 50,
+          "servidor_ms": [
+            13.57,
+            13.6,
+            13.31,
+            13.08,
+            13.53
+          ],
+          "punta_ms": [
+            17.931599999883474,
+            17.68960000026709,
+            17.44060000009995,
+            17.345799999930023,
+            17.91579999962778
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "del",
+          "tokens": 1,
+          "total": 210,
+          "devueltos": 50,
+          "servidor_ms": [
+            12.94,
+            12.7,
+            13.42,
+            13.79,
+            12.77
+          ],
+          "punta_ms": [
+            17.02240000031452,
+            16.774899999745685,
+            17.48859999997876,
+            18.481099999917205,
+            16.838999999890802
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "dura.",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.37,
+            6.26,
+            6.63,
+            6.55,
+            6.4
+          ],
+          "punta_ms": [
+            10.350999999900523,
+            10.596399999940331,
+            10.725399999955698,
+            10.691100000258302,
+            10.832700000264595
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "mica",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.67,
+            6.35,
+            6.6,
+            6.68,
+            7.22
+          ],
+          "punta_ms": [
+            10.801900000387832,
+            10.86890000033236,
+            11.095500000010361,
+            10.983699999997043,
+            11.720199999672332
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "casi",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.56,
+            7.06,
+            6.88,
+            7.45,
+            6.83
+          ],
+          "punta_ms": [
+            11.008000000401807,
+            11.308000000099128,
+            11.479100000087783,
+            12.102000000140833,
+            11.745799999971496
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "primer",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            11.36,
+            9.5,
+            7.87,
+            7.81,
+            7.73
+          ],
+          "punta_ms": [
+            18.79610000014509,
+            16.308899999785353,
+            13.258500000119966,
+            12.521300000116753,
+            12.531599999874743
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "back.",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.82,
+            6.8,
+            6.42,
+            7.46,
+            7.02
+          ],
+          "punta_ms": [
+            11.422900000070513,
+            11.204800000086834,
+            10.92709999966246,
+            11.839100000088365,
+            11.524800000188407
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "across",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.84,
+            6.48,
+            7.12,
+            6.58,
+            7.05
+          ],
+          "punta_ms": [
+            11.264100000062172,
+            10.878600000069127,
+            11.531499999819061,
+            11.08669999985068,
+            11.82459999972707
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "stays,",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.81,
+            6.87,
+            6.65,
+            6.39,
+            6.77
+          ],
+          "punta_ms": [
+            11.313500000142085,
+            11.230999999952473,
+            11.157200000070588,
+            10.718700000325043,
+            10.909499999797845
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "replaced.",
+          "tokens": 1,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            5.8,
+            5.64,
+            5.79,
+            5.96,
+            5.78
+          ],
+          "punta_ms": [
+            10.608000000047468,
+            9.91680000015549,
+            10.21039999977802,
+            10.209499999746185,
+            10.216700000000856
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "Buenos días,",
+          "tokens": 2,
+          "total": 40,
+          "devueltos": 40,
+          "servidor_ms": [
+            11.18,
+            9.76,
+            9.72,
+            9.58,
+            9.49
+          ],
+          "punta_ms": [
+            15.627299999778188,
+            14.320199999929173,
+            13.96019999992859,
+            13.856800000212388,
+            13.67439999967246
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "menos de 2",
+          "tokens": 3,
+          "total": 30,
+          "devueltos": 30,
+          "servidor_ms": [
+            11.75,
+            10.93,
+            11.01,
+            10.8,
+            11.04
+          ],
+          "punta_ms": [
+            16.07659999990574,
+            15.026600000055623,
+            14.996999999766558,
+            15.090799999597948,
+            15.142600000217499
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "bien hasta aquí la",
+          "tokens": 4,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            8.5,
+            8.15,
+            8.1,
+            8.28,
+            8.35
+          ],
+          "punta_ms": [
+            12.855299999955605,
+            12.319099999785976,
+            12.20820000025924,
+            12.486200000239478,
+            12.64130000026853
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "mí El",
+          "tokens": 2,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            7.34,
+            7.03,
+            6.54,
+            6.97,
+            6.92
+          ],
+          "punta_ms": [
+            11.283100000127888,
+            11.30009999997128,
+            10.529199999837147,
+            11.052699999709148,
+            11.063299999932497
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "extension bar called",
+          "tokens": 3,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            7.77,
+            6.95,
+            7.2,
+            6.91,
+            7.12
+          ],
+          "punta_ms": [
+            11.890899999798421,
+            10.911399999713467,
+            11.305699999866192,
+            11.129999999866413,
+            11.28019999987373
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "agua, saco el cartucho",
+          "tokens": 4,
+          "total": 20,
+          "devueltos": 20,
+          "servidor_ms": [
+            10.71,
+            10.14,
+            10.24,
+            10.22,
+            10.51
+          ],
+          "punta_ms": [
+            14.796500000102242,
+            14.448200000060751,
+            14.282200000252487,
+            14.421100000163278,
+            14.643599999999424
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "nuevo limpio",
+          "tokens": 2,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.76,
+            6.62,
+            6.63,
+            6.22,
+            6.55
+          ],
+          "punta_ms": [
+            11.157599999933154,
+            10.548000000198954,
+            10.771400000066933,
+            10.135600000012346,
+            10.845699999663339
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "cuarteado. Retomo yo,",
+          "tokens": 3,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            7.5,
+            6.73,
+            6.76,
+            6.35,
+            6.9
+          ],
+          "punta_ms": [
+            11.815899999874091,
+            10.923600000296574,
+            10.999700000411394,
+            10.532599999805825,
+            10.882399999900372
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "la puerta de acrílico",
+          "tokens": 4,
+          "total": 20,
+          "devueltos": 20,
+          "servidor_ms": [
+            11.15,
+            9.64,
+            9.72,
+            9.48,
+            9.83
+          ],
+          "punta_ms": [
+            15.54199999964112,
+            14.025299999957497,
+            14.003799999954936,
+            13.47910000004049,
+            14.22599999978047
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "has been",
+          "tokens": 2,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            6.02,
+            5.96,
+            5.76,
+            5.62,
+            5.67
+          ],
+          "punta_ms": [
+            10.40629999988596,
+            10.285899999871617,
+            10.078100000100676,
+            9.612899999865476,
+            9.865399999853253
+          ]
+        },
+        {
+          "tipo": "frase_larga",
+          "consulta": "Con la llave de la carcasa aflojo el vaso girando a la",
+          "tokens": 12,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            13.14,
+            11.84,
+            11.45,
+            11.47,
+            11.57
+          ],
+          "punta_ms": [
+            17.296900000019377,
+            15.965799999776209,
+            15.378600000076403,
+            15.781800000240764,
+            15.955299999859562
+          ]
+        },
+        {
+          "tipo": "frase_larga",
+          "consulta": "ahora retiro la carcasa, con la llave de carcasa aflojo el vaso girando a la izquierda, lo bajo con cuidado porque trae agua, saco el cartucho usado y lo meto a la bolsa de residuos, reviso el anillo de hule,",
+          "tokens": 40,
+          "total": 10,
+          "devueltos": 10,
+          "servidor_ms": [
+            13.11,
+            14.95,
+            14.03,
+            17.01,
+            14.61
+          ],
+          "punta_ms": [
+            17.482400000062626,
+            19.4894999999633,
+            18.506800000068324,
+            21.746599999914906,
+            19.103500000255735
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "zzxq",
+          "tokens": 1,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            4.27,
+            4.07,
+            4.37,
+            4.21,
+            4.41
+          ],
+          "punta_ms": [
+            8.801899999980378,
+            8.491399999911664,
+            9.02749999977459,
+            9.019499999794789,
+            8.863000000019383
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "xilófono",
+          "tokens": 1,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            5.16,
+            4.42,
+            4.15,
+            4.64,
+            4.25
+          ],
+          "punta_ms": [
+            10.128399999757676,
+            8.838600000217411,
+            8.589099999881,
+            9.317300000020623,
+            8.8116999995691
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "válvula cuántica intergaláctica",
+          "tokens": 3,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            4.56,
+            4.7,
+            4.83,
+            4.55,
+            4.39
+          ],
+          "punta_ms": [
+            8.950100000220118,
+            9.288100000048871,
+            9.131799999977375,
+            9.147400000074413,
+            8.900300000277639
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "esta frase nadie la dijo nunca",
+          "tokens": 6,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            9.43,
+            8.55,
+            8.08,
+            8.27,
+            7.87
+          ],
+          "punta_ms": [
+            13.64049999983763,
+            13.094500000079279,
+            12.50819999995656,
+            12.50469999968118,
+            12.07120000026407
+          ]
+        }
+      ],
+      "por_tipo": {
+        "comun": {
+          "servidor": {
+            "n": 40,
+            "p50": 13.95,
+            "p95": 15.44,
+            "max": 17.04
+          },
+          "punta": {
+            "n": 40,
+            "p50": 18.42,
+            "p95": 19.86,
+            "max": 21.56
+          }
+        },
+        "rara": {
+          "servidor": {
+            "n": 40,
+            "p50": 6.72,
+            "p95": 7.95,
+            "max": 11.36
+          },
+          "punta": {
+            "n": 40,
+            "p50": 11.13,
+            "p95": 13.41,
+            "max": 18.8
+          }
+        },
+        "frase": {
+          "servidor": {
+            "n": 50,
+            "p50": 7.93,
+            "p95": 11.1,
+            "max": 11.75
+          },
+          "punta": {
+            "n": 50,
+            "p50": 12.05,
+            "p95": 15.36,
+            "max": 16.08
+          }
+        },
+        "frase_larga": {
+          "servidor": {
+            "n": 10,
+            "p50": 13.12,
+            "p95": 16.08,
+            "max": 17.01
+          },
+          "punta": {
+            "n": 10,
+            "p50": 17.39,
+            "p95": 20.73,
+            "max": 21.75
+          }
+        },
+        "sin_resultados": {
+          "servidor": {
+            "n": 20,
+            "p50": 4.55,
+            "p95": 8.59,
+            "max": 9.43
+          },
+          "punta": {
+            "n": 20,
+            "p50": 9.08,
+            "p95": 13.12,
+            "max": 13.64
+          }
+        }
+      },
+      "total": {
+        "servidor": {
+          "n": 160,
+          "p50": 8.09,
+          "p95": 15.19,
+          "max": 17.04
+        },
+        "punta": {
+          "n": 160,
+          "p50": 12.51,
+          "p95": 19.54,
+          "max": 21.75
+        }
+      },
+      "rnf02_pasa": true,
+      "consulta_lenta": "ahora retiro la carcasa, con la llave de carcasa aflojo el vaso girando a la izquierda, lo bajo con cuidado porque trae agua, saco el cartucho usado y lo meto a la bolsa de residuos, reviso el anillo de hule,",
+      "explain": "Limit  (cost=62.03..62.03 rows=1 width=143) (actual time=1.803..1.807 rows=10 loops=1)\n  Buffers: shared hit=726\n  ->  Sort  (cost=62.03..62.03 rows=1 width=143) (actual time=1.802..1.805 rows=10 loops=1)\n        Sort Key: v.creado DESC, c.video_id DESC, c.t_inicio, c.pos_ini\n        Sort Method: quicksort  Memory: 26kB\n        Buffers: shared hit=726\n        ->  WindowAgg  (cost=52.84..62.02 rows=1 width=143) (actual time=1.760..1.764 rows=10 loops=1)\n              Buffers: shared hit=717\n              ->  Nested Loop Left Join  (cost=52.84..62.00 rows=1 width=135) (actual time=1.742..1.757 rows=10 loops=1)\n                    Buffers: shared hit=717\n                    ->  Nested Loop  (cost=52.70..61.18 rows=1 width=85) (actual time=1.739..1.751 rows=10 loops=1)\n                          Buffers: shared hit=717\n                          ->  Unique  (cost=52.56..52.62 rows=1 width=44) (actual time=1.733..1.737 rows=10 loops=1)\n                                Buffers: shared hit=697\n                                ->  Incremental Sort  (cost=52.56..52.61 rows=2 width=44) (actual time=1.733..1.736 rows=10 loops=1)\n                                      Sort Key: c.video_id, c.cadena, c.t_inicio, c.pos_ini\n                                      Presorted Key: c.video_id, c.cadena\n                                      Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB\n                                      Buffers: shared hit=697\n                                      ->  WindowAgg  (cost=52.47..52.55 rows=2 width=44) (actual time=1.716..1.721 rows=10 loops=1)\n                                            Buffers: shared hit=694\n                                            ->  Incremental Sort  (cost=52.47..52.52 rows=2 width=36) (actual time=1.714..1.716 rows=10 loops=1)\n                                                  Sort Key: c.video_id, c.cadena\n                                                  Presorted Key: c.video_id\n                                                  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB\n                                                  Buffers: shared hit=694\n                                                  ->  Subquery Scan on c  (cost=52.40..52.46 rows=1 width=36) (actual time=1.697..1.708 rows=10 loops=1)\n                                                        Buffers: shared hit=694\n                                                        ->  WindowAgg  (cost=52.40..52.45 rows=1 width=40) (actual time=1.696..1.706 rows=10 loops=1)\n                                                              Buffers: shared hit=694\n                                                              ->  Subquery Scan on m  (cost=52.40..52.43 rows=1 width=32) (actual time=1.690..1.697 rows=10 loops=1)\n                                                                    Buffers: shared hit=694\n                                                                    ->  WindowAgg  (cost=52.40..52.43 rows=1 width=32) (actual time=1.690..1.696 rows=10 loops=1)\n                                                                          Buffers: shared hit=694\n                                                                          ->  Sort  (cost=52.40..52.41 rows=1 width=28) (actual time=1.682..1.684 rows=10 loops=1)\n                                                                                Sort Key: p0.video_id, p0.t_inicio, p0.posicion\n                                                                                Sort Method: quicksort  Memory: 25kB\n                                                                                Buffers: shared hit=694\n                                                                                ->  Nested Loop  (cost=5.46..52.39 rows=1 width=28) (actual time=0.200..1.671 rows=10 loops=1)\n                                                                                      Join Filter: ((v_1.id = p3.video_id) AND (p3.posicion = (p0.posicion + 3)))\n                                                                                      Rows Removed by Join Filter: 10\n                                                                                      Buffers: shared hit=694\n                                                                                      ->  Nested Loop  (cost=5.17..51.96 rows=1 width=44) (actual time=0.191..1.605 rows=10 loops=1)\n                                                                                            Join Filter: ((v_1.id = p2.video_id) AND (p2.posicion = (p0.posicion + 2)))\n                                                                                            Rows Removed by Join Filter: 40\n                                                                                            Buffers: shared hit=662\n                                                                                            ->  Nested Loop  (cost=4.89..50.99 rows=1 width=40) (actual time=0.177..1.555 rows=10 loops=1)\n                                                                                                  Join Filter: ((v_1.id = p1.video_id) AND (p1.posicion = (p0.posicion + 1)))\n                                                                                                  Buffers: shared hit=624\n                                                                                                  ->  Nested Loop  (cost=4.60..50.60 rows=1 width=36) (actual time=0.159..1.512 rows=10 loops=1)\n                                                                                                        Join Filter: (v_1.id = pf.video_id)\n                                                                                                        Buffers: shared hit=594\n                                                                                                        ->  Nested Loop  (cost=4.31..42.27 rows=1 width=20) (actual time=0.151..1.490 rows=10 loops=1)\n                                                                                                              Buffers: shared hit=564\n                                                                                                              ->  Seq Scan on videos v_1  (cost=0.00..10.39 rows=1 width=4) (actual time=0.004..0.028 rows=50 loops=1)\n                                                                                                                    Filter: publicado\n                                                                                                                    Rows Removed by Filter: 39\n                                                                                                                    Buffers: shared hit=10\n                                                                                                              ->  Bitmap Heap Scan on palabras p0  (cost=4.31..31.87 rows=1 width=16) (actual time=0.026..0.029 rows=0 loops=50)\n                                                                                                                    Recheck Cond: (((palabra_normalizada)::text = 'ahora'::text) AND (video_id = v_1.id))\n                                                                                                                    Filter: ((SubPlan 1) = '{ahora,retiro,la,carcasa,con,la,llave,de,carcasa,aflojo,el,vaso,girando,a,la,izquierda,lo,bajo,con,cuidado,porque,trae,agua,saco,el,cartucho,usado,y,lo,meto,a,la,bolsa,de,residuo,reviso,el,anillo,de,hul}'::text[])\n                                                                                                                    Rows Removed by Filter: 2\n                                                                                                                    Heap Blocks: exact=70\n                                                                                                                    Buffers: shared hit=554\n                                                                                                                    ->  Bitmap Index Scan on ix_palabras_palabra_normalizada_video_id_posicion  (cost=0.00..4.31 rows=2 width=0) (actual time=0.002..0.002 rows=2 loops=50)\n                                                                                                                          Index Cond: (((palabra_normalizada)::text = 'ahora'::text) AND (video_id = v_1.id))\n                                                                                                                          Buffers: shared hit=100\n                                                                                                                    SubPlan 1\n                                                                                                                      ->  Aggregate  (cost=10.09..10.10 rows=1 width=32) (actual time=0.011..0.011 rows=1 loops=110)\n                                                                                                                            Buffers: shared hit=384\n                                                                                                                            ->  Index Scan using uq_palabras_video_id_posicion on palabras p  (cost=0.29..10.09 rows=2 width=9) (actual time=0.002..0.006 rows=40 loops=110)\n                                                                                                                                  Index Cond: ((video_id = p0.video_id) AND (posicion >= p0.posicion) AND (posicion <= (p0.posicion + 39)))\n                                                                                                                                  Buffers: shared hit=384\n                                                                                                        ->  Index Scan using uq_palabras_video_id_posicion on palabras pf  (cost=0.29..8.31 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=10)\n                                                                                                              Index Cond: ((video_id = p0.video_id) AND (posicion = (p0.posicion + 39)))\n                                                                                                              Buffers: shared hit=30\n                                                                                                  ->  Index Only Scan using ix_palabras_palabra_normalizada_video_id_posicion on palabras p1  (cost=0.29..0.38 rows=1 width=8) (actual time=0.004..0.004 rows=1 loops=10)\n                                                                                                        Index Cond: ((palabra_normalizada = 'retiro'::text) AND (video_id = pf.video_id))\n                                                                                                        Heap Fetches: 10\n                                                                                                        Buffers: shared hit=30\n                                                                                            ->  Index Only Scan using ix_palabras_palabra_normalizada_video_id_posicion on palabras p2  (cost=0.29..0.68 rows=16 width=8) (actual time=0.004..0.004 rows=5 loops=10)\n                                                                                                  Index Cond: ((palabra_normalizada = 'la'::text) AND (video_id = pf.video_id))\n                                                                                                  Heap Fetches: 50\n                                                                                                  Buffers: shared hit=38\n                                                                                      ->  Index Only Scan using ix_palabras_palabra_normalizada_video_id_posicion on palabras p3  (cost=0.29..0.40 rows=2 width=8) (actual time=0.003..0.006 rows=2 loops=10)\n                                                                                            Index Cond: ((palabra_normalizada = 'carcasa'::text) AND (video_id = pf.video_id))\n                                                                                            Heap Fetches: 20\n                                                                                            Buffers: shared hit=32\n                          ->  Index Scan using pk_videos on videos v  (cost=0.14..8.16 rows=1 width=49) (actual time=0.001..0.001 rows=1 loops=10)\n                                Index Cond: (id = c.video_id)\n                                Buffers: shared hit=20\n                    ->  Index Scan using pk_sops on sops s  (cost=0.14..0.77 rows=1 width=54) (actual time=0.000..0.000 rows=0 loops=10)\n                          Index Cond: (id = v.sop_id)\nPlanning:\n  Buffers: shared hit=294\nPlanning Time: 4.090 ms\nExecution Time: 2.038 ms",
+      "referencia": "video_a",
+      "rnf03": [
+        {
+          "palabra": "Buenos",
+          "t_transcripcion": 1.36,
+          "t_resultado": 1.36,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "así",
+          "t_transcripcion": 9.66,
+          "t_resultado": 9.66,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "cierro",
+          "t_transcripcion": 31.52,
+          "t_resultado": 31.52,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "entonces",
+          "t_transcripcion": 41.2,
+          "t_resultado": 41.2,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "salir.",
+          "t_transcripcion": 59.32,
+          "t_resultado": 59.32,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "saco",
+          "t_transcripcion": 75.4,
+          "t_resultado": 75.4,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "nuevo,",
+          "t_transcripcion": 92.46,
+          "t_resultado": 92.46,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "cuarto",
+          "t_transcripcion": 101.22,
+          "t_resultado": 101.22,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "solo",
+          "t_transcripcion": 116.6,
+          "t_resultado": 116.6,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "cambio",
+          "t_transcripcion": 132.61,
+          "t_resultado": 132.61,
+          "diferencia_s": 0.0,
+          "pasa": true
+        }
+      ],
+      "rnf03_pasa": true,
+      "modo": "copias",
+      "palabras_objetivo": null,
+      "palabras_por_video": {
+        "min": 227,
+        "media": 326.0,
+        "max": 455
+      },
+      "minutos_por_video": {
+        "min": 1.9,
+        "media": 3.8,
+        "max": 5.8
+      },
+      "nota": "palabras y minutos por video calculados al anexar, con los mismos analisis.json"
+    },
+    {
+      "fecha": "2026-11-15T22:27:57",
+      "git": {
+        "commit": "1cfccb3e7cf667912e54caf3e5cbf5fa20203b77",
+        "rama": "feat/s6",
+        "cambios_sin_commit": 8
+      },
+      "videos_sembrados": 50,
+      "modo": "concatenadas",
+      "palabras_objetivo": 1500,
+      "palabras_sembradas": 76020,
+      "palabras_por_video": {
+        "min": 1501,
+        "media": 1520.0,
+        "max": 1547
+      },
+      "minutos_por_video": {
+        "min": 12.8,
+        "media": 14.0,
+        "max": 15.2
+      },
+      "videos_publicados": 50,
+      "palabras_indice": 76020,
+      "repeticiones": 5,
+      "unir_s": 3.0,
+      "consultas": [
+        {
+          "tipo": "comun",
+          "consulta": "el",
+          "tokens": 1,
+          "total": 2990,
+          "devueltos": 50,
+          "servidor_ms": [
+            26.76,
+            27.69,
+            24.78,
+            23.8,
+            23.99
+          ],
+          "punta_ms": [
+            32.00169999990976,
+            33.038999999916996,
+            30.103600000074948,
+            29.068199999983335,
+            29.11839999978838
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "de",
+          "tokens": 1,
+          "total": 2390,
+          "devueltos": 50,
+          "servidor_ms": [
+            22.35,
+            23.29,
+            23.22,
+            22.48,
+            22.78
+          ],
+          "punta_ms": [
+            27.207799999814597,
+            28.26820000018415,
+            28.09220000017376,
+            27.391099999931612,
+            27.488799999900948
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "la",
+          "tokens": 1,
+          "total": 2380,
+          "devueltos": 50,
+          "servidor_ms": [
+            21.75,
+            22.01,
+            22.04,
+            21.66,
+            23.25
+          ],
+          "punta_ms": [
+            26.742700000340847,
+            26.51770000011311,
+            26.879300000018702,
+            26.12570000019332,
+            27.91960000013205
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "the",
+          "tokens": 1,
+          "total": 1130,
+          "devueltos": 50,
+          "servidor_ms": [
+            19.23,
+            19.47,
+            19.58,
+            19.92,
+            23.05
+          ],
+          "punta_ms": [
+            23.876799999925424,
+            24.274200000036217,
+            24.516500000117958,
+            25.166700000227138,
+            28.704500000003463
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "y",
+          "tokens": 1,
+          "total": 1390,
+          "devueltos": 50,
+          "servidor_ms": [
+            22.35,
+            21.77,
+            21.58,
+            20.55,
+            23.27
+          ],
+          "punta_ms": [
+            27.82200000001467,
+            27.80239999992773,
+            26.696500000070955,
+            26.116000000001804,
+            29.12300000025425
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "I",
+          "tokens": 1,
+          "total": 1130,
+          "devueltos": 50,
+          "servidor_ms": [
+            21.33,
+            21.48,
+            17.9,
+            19.79,
+            19.69
+          ],
+          "punta_ms": [
+            26.853700000174285,
+            26.77429999994274,
+            23.084700000254088,
+            24.949200000264682,
+            24.63739999984682
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "a",
+          "tokens": 1,
+          "total": 960,
+          "devueltos": 50,
+          "servidor_ms": [
+            20.11,
+            18.38,
+            21.23,
+            22.6,
+            23.28
+          ],
+          "punta_ms": [
+            25.498999999854277,
+            23.89160000029733,
+            27.635199999622273,
+            28.43110000003435,
+            29.21280000009574
+          ]
+        },
+        {
+          "tipo": "comun",
+          "consulta": "del",
+          "tokens": 1,
+          "total": 980,
+          "devueltos": 50,
+          "servidor_ms": [
+            18.98,
+            17.44,
+            17.24,
+            19.79,
+            22.01
+          ],
+          "punta_ms": [
+            25.117900000168447,
+            22.411299999930634,
+            22.680399999899237,
+            24.810400000205846,
+            27.606500000274536
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "dura.",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            17.14,
+            17.79,
+            18.68,
+            16.58,
+            18.77
+          ],
+          "punta_ms": [
+            22.983899999871937,
+            22.85100000017337,
+            24.03970000023037,
+            21.963400000004185,
+            23.917600000004313
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "mica",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            17.29,
+            16.96,
+            16.11,
+            15.56,
+            15.02
+          ],
+          "punta_ms": [
+            22.482599999875674,
+            22.08440000003975,
+            21.130599999651167,
+            20.499499999914406,
+            20.136099999945145
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "casi",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.04,
+            16.92,
+            15.1,
+            15.97,
+            15.12
+          ],
+          "punta_ms": [
+            20.235200000115583,
+            21.90130000008139,
+            20.170799999959854,
+            20.97779999985505,
+            20.235299999967538
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "primer",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.93,
+            18.22,
+            17.24,
+            14.96,
+            13.3
+          ],
+          "punta_ms": [
+            21.387400000094203,
+            23.270400000001246,
+            22.33139999998457,
+            19.907599999896775,
+            18.276099999638973
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "back.",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            14.19,
+            14.33,
+            18.53,
+            17.59,
+            16.69
+          ],
+          "punta_ms": [
+            18.648700000085228,
+            19.336199999997916,
+            23.55889999989813,
+            22.30390000022453,
+            21.54270000028191
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "across",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.51,
+            14.33,
+            16.66,
+            17.4,
+            14.47
+          ],
+          "punta_ms": [
+            20.568100000218692,
+            19.517300000188698,
+            21.574800000053074,
+            22.56740000029822,
+            19.557100000383798
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "stays,",
+          "tokens": 1,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.55,
+            13.82,
+            16.51,
+            15.72,
+            14.01
+          ],
+          "punta_ms": [
+            20.60750000009648,
+            19.021999999949912,
+            21.56520000016826,
+            20.602799999778654,
+            19.090899999810063
+          ]
+        },
+        {
+          "tipo": "rara",
+          "consulta": "replaced.",
+          "tokens": 1,
+          "total": 40,
+          "devueltos": 40,
+          "servidor_ms": [
+            12.81,
+            13.55,
+            15.72,
+            16.07,
+            13.12
+          ],
+          "punta_ms": [
+            17.853800000011688,
+            18.352999999933672,
+            21.189999999933207,
+            21.324100000128965,
+            18.415600000025734
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "Buenos días,",
+          "tokens": 2,
+          "total": 200,
+          "devueltos": 50,
+          "servidor_ms": [
+            15.73,
+            14.91,
+            19.1,
+            17.45,
+            19.87
+          ],
+          "punta_ms": [
+            20.808199999919452,
+            20.051800000146613,
+            24.561400000038702,
+            22.7921000000606,
+            24.864699999852746
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "menos de 2",
+          "tokens": 3,
+          "total": 150,
+          "devueltos": 50,
+          "servidor_ms": [
+            17.85,
+            16.52,
+            16.48,
+            16.82,
+            16.32
+          ],
+          "punta_ms": [
+            23.21799999981522,
+            21.999099999902683,
+            21.102499999869906,
+            21.358599999985017,
+            21.95350000010876
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "bien hasta aquí la",
+          "tokens": 4,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            17.98,
+            17.3,
+            17.95,
+            17.8,
+            17.5
+          ],
+          "punta_ms": [
+            22.79550000002928,
+            21.85060000010708,
+            22.894799999903626,
+            22.64580000019123,
+            22.2673000002942
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "mí El",
+          "tokens": 2,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            16.79,
+            16.16,
+            15.29,
+            15.0,
+            15.35
+          ],
+          "punta_ms": [
+            22.020100000190723,
+            21.09589999963646,
+            20.195300000068528,
+            19.673300000249583,
+            20.31010000018796
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "extension bar called",
+          "tokens": 3,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            16.09,
+            15.17,
+            15.2,
+            15.5,
+            15.44
+          ],
+          "punta_ms": [
+            21.252600000025268,
+            19.77260000012393,
+            20.011600000088947,
+            20.362200000363373,
+            20.55560000007972
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "agua, saco el cartucho",
+          "tokens": 4,
+          "total": 90,
+          "devueltos": 50,
+          "servidor_ms": [
+            18.36,
+            17.53,
+            19.46,
+            20.97,
+            23.57
+          ],
+          "punta_ms": [
+            23.086100000000442,
+            22.06530000012208,
+            24.550399999952788,
+            26.578100000278937,
+            29.19129999963843
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "nuevo limpio",
+          "tokens": 2,
+          "total": 40,
+          "devueltos": 40,
+          "servidor_ms": [
+            15.95,
+            16.34,
+            14.21,
+            13.44,
+            15.87
+          ],
+          "punta_ms": [
+            21.665400000074442,
+            21.775000000161526,
+            19.312499999614374,
+            18.396199999642704,
+            21.403400000053807
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "cuarteado. Retomo yo,",
+          "tokens": 3,
+          "total": 40,
+          "devueltos": 40,
+          "servidor_ms": [
+            17.78,
+            16.31,
+            15.7,
+            16.73,
+            13.23
+          ],
+          "punta_ms": [
+            23.656400000163558,
+            22.07749999979569,
+            20.954900000106136,
+            21.903300000303716,
+            17.899099999795
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "la puerta de acrílico",
+          "tokens": 4,
+          "total": 90,
+          "devueltos": 50,
+          "servidor_ms": [
+            22.24,
+            20.08,
+            17.29,
+            17.52,
+            18.48
+          ],
+          "punta_ms": [
+            27.53519999987475,
+            24.843200000304932,
+            22.00040000025183,
+            22.468000000117172,
+            23.4773000001951
+          ]
+        },
+        {
+          "tipo": "frase",
+          "consulta": "has been",
+          "tokens": 2,
+          "total": 40,
+          "devueltos": 40,
+          "servidor_ms": [
+            13.58,
+            13.39,
+            12.7,
+            14.1,
+            13.04
+          ],
+          "punta_ms": [
+            18.515000000206783,
+            18.22519999996075,
+            17.676899999969464,
+            19.643899999664427,
+            18.318299999918963
+          ]
+        },
+        {
+          "tipo": "frase_larga",
+          "consulta": "Con la llave de la carcasa aflojo el vaso girando a la",
+          "tokens": 12,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            27.57,
+            28.07,
+            27.39,
+            26.26,
+            26.84
+          ],
+          "punta_ms": [
+            33.24529999963488,
+            33.17190000007031,
+            32.50930000012886,
+            31.486000000313652,
+            32.20499999997628
+          ]
+        },
+        {
+          "tipo": "frase_larga",
+          "consulta": "ahora retiro la carcasa, con la llave de carcasa aflojo el vaso girando a la izquierda, lo bajo con cuidado porque trae agua, saco el cartucho usado y lo meto a la bolsa de residuos, reviso el anillo de hule,",
+          "tokens": 40,
+          "total": 50,
+          "devueltos": 50,
+          "servidor_ms": [
+            35.51,
+            38.34,
+            36.26,
+            34.64,
+            37.95
+          ],
+          "punta_ms": [
+            40.79910000018572,
+            43.67649999994683,
+            41.76790000019537,
+            39.98649999994086,
+            43.14479999993637
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "zzxq",
+          "tokens": 1,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            4.22,
+            4.32,
+            4.62,
+            4.26,
+            4.4
+          ],
+          "punta_ms": [
+            9.562299999743118,
+            9.187799999835988,
+            9.271500000068045,
+            8.978800000022602,
+            9.109699999953591
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "xilófono",
+          "tokens": 1,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            4.34,
+            4.51,
+            4.15,
+            4.49,
+            4.4
+          ],
+          "punta_ms": [
+            9.810899999592948,
+            9.294400000271708,
+            8.874000000105298,
+            9.526400000140711,
+            10.172999999667809
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "válvula cuántica intergaláctica",
+          "tokens": 3,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            4.46,
+            4.33,
+            4.42,
+            4.34,
+            4.63
+          ],
+          "punta_ms": [
+            9.147000000211847,
+            9.059400000296591,
+            9.204999999838037,
+            9.437000000161788,
+            9.4902999999249
+          ]
+        },
+        {
+          "tipo": "sin_resultados",
+          "consulta": "esta frase nadie la dijo nunca",
+          "tokens": 6,
+          "total": 0,
+          "devueltos": 0,
+          "servidor_ms": [
+            11.03,
+            10.71,
+            10.52,
+            10.71,
+            10.19
+          ],
+          "punta_ms": [
+            16.381199999614182,
+            15.781300000071496,
+            15.03180000008797,
+            15.962800000124844,
+            15.278500000022177
+          ]
+        }
+      ],
+      "por_tipo": {
+        "comun": {
+          "servidor": {
+            "n": 40,
+            "p50": 21.76,
+            "p95": 24.88,
+            "max": 27.69
+          },
+          "punta": {
+            "n": 40,
+            "p50": 26.87,
+            "p95": 30.2,
+            "max": 33.04
+          }
+        },
+        "rara": {
+          "servidor": {
+            "n": 40,
+            "p50": 15.82,
+            "p95": 18.54,
+            "max": 18.77
+          },
+          "punta": {
+            "n": 40,
+            "p50": 21.05,
+            "p95": 23.58,
+            "max": 24.04
+          }
+        },
+        "frase": {
+          "servidor": {
+            "n": 50,
+            "p50": 16.41,
+            "p95": 20.57,
+            "max": 23.57
+          },
+          "punta": {
+            "n": 50,
+            "p50": 21.81,
+            "p95": 25.81,
+            "max": 29.19
+          }
+        },
+        "frase_larga": {
+          "servidor": {
+            "n": 10,
+            "p50": 31.36,
+            "p95": 38.16,
+            "max": 38.34
+          },
+          "punta": {
+            "n": 10,
+            "p50": 36.62,
+            "p95": 43.44,
+            "max": 43.68
+          }
+        },
+        "sin_resultados": {
+          "servidor": {
+            "n": 20,
+            "p50": 4.44,
+            "p95": 10.73,
+            "max": 11.03
+          },
+          "punta": {
+            "n": 20,
+            "p50": 9.46,
+            "p95": 15.98,
+            "max": 16.38
+          }
+        }
+      },
+      "total": {
+        "servidor": {
+          "n": 160,
+          "p50": 17.05,
+          "p95": 27.4,
+          "max": 38.34
+        },
+        "punta": {
+          "n": 160,
+          "p50": 22.04,
+          "p95": 32.54,
+          "max": 43.68
+        }
+      },
+      "rnf02_pasa": true,
+      "consulta_lenta": "ahora retiro la carcasa, con la llave de carcasa aflojo el vaso girando a la izquierda, lo bajo con cuidado porque trae agua, saco el cartucho usado y lo meto a la bolsa de residuos, reviso el anillo de hule,",
+      "explain": "Limit  (cost=347.29..347.30 rows=5 width=143) (actual time=7.793..7.802 rows=50 loops=1)\n  Buffers: shared hit=3173\n  ->  Sort  (cost=347.29..347.30 rows=5 width=143) (actual time=7.792..7.798 rows=50 loops=1)\n        Sort Key: v.creado DESC, u.video_id DESC, u.t_inicio, u.pos_ini\n        Sort Method: quicksort  Memory: 31kB\n        Buffers: shared hit=3173\n        ->  WindowAgg  (cost=329.36..347.23 rows=5 width=143) (actual time=7.745..7.757 rows=50 loops=1)\n              Buffers: shared hit=3164\n              ->  Nested Loop Left Join  (cost=329.36..347.17 rows=5 width=135) (actual time=7.307..7.730 rows=50 loops=1)\n                    Buffers: shared hit=3164\n                    ->  Nested Loop  (cost=329.23..343.27 rows=5 width=85) (actual time=7.301..7.708 rows=50 loops=1)\n                          Join Filter: (v.id = u.video_id)\n                          Rows Removed by Join Filter: 4400\n                          Buffers: shared hit=3164\n                          ->  Seq Scan on videos v  (cost=0.00..10.39 rows=39 width=49) (actual time=0.004..0.024 rows=89 loops=1)\n                                Buffers: shared hit=10\n                          ->  Materialize  (cost=329.23..329.97 rows=5 width=36) (actual time=0.082..0.084 rows=50 loops=89)\n                                Buffers: shared hit=3154\n                                ->  Subquery Scan on u  (cost=329.23..329.94 rows=5 width=36) (actual time=7.293..7.317 rows=50 loops=1)\n                                      Buffers: shared hit=3154\n                                      ->  Unique  (cost=329.23..329.89 rows=5 width=44) (actual time=7.292..7.311 rows=50 loops=1)\n                                            Buffers: shared hit=3154\n                                            ->  Incremental Sort  (cost=329.23..329.87 rows=5 width=44) (actual time=7.292..7.305 rows=50 loops=1)\n                                                  Sort Key: c.video_id, c.cadena, c.t_inicio, c.pos_ini\n                                                  Presorted Key: c.video_id, c.cadena\n                                                  Full-sort Groups: 2  Sort Method: quicksort  Average Memory: 27kB  Peak Memory: 27kB\n                                                  Buffers: shared hit=3154\n                                                  ->  WindowAgg  (cost=329.11..329.64 rows=5 width=44) (actual time=7.246..7.285 rows=50 loops=1)\n                                                        Buffers: shared hit=3151\n                                                        ->  Incremental Sort  (cost=329.11..329.55 rows=5 width=36) (actual time=7.242..7.265 rows=50 loops=1)\n                                                              Sort Key: c.video_id, c.cadena\n                                                              Presorted Key: c.video_id\n                                                              Full-sort Groups: 2  Sort Method: quicksort  Average Memory: 27kB  Peak Memory: 27kB\n                                                              Buffers: shared hit=3151\n                                                              ->  Subquery Scan on c  (cost=329.04..329.33 rows=5 width=36) (actual time=7.204..7.252 rows=50 loops=1)\n                                                                    Buffers: shared hit=3151\n                                                                    ->  WindowAgg  (cost=329.04..329.28 rows=5 width=40) (actual time=7.204..7.248 rows=50 loops=1)\n                                                                          Buffers: shared hit=3151\n                                                                          ->  Subquery Scan on m  (cost=329.04..329.18 rows=5 width=32) (actual time=7.195..7.219 rows=50 loops=1)\n                                                                                Buffers: shared hit=3151\n                                                                                ->  WindowAgg  (cost=329.04..329.18 rows=5 width=32) (actual time=7.195..7.215 rows=50 loops=1)\n                                                                                      Buffers: shared hit=3151\n                                                                                      ->  Sort  (cost=329.04..329.05 rows=5 width=28) (actual time=7.180..7.183 rows=50 loops=1)\n                                                                                            Sort Key: p0.video_id, p0.t_inicio, p0.posicion\n                                                                                            Sort Method: quicksort  Memory: 27kB\n                                                                                            Buffers: shared hit=3151\n                                                                                            ->  Nested Loop  (cost=6.08..328.98 rows=5 width=28) (actual time=0.148..7.162 rows=50 loops=1)\n                                                                                                  Join Filter: (v_1.id = pf.video_id)\n                                                                                                  Buffers: shared hit=3151\n                                                                                                  ->  Nested Loop  (cost=5.78..315.33 rows=1 width=32) (actual time=0.143..7.070 rows=50 loops=1)\n                                                                                                        Join Filter: ((v_1.id = p3.video_id) AND (p3.posicion = (p0.posicion + 3)))\n                                                                                                        Rows Removed by Join Filter: 200\n                                                                                                        Buffers: shared hit=3001\n                                                                                                        ->  Nested Loop  (cost=5.37..313.30 rows=1 width=28) (actual time=0.134..6.780 rows=50 loops=1)\n                                                                                                              Join Filter: ((v_1.id = p1.video_id) AND (p1.posicion = (p0.posicion + 1)))\n                                                                                                              Rows Removed by Join Filter: 40\n                                                                                                              Buffers: shared hit=2729\n                                                                                                              ->  Nested Loop  (cost=4.95..311.57 rows=1 width=24) (actual time=0.125..6.623 rows=50 loops=1)\n                                                                                                                    Join Filter: (v_1.id = p2.video_id)\n                                                                                                                    Buffers: shared hit=2489\n                                                                                                                    ->  Nested Loop  (cost=4.53..303.11 rows=1 width=20) (actual time=0.109..6.413 rows=50 loops=1)\n                                                                                                                          Buffers: shared hit=2289\n                                                                                                                          ->  Seq Scan on videos v_1  (cost=0.00..10.39 rows=1 width=4) (actual time=0.002..0.039 rows=50 loops=1)\n                                                                                                                                Filter: publicado\n                                                                                                                                Rows Removed by Filter: 39\n                                                                                                                                Buffers: shared hit=10\n                                                                                                                          ->  Bitmap Heap Scan on palabras p0  (cost=4.53..292.71 rows=1 width=16) (actual time=0.084..0.126 rows=1 loops=50)\n                                                                                                                                Recheck Cond: (((palabra_normalizada)::text = 'ahora'::text) AND (video_id = v_1.id))\n                                                                                                                                Filter: ((SubPlan 1) = '{ahora,retiro,la,carcasa,con,la,llave,de,carcasa,aflojo,el,vaso,girando,a,la,izquierda,lo,bajo,con,cuidado,porque,trae,agua,saco,el,cartucho,usado,y,lo,meto,a,la,bolsa,de,residuo,reviso,el,anillo,de,hul}'::text[])\n                                                                                                                                Rows Removed by Filter: 9\n                                                                                                                                Heap Blocks: exact=328\n                                                                                                                                Buffers: shared hit=2279\n                                                                                                                                ->  Bitmap Index Scan on ix_palabras_palabra_normalizada_video_id_posicion  (cost=0.00..4.53 rows=11 width=0) (actual time=0.004..0.004 rows=10 loops=50)\n                                                                                                                                      Index Cond: (((palabra_normalizada)::text = 'ahora'::text) AND (video_id = v_1.id))\n                                                                                                                                      Buffers: shared hit=150\n                                                                                                                                SubPlan 1\n                                                                                                                                  ->  Aggregate  (cost=22.54..22.55 rows=1 width=32) (actual time=0.010..0.010 rows=1 loops=520)\n                                                                                                                                        Buffers: shared hit=1801\n                                                                                                                                        ->  Index Scan using uq_palabras_video_id_posicion on palabras p  (cost=0.29..22.51 rows=9 width=9) (actual time=0.002..0.006 rows=39 loops=520)\n                                                                                                                                              Index Cond: ((video_id = p0.video_id) AND (posicion >= p0.posicion) AND (posicion <= (p0.posicion + 39)))\n                                                                                                                                              Buffers: shared hit=1801\n                                                                                                                    ->  Index Only Scan using ix_palabras_palabra_normalizada_video_id_posicion on palabras p2  (cost=0.42..8.44 rows=1 width=8) (actual time=0.004..0.004 rows=1 loops=50)\n                                                                                                                          Index Cond: ((palabra_normalizada = 'la'::text) AND (video_id = p0.video_id) AND (posicion = (p0.posicion + 2)))\n                                                                                                                          Heap Fetches: 50\n                                                                                                                          Buffers: shared hit=200\n                                                                                                              ->  Index Only Scan using ix_palabras_palabra_normalizada_video_id_posicion on palabras p1  (cost=0.42..1.70 rows=2 width=8) (actual time=0.002..0.003 rows=2 loops=50)\n                                                                                                                    Index Cond: ((palabra_normalizada = 'retiro'::text) AND (video_id = p2.video_id))\n                                                                                                                    Heap Fetches: 90\n                                                                                                                    Buffers: shared hit=240\n                                                                                                        ->  Index Only Scan using ix_palabras_palabra_normalizada_video_id_posicion on palabras p3  (cost=0.42..1.86 rows=10 width=8) (actual time=0.003..0.005 rows=5 loops=50)\n                                                                                                              Index Cond: ((palabra_normalizada = 'carcasa'::text) AND (video_id = p2.video_id))\n                                                                                                              Heap Fetches: 250\n                                                                                                              Buffers: shared hit=272\n                                                                                                  ->  Index Scan using uq_palabras_video_id_posicion on palabras pf  (cost=0.29..13.60 rows=4 width=16) (actual time=0.001..0.001 rows=1 loops=50)\n                                                                                                        Index Cond: ((video_id = p0.video_id) AND (posicion = (p0.posicion + 39)))\n                                                                                                        Buffers: shared hit=150\n                    ->  Index Scan using pk_sops on sops s  (cost=0.14..0.77 rows=1 width=54) (actual time=0.000..0.000 rows=0 loops=50)\n                          Index Cond: (id = v.sop_id)\nPlanning:\n  Buffers: shared hit=292\nPlanning Time: 3.663 ms\nExecution Time: 7.997 ms",
+      "referencia": "video_a",
+      "rnf03": [
+        {
+          "palabra": "Buenos",
+          "t_transcripcion": 1.36,
+          "t_resultado": 1.36,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "así",
+          "t_transcripcion": 9.66,
+          "t_resultado": 9.66,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "cierro",
+          "t_transcripcion": 31.52,
+          "t_resultado": 31.52,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "entonces",
+          "t_transcripcion": 41.2,
+          "t_resultado": 41.2,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "salir.",
+          "t_transcripcion": 59.32,
+          "t_resultado": 59.32,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "saco",
+          "t_transcripcion": 75.4,
+          "t_resultado": 75.4,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "nuevo,",
+          "t_transcripcion": 92.46,
+          "t_resultado": 92.46,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "cuarto",
+          "t_transcripcion": 101.22,
+          "t_resultado": 101.22,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "solo",
+          "t_transcripcion": 116.6,
+          "t_resultado": 116.6,
+          "diferencia_s": 0.0,
+          "pasa": true
+        },
+        {
+          "palabra": "cambio",
+          "t_transcripcion": 132.61,
+          "t_resultado": 132.61,
+          "diferencia_s": 0.0,
+          "pasa": true
+        }
+      ],
+      "rnf03_pasa": true
+    }
+  ]
+}

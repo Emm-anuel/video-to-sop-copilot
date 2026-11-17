@@ -5,6 +5,10 @@
 - `Contexto` → docs/contrato/contexto.schema.json
 - `ReporteValidacion` → docs/contrato/reporte.schema.json
 - `EstadoSop` → docs/contrato/sop_estado.schema.json (POST /sops y GET /sops/{id}/estado)
+- `VideoResumen` → docs/contrato/video_resumen.schema.json (cada video de GET /videos)
+- `EstadoPublicacion` → docs/contrato/publicacion.schema.json (POST y DELETE /videos/{id}/publicar)
+- `RespuestaBusqueda` → docs/contrato/busqueda.schema.json (POST /buscar)
+- `OpcionesBusqueda` → docs/contrato/busqueda_opciones.schema.json (GET /buscar/opciones)
 
 Los archivos no se editan a mano: se regeneran con este script cada vez que cambia el contrato,
 y tests/test_contrato.py falla si dejan de coincidir con los modelos.
@@ -23,10 +27,14 @@ from typing import Any
 
 from sopvid.contrato import (
     esquema_analisis,
+    esquema_busqueda,
     esquema_contexto,
     esquema_estado_sop,
+    esquema_opciones_busqueda,
+    esquema_publicacion,
     esquema_reporte,
     esquema_sop,
+    esquema_video_resumen,
 )
 
 DIRECTORIO = Path(__file__).resolve().parents[1] / "docs" / "contrato"
@@ -36,6 +44,10 @@ ESQUEMAS: dict[str, Callable[[], dict[str, Any]]] = {
     "contexto.schema.json": esquema_contexto,
     "reporte.schema.json": esquema_reporte,
     "sop_estado.schema.json": esquema_estado_sop,
+    "video_resumen.schema.json": esquema_video_resumen,
+    "publicacion.schema.json": esquema_publicacion,
+    "busqueda.schema.json": esquema_busqueda,
+    "busqueda_opciones.schema.json": esquema_opciones_busqueda,
 }
 
 

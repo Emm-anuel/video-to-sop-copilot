@@ -140,6 +140,23 @@ describe('SopEditor', () => {
     expect(boton('00:16', fila)).toBeTruthy();
   });
 
+  it('un SOP generado ofrece descargar la transcripción de su video (RF-31) y su PDF; uno cargado, no', async () => {
+    await abrir(detalle(), { videoId: 9 });
+    const hrefs = Array.from(el().querySelectorAll('.acciones app-descargas a')).map((a) =>
+      a.getAttribute('href'),
+    );
+    expect(hrefs).toEqual([
+      '/api/videos/9/download/txt',
+      '/api/videos/9/download/srt',
+      '/api/videos/9/download/json',
+      '/api/sops/21/pdf',
+    ]);
+    fixture.destroy();
+
+    await abrir(detalle({ origen: 'cargado', generacion: null }));
+    expect(el().querySelector('app-descargas')).toBeNull();
+  });
+
   it('si el navegador no reproduce el formato del video (AVI), el diálogo lo dice y ofrece descargarlo', async () => {
     await abrir();
     const video = el().querySelector<HTMLVideoElement>('dialog video')!;
@@ -393,6 +410,53 @@ describe('SopEditor', () => {
       await fixture.whenStable();
       expect(texto()).toContain('El video todavía se está procesando');
     });
+  });
+
+  describe('PDF del SOP (RF-30)', () => {
+    function enlacePdf(): HTMLAnchorElement | null {
+      return el().querySelector<HTMLAnchorElement>('a[href="/api/sops/21/pdf"]');
+    }
+
+    it('va en "Descargar" y se deshabilita mientras hay cambios sin guardar', async () => {
+      await abrir();
+      expect(enlacePdf()?.closest('app-descargas')).not.toBeNull();
+      expect(enlacePdf()?.hasAttribute('download')).toBe(true);
+
+      await escribir('#sop-titulo', 'Título corregido');
+      expect(enlacePdf()).toBeNull();
+      const deshabilitado = el().querySelector('app-descargas [aria-disabled="true"]')!;
+      expect(deshabilitado.textContent).toContain('SOP (.pdf)');
+      expect(deshabilitado.textContent).toContain('Guarda los cambios');
+
+      const enviado = await guardar();
+      await releer(enviado);
+      expect(enlacePdf()).not.toBeNull();
+    });
+
+    it('un SOP sin video (cargado) lo ofrece como botón propio', async () => {
+      await abrir(detalle({ origen: 'cargado', generacion: null }));
+      expect(el().querySelector('app-descargas')).toBeNull();
+      expect(enlacePdf()?.textContent).toContain('Descargar .pdf');
+    });
+  });
+
+  it('con ?t= (un QR del PDF) abre el video en ese segundo al cargar', async () => {
+    const reproducir = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    await abrir(detalle(), { t: '33.4' });
+    await fixture.whenStable();
+    const video = el().querySelector('dialog video') as HTMLVideoElement;
+    let actual = 0;
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => actual,
+      set: (valor: number) => (actual = valor),
+    });
+
+    video.dispatchEvent(new Event('loadedmetadata'));
+
+    expect(video.currentTime).toBe(33.4);
+    expect(reproducir).toHaveBeenCalled();
+    reproducir.mockRestore();
   });
 
   it('si el SOP todavía se convierte, espera y lo abre al quedar listo', async () => {

@@ -67,7 +67,7 @@ El sistema se construye **desde cero**: el código del POC del patrocinador no s
 | Transcripción | faster-whisper `large-v3-turbo`, el mismo modelo en CPU (int8) y en GPU (float16) (ADR-018, `WHISPER_MODELO_CPU`); otro modelo da el aviso `transcripcion_no_referencia`. Tiempo por palabra, VAD, detección de idioma |
 | LLM y visión | Ollama `0.40.2` en Docker (profile `llm`), cliente httpx propio con JSON Schema, sin frameworks. `gemma4:e4b-it-q4_K_M` con flash attention ([ADR-006](docs/adr/ADR-006-llm-local.md)) para todo: convertir SOP sin plantilla (S5, [ADR-015](docs/adr/ADR-015-sop-plantilla-markdown.md)), describir fotogramas, ficha de contexto, pasos del video ([ADR-010](docs/adr/ADR-010-segmentacion-pasos-llm.md)), juez de pares dudosos y redacción del SOP |
 | Emparejamiento | `paraphrase-multilingual-MiniLM-L12-v2` + algoritmo húngaro (scipy); umbrales 0.55 / 0.75 en configuración (ADR-012) |
-| Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab, qrcode |
+| Lectura de SOP y PDF | pdfplumber, python-docx · ReportLab con su QR (`reportlab.graphics.barcode.qr`, sin la librería qrcode) y DejaVu Sans embebida (`salidas/fuentes/`) |
 | ML académico | pandas, scikit-learn, LightGBM |
 | Frontend | Angular (componentes standalone, sin librerías de estado), servido por FastAPI; vistas `/carga` y `/buscar` con clave de acceso por variable de entorno. En desarrollo, `ng serve` en el servicio `web` de compose (puerto 4200) con proxy `/api` → la API según `API_URL` (`frontend/proxy.conf.js`; la API no tiene CORS). MVP: `frontend/README.md` |
 | Calidad | pytest, ruff, GitHub Actions |
@@ -100,6 +100,7 @@ src/sopvid/            paquete instalable (src layout)
   percepcion/          subida, ffmpeg, transcripción, fotogramas, pasos del video
   lenguaje/            cliente del LLM, lectura y redacción del SOP, emparejamiento, reporte, búsqueda exacta
   features/            limpieza e ingeniería de características (avances y pipeline)
+  salidas/             TXT, SRT, JSON y PDF a partir de lo guardado
 migrations/            Alembic
 scripts/               benchmark del LLM, evaluación de segmentación, preparación de datos
 tests/                 pytest
@@ -116,7 +117,8 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 13 nov 2026 (resumen semanal en `docs/plan/estado.md`):
+> Estado al 16 nov 2026, cierre de la semana 6: `feat/s6` unida a `main`, etiqueta `s6-cierre`
+> (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -252,8 +254,24 @@ docs/
 >   **la demo del modo generar va sin imágenes** (13 nov); la estimación de imágenes se queda corta (#17); el SOP
 >   convertido no se puede marcar revisado sin editarlo (#18); sin GPU, Nuevo no avisa del tiempo
 >   total y la subida no reanuda sola al volver la red (#19).
-> - **Sin código todavía (S6):** pantalla `/videos`, PDF del reporte y del SOP con QR (RF-29, 30),
->   descargas (RF-31), búsqueda (RF-32 a 37), juicios del juez guardados, Docker en máquina limpia.
+> - **Semana 6 (16–22 nov, cierre del 16 nov, unida a `main`):** todo a nombre de Emmanuel.
+>   - #11 (`7261ec4`, ADR-026 Propuesto): `EMPAREJAR_TEXTO=max_si_otro_idioma` y `SOP_IDIOMA=es`;
+>     si la transcripción no está en el idioma del SOP, cada par toma el mayor coseno con y sin la cita.
+>   - RF-32, 33 (`1cfccb3`): `GET /videos`, publicar e índice en `palabras` (migración `0008`,
+>     `texto.forma_busqueda`). RF-34, 35, 37 (`c1f3dcf`): `POST /buscar`. RF-31 (`3a1f940`): TXT,
+>     SRT y JSON. RF-29, 30 (`c3d1aa5`): `salidas/pdf.py`, QR a `/v/<id>?t=&k=`. RF-36 y pantallas
+>     `/videos` y `/buscar` (`1cf31ff`; reproductor compartido en `frontend/src/app/reproductor/`).
+>   - Clave de acceso por vista (`f366905`, #30, ADR-027 Propuesto): `CLAVE_CARGA`,
+>     `CLAVE_BUSQUEDA` y `SECRETO_ENLACES` solo en `.env` (vacía = vista abierta); dependencias por
+>     router en `plataforma/api/acceso.py`, encabezado `X-Clave-Acceso` o cookie de `POST /acceso`;
+>     `/v/:id` con token firmado; frontend `/acceso`, guard e interceptor (`frontend/src/app/acceso/`).
+>     `tests/conftest.py` deja las claves vacías.
+>   - RNF-01 a 07 desde los informes existentes: `docs/adr/datos/s6/rnf-s6.md` (RNF-04 y 06 sin
+>     medir; RNF-01 sin GPU no cumple). MVP al cierre: A 3/3, B 3/3.
+>   - **Meta no cumplida:** falta Docker en máquina limpia; pasa a S7 en una rama propia desde
+>     `main`. También a S7: juicios guardados (#31), #20, valor sin traducir de E (#32), afinidad
+>     estable, #12, #14 (juez con el par equivocado en SOP-9299), #16 a #19, `SEG_IMAGEN_*`, remux
+>     de AVI, límite de intentos en `/acceso` (#30) y otro narrador para ADR-026 (#33).
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

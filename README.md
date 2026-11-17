@@ -140,6 +140,23 @@ En PowerShell, la comprobación equivalente es `Invoke-RestMethod http://localho
 
 El frontend (Angular con `ng serve`, servicio `web`) queda en <http://localhost:4200> y se recarga solo al guardar un archivo de `frontend/`: no hace falta otra terminal ni Node instalado. El primer arranque tarda unos minutos (`npm ci`); los siguientes solo reinstalan si cambia `package-lock.json`. Los errores de compilación se ven con `docker compose logs -f web`. Detalles en [frontend/README.md](frontend/README.md).
 
+#### Claves de acceso (§11, ADR-027)
+
+La vista de carga (`/nuevo`, `/sops`, `/videos`, reportes) y la de búsqueda (`/buscar`) piden
+cada una su clave, una vez por sesión del navegador. Las claves van **solo en tu `.env`**, nunca
+en el código ni en Git (`.env.example` las trae vacías):
+
+```dotenv
+CLAVE_CARGA=…        # corta, fácil de escribir en la demo
+CLAVE_BUSQUEDA=…     # otra distinta (si son iguales, la API no arranca)
+SECRETO_ENLACES=…    # larga, firma los QR del PDF: python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Reinicia la API al cambiarlas (`docker compose up -d api`, o la API del host). Vacía, una vista
+queda abierta (desarrollo) y `/health` lo avisa en `avisos`. Los QR del PDF abren su video sin
+clave gracias al token; cambiar `SECRETO_ENLACES` invalida los ya impresos. Qué ruta pide qué
+clave: [docs/dev/api.md](docs/dev/api.md#claves-de-acceso).
+
 > **Puerto 5432.** La base se publica en `POSTGRES_PORT` (5432 por defecto). Si tienes otro Postgres local, apágalo antes o cambia `POSTGRES_PORT` en tu `.env`. Los datos viven en el volumen `sopvid_pgdata`: `docker compose down` los conserva y `docker compose down -v` los borra.
 
 ### Opción B: venv local (tests, lint y notebooks)

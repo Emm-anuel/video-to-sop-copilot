@@ -1,0 +1,1074 @@
+{
+  "git": {
+    "commit": "f8edb228d9866b93fbb79ee0215b0591805ed52c",
+    "rama": "feat/s6",
+    "cambios_sin_commit": 7
+  },
+  "llm": "gemma4:e4b-it-q4_K_M",
+  "dispositivo": "gpu",
+  "modos": [
+    "cita",
+    "max_si_otro_idioma"
+  ],
+  "casos": [
+    {
+      "nombre": "e8658-9299",
+      "grupo": "E×SOP-9299",
+      "video_id": 8658,
+      "cita": {
+        "porcentaje": 75.0,
+        "conteo": {
+          "Cumple": 3,
+          "Parcial": 3,
+          "Falta": 0,
+          "Sobra": 4,
+          "zona_gris": 0
+        },
+        "pares_llm": 3,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 3,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.803,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.805,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5,
+              6,
+              7
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.912,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Parcial",
+            "originales": [
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.61,
+            "juez": "Parcial",
+            "justificacion": "El operador revisa el anillo de goma para detectar daños, lo cual coincide con la revisión del SOP. Sin embargo, omite la acción de retirar la carcasa y el cartucho usado.",
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Parcial",
+            "originales": [
+              12
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.703,
+            "juez": "Parcial",
+            "justificacion": "El operador retira el envoltorio y lo coloca en el centro del perno con la pendiente hacia arriba. Omite la acción de instalar el cartucho nuevo.",
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Parcial",
+            "originales": [
+              14
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.669,
+            "juez": "Parcial",
+            "justificacion": "El operador abrió la válvula lentamente, cumpliendo con la acción principal del SOP. No se menciona la revisión de fugas ni el uso de otros equipos.",
+            "rescatado": false
+          }
+        ]
+      },
+      "max_si_otro_idioma": {
+        "porcentaje": 91.67,
+        "conteo": {
+          "Cumple": 5,
+          "Parcial": 1,
+          "Falta": 0,
+          "Sobra": 0,
+          "zona_gris": 0
+        },
+        "pares_llm": 1,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 1,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.803,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.807,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5,
+              6
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.805,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Cumple",
+            "originales": [
+              8,
+              9,
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.839,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              11,
+              12,
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.902,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Parcial",
+            "originales": [
+              7
+            ],
+            "correcto": false,
+            "presente": true,
+            "coseno": 0.698,
+            "juez": "Parcial",
+            "justificacion": "El operador presiona el botón rojo para liberar aire, lo cual coincide con parte del SOP. Sin embargo, omite la verificación de fugas y la revisión de la junta.",
+            "rescatado": false
+          }
+        ]
+      }
+    },
+    {
+      "nombre": "e9689-9299",
+      "grupo": "E×SOP-9299",
+      "video_id": 9689,
+      "cita": {
+        "porcentaje": 83.33,
+        "conteo": {
+          "Cumple": 4,
+          "Parcial": 2,
+          "Falta": 0,
+          "Sobra": 3,
+          "zona_gris": 0
+        },
+        "pares_llm": 2,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 2,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.777,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.805,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5,
+              6,
+              7
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.888,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Parcial",
+            "originales": [
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.636,
+            "juez": "Parcial",
+            "justificacion": "El operador revisa el anillo de goma para detectar daños, lo cual coincide con el SOP. Sin embargo, omite la acción de retirar la carcasa y el cartucho usado.",
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              12,
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.796,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Parcial",
+            "originales": [
+              14
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.63,
+            "juez": "Parcial",
+            "justificacion": "El operador abrió la válvula lentamente, cumpliendo con la acción principal del SOP. No se menciona la revisión de fugas ni el uso de otros equipos.",
+            "rescatado": false
+          }
+        ]
+      },
+      "max_si_otro_idioma": {
+        "porcentaje": 91.67,
+        "conteo": {
+          "Cumple": 5,
+          "Parcial": 1,
+          "Falta": 0,
+          "Sobra": 0,
+          "zona_gris": 0
+        },
+        "pares_llm": 1,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 1,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.777,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.807,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5,
+              6
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.785,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Cumple",
+            "originales": [
+              8,
+              9,
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.843,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              11,
+              12,
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.901,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Parcial",
+            "originales": [
+              7
+            ],
+            "correcto": false,
+            "presente": true,
+            "coseno": 0.698,
+            "juez": "Parcial",
+            "justificacion": "El operador presiona el botón rojo para liberar aire, lo cual coincide con parte del SOP. Sin embargo, omite la verificación de fugas y la revisión de la junta.",
+            "rescatado": false
+          }
+        ]
+      }
+    },
+    {
+      "nombre": "e9691-9299",
+      "grupo": "E×SOP-9299",
+      "video_id": 9691,
+      "cita": {
+        "porcentaje": 83.33,
+        "conteo": {
+          "Cumple": 4,
+          "Parcial": 2,
+          "Falta": 0,
+          "Sobra": 4,
+          "zona_gris": 0
+        },
+        "pares_llm": 2,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 2,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.808,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.805,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5,
+              6,
+              7
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.894,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Parcial",
+            "originales": [
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.659,
+            "juez": "Parcial",
+            "justificacion": "El operador revisa el anillo de goma para detectar daños y decide si reemplazarlo. Omite la acción de retirar la carcasa y el cartucho usado.",
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              12,
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.798,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Parcial",
+            "originales": [
+              15
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.677,
+            "juez": "Parcial",
+            "justificacion": "El operador realiza la acción de purgar el aire con el botón rojo hasta que solo sale agua. Omite la acción de abrir la válvula lentamente y la verificación de fugas.",
+            "rescatado": false
+          }
+        ]
+      },
+      "max_si_otro_idioma": {
+        "porcentaje": 91.67,
+        "conteo": {
+          "Cumple": 5,
+          "Parcial": 1,
+          "Falta": 0,
+          "Sobra": 4,
+          "zona_gris": 0
+        },
+        "pares_llm": 1,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 1,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.808,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.807,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5,
+              6
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.795,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Cumple",
+            "originales": [
+              8,
+              9,
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.877,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              11,
+              12,
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.918,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Parcial",
+            "originales": [
+              17
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.708,
+            "juez": "Parcial",
+            "justificacion": "El operador menciona cerrar la válvula, liberar presión y revisar el anillo O. Omite la verificación inicial de la junta del guante y la conexión con la toalla de papel.",
+            "rescatado": false
+          }
+        ]
+      }
+    },
+    {
+      "nombre": "e8659-8158",
+      "grupo": "E×SOP-8158",
+      "video_id": 8659,
+      "cita": {
+        "porcentaje": 93.33,
+        "conteo": {
+          "Cumple": 14,
+          "Parcial": 0,
+          "Falta": 1,
+          "Sobra": 1,
+          "zona_gris": 0
+        },
+        "pares_llm": 2,
+        "juez": {
+          "Cumple": 2,
+          "Parcial": 0,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.789,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.82,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.803,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Cumple",
+            "originales": [
+              6
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.899,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              7
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.809,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Falta",
+            "originales": null,
+            "correcto": false,
+            "presente": true,
+            "coseno": null,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 7,
+            "estado": "Cumple",
+            "originales": [
+              9
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.724,
+            "juez": "Cumple",
+            "justificacion": "El operador extrae el cartucho viejo y lo deposita en la bolsa de residuos, cumpliendo exactamente con la instrucción del SOP.",
+            "rescatado": false
+          },
+          {
+            "paso_sop": 8,
+            "estado": "Cumple",
+            "originales": [
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.795,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 9,
+            "estado": "Cumple",
+            "originales": [
+              11
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.757,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 10,
+            "estado": "Cumple",
+            "originales": [
+              12
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.8,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 11,
+            "estado": "Cumple",
+            "originales": [
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.753,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 12,
+            "estado": "Cumple",
+            "originales": [
+              14
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.894,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 13,
+            "estado": "Cumple",
+            "originales": [
+              15
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.882,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 14,
+            "estado": "Cumple",
+            "originales": [
+              16
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.825,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 15,
+            "estado": "Cumple",
+            "originales": [
+              17
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.617,
+            "juez": "Cumple",
+            "justificacion": "El operador verifica la ausencia de fugas y realiza las acciones correctivas. Además, confirma que la guarda de presión lee hacia adelante.",
+            "rescatado": false
+          }
+        ]
+      },
+      "max_si_otro_idioma": {
+        "porcentaje": 100.0,
+        "conteo": {
+          "Cumple": 15,
+          "Parcial": 0,
+          "Falta": 0,
+          "Sobra": 0,
+          "zona_gris": 0
+        },
+        "pares_llm": 0,
+        "juez": {
+          "Cumple": 0,
+          "Parcial": 0,
+          "no_corresponde": 0,
+          "respaldo": 0
+        },
+        "rescatados": 0,
+        "filas": [
+          {
+            "paso_sop": 1,
+            "estado": "Cumple",
+            "originales": [
+              3
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.789,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 2,
+            "estado": "Cumple",
+            "originales": [
+              4
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.823,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 3,
+            "estado": "Cumple",
+            "originales": [
+              5
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.818,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 4,
+            "estado": "Cumple",
+            "originales": [
+              6
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.899,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 5,
+            "estado": "Cumple",
+            "originales": [
+              7
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.895,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 6,
+            "estado": "Cumple",
+            "originales": [
+              8
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.755,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 7,
+            "estado": "Cumple",
+            "originales": [
+              9
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.851,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 8,
+            "estado": "Cumple",
+            "originales": [
+              10
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.87,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 9,
+            "estado": "Cumple",
+            "originales": [
+              11
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.959,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 10,
+            "estado": "Cumple",
+            "originales": [
+              12
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.911,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 11,
+            "estado": "Cumple",
+            "originales": [
+              13
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.893,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 12,
+            "estado": "Cumple",
+            "originales": [
+              14
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.915,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 13,
+            "estado": "Cumple",
+            "originales": [
+              15
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.882,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 14,
+            "estado": "Cumple",
+            "originales": [
+              16
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.825,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          },
+          {
+            "paso_sop": 15,
+            "estado": "Cumple",
+            "originales": [
+              17
+            ],
+            "correcto": true,
+            "presente": true,
+            "coseno": 0.833,
+            "juez": null,
+            "justificacion": null,
+            "rescatado": false
+          }
+        ]
+      }
+    }
+  ]
+}

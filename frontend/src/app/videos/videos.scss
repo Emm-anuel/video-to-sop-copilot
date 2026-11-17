@@ -1,0 +1,308 @@
+// Tarjetas por defecto; desde 60 rem del propio componente, filas alineadas como una tabla
+// (container query, como la biblioteca: RNF-13). Todo lo que se toca mide al menos 36 px.
+:host {
+  display: grid;
+  gap: 1rem;
+  container-type: inline-size;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nota,
+.conteo {
+  color: #475467;
+  font-size: 0.9rem;
+}
+
+.conteo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+}
+
+button,
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #1f2a37;
+  background: #fff;
+  border: 1px solid #98a2b3;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.boton.principal {
+  padding: 0.45rem 1.25rem;
+  color: #fff;
+  background: #1f6feb;
+  border-color: #1f6feb;
+  font-weight: 600;
+}
+
+button.enlace {
+  padding: 0 0.25rem;
+  color: #175cd3;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filtro {
+  display: grid;
+  flex: 1 1 12rem;
+  min-width: 0;
+  gap: 0.25rem;
+  font-weight: 600;
+
+  input,
+  select {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.25rem;
+    padding: 0.4rem 0.6rem;
+    font: inherit;
+    font-weight: 400;
+    border: 1px solid #98a2b3;
+    border-radius: 0.3rem;
+    background: #fff;
+  }
+}
+
+.videos {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Tarjeta: título, y debajo un dato por línea; las acciones abajo, en varias líneas si no caben.
+.video {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 0.4rem;
+
+  > * {
+    min-width: 0;
+  }
+}
+
+.titulo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  font-weight: 600;
+  color: #175cd3;
+  overflow-wrap: anywhere;
+}
+
+.modo,
+.fecha,
+.imagenes,
+.publicado,
+.sop-titulo,
+.sin-dato,
+.detalle-error {
+  color: #475467;
+  font-size: 0.9rem;
+}
+
+.sop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+.sop-codigo {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.cumplimiento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.semaforo {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+}
+
+.semaforo-verde {
+  background: #12b76a;
+}
+
+.semaforo-amarillo {
+  background: #fdb022;
+}
+
+.semaforo-rojo {
+  background: #f04438;
+}
+
+.semaforo-texto {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.estado {
+  display: grid;
+  overflow-wrap: anywhere;
+}
+
+.proceso-error .estado-texto {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.proceso-afinidad_baja .estado-texto {
+  color: #93370d;
+  font-weight: 600;
+}
+
+.proceso-en_cola .estado-texto,
+.proceso-procesando .estado-texto {
+  color: #175cd3;
+}
+
+.publicado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.4rem;
+}
+
+.marca-publicado {
+  color: #067647;
+  font-weight: 600;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin-top: 0.35rem;
+}
+
+.aviso {
+  padding: 0.5rem 0.75rem;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 0.3rem;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+
+  &.conflicto {
+    color: #93370d;
+    background: #fffaeb;
+    border-color: #fec84b;
+  }
+
+  &.hecho {
+    color: #067647;
+    background: #ecfdf3;
+    border-color: #abefc6;
+  }
+}
+
+.error {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 0.75rem;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 0.3rem;
+}
+
+.vacia {
+  padding: 1.5rem;
+  text-align: center;
+  color: #475467;
+  background: #fff;
+  border: 1px dashed #b8c0ca;
+  border-radius: 0.4rem;
+}
+
+.cabecera {
+  display: none;
+}
+
+@container (min-width: 60rem) {
+  .cabecera,
+  .video {
+    display: grid;
+    grid-template-columns:
+      minmax(9rem, 2fr) 4.5rem minmax(8rem, 1.6fr) 7.5rem minmax(8rem, 1.4fr)
+      8.5rem 4.5rem 7rem;
+    gap: 0.25rem 0.75rem;
+    align-items: center;
+  }
+
+  .cabecera {
+    padding: 0 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .acciones,
+  .aviso {
+    grid-column: 1 / -1;
+  }
+
+  .acciones {
+    margin-top: 0;
+  }
+
+  .solo-tarjeta {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

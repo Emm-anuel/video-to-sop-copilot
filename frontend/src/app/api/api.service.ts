@@ -1,6 +1,9 @@
 import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
+import { RespuestaBusqueda } from './busqueda';
+import { OpcionesBusqueda } from './busqueda-opciones';
+import { EstadoPublicacion } from './publicacion';
 import { ReporteValidacion } from './reporte-validacion';
 import { SOP } from './sop';
 import {
@@ -14,6 +17,10 @@ import {
   SopResumen,
   VideoCreado,
 } from './tipos';
+import { VideoResumen } from './video-resumen';
+
+/** Los archivos de la transcripción que entrega `GET /videos/{id}/download/{tipo}` (RF-31). */
+export type TipoDescarga = 'txt' | 'srt' | 'json';
 
 /** Prefijo que el proxy de `ng serve` reenvía a la API sin `/api` (proxy.conf.json). */
 export const API = '/api';
@@ -30,6 +37,13 @@ export interface CamposVideo {
    * casilla gana sobre `FOTOGRAMAS_DESCRIBIR` de la instalación.
    */
   analizarImagenes: boolean;
+}
+
+/** El cuerpo de `POST /buscar` (RF-33, RF-37): los filtros se combinan; sin ellos, en todo. */
+export interface PedidoBusqueda {
+  consulta: string;
+  videoId?: number;
+  sopId?: number;
 }
 
 /** Cliente de la API de SOPVID (rutas en docs/dev/api.md). */
@@ -137,12 +151,14 @@ export class ApiService {
 
   /**
    * Si el archivo del video está en la API: pide solo su primer byte (`Range: bytes=0-0`, 206).
-   * Sirve para distinguir un formato que el navegador no reproduce de un archivo que falta.
+   * Sirve para distinguir un formato que el navegador no reproduce de un archivo que falta. `k`:
+   * el token del enlace del PDF (`/v/:id`, ADR-027), si el video se abrió con él.
    */
-  videoDisponible(id: number): Observable<boolean> {
+  videoDisponible(id: number, k: string | null = null): Observable<boolean> {
     return this.http
       .get(`${API}/videos/${id}/video`, {
         headers: { Range: 'bytes=0-0' },
+        params: k ? { k } : {},
         responseType: 'blob',
       })
       .pipe(
@@ -167,6 +183,79 @@ export class ApiService {
   /** La URL del TXT de la transcripción, para descargarlo tal como va. */
   urlTranscripcion(id: number): string {
     return `${API}/videos/${id}/transcripcion.txt`;
+  }
+
+  /**
+   * `GET /videos/{id}/download/{tipo}` (RF-31): la transcripción completa como adjunto, con el
+   * título como nombre del archivo. Para un enlace `download`, no para pedirla con `HttpClient`.
+   */
+  urlDescarga(id: number, tipo: TipoDescarga): string {
+    return `${API}/videos/${id}/download/${tipo}`;
+  }
+
+  /**
+   * `GET /videos/{id}/pdf` (§11): el PDF del reporte (modo validar, RF-29) o del SOP generado
+   * (modo generar, RF-30), como adjunto. Para un enlace `download`.
+   */
+  urlPdfVideo(id: number): string {
+    return `${API}/videos/${id}/pdf`;
+  }
+
+  /**
+   * `GET /sops/{id}/pdf`: el PDF de un SOP de la biblioteca (RF-30), el guardado. Como adjunto o,
+   * con `ver`, `inline` para abrirlo en otra pestaña ("Ver SOP" de la búsqueda).
+   */
+  urlPdfSop(id: number, opciones: { ver?: boolean } = {}): string {
+    return `${API}/sops/${id}/pdf${opciones.ver ? '?ver=true' : ''}`;
+  }
+
+  /**
+   * `GET /videos` (pantalla 6): todos los videos, del más reciente al más antiguo, con su SOP,
+   * cumplimiento y semáforo (solo con reporte) y si están publicados. Los filtros de la pantalla
+   * se aplican en el navegador: así el refresco es una sola consulta.
+   */
+  listarVideos(): Observable<VideoResumen[]> {
+    return this.http.get<VideoResumen[]>(`${API}/videos`);
+  }
+
+  /** `POST /videos/{id}/publicar` (RF-32): lo indexa en la búsqueda exacta; 409 si no está listo. */
+  publicar(id: number): Observable<EstadoPublicacion> {
+    return this.http.post<EstadoPublicacion>(`${API}/videos/${id}/publicar`, null);
+  }
+
+  /** `DELETE /videos/{id}/publicar`: lo quita de la búsqueda (en cualquier estado). */
+  despublicar(id: number): Observable<EstadoPublicacion> {
+    return this.http.delete<EstadoPublicacion>(`${API}/videos/${id}/publicar`);
+  }
+
+  /**
+   * `POST /buscar` (RF-33 a RF-35, RF-37): la palabra o frase exacta en los videos publicados.
+   * 400 si la consulta no tiene palabras (vacía o solo signos).
+   */
+  buscar(pedido: PedidoBusqueda): Observable<RespuestaBusqueda> {
+    const cuerpo: { consulta: string; video_id?: number; sop_id?: number } = {
+      consulta: pedido.consulta,
+    };
+    if (pedido.videoId !== undefined) {
+      cuerpo.video_id = pedido.videoId;
+    }
+    if (pedido.sopId !== undefined) {
+      cuerpo.sop_id = pedido.sopId;
+    }
+    return this.http.post<RespuestaBusqueda>(`${API}/buscar`, cuerpo);
+  }
+
+  /** `GET /buscar/opciones` (RF-37): videos publicados y SOP con al menos uno, para los filtros. */
+  opcionesBusqueda(): Observable<OpcionesBusqueda> {
+    return this.http.get<OpcionesBusqueda>(`${API}/buscar/opciones`);
+  }
+
+  /**
+   * Una ruta de la API tal como la devuelve ella (p. ej. la `miniatura` de un resultado de
+   * búsqueda, `/videos/5/thumb?t=12.34`) con el prefijo del proxy.
+   */
+  urlDeRuta(ruta: string): string {
+    return `${API}${ruta.startsWith('/') ? '' : '/'}${ruta}`;
   }
 
   /** `GET /health`: estado de la API y dónde corre cada modelo (`dispositivos`, ADR-018). */

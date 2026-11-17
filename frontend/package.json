@@ -7,8 +7,11 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "tipos": "json2ts --input ../docs/contrato/reporte.schema.json --output src/app/api/reporte-validacion.ts --bannerComment \"/* Generado desde docs/contrato/reporte.schema.json con `npm run tipos`. No editar a mano. */\" --additionalProperties false && npm run tipos:sop",
-    "tipos:sop": "json2ts --input ../docs/contrato/sop.schema.json --output src/app/api/sop.ts --bannerComment \"/* Generado desde docs/contrato/sop.schema.json con `npm run tipos:sop`. No editar a mano. */\" --additionalProperties false"
+    "tipos": "json2ts --input ../docs/contrato/reporte.schema.json --output src/app/api/reporte-validacion.ts --bannerComment \"/* Generado desde docs/contrato/reporte.schema.json con `npm run tipos`. No editar a mano. */\" --additionalProperties false && npm run tipos:sop && npm run tipos:videos && npm run tipos:publicacion && npm run tipos:busqueda",
+    "tipos:sop": "json2ts --input ../docs/contrato/sop.schema.json --output src/app/api/sop.ts --bannerComment \"/* Generado desde docs/contrato/sop.schema.json con `npm run tipos:sop`. No editar a mano. */\" --additionalProperties false",
+    "tipos:videos": "json2ts --input ../docs/contrato/video_resumen.schema.json --output src/app/api/video-resumen.ts --bannerComment \"/* Generado desde docs/contrato/video_resumen.schema.json con `npm run tipos:videos`. No editar a mano. */\" --additionalProperties false",
+    "tipos:publicacion": "json2ts --input ../docs/contrato/publicacion.schema.json --output src/app/api/publicacion.ts --bannerComment \"/* Generado desde docs/contrato/publicacion.schema.json con `npm run tipos:publicacion`. No editar a mano. */\" --additionalProperties false",
+    "tipos:busqueda": "json2ts --input ../docs/contrato/busqueda.schema.json --output src/app/api/busqueda.ts --bannerComment \"/* Generado desde docs/contrato/busqueda.schema.json con `npm run tipos:busqueda`. No editar a mano. */\" --additionalProperties false && json2ts --input ../docs/contrato/busqueda_opciones.schema.json --output src/app/api/busqueda-opciones.ts --bannerComment \"/* Generado desde docs/contrato/busqueda_opciones.schema.json con `npm run tipos:busqueda`. No editar a mano. */\" --additionalProperties false"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "SopDeVideo": {
+      "additionalProperties": false,
+      "description": "El SOP de un video en la lista: el de referencia (validar) o el generado (generar).\n`titulo` es None mientras el SOP se convierte o se redacta.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "codigo": {
+          "title": "Codigo",
+          "type": "string"
+        },
+        "titulo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Titulo"
+        }
+      },
+      "required": [
+        "id",
+        "codigo"
+      ],
+      "title": "SopDeVideo",
+      "type": "object"
+    },
+    "VideoPublicado": {
+      "additionalProperties": false,
+      "description": "Un video del selector de `/buscar`: publicado, con su SOP (de referencia o generado).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "titulo": {
+          "title": "Titulo",
+          "type": "string"
+        },
+        "sop_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sop Id"
+        }
+      },
+      "required": [
+        "id",
+        "titulo"
+      ],
+      "title": "VideoPublicado",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`GET /buscar/opciones` (RF-37): los videos publicados (el más reciente primero) y los SOP\ncon al menos un video publicado (por código).",
+  "properties": {
+    "videos": {
+      "items": {
+        "$ref": "#/$defs/VideoPublicado"
+      },
+      "title": "Videos",
+      "type": "array"
+    },
+    "sops": {
+      "items": {
+        "$ref": "#/$defs/SopDeVideo"
+      },
+      "title": "Sops",
+      "type": "array"
+    }
+  },
+  "required": [
+    "videos",
+    "sops"
+  ],
+  "title": "OpcionesBusqueda",
+  "type": "object"
+}

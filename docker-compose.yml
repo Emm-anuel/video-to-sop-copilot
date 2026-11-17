@@ -51,6 +51,9 @@ services:
       WHISPER_COMPUTE_TYPE: auto
       # Videos subidos, audio y TXT (material del cliente): en el volumen "media", no en la imagen.
       MEDIA_DIR: /app/media
+      # Zona horaria de las fechas de los PDF (RF-29, RF-30). Sin ella el contenedor usa UTC y un
+      # reporte de las 23:12 saldría con la fecha del día siguiente. En el host manda la del equipo.
+      TZ: ${TZ:-America/Mexico_City}
     volumes:
       - modelos:/app/models
       - media:/app/media

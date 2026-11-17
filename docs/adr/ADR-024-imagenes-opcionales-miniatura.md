@@ -208,6 +208,14 @@ atribuir la falla de la §14 a la opción; es el problema de #11 (errores de Whi
 estimados) y 108.5 s en CPU (18.1 s por imagen, 64 s estimados). La estimación se queda corta
 (#17); la medición del 11 nov daba el extra neto, no la etapa.
 
+**Alcance de la evidencia de E (15 nov).** La pista de imagen de E son dibujos sintéticos (cuadros
+y círculos), no una grabación. Por eso el resultado con imágenes en E (22 elementos en
+`equipo_operacion` del SOP 9298 contra 16 del SOP 9299, y la §14 fallada en E·1) no generaliza a un
+video real; tampoco se usa E para sacar conclusiones sobre imágenes. La evidencia de que las
+descripciones inventan se sostiene con C, que sí es una grabación real ("brazo mecánico" en 2 de 6
+descripciones; 6 de sus 15 equipos vienen solo de las imágenes). La decisión de dejar la opción
+apagada no cambia.
+
 **Conclusión:** las descripciones no aportan datos a la ficha **y además inventan** objetos que
 llegan al SOP generado. La opción sigue apagada por defecto y la demo del modo generar va sin
 imágenes (decisión del 13 nov, plan §2).

@@ -112,6 +112,8 @@ export interface EstadoVideo {
    */
   imagenes_hechas?: number | null;
   imagenes_total?: number | null;
+  /** Si está en la búsqueda exacta (RF-32). */
+  publicado?: boolean;
 }
 
 /** `GET /health` (docs/dev/api.md): lo que usa la pantalla Procesando. */
@@ -128,6 +130,8 @@ export interface Salud {
     embedder: string;
     avisos: string[];
   };
+  /** Configuración de acceso (ADR-027): vista abierta por clave vacía, enlaces sin firma. */
+  avisos?: string[];
 }
 
 /** Un SOP de la biblioteca en `GET /sops` (RF-05): listo y guardado en ella. */
