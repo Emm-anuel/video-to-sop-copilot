@@ -1,4 +1,4 @@
-# Estado del proyecto · 15 nov 2026
+# Estado del proyecto · 16 nov 2026
 
 Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md).
 
@@ -13,7 +13,48 @@ Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md)
 - **17 oct:** se reescribió el plan para la versión 1.0 del documento (validar video contra SOP,
   generar SOP y búsqueda exacta). Decisiones en [plan.md §2](plan.md#2-decisiones).
 
-## Semana 6 (16–22 nov) · en curso
+## Semana 6 (16–22 nov) · cierre del 16 nov
+
+**Meta de la semana ("App completa", Docker en máquina limpia, RNF-01 a 07): no cumplida.** La
+app corre completa en Docker en el equipo de Emmanuel, pero falta la prueba en una máquina limpia
+(instalar desde cero con el guion de la demo). Esa prueba pasa a S7, en una rama propia que sale
+de `main`.
+
+**Qué entró** (rama `feat/s6`, todo a nombre de Emmanuel):
+
+| RF / issue | Qué | Commit |
+|---|---|---|
+| #11 | La cita en otro idioma ya no hunde el coseno del paso del video (ADR-026, Propuesto; detalle abajo) | `7261ec4` |
+| RF-32, 33 · #24, #29 | `GET /videos` con filtros, publicar y quitar de la búsqueda, índice en `palabras` (migración `0008`) | `1cfccb3` |
+| RF-34, 35, 37 · #25, #26, #28 | `POST /buscar`: frase exacta con su segundo y miniatura, unión a 3 s, filtros por SOP o video | `c1f3dcf` |
+| RF-31 · #23 | Descargas de la transcripción en TXT, SRT y JSON | `3a1f940` |
+| RF-29, 30 · #21, #22 | PDF del reporte y del SOP con QR al segundo (`/v/<id>?t=`) | `c3d1aa5` |
+| RF-36 y pantallas · #27, #28, #29 | `/videos` (publicar, descargas con el PDF) y `/buscar` (chat, filtros, video al segundo) | `1cf31ff` |
+| §11, RNF-10, 11 · #30 | Clave de acceso por vista (encabezado o cookie de sesión), enlace firmado para los QR, pantalla `/acceso` (ADR-027, Propuesto) | `f366905` |
+
+**Lo medido** (sin mediciones nuevas, tabla en [rnf-s6.md](../adr/datos/s6/rnf-s6.md)):
+
+- **Cumplen:** RNF-01 con GPU (peor caso 2.9 min estimados para 10 min; 3.4–3.9 min con la carga
+  de MiniLM del primer video), RNF-02 (p95 de 19.5 y 32.5 ms con 50 videos), RNF-03 (±1 s en la
+  búsqueda y en los QR), RNF-05 (E 15/15 por tramos) y RNF-07 con la segmentación guardada.
+- **No cumplen:** RNF-01 sin GPU (~21 min para 10 min).
+- **Sin medir:** RNF-04 (falta correr la calibración contra la anotación a mano) y RNF-06 (sin
+  porcentaje; con imágenes prendidas no cumple, #16).
+- **Regresión al cierre** (16 nov, `f366905`): pytest 1927, ruff, `ng build` y 287 pruebas del
+  frontend en verde; MVP con Ollama en GPU: A 3/3 en verde sin *Falta*, B 3/3 con *Falta* en 2 y 6
+  ([informe](../adr/datos/mvp/mvp-20261116-2156.md)).
+
+**Riesgos abiertos:**
+
+- **E en modo generar deja un valor sin traducir** en 1 de 3 corridas (#32): falla la §14 y es un
+  riesgo para la demo del modo generar.
+- **El juez con el par equivocado en SOP-9299:** el paso 6 queda en *Parcial* con la cita y el
+  segundo de otro tramo (2 de 2 segmentaciones afectadas; #14).
+- **ADR-026 sigue Propuesto** hasta probarlo con otro narrador en otro idioma (#33).
+- **Sin límite de intentos en `POST /acceso`:** solo 1 s de espera ante una clave equivocada;
+  con las claves cortas de la demo es el riesgo que queda (#30, ADR-027).
+
+**Detalle de #11:**
 
 - **#11 cerrado (15 nov), [ADR-026](../adr/ADR-026-texto-vectorizado-paso-video.md) (Propuesto).**
   La cita en inglés hundía el coseno del paso del video: la causa es el idioma, no el ruido de
@@ -220,7 +261,7 @@ RAM, SSD con ~199 GB libres, Windows 11, WSL2 y Docker 29.8.
 | Dom 1 nov | ✓ Avance 5 |
 | Dom 8 nov | **MVP de validación**: video + SOP en Markdown → reporte con segundo; pasan los videos A y B ([plan §5.1](plan.md#51-mvp-de-validación-hito-del-8-nov)). La lógica cumple; falta la pantalla del reporte (RF-20) |
 | Dom 15 nov | ✓ SOP generado, personas, tiempos y afinidad: pasan los videos C, D y E (medido el 13 nov con GPU y las pantallas de S5: A–E pasan 14/14) |
-| Dom 22 nov | App completa en Docker en máquina limpia (meta de S6) |
+| Dom 22 nov | App completa en Docker en máquina limpia (meta de S6): **no cumplida** al cierre del 16 nov. Las funciones de S6 entraron; la prueba en máquina limpia pasa a S7, en una rama propia |
 
 ## Resumen en dos frases
 

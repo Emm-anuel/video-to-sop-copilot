@@ -117,8 +117,8 @@ docs/
   arquitectura/, literatura/
 ```
 
-> Estado al 14 nov 2026, inicio de la semana 6 en la rama `feat/s6` (resumen semanal en
-> `docs/plan/estado.md`):
+> Estado al 16 nov 2026, cierre de la semana 6: `feat/s6` unida a `main`, etiqueta `s6-cierre`
+> (resumen semanal en `docs/plan/estado.md`):
 > - **En `main`:** andamiaje F0 (API con `GET /health`, Postgres + pgvector vía Alembic, tests, CI) y
 >   `features/` para los avances 1 y 2 con sus notebooks.
 > - **De `feat/llm-spike`, ya fusionada en `main` (merge `936af6f`):** cliente del LLM (`lenguaje/llm.py`), servicio Ollama
@@ -254,39 +254,24 @@ docs/
 >   **la demo del modo generar va sin imágenes** (13 nov); la estimación de imágenes se queda corta (#17); el SOP
 >   convertido no se puede marcar revisado sin editarlo (#18); sin GPU, Nuevo no avisa del tiempo
 >   total y la subida no reanuda sola al volver la red (#19).
-> - **Semana 6 (16–22 nov, rama `feat/s6`, sale de `main` en `ef9e60e`; plan §6):** todo a
->   nombre de Emmanuel; Sara no participa en S6 y RF-31 a 37 pasaron a Emmanuel el 14 nov
->   (registro de decisiones). **Con código:**
->   - RF-32 y RF-33 (`1cfccb3`, #24, #29): `GET /videos` con filtros, `POST`/`DELETE
->     /videos/{id}/publicar` e índice en `palabras` (`lenguaje/busqueda.py`, migración `0008`
->     con `publicado_en`; la normalización es `texto.forma_busqueda`).
->   - RF-34, RF-35 y RF-37 en la API (`c1f3dcf`, #25, #26, #28): `POST /buscar` con frase
->     exacta, segundo y miniatura, unión a `BUSQUEDA_UNIR_S` y filtros por SOP o video.
->   - RF-31 (`3a1f940`, #23): `GET /videos/{id}/download/{txt|srt|json}` (`salidas/transcripcion.py`)
->     y el menú `descargas` del frontend.
->   - RF-29 y RF-30 (#21, #22): `salidas/pdf.py` (ReportLab, QR de reportlab, DejaVu Sans
->     embebida), `GET /videos/{id}/pdf` según el modo y `GET /sops/{id}/pdf`; los QR van a
->     `<APP_URL_PUBLICA>/v/<id>?t=` (`frontend/src/app/ver/`, que lleva al reporte o al editor
->     con `?t=`); fechas con `TZ` en Docker. Verificación en `docs/adr/datos/s6/pdf/verificacion.md`
->     (los PDF no se versionan; se regeneran con `GET /videos/{id}/pdf`).
->
->   - Pantallas `/videos` y `/buscar` (16 nov, #27, #28, #29): `/videos` (`frontend/src/app/videos/`,
->     una sola `GET /videos` con filtros en el navegador, refresco cada 3 s mientras haya videos en
->     proceso, "Publicar"/"Quitar de la búsqueda" y descargas con el PDF) y `/buscar`
->     (`frontend/src/app/buscar/`, chat con historial en `sessionStorage`, filtros por SOP y video,
->     resaltado por rango y el reproductor del reporte extraído a `frontend/src/app/reproductor/`).
->     `/buscar` no lleva el menú de carga; la separación de verdad llega con la clave (#30).
->     `publicado` en `GET /videos/{id}` y `GET /sops/{id}/pdf?ver=true` (inline).
->
->   **Sin código todavía:** Docker en máquina limpia y RNF-01 a 07.
->   **#11 cerrado (15 nov, ADR-026, Propuesto):** `EMPAREJAR_TEXTO=max_si_otro_idioma` por
->   defecto (`cita` de respaldo) y `SOP_IDIOMA=es`: si la transcripción no está en el idioma del
->   SOP, cada par toma el mayor coseno con y sin la cita (la causa era el idioma, no el ruido de
->   Whisper). E contra su SOP pasa de 93.33 % a 100 % sin juez; A–D, en español, idénticos. Pendientes
->   en S7: el juez deja con el par equivocado el paso 6 de SOP-9299 (#14) y otro narrador en otro
->   idioma para aceptar el ADR (#33). Medición: `diagnosticar_emparejamiento.py --variantes-texto`.
->   **Si alcanza:** juicios del juez guardados, #20 y RF-35. **Pasan a S7:** afinidad estable entre
->   corridas (ADR-024), #12, #16 a #19, recalibrar `SEG_IMAGEN_*` y el remux de AVI.
+> - **Semana 6 (16–22 nov, cierre del 16 nov, unida a `main`):** todo a nombre de Emmanuel.
+>   - #11 (`7261ec4`, ADR-026 Propuesto): `EMPAREJAR_TEXTO=max_si_otro_idioma` y `SOP_IDIOMA=es`;
+>     si la transcripción no está en el idioma del SOP, cada par toma el mayor coseno con y sin la cita.
+>   - RF-32, 33 (`1cfccb3`): `GET /videos`, publicar e índice en `palabras` (migración `0008`,
+>     `texto.forma_busqueda`). RF-34, 35, 37 (`c1f3dcf`): `POST /buscar`. RF-31 (`3a1f940`): TXT,
+>     SRT y JSON. RF-29, 30 (`c3d1aa5`): `salidas/pdf.py`, QR a `/v/<id>?t=&k=`. RF-36 y pantallas
+>     `/videos` y `/buscar` (`1cf31ff`; reproductor compartido en `frontend/src/app/reproductor/`).
+>   - Clave de acceso por vista (`f366905`, #30, ADR-027 Propuesto): `CLAVE_CARGA`,
+>     `CLAVE_BUSQUEDA` y `SECRETO_ENLACES` solo en `.env` (vacía = vista abierta); dependencias por
+>     router en `plataforma/api/acceso.py`, encabezado `X-Clave-Acceso` o cookie de `POST /acceso`;
+>     `/v/:id` con token firmado; frontend `/acceso`, guard e interceptor (`frontend/src/app/acceso/`).
+>     `tests/conftest.py` deja las claves vacías.
+>   - RNF-01 a 07 desde los informes existentes: `docs/adr/datos/s6/rnf-s6.md` (RNF-04 y 06 sin
+>     medir; RNF-01 sin GPU no cumple). MVP al cierre: A 3/3, B 3/3.
+>   - **Meta no cumplida:** falta Docker en máquina limpia; pasa a S7 en una rama propia desde
+>     `main`. También a S7: juicios guardados (#31), #20, valor sin traducir de E (#32), afinidad
+>     estable, #12, #14 (juez con el par equivocado en SOP-9299), #16 a #19, `SEG_IMAGEN_*`, remux
+>     de AVI, límite de intentos en `/acceso` (#30) y otro narrador para ADR-026 (#33).
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
