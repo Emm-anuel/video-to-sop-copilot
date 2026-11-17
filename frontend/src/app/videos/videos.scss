@@ -2,7 +2,7 @@
 // (container query, como la biblioteca: RNF-13). Todo lo que se toca mide al menos 36 px.
 :host {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
   container-type: inline-size;
 }
 
@@ -21,7 +21,7 @@ p {
 
 .nota,
 .conteo {
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.9rem;
 }
 
@@ -41,10 +41,12 @@ button,
   padding: 0.35rem 0.75rem;
   font: inherit;
   font-size: 0.9rem;
-  color: #1f2a37;
-  background: #fff;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
+  font-weight: 500;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
+  box-shadow: var(--sombra-1);
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
@@ -57,17 +59,19 @@ button,
 
 .boton.principal {
   padding: 0.45rem 1.25rem;
-  color: #fff;
-  background: #1f6feb;
-  border-color: #1f6feb;
+  color: var(--blanco);
+  background: var(--acento);
+  border-color: var(--acento-2);
+  box-shadow: var(--sombra-acento);
   font-weight: 600;
 }
 
 button.enlace {
   padding: 0 0.25rem;
-  color: #175cd3;
+  color: var(--acento-2);
   background: none;
   border: 0;
+  box-shadow: none;
   text-decoration: underline;
 }
 
@@ -75,14 +79,24 @@ button.enlace {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  padding: 0.9rem 1rem 1rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
 }
 
 .filtro {
   display: grid;
   flex: 1 1 12rem;
   min-width: 0;
-  gap: 0.25rem;
-  font-weight: 600;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
 
   input,
   select {
@@ -90,11 +104,14 @@ button.enlace {
     min-width: 0;
     min-height: 2.25rem;
     padding: 0.4rem 0.6rem;
-    font: inherit;
+    font-family: var(--texto);
+    font-size: 1rem;
     font-weight: 400;
-    border: 1px solid #98a2b3;
-    border-radius: 0.3rem;
-    background: #fff;
+    letter-spacing: 0;
+    text-transform: none;
+    border: 1px solid var(--linea-2);
+    border-radius: var(--r1);
+    background: var(--sup);
   }
 }
 
@@ -111,10 +128,21 @@ button.enlace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.25rem;
-  padding: 0.75rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.4rem;
+  padding: 0.85rem 1rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.2s,
+    transform 0.2s;
+
+  &:hover {
+    border-color: var(--acento-ln);
+    box-shadow: var(--sombra-2);
+    transform: translateY(-1px);
+  }
 
   > * {
     min-width: 0;
@@ -125,9 +153,17 @@ button.enlace {
   display: inline-flex;
   align-items: center;
   min-height: 2.25rem;
-  font-weight: 600;
-  color: #175cd3;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--tinta);
+  text-decoration: none;
   overflow-wrap: anywhere;
+
+  &:hover {
+    color: var(--acento);
+    text-decoration: underline;
+  }
 }
 
 .modo,
@@ -137,7 +173,7 @@ button.enlace {
 .sop-titulo,
 .sin-dato,
 .detalle-error {
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.9rem;
 }
 
@@ -149,8 +185,10 @@ button.enlace {
 }
 
 .sop-codigo {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--acento-2);
 }
 
 .cumplimiento {
@@ -158,7 +196,8 @@ button.enlace {
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-weight: 500;
 }
 
 .semaforo {
@@ -169,21 +208,25 @@ button.enlace {
 }
 
 .semaforo-verde {
-  background: #12b76a;
+  background: var(--verde-vivo);
+  box-shadow: 0 0 0 3px var(--verde-bg);
 }
 
 .semaforo-amarillo {
-  background: #fdb022;
+  background: var(--ambar-vivo);
+  box-shadow: 0 0 0 3px var(--ambar-bg2);
 }
 
 .semaforo-rojo {
-  background: #f04438;
+  background: var(--rojo-vivo);
+  box-shadow: 0 0 0 3px var(--rojo-bg);
 }
 
 .semaforo-texto {
-  font-size: 0.85rem;
+  font-size: 0.7rem;
+  color: var(--tinta-3);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .estado {
@@ -192,18 +235,18 @@ button.enlace {
 }
 
 .proceso-error .estado-texto {
-  color: #b42318;
+  color: var(--rojo);
   font-weight: 600;
 }
 
 .proceso-afinidad_baja .estado-texto {
-  color: #93370d;
+  color: var(--ambar);
   font-weight: 600;
 }
 
 .proceso-en_cola .estado-texto,
 .proceso-procesando .estado-texto {
-  color: #175cd3;
+  color: var(--acento-2);
 }
 
 .publicado {
@@ -213,7 +256,7 @@ button.enlace {
 }
 
 .marca-publicado {
-  color: #067647;
+  color: var(--verde);
   font-weight: 600;
 }
 
@@ -227,23 +270,23 @@ button.enlace {
 
 .aviso {
   padding: 0.5rem 0.75rem;
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fda29b;
-  border-radius: 0.3rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-radius: var(--r1);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
 
   &.conflicto {
-    color: #93370d;
-    background: #fffaeb;
-    border-color: #fec84b;
+    color: var(--ambar);
+    background: var(--ambar-bg);
+    border-color: var(--ambar-ln);
   }
 
   &.hecho {
-    color: #067647;
-    background: #ecfdf3;
-    border-color: #abefc6;
+    color: var(--verde);
+    background: var(--verde-bg);
+    border-color: var(--verde-ln);
   }
 }
 
@@ -252,19 +295,19 @@ button.enlace {
   gap: 0.5rem;
   justify-items: start;
   padding: 0.75rem;
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fda29b;
-  border-radius: 0.3rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-radius: var(--r1);
 }
 
 .vacia {
   padding: 1.5rem;
   text-align: center;
-  color: #475467;
-  background: #fff;
-  border: 1px dashed #b8c0ca;
-  border-radius: 0.4rem;
+  color: var(--tinta-2);
+  background: var(--sup);
+  border: 1.5px dashed var(--linea-2);
+  border-radius: var(--r2);
 }
 
 .cabecera {
@@ -283,9 +326,13 @@ button.enlace {
   }
 
   .cabecera {
-    padding: 0 0.75rem;
-    font-size: 0.9rem;
-    font-weight: 600;
+    padding: 0 1rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
   }
 
   .acciones,

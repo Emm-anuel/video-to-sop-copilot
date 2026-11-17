@@ -12,7 +12,8 @@ h1 {
   overflow-wrap: anywhere;
 
   .titulo {
-    font-weight: 400;
+    font-weight: 450;
+    color: var(--tinta-2);
   }
 }
 
@@ -29,15 +30,18 @@ p {
   display: grid;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
   min-width: 0;
 }
 
 .etapa-actual {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-family: var(--display);
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .porcentaje {
@@ -48,14 +52,16 @@ p {
   progress {
     flex: 1;
     min-width: 0;
-    height: 1rem;
+    height: 0.8rem;
   }
 
   .cifra {
     min-width: 3.5rem;
     text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--acento-2);
   }
 }
 
@@ -64,7 +70,7 @@ p {
 }
 
 .nota {
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.9rem;
 }
 
@@ -80,7 +86,12 @@ p {
   }
 
   dt {
-    color: #475467;
+    color: var(--tinta-3);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    align-self: center;
 
     &::after {
       content: ':';
@@ -96,18 +107,20 @@ p {
 
 .aviso {
   padding: 0.6rem 0.75rem;
-  color: #93370d;
-  background: #fffaeb;
-  border: 1px solid #fec84b;
-  border-radius: 0.3rem;
+  color: var(--ambar);
+  background: var(--ambar-bg);
+  border: 1px solid var(--ambar-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
 }
 
 .error {
   padding: 0.6rem 0.75rem;
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fda29b;
-  border-radius: 0.3rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
   overflow-wrap: anywhere;
 }
 
@@ -126,10 +139,12 @@ button,
   padding: 0.35rem 0.75rem;
   font: inherit;
   font-size: 0.9rem;
-  color: #1f2a37;
-  background: #fff;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
+  font-weight: 500;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
+  box-shadow: var(--sombra-1);
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
@@ -146,15 +161,16 @@ button,
 
 button.principal {
   padding: 0.45rem 1.25rem;
-  color: #fff;
-  background: #1f6feb;
-  border-color: #1f6feb;
+  color: var(--blanco);
+  background: var(--acento);
+  border-color: var(--acento-2);
+  box-shadow: var(--sombra-acento);
   font-weight: 600;
 }
 
 .etapas {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.15rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -165,58 +181,84 @@ button.principal {
   grid-template-columns: 1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.6rem;
-  min-height: 2.25rem;
-  padding: 0 0.5rem;
-  border-radius: 0.3rem;
+  position: relative;
+  min-height: 2.4rem;
+  padding: 0 0.6rem;
+  border-radius: var(--r1);
+  transition: background-color 0.3s;
+
+  // Línea de tiempo: une cada marca con la siguiente.
+  &:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: calc(0.6rem + 0.375rem - 1px);
+    top: calc(50% + 0.5rem);
+    width: 2px;
+    height: calc(100% - 0.85rem);
+    background: var(--linea);
+  }
+
+  &.hecha:not(:last-child)::before {
+    background: var(--verde-ln);
+  }
 
   .marca {
+    position: relative;
     width: 0.75rem;
     height: 0.75rem;
-    border: 2px solid #98a2b3;
+    background: var(--sup);
+    border: 2px solid var(--linea-2);
     border-radius: 50%;
   }
 
   .estado {
-    color: #475467;
-    font-size: 0.85rem;
+    color: var(--tinta-3);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   &.hecha .marca {
-    background: #12b76a;
-    border-color: #12b76a;
+    background: var(--verde-vivo);
+    border-color: var(--verde-vivo);
   }
 
   &.en_curso {
-    background: #eff4ff;
+    background: var(--acento-bg);
     font-weight: 600;
 
+    .estado {
+      color: var(--acento-2);
+    }
+
     .marca {
-      border-color: #1f6feb;
+      border-color: var(--acento);
       border-top-color: transparent;
       animation: girar 1s linear infinite;
     }
   }
 
   &.fallo {
-    background: #fef3f2;
+    background: var(--rojo-bg);
 
     .marca {
-      background: #d92d20;
-      border-color: #d92d20;
+      background: var(--rojo-vivo);
+      border-color: var(--rojo-vivo);
     }
 
     .estado {
-      color: #b42318;
+      color: var(--rojo);
     }
   }
 
   &.detenida .marca {
-    background: #f79009;
-    border-color: #f79009;
+    background: var(--ambar-vivo);
+    border-color: var(--ambar-vivo);
   }
 
   &.pendiente .nombre {
-    color: #667085;
+    color: var(--tinta-3);
   }
 }
 
@@ -249,13 +291,16 @@ button.principal {
   margin: 0;
   padding: 0.75rem;
   overflow: auto;
-  font-size: 0.85rem;
-  line-height: 1.45;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: #f9fafb;
-  border: 1px solid #eaecf0;
-  border-radius: 0.3rem;
+  color: var(--tinta-2);
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: var(--r1);
+  scrollbar-width: thin;
 }
 
 @container (min-width: 40rem) {

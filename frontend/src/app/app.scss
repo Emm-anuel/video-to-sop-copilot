@@ -1,25 +1,54 @@
+// Barra de la vista de carga: azul de plano con retícula (`--plano`, styles.scss), la marca con
+// su sello y el menú con la pestaña activa subrayada.
 .barra {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem 1rem;
-  padding: 0.5rem 1.5rem;
-  background: #1f2a37;
-  color: #fff;
+  padding: 0.6rem 1.5rem;
+  color: var(--blanco);
+  background: var(--plano);
+  border-bottom: 1px solid rgb(157 184 255 / 0.35);
+  box-shadow: 0 1px 12px rgb(10 22 61 / 0.25);
 }
 
 .marca {
   display: inline-flex;
   align-items: center;
+  gap: 0.55rem;
   min-height: 2.25rem;
   color: inherit;
+  font-family: var(--display);
+  font-size: 1.2rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
   text-decoration: none;
+
+  &::before {
+    content: '';
+    width: 1.7rem;
+    height: 1.7rem;
+    background: var(--sello) center / contain no-repeat;
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  &:hover {
+    color: inherit;
+
+    &::before {
+      transform: rotate(-8deg) scale(1.06);
+    }
+  }
 }
 
 .lema {
-  opacity: 0.75;
-  font-size: 0.9rem;
+  padding-left: 1rem;
+  color: #c5d2ff;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-left: 1px solid rgb(255 255 255 / 0.25);
 }
 
 // Menú (Biblioteca, Nuevo análisis, Videos): enlaces de 36 px; en pantallas angostas baja a su propia
@@ -31,40 +60,69 @@
   margin-left: auto;
 
   a {
+    position: relative;
     display: inline-flex;
     align-items: center;
     min-height: 2.25rem;
-    padding: 0 0.75rem;
-    color: #d0d5dd;
-    border-radius: 0.3rem;
+    padding: 0 0.85rem;
+    color: #d3dcff;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border-radius: var(--r1);
     text-decoration: none;
+    transition:
+      color 0.15s,
+      background-color 0.15s;
+
+    // Subrayado de la pestaña: crece desde el centro al pasar y queda fijo en la activa.
+    &::after {
+      content: '';
+      position: absolute;
+      inset: auto 0.85rem 0.2rem;
+      height: 2px;
+      background: #9db8ff;
+      border-radius: 2px;
+      transform: scaleX(0);
+      transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
 
     &:hover {
-      color: #fff;
+      color: var(--blanco);
       background: rgb(255 255 255 / 0.08);
+
+      &::after {
+        transform: scaleX(0.5);
+      }
     }
 
     &.activo {
-      color: #fff;
-      background: rgb(255 255 255 / 0.16);
+      color: var(--blanco);
+      background: rgb(255 255 255 / 0.14);
       font-weight: 600;
+
+      &::after {
+        transform: scaleX(1);
+      }
     }
   }
 
   // Cierra la sesión de la vista de carga (#30): un botón con el aspecto de los enlaces.
   .salir {
     min-height: 2.25rem;
-    padding: 0 0.75rem;
+    margin-left: 0.5rem;
+    padding: 0 0.85rem;
     font: inherit;
-    color: #d0d5dd;
+    font-size: 0.9rem;
+    color: #d3dcff;
     background: transparent;
     border: 1px solid rgb(255 255 255 / 0.3);
-    border-radius: 0.3rem;
+    border-radius: var(--r1);
     cursor: pointer;
 
     &:hover {
-      color: #fff;
-      background: rgb(255 255 255 / 0.08);
+      color: var(--blanco);
+      background: rgb(255 255 255 / 0.1);
+      filter: none;
     }
   }
 }
@@ -90,7 +148,7 @@
 
 .contenido {
   max-width: 48rem;
-  margin: 1.5rem auto;
+  margin: 1.75rem auto;
   padding: 0 1.5rem;
 }
 

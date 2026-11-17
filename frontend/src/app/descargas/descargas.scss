@@ -15,10 +15,12 @@ summary {
   min-height: 2.25rem;
   padding: 0.35rem 0.75rem;
   font-size: 0.9rem;
-  color: #1f2a37;
-  background: #fff;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
+  font-weight: 500;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
+  box-shadow: var(--sombra-1);
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -39,7 +41,7 @@ summary {
 
 summary:focus-visible,
 a:focus-visible {
-  outline: 2px solid #1570ef;
+  outline: 2px solid var(--acento);
   outline-offset: 2px;
 }
 
@@ -52,30 +54,39 @@ ul {
   min-width: 15rem;
   max-width: calc(100vw - 2rem);
   margin: 0;
-  padding: 0.25rem;
+  padding: 0.3rem;
   list-style: none;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.4rem;
-  box-shadow: 0 6px 16px rgb(16 24 40 / 0.12);
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-2);
+  animation: desplegar 0.16s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 .opcion {
   display: grid;
   min-height: 2.25rem;
   padding: 0.4rem 0.6rem;
-  color: #1f2a37;
+  color: var(--tinta);
   text-decoration: none;
-  border-radius: 0.3rem;
+  border-radius: var(--r1);
 }
 
 a.opcion:hover {
-  background: #f2f4f7;
+  color: var(--acento-2);
+  background: var(--acento-bg);
+}
+
+@keyframes desplegar {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 // Sin enlace: no se puede elegir (p. ej. el PDF con cambios sin guardar).
 .deshabilitada {
-  color: #667085;
+  color: var(--tinta-3);
   cursor: not-allowed;
 }
 
@@ -84,7 +95,7 @@ a.opcion:hover {
 }
 
 .descripcion {
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.85rem;
 }
 

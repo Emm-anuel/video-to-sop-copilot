@@ -13,7 +13,8 @@ video {
   max-height: var(--alto-video, 45vh);
   margin-inline: auto;
   background: #000;
-  border-radius: 0.5rem;
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-2);
 
   @media (min-width: 64rem) {
     max-height: var(--alto-video-ancho, calc(100vh - 2rem));

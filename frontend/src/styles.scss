@@ -1,3 +1,71 @@
+// Fuentes autoalojadas (paquetes @fontsource, licencia OFL): la app corre local y sin internet.
+@import '@fontsource-variable/bricolage-grotesque/wght.css';
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-700.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+
+// Sistema visual "plano técnico": papel cálido, tinta azul marino, un solo acento (cobalto) y los
+// colores del semáforo reservados para estados. Todos los componentes toman de aquí sus colores,
+// radios, sombras y tipografías; no hay colores sueltos en las pantallas.
+:root {
+  --display: 'Bricolage Grotesque Variable', 'IBM Plex Sans', system-ui, sans-serif;
+  --texto: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --tinta: #101b33;
+  --tinta-2: #46506a;
+  --tinta-3: #66708a;
+  --blanco: #fff;
+
+  --papel: #f3f0e8;
+  --sup: #fffefb;
+  --fondo: #f7f4ed;
+  --hundido: #e9e4d8;
+  --linea-0: #ebe6da;
+  --linea: #ddd7c9;
+  --linea-2: #aaa698;
+
+  --acento: #2444db;
+  --acento-2: #1a31a8;
+  --acento-bg0: #f4f6ff;
+  --acento-bg: #e8ecff;
+  --acento-ln: #aab8fb;
+
+  --verde: #0a6b43;
+  --verde-vivo: #16a866;
+  --verde-bg: #e3f5ea;
+  --verde-ln: #9bd9b8;
+  --ambar: #8a4708;
+  --ambar-vivo: #eda512;
+  --ambar-bg: #fff6dc;
+  --ambar-bg2: #fde9b4;
+  --ambar-ln: #efc968;
+  --rojo: #ad2119;
+  --rojo-vivo: #e0433a;
+  --rojo-bg: #fdeeeb;
+  --rojo-ln: #f2ada5;
+  --violeta: #5530c4;
+  --violeta-bg: #f0ecff;
+  --violeta-ln: #b3a2f3;
+
+  --r1: 0.45rem;
+  --r2: 0.7rem;
+  --sombra-1: 0 1px 0 rgb(16 27 51 / 0.03), 0 1px 3px rgb(16 27 51 / 0.07);
+  --sombra-2: 0 2px 4px rgb(16 27 51 / 0.05), 0 10px 24px -6px rgb(16 27 51 / 0.16);
+  --sombra-acento: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 2px 8px -1px rgb(36 68 219 / 0.45);
+  --anillo: 0 0 0 3px rgb(36 68 219 / 0.22);
+
+  // Encabezado: azul de plano con su retícula.
+  --plano:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(120deg, #0a163d 0%, #12297a 70%, #1a3aa6 100%);
+  --sello: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Crect x='1.5' y='1.5' width='21' height='21' rx='5.5' stroke='%239db8ff' stroke-width='1.5'/%3E%3Cpath d='M9.6 7.6v8.8l7.2-4.4z' fill='%23fff'/%3E%3C/svg%3E");
+}
+
 *,
 *::before,
 *::after {
@@ -6,20 +74,184 @@
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
-  color: #1f2a37;
-  background: #f6f7f9;
+  font-family: var(--texto);
+  color: var(--tinta);
+  // Papel con una trama de puntos muy tenue, como hoja de bitácora.
+  background:
+    radial-gradient(rgb(16 27 51 / 0.075) 1px, transparent 1.5px) 0 0 / 22px 22px,
+    var(--papel);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  color: var(--blanco);
+  background: var(--acento);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: clamp(1.55rem, 1.2rem + 1.4vw, 2rem);
+  font-weight: 700;
   margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+
+a {
+  color: var(--acento-2);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+
+  &:hover {
+    color: var(--acento);
+    text-decoration-thickness: 2px;
+  }
+}
+
+// Foco visible igual en toda la app (teclado): anillo cobalto.
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+input:not([type='checkbox'], [type='radio'], [type='file']):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 0;
+  box-shadow: var(--anillo);
+}
+
+input,
+select,
+textarea {
+  color: var(--tinta);
+  accent-color: var(--acento);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+::placeholder {
+  color: var(--tinta-3);
+  opacity: 0.8;
+}
+
+// Respuesta al cursor de cualquier botón, sin depender de su color: se oscurece un punto al
+// pasar y se hunde al pulsar. Cada pantalla define su forma y su color.
+button,
+.boton,
+summary {
+  font-family: var(--texto);
+  transition:
+    filter 0.15s,
+    transform 0.08s,
+    box-shadow 0.15s,
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+button:not(:disabled):hover,
+a.boton:hover,
+summary:hover {
+  filter: brightness(0.94);
+}
+
+button:not(:disabled):active,
+a.boton:active {
+  transform: translateY(1px);
+}
+
+input[type='file'] {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--tinta-2);
+
+  &::file-selector-button {
+    min-height: 2.25rem;
+    margin-right: 0.75rem;
+    padding: 0.35rem 0.9rem;
+    font: inherit;
+    font-weight: 500;
+    color: var(--tinta);
+    background: var(--sup);
+    border: 1px solid var(--linea-2);
+    border-radius: var(--r1);
+    box-shadow: var(--sombra-1);
+    cursor: pointer;
+  }
+}
+
+// Barra de avance propia (subida, procesando, reporte, SOP generado).
+progress {
+  appearance: none;
+  height: 0.6rem;
+  overflow: hidden;
+  background: var(--hundido);
+  border: 0;
+  border-radius: 999px;
+
+  &::-webkit-progress-bar {
+    background: var(--hundido);
+  }
+
+  &::-webkit-progress-value {
+    background: linear-gradient(90deg, var(--acento-2), var(--acento) 60%, #5f7dff);
+    border-radius: 999px;
+    transition: width 0.5s ease;
+  }
+
+  &::-moz-progress-bar {
+    background: linear-gradient(90deg, var(--acento-2), var(--acento) 60%, #5f7dff);
+    border-radius: 999px;
+  }
+}
+
+mark {
+  padding: 0 0.15em;
+  color: inherit;
+  background: linear-gradient(transparent 12%, #ffe07a 12%, #ffe07a 92%, transparent 92%);
+  border-radius: 0.15em;
+}
+
+dialog::backdrop {
+  background: rgb(10 22 61 / 0.55);
+  backdrop-filter: blur(3px);
+}
+
+// Entrada de cada pantalla: sube y aparece una vez (no deja transformaciones al terminar).
+main.contenido > :not(router-outlet) {
+  animation: entrar 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 // Controles del editor del SOP (sop/sop-editor.ts) y de sus chips (sop/chips.ts): aquí y no en el
@@ -31,9 +263,9 @@ app-sop-editor select {
   min-width: 0;
   padding: 0.4rem 0.5rem;
   font: inherit;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
-  background: #fff;
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
+  background: var(--sup);
 }
 
 app-sop-editor textarea {
@@ -46,10 +278,11 @@ app-sop-editor .boton {
   padding: 0.35rem 0.75rem;
   font: inherit;
   font-size: 0.9rem;
-  color: #1f2a37;
-  background: #fff;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
+  box-shadow: var(--sombra-1);
   cursor: pointer;
   text-decoration: none;
 }
@@ -80,19 +313,57 @@ app-buscar .sr-only {
   align-items: center;
   justify-content: space-between;
   margin: 0 -1.5rem;
-  padding: 0.5rem 1.5rem;
-  color: #fff;
-  background: #1f2a37;
+  padding: 0.6rem 1.5rem;
+  color: var(--blanco);
+  background: var(--plano);
+  border-bottom: 1px solid rgb(157 184 255 / 0.35);
 
-  .marca span {
-    opacity: 0.8;
+  .marca {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    min-height: 2.25rem;
+    margin: 0;
+
+    &::before {
+      content: '';
+      flex: none;
+      width: 1.6rem;
+      height: 1.6rem;
+      margin-right: 0.55rem;
+      background: var(--sello) center / contain no-repeat;
+    }
+
+    strong {
+      font-family: var(--display);
+      font-size: 1.15rem;
+      letter-spacing: 0.06em;
+    }
+
+    span {
+      color: #c5d2ff;
+      font-size: 0.9rem;
+    }
+  }
+
+  // Botones sobre el azul del encabezado (Limpiar, Salir).
+  button {
+    color: var(--blanco);
+    background: rgb(255 255 255 / 0.06);
+    border: 1px solid rgb(255 255 255 / 0.35);
+    box-shadow: none;
+
+    &:not(:disabled):hover {
+      background: rgb(255 255 255 / 0.16);
+      filter: none;
+    }
   }
 }
 
 @media (max-width: 40rem) {
   .cabecera-consulta {
     margin: 0 -1rem;
-    padding: 0.5rem 1rem;
+    padding: 0.6rem 1rem;
   }
 }
 
@@ -102,10 +373,10 @@ app-buscar .sr-only {
 .aviso-video {
   margin: 0.5rem 0 0;
   padding: 0.6rem 0.75rem;
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fda29b;
-  border-radius: 0.3rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-radius: var(--r1);
 
   p {
     margin: 0;
@@ -118,5 +389,5 @@ app-buscar .sr-only {
   min-height: 2.25rem;
   margin-top: 0.35rem;
   font-weight: 600;
-  color: #175cd3;
+  color: var(--acento-2);
 }

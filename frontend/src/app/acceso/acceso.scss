@@ -1,11 +1,32 @@
 // Sin el menú de la vista de carga: el encabezado es `.cabecera-consulta` (styles.scss).
 .acceso {
-  max-width: 24rem;
-  margin: 3rem auto;
-  padding: 1.5rem;
-  background: #fff;
-  border: 1px solid #d0d5dd;
-  border-radius: 0.5rem;
+  position: relative;
+  max-width: 25rem;
+  margin: clamp(2rem, 10vh, 5rem) auto 3rem;
+  padding: 2rem 1.75rem 1.75rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-2);
+  overflow: hidden;
+
+  // Filo de color en el borde superior de la hoja.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 4px;
+    background: linear-gradient(90deg, var(--acento-2), var(--acento) 55%, #7d97ff);
+  }
+
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  > p {
+    margin: 0 0 1.25rem;
+    color: var(--tinta-2);
+  }
 }
 
 form {
@@ -14,25 +35,34 @@ form {
 }
 
 label {
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
 }
 
 input {
-  min-height: 2.25rem;
-  padding: 0.4rem 0.5rem;
+  min-height: 2.6rem;
+  padding: 0.4rem 0.7rem;
   font: inherit;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
+  background: var(--sup);
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
 }
 
 button {
-  min-height: 2.25rem;
+  min-height: 2.6rem;
+  margin-top: 0.5rem;
   padding: 0.35rem 0.75rem;
   font: inherit;
-  color: #fff;
-  background: #1f2a37;
-  border: 0;
-  border-radius: 0.3rem;
+  font-weight: 600;
+  color: var(--blanco);
+  background: var(--acento);
+  border: 1px solid var(--acento-2);
+  border-radius: var(--r1);
+  box-shadow: var(--sombra-acento);
   cursor: pointer;
 
   &:disabled {
@@ -42,5 +72,11 @@ button {
 }
 
 .error {
-  color: #b42318;
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
 }

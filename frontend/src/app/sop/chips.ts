@@ -59,18 +59,20 @@ import { describir } from './edicion';
       align-items: center;
       gap: 0.3rem;
       padding: 0.1rem 0.2rem 0.1rem 0.5rem;
-      background: #f2f4f7;
-      border-radius: 0.3rem;
+      background: var(--fondo);
+      border: 1px solid var(--linea);
+      border-radius: 999px;
+      padding-left: 0.75rem;
       font-size: 0.9rem;
       max-width: 100%;
       overflow-wrap: anywhere;
     }
     .chip.resaltado {
-      background: #fffaeb;
-      outline: 1px dashed #dc6803;
+      background: var(--ambar-bg);
+      outline: 1px dashed var(--ambar-vivo);
     }
     .leyenda-chip {
-      color: #93370d;
+      color: var(--ambar);
       font-size: 0.75rem;
       font-weight: 600;
     }
@@ -79,7 +81,9 @@ import { describir } from './edicion';
       min-height: 2.25rem;
       padding: 0;
       border: 0;
+      border-radius: 50%;
       background: transparent;
+      box-shadow: none;
       cursor: pointer;
       font-size: 1rem;
       line-height: 1;

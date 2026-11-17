@@ -17,10 +17,11 @@ select {
   padding: 0.35rem 0.75rem;
   font: inherit;
   font-size: 0.9rem;
-  color: #1f2a37;
-  background: #fff;
-  border: 1px solid #98a2b3;
-  border-radius: 0.3rem;
+  font-weight: 500;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--linea-2);
+  border-radius: var(--r1);
   cursor: pointer;
 
   &:disabled {
@@ -31,7 +32,7 @@ select {
 
 button.enlace {
   padding: 0 0.35rem;
-  color: #175cd3;
+  color: var(--acento-2);
   background: none;
   border: 0;
   text-decoration: underline;
@@ -45,9 +46,14 @@ button.enlace {
   }
 
   .limpiar {
-    color: #fff;
-    background: transparent;
-    border-color: rgb(255 255 255 / 0.5);
+    color: var(--blanco);
+    background: rgb(255 255 255 / 0.06);
+    border-color: rgb(255 255 255 / 0.4);
+
+    &:not(:disabled):hover {
+      background: rgb(255 255 255 / 0.16);
+      filter: none;
+    }
   }
 }
 
@@ -63,9 +69,11 @@ button.enlace {
   // Columna con mínimo 0: un <select> con opciones largas no ensancha la conversación.
   grid: minmax(0, 1fr) auto / minmax(0, 1fr);
   min-width: 0;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-2);
+  overflow: hidden;
 }
 
 .mensajes {
@@ -75,23 +83,25 @@ button.enlace {
   max-height: 55vh;
   min-height: 8rem;
   margin: 0;
-  padding: 0.75rem;
+  padding: 1rem;
   overflow-y: auto;
   list-style: none;
+  scrollbar-width: thin;
 }
 
 .bienvenida,
 .aviso-publicados {
   padding: 0.6rem 0.75rem;
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.9rem;
-  background: #f6f7f9;
-  border-radius: 0.5rem;
+  background: var(--fondo);
+  border: 1px dashed var(--linea);
+  border-radius: var(--r2);
 }
 
 .aviso-publicados {
-  color: #93370d;
-  background: #fffaeb;
+  color: var(--ambar);
+  background: var(--ambar-bg);
 }
 
 .turno {
@@ -103,16 +113,19 @@ button.enlace {
   display: grid;
   gap: 0.35rem;
   max-width: min(32rem, 92%);
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 1.1rem;
   overflow-wrap: anywhere;
   justify-items: start;
+  animation: burbuja 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 
 .persona {
   justify-self: end;
-  color: #fff;
-  background: #1f6feb;
+  color: var(--blanco);
+  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+  border-bottom-right-radius: 0.3rem;
+  box-shadow: 0 2px 8px -2px rgb(36 68 219 / 0.5);
 
   .consulta {
     font-weight: 600;
@@ -120,23 +133,29 @@ button.enlace {
 
   .repetir {
     justify-self: end;
-    color: #fff;
-    background: transparent;
-    border-color: rgb(255 255 255 / 0.6);
+    min-height: 2.25rem;
+    padding: 0 0.7rem;
+    font-size: 0.8rem;
+    color: var(--blanco);
+    background: rgb(255 255 255 / 0.1);
+    border-color: rgb(255 255 255 / 0.45);
   }
 }
 
 .sistema {
   justify-self: start;
-  background: #f2f4f7;
+  background: var(--fondo);
+  border: 1px solid var(--linea-0);
+  border-bottom-left-radius: 0.3rem;
 
   &.elegida {
-    box-shadow: inset 3px 0 0 #1f6feb;
+    background: var(--acento-bg);
+    border-color: var(--acento-ln);
   }
 
   &.fallo {
-    color: #b42318;
-    background: #fef3f2;
+    color: var(--rojo);
+    background: var(--rojo-bg);
   }
 }
 
@@ -157,16 +176,16 @@ button.enlace {
   max-width: 100%;
   padding: 0.1rem 0.55rem;
   font-size: 0.85rem;
-  border: 1px solid #d0d5dd;
-  border-radius: 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
   overflow-wrap: anywhere;
 
   &.activo {
     min-height: 2.25rem;
     padding-right: 0;
-    color: #175cd3;
-    background: #eff8ff;
-    border-color: #b2ddff;
+    color: var(--acento-2);
+    background: var(--acento-bg);
+    border-color: var(--acento-ln);
   }
 
   .quitar {
@@ -189,13 +208,14 @@ button.enlace {
 .caja {
   display: grid;
   gap: 0.5rem;
-  padding: 0.75rem;
-  border-top: 1px solid #d8dde3;
+  padding: 0.85rem 1rem 1rem;
+  background: var(--fondo);
+  border-top: 1px solid var(--linea);
 }
 
 .nota-filtros,
 .nota {
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.9rem;
 }
 
@@ -207,17 +227,21 @@ button.enlace {
     flex: 1;
     min-width: 0;
     min-height: 2.5rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.4rem 0.8rem;
     font: inherit;
-    border: 1px solid #98a2b3;
-    border-radius: 0.3rem;
+    background: var(--sup);
+    border: 1px solid var(--linea-2);
+    border-radius: var(--r1);
   }
 
   .enviar {
     flex: none;
-    color: #fff;
-    background: #1f6feb;
-    border-color: #1f6feb;
+    min-height: 2.5rem;
+    padding-inline: 1.1rem;
+    color: var(--blanco);
+    background: var(--acento);
+    border-color: var(--acento-2);
+    box-shadow: var(--sombra-acento);
     font-weight: 600;
   }
 }
@@ -232,15 +256,18 @@ button.enlace {
   display: grid;
   gap: 0.4rem;
   padding: 0.75rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-2);
   --alto-video: 40vh;
   --alto-video-ancho: 50vh;
 }
 
 .visor-titulo {
-  font-weight: 600;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 650;
   min-width: 0;
 }
 
@@ -250,12 +277,17 @@ button.enlace {
   min-height: 2.25rem;
   margin-left: auto;
   font-weight: 600;
-  color: #175cd3;
+  color: var(--acento-2);
 }
 
 .segundo {
-  font-variant-numeric: tabular-nums;
-  color: #475467;
+  padding: 0.05rem 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--acento-2);
+  background: var(--acento-bg);
+  border-radius: 0.3rem;
 }
 
 .lista {
@@ -273,13 +305,24 @@ button.enlace {
   width: 100%;
   padding: 0.6rem;
   text-align: left;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
+  font-weight: 400;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
 
-  &.activo {
-    border-color: #1f6feb;
-    box-shadow: 0 0 0 1px #1f6feb;
+  &:not(:disabled):hover {
+    border-color: var(--acento-ln);
+    box-shadow: var(--sombra-2);
+    filter: none;
+  }
+
+  &.activo,
+  &.activo:hover {
+    border-color: var(--acento);
+    box-shadow:
+      0 0 0 1px var(--acento),
+      var(--sombra-2);
   }
 }
 
@@ -288,8 +331,8 @@ button.enlace {
   width: 6.5rem;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  background: #e4e7ec;
-  border-radius: 0.3rem;
+  background: var(--hundido);
+  border-radius: var(--r1);
 }
 
 .texto {
@@ -307,18 +350,24 @@ button.enlace {
 .unidas {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #175cd3;
+  color: var(--acento-2);
 }
 
 .frase {
-  color: #344054;
+  color: var(--tinta-2);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
 }
 
 mark {
-  background: #fef0c7;
   font-weight: 600;
+}
+
+@keyframes burbuja {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
 }
 
 // Escritorio: la conversación ocupa el alto de la ventana con la caja siempre abajo; el video
@@ -331,7 +380,8 @@ mark {
   .chat {
     position: sticky;
     top: 0.75rem;
-    height: calc(100vh - 5.5rem);
+    // Barra principal (~3.5rem) + encabezado de la búsqueda (~3.5rem) + márgenes.
+    height: calc(100vh - 9rem);
   }
 
   .mensajes {

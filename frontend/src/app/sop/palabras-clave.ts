@@ -60,9 +60,10 @@ import { mmss } from './edicion';
       flex-wrap: wrap;
       gap: 0.25rem 0.6rem;
       align-items: baseline;
-      padding: 0.6rem;
-      border: 1px solid #eaecf0;
-      border-radius: 0.3rem;
+      padding: 0.6rem 0.7rem;
+      background: var(--fondo);
+      border: 1px solid var(--linea-0);
+      border-radius: var(--r1);
       font-size: 0.9rem;
     }
     .termino {
@@ -71,7 +72,7 @@ import { mmss } from './edicion';
     }
     .categoria,
     .menciones {
-      color: #475467;
+      color: var(--tinta-2);
     }
     .segundos {
       display: flex;
@@ -83,13 +84,18 @@ import { mmss } from './edicion';
       min-width: 2.25rem;
       min-height: 2.25rem;
       padding: 0 0.5rem;
-      color: #175cd3;
-      border-color: #b2ddff;
-      font-variant-numeric: tabular-nums;
+      color: var(--acento-2);
+      background: var(--acento-bg0);
+      border-color: var(--acento-ln);
+      box-shadow: none;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      font-weight: 500;
     }
     .t {
-      color: #475467;
-      font-variant-numeric: tabular-nums;
+      color: var(--tinta-2);
+      font-family: var(--mono);
+      font-size: 0.85rem;
     }
     .cabecera {
       display: none;
@@ -103,9 +109,13 @@ import { mmss } from './edicion';
         align-items: start;
       }
       .cabecera {
-        padding: 0 0.6rem 0.3rem;
-        font-weight: 600;
-        font-size: 0.9rem;
+        padding: 0 0.7rem 0.3rem;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--tinta-3);
       }
       .segundos {
         flex-basis: auto;

@@ -7,7 +7,9 @@
 
 .segundo {
   margin: -0.5rem 0 0.75rem;
-  color: #475467;
+  color: var(--tinta-2);
+  font-family: var(--mono);
+  font-size: 0.85rem;
 }
 
 app-reproductor {
@@ -18,9 +20,17 @@ app-reproductor {
   display: inline-flex;
   align-items: center;
   min-height: 2.25rem;
-  padding: 0 0.75rem;
-  color: #fff;
-  background: #1f2a37;
-  border-radius: 0.3rem;
+  padding: 0 1rem;
+  color: var(--blanco);
+  font-weight: 600;
+  background: var(--acento);
+  border: 1px solid var(--acento-2);
+  border-radius: var(--r1);
+  box-shadow: var(--sombra-acento);
   text-decoration: none;
+  transition: filter 0.15s;
+
+  &:hover {
+    filter: brightness(0.94);
+  }
 }

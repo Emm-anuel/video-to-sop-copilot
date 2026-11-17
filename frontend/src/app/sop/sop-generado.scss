@@ -5,13 +5,22 @@
 .error {
   margin: 0;
   padding: 0.75rem;
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fda29b;
-  border-radius: 0.3rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
+}
+.avance {
+  padding: 1.15rem 1.25rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
 }
 .avance p {
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.5rem;
+  font-weight: 500;
 }
 .avance progress {
   width: 100%;
@@ -19,10 +28,11 @@
 .aviso {
   margin: 0;
   padding: 0.6rem 0.75rem;
-  color: #93370d;
-  background: #fffaeb;
-  border: 1px solid #fec84b;
-  border-radius: 0.3rem;
+  color: var(--ambar);
+  background: var(--ambar-bg);
+  border: 1px solid var(--ambar-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
 }
 // Objetivo de 36 px (RNF-13).
 .enlace {

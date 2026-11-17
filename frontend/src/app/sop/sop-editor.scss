@@ -10,10 +10,11 @@
 section,
 .encabezado {
   min-width: 0;
-  padding: 1rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
+  padding: 1.15rem 1.25rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
 }
 
 h2,
@@ -29,14 +30,16 @@ h3 {
 // Controles del formulario: en styles.scss (`app-sop-editor …`), para que los chips los compartan.
 
 .primario {
-  color: #fff;
-  background: #1f2a37;
-  border-color: #1f2a37;
+  color: var(--blanco);
+  background: var(--acento);
+  border-color: var(--acento-2);
+  box-shadow: var(--sombra-acento);
+  font-weight: 600;
 }
 
 .peligro {
-  color: #b42318;
-  border-color: #fda29b;
+  color: var(--rojo);
+  border-color: var(--rojo-ln);
 }
 
 .campo {
@@ -52,7 +55,8 @@ h3 {
     gap: 0.4rem;
     align-items: center;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    color: var(--tinta-2);
   }
 
   .confirmar {
@@ -79,8 +83,10 @@ h3 {
   gap: 0.75rem;
 
   .titulo input {
-    font-size: 1.2rem;
-    font-weight: 600;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -96,18 +102,18 @@ h3 {
 .nota,
 .leyenda {
   margin: 0;
-  color: #475467;
+  color: var(--tinta-2);
   font-size: 0.9rem;
 }
 
 .guardado {
-  color: #067647;
+  color: var(--verde);
   font-weight: 600;
 }
 
 .sin-guardar {
   margin: 0;
-  color: #93370d;
+  color: var(--ambar);
   font-weight: 600;
 }
 
@@ -119,10 +125,11 @@ h3 {
 .aviso-llm,
 .advertencias {
   margin: 0;
-  padding: 0.75rem;
-  border: 1px solid #fec84b;
-  border-radius: 0.3rem;
-  background: #fffaeb;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--ambar-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
+  background: var(--ambar-bg);
 
   p,
   ul {
@@ -132,50 +139,54 @@ h3 {
 
 .error,
 .errores {
-  color: #b42318;
-  background: #fef3f2;
-  border-color: #fda29b;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border-color: var(--rojo-ln);
 }
 
 .aviso,
 .revalidar {
-  background: #ecfdf3;
-  border-color: #75e0a7;
+  background: var(--verde-bg);
+  border-color: var(--verde-ln);
 }
 
 .campo-error {
   margin: 0;
-  color: #b42318;
+  color: var(--rojo);
   font-size: 0.85rem;
 }
 
 .con-error {
-  border-color: #d92d20;
-  outline: 1px solid #d92d20;
+  border-color: var(--rojo-vivo);
+  outline: 1px solid var(--rojo-vivo);
 }
 
 .linea {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-weight: 500;
 }
 
 // Lo que hay que revisar (RF-25): color y, siempre, una leyenda de texto.
 .revisar {
-  background: #fffaeb;
-  outline: 1px dashed #dc6803;
+  background: var(--ambar-bg);
+  outline: 1px dashed var(--ambar-vivo);
   outline-offset: 2px;
-  border-radius: 0.2rem;
+  border-radius: var(--r1);
 }
 
 .marca-revisar {
   display: inline-block;
   padding: 0 0.35rem;
-  color: #93370d;
-  background: #fef0c7;
-  border: 1px solid #fec84b;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  color: var(--ambar);
+  background: var(--ambar-bg2);
+  border: 1px solid var(--ambar-ln);
+  border-radius: 999px;
+  padding-inline: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .duracion {
@@ -193,9 +204,10 @@ h3 {
 .fila {
   display: grid;
   gap: 0.4rem;
-  padding: 0.6rem;
-  border: 1px solid #eaecf0;
-  border-radius: 0.3rem;
+  padding: 0.7rem;
+  background: var(--fondo);
+  border: 1px solid var(--linea-0);
+  border-radius: var(--r1);
 }
 
 // Pasos como tarjetas: una por fila, con la miniatura arriba en pantallas angostas.
@@ -211,9 +223,20 @@ h3 {
   display: grid;
   gap: 0.6rem;
   min-width: 0;
-  padding: 0.75rem;
-  border: 1px solid #d0d5dd;
-  border-radius: 0.4rem;
+  padding: 0.9rem 1rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-left: 4px solid var(--acento-ln);
+  border-radius: var(--r2);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.2s;
+
+  &:hover,
+  &:focus-within {
+    border-left-color: var(--acento);
+    box-shadow: var(--sombra-2);
+  }
 
   &.arrastrando {
     opacity: 0.5;
@@ -227,7 +250,10 @@ h3 {
   align-items: center;
 
   .numero {
+    font-family: var(--display);
+    font-size: 1.1rem;
     font-weight: 700;
+    color: var(--acento-2);
   }
 
   .controles {
@@ -246,7 +272,7 @@ h3 {
   min-height: 2.25rem;
   cursor: grab;
   user-select: none;
-  color: #667085;
+  color: var(--tinta-3);
 }
 
 .paso-cuerpo {
@@ -271,15 +297,15 @@ h3 {
   height: auto;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  background: #f2f4f7;
-  border: 1px solid #e4e7ec;
-  border-radius: 0.25rem;
+  background: var(--hundido);
+  border: 1px solid var(--linea);
+  border-radius: var(--r1);
 }
 
 .pregunta {
   padding: 0.6rem;
-  background: #eff8ff;
-  border: 1px solid #84caff;
+  background: var(--acento-bg);
+  border: 1px solid var(--acento-ln);
 
   p {
     margin: 0 0 0.4rem;
@@ -291,15 +317,20 @@ h3 {
   min-height: 2.25rem;
   padding: 0 0.5rem;
   margin: 0 0.25rem 0.25rem 0;
-  color: #175cd3;
-  border-color: #b2ddff;
-  font-variant-numeric: tabular-nums;
+  color: var(--acento-2);
+  background: var(--acento-bg0);
+  border-color: var(--acento-ln);
+  box-shadow: none;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
 .t {
   margin-right: 0.4rem;
-  color: #475467;
-  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+  font-family: var(--mono);
+  font-size: 0.85rem;
 }
 
 .claves {
@@ -326,22 +357,26 @@ h3 {
   align-items: center;
   justify-content: space-between;
   padding: 0.6rem 0.8rem;
-  color: #fff;
-  background: #1f2a37;
-  border-radius: 0.4rem;
+  color: var(--blanco);
+  background: var(--tinta);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-2);
 
   button {
-    color: #fff;
-    background: transparent;
-    border-color: #fff;
+    color: var(--blanco);
+    background: rgb(255 255 255 / 0.08);
+    border-color: rgb(255 255 255 / 0.6);
+    box-shadow: none;
   }
 }
 
 .dialogo-video {
   width: min(48rem, 95vw);
   padding: 0.75rem;
+  background: var(--sup);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--r2);
+  box-shadow: 0 24px 60px -12px rgb(10 22 61 / 0.5);
 
   video {
     display: block;

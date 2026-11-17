@@ -32,9 +32,10 @@
 
 .tarjeta {
   padding: 1rem 1.25rem;
-  background: #fff;
-  border: 1px solid #d8dde3;
-  border-radius: 0.5rem;
+  background: var(--sup);
+  border: 1px solid var(--linea);
+  border-radius: var(--r2);
+  box-shadow: var(--sombra-1);
 
   p {
     margin: 0;
@@ -55,14 +56,14 @@
 .aviso-video {
   margin: 0.5rem 0 0;
   padding: 0.6rem 0.75rem;
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fda29b;
-  border-radius: 0.3rem;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  border: 1px solid var(--rojo-ln);
+  border-radius: var(--r1);
 }
 
 .reloj {
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
 }
 
 // Enlace al avance por etapa: objetivo de 36 px (RNF-13).
@@ -73,50 +74,66 @@
 
 .tiempo-final {
   font-size: 0.85rem;
-  color: #667085;
+  color: var(--tinta-3);
 }
 
 .sop-codigo {
   margin-right: 0.5rem;
-  font-weight: 700;
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--acento-2);
 }
 
 .cumplimiento {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 1.6rem;
+  gap: 0.75rem;
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.1rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
 }
 
 .semaforo {
-  width: 1.1rem;
-  height: 1.1rem;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
   border-radius: 50%;
 }
 
 .semaforo-verde {
-  background: #12b76a;
+  background: var(--verde-vivo);
+  box-shadow: 0 0 0 5px var(--verde-bg);
 }
 
 .semaforo-amarillo {
-  background: #fdb022;
+  background: var(--ambar-vivo);
+  box-shadow: 0 0 0 5px var(--ambar-bg2);
 }
 
 .semaforo-rojo {
-  background: #f04438;
+  background: var(--rojo-vivo);
+  box-shadow: 0 0 0 5px var(--rojo-bg);
 }
 
 .semaforo-texto {
-  font-size: 1rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--tinta-2);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
 }
 
 .avisos {
-  padding: 0.75rem;
-  background: #fffaeb;
-  border: 1px solid #fec84b;
-  border-radius: 0.3rem;
+  padding: 0.75rem 0.9rem;
+  color: var(--ambar);
+  background: var(--ambar-bg);
+  border: 1px solid var(--ambar-ln);
+  border-left-width: 4px;
+  border-radius: var(--r1);
 
   ul {
     margin: 0.35rem 0 0;
@@ -147,19 +164,24 @@
 }
 
 .contador {
-  padding: 0.2rem 0.6rem;
-  border-radius: 1rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+  border-radius: 999px;
+
+  dd {
+    font-family: var(--mono);
+  }
 }
 
 .nota {
   font-size: 0.85rem;
-  color: #667085;
+  color: var(--tinta-3);
 }
 
 // "Cómo se obtuvo": discreto, letra pequeña, dos columnas que se apilan en angosto.
 .como-se-obtuvo {
   font-size: 0.85rem;
-  color: #475467;
+  color: var(--tinta-2);
 
   h2 {
     margin: 0 0 0.4rem;
@@ -191,11 +213,11 @@
 
 .cifra {
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
 }
 
 .total {
-  border-top: 1px solid #eaecf0;
+  border-top: 1px solid var(--linea-0);
   font-weight: 700;
 }
 
@@ -206,6 +228,15 @@
 .tabla-contenedor {
   overflow-x: auto;
   padding: 0;
+
+  // Las esquinas de la tarjeta recortan la cabecera de la tabla.
+  .tabla th:first-child {
+    border-top-left-radius: var(--r2);
+  }
+
+  .tabla th:last-child {
+    border-top-right-radius: var(--r2);
+  }
 }
 
 .tabla {
@@ -215,15 +246,30 @@
 
   th,
   td {
-    padding: 0.55rem 0.6rem;
+    padding: 0.65rem 0.7rem;
     text-align: left;
     vertical-align: top;
-    border-bottom: 1px solid #eaecf0;
+    border-bottom: 1px solid var(--linea-0);
   }
 
   th {
-    background: #f9fafb;
-    font-weight: 600;
+    background: var(--fondo);
+    border-bottom-color: var(--linea);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    white-space: nowrap;
+  }
+
+  tr {
+    transition: background-color 0.12s;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
   }
 }
 
@@ -231,19 +277,19 @@ tr.con-segundo {
   cursor: pointer;
 
   &:hover {
-    background: #f5f8ff;
+    background: var(--acento-bg0);
   }
 }
 
 tr.activa,
 tr.activa:hover {
-  background: #eef4ff;
-  box-shadow: inset 4px 0 0 #2e6ae6;
+  background: var(--acento-bg);
+  box-shadow: inset 4px 0 0 var(--acento);
 }
 
 tr.marco {
-  color: #667085;
-  background: #f2f4f7;
+  color: var(--tinta-3);
+  background: var(--fondo);
 }
 
 .col-miniatura {
@@ -257,78 +303,91 @@ tr.marco {
   height: auto;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  background: #f2f4f7;
-  border: 1px solid #e4e7ec;
-  border-radius: 0.25rem;
+  background: var(--hundido);
+  border: 1px solid var(--linea);
+  border-radius: var(--r1);
 }
 
 .estado-etiqueta,
 .marca-orden {
   display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 1rem;
-  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 .marca-orden {
   margin-top: 0.25rem;
-  color: #5925dc;
-  background: #f4f3ff;
-  border: 1px dashed #9b8afb;
+  color: var(--violeta);
+  background: var(--violeta-bg);
+  border: 1px dashed var(--violeta-ln);
 }
 
 .estado-cumple {
-  color: #05603a;
-  background: #d1fadf;
+  color: var(--verde);
+  background: var(--verde-bg);
+  box-shadow: inset 0 0 0 1px var(--verde-ln);
 }
 
 .estado-parcial {
-  color: #93370d;
-  background: #fef0c7;
+  color: var(--ambar);
+  background: var(--ambar-bg);
+  box-shadow: inset 0 0 0 1px var(--ambar-ln);
 }
 
 .estado-falta {
-  color: #912018;
-  background: #fee4e2;
+  color: var(--rojo);
+  background: var(--rojo-bg);
+  box-shadow: inset 0 0 0 1px var(--rojo-ln);
 }
 
 .estado-sobra {
-  color: #1849a9;
-  background: #d1e9ff;
+  color: var(--acento-2);
+  background: var(--acento-bg);
+  box-shadow: inset 0 0 0 1px var(--acento-ln);
 }
 
 .estado-zona_gris {
-  color: #344054;
-  background: #eaecf0;
+  color: var(--tinta-2);
+  background: var(--hundido);
 }
 
 .estado-marco {
-  color: #475467;
-  background: #fff;
-  border: 1px solid #d0d5dd;
+  color: var(--tinta-2);
+  background: var(--sup);
+  border: 1px solid var(--linea);
 }
 
 .marca {
-  color: #5925dc;
-  background: #f4f3ff;
+  color: var(--violeta);
+  background: var(--violeta-bg);
 }
 
 .segundo {
   display: inline-block;
   margin-left: 0.4rem;
   padding: 0.05rem 0.45rem;
-  font: inherit;
-  font-variant-numeric: tabular-nums;
-  color: #1849a9;
-  background: #fff;
-  border: 1px solid #84adff;
-  border-radius: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  font-weight: 500;
+  color: var(--acento-2);
+  background: var(--acento-bg0);
+  border: 1px solid var(--acento-ln);
+  border-radius: var(--r1);
   cursor: pointer;
 
+  &:hover {
+    color: var(--blanco);
+    background: var(--acento);
+    border-color: var(--acento);
+    filter: none;
+  }
+
   &:focus-visible {
-    outline: 2px solid #2e6ae6;
+    outline: 2px solid var(--acento);
     outline-offset: 1px;
   }
 }
@@ -336,7 +395,7 @@ tr.marco {
 .tabla .justificacion {
   margin: 0.35rem 0 0;
   font-size: 0.85rem;
-  color: #475467;
+  color: var(--tinta-2);
 }
 
 .sr-only {
@@ -346,4 +405,63 @@ tr.marco {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// Encabezado del reporte: la hoja lleva un filo de color y el porcentaje manda.
+.tarjeta.encabezado {
+  position: relative;
+  padding: 1.4rem 1.4rem 1.2rem;
+  overflow: visible;
+  box-shadow: var(--sombra-2);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px -1px auto;
+    height: 5px;
+    background: linear-gradient(90deg, var(--acento-2), var(--acento) 55%, #7d97ff);
+    border-radius: var(--r2) var(--r2) 0 0;
+  }
+}
+
+.sop-titulo {
+  font-weight: 600;
+}
+
+.afinidad {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--tinta-2);
+}
+
+.resumen-principal strong {
+  font-family: var(--display);
+  font-weight: 650;
+}
+
+// "Continuar de todos modos" (afinidad baja).
+.afinidad-baja {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+
+  button {
+    min-height: 2.25rem;
+    margin-top: 0.35rem;
+    padding: 0.4rem 1rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--tinta);
+    background: var(--sup);
+    border: 1px solid var(--ambar-ln);
+    border-radius: var(--r1);
+    box-shadow: var(--sombra-1);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
 }

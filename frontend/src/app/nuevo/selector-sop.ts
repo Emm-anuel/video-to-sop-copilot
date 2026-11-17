@@ -54,10 +54,13 @@ import { coincide } from '../biblioteca/filtro';
       font-weight: 600;
     }
     input[type='search'] {
+      background: var(--sup);
+    }
+    input[type='search'] {
       min-height: 2.25rem;
       padding: 0.4rem 0.6rem;
-      border: 1px solid #b8c0ca;
-      border-radius: 0.3rem;
+      border: 1px solid var(--linea-2);
+      border-radius: var(--r1);
       font: inherit;
       font-weight: 400;
     }
@@ -68,9 +71,11 @@ import { coincide } from '../biblioteca/filtro';
       gap: 0.25rem;
       max-height: 18rem;
       overflow-y: auto;
-      padding: 0.25rem;
-      border: 1px solid #d8dde3;
-      border-radius: 0.3rem;
+      padding: 0.3rem;
+      background: var(--fondo);
+      border: 1px solid var(--linea);
+      border-radius: var(--r1);
+      scrollbar-width: thin;
     }
     .opcion {
       flex: none;
@@ -79,16 +84,16 @@ import { coincide } from '../biblioteca/filtro';
       align-items: flex-start;
       min-height: 2.25rem;
       padding: 0.35rem 0.5rem;
-      border-radius: 0.3rem;
+      border-radius: var(--r1);
       font-weight: 400;
       cursor: pointer;
     }
     .opcion:hover {
-      background: #f2f4f7;
+      background: var(--sup);
     }
     .opcion.elegida {
-      background: #eff8ff;
-      outline: 1px solid #84caff;
+      background: var(--acento-bg);
+      outline: 1.5px solid var(--acento);
     }
     .opcion input {
       flex: none;
@@ -101,8 +106,10 @@ import { coincide } from '../biblioteca/filtro';
       min-width: 0;
     }
     .codigo {
-      font-variant-numeric: tabular-nums;
-      color: #475467;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--acento-2);
       white-space: nowrap;
     }
     .titulo {
@@ -111,7 +118,7 @@ import { coincide } from '../biblioteca/filtro';
     }
     .nota {
       margin: 0;
-      color: #475467;
+      color: var(--tinta-2);
       font-size: 0.9rem;
     }
   `,
