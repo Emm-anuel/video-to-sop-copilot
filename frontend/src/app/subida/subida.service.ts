@@ -5,6 +5,8 @@ import { ApiService, CamposVideo } from '../api/api.service';
 import { mensajeDeError } from '../api/errores';
 import { EstadoSubida, VideoCreado } from '../api/tipos';
 import {
+  INACTIVIDAD_CONSULTA_MS,
+  INACTIVIDAD_PARTE_MS,
   REACOMODOS_MAX,
   REINTENTOS,
   esperaReintento,
@@ -12,6 +14,7 @@ import {
   offsetDe409,
   reintentable,
   siguienteParte,
+  sinAvance,
 } from './partes';
 
 /** Lo que va pasando en una subida por partes. */
@@ -106,7 +109,9 @@ export class SubidaPorPartes {
       const [inicio, fin] = siguienteParte(offset, total, tamanoParte);
       try {
         const recibido = await vuelo.pedirEventos(
-          this.api.enviarParte(uploadId, inicio, archivo.slice(inicio, fin)),
+          this.api
+            .enviarParte(uploadId, inicio, archivo.slice(inicio, fin))
+            .pipe(sinAvance(INACTIVIDAD_PARTE_MS)),
           (cargados) =>
             suscriptor.next({ tipo: 'avance', enviados: Math.min(inicio + cargados, fin), total }),
         );
@@ -134,7 +139,11 @@ export class SubidaPorPartes {
         await vuelo.esperar(esperaMs);
         // Reanuda desde lo que la API tiene; sin respuesta, desde donde iba.
         try {
-          offset = (await vuelo.pedir(this.api.estadoSubida(uploadId))).recibidos;
+          offset = (
+            await vuelo.pedir(
+              this.api.estadoSubida(uploadId).pipe(sinAvance(INACTIVIDAD_CONSULTA_MS)),
+            )
+          ).recibidos;
           suscriptor.next({ tipo: 'avance', enviados: offset, total });
         } catch (consulta) {
           if (consulta instanceof Cancelada) {

@@ -152,6 +152,27 @@ describe('SubidaPorPartes', () => {
     expect(completo).toBe(true);
   });
 
+  it('una parte colgada sin ningún avance se aborta a los 10 s y se reintenta', async () => {
+    subir();
+    await abrir();
+    await aceptar(0, 4);
+
+    const colgada = parte(4); // la petición sale pero nunca avanza ni responde
+    await tic(9_999);
+    expect(eventos.at(-1)?.tipo).not.toBe('reintento');
+    await tic(1);
+    expect(colgada.cancelled).toBe(true);
+    expect(eventos.at(-1)).toEqual({ tipo: 'reintento', intento: 1, esperaMs: 1000 });
+
+    await tic(1000);
+    http.expectOne({ method: 'GET', url: '/api/uploads/u1' }).flush(estado(4), OK);
+    await tic();
+    await aceptar(4, 8);
+    await aceptar(8, 10);
+    await crearVideo();
+    expect(completo).toBe(true);
+  });
+
   it('tras el tercer reintento fallido da un ErrorSubida reanudable con lo ya recibido', async () => {
     subir();
     await abrir();

@@ -1,10 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { MonoTypeOperatorFunction, throwError, timeout } from 'rxjs';
 
 /** Reintentos por parte antes de rendirse (RF-06): con espera creciente de 1, 2 y 4 s. */
 export const REINTENTOS = 3;
 export const ESPERA_BASE_MS = 1000;
 /** Veces seguidas que un 409 puede reacomodar el offset sin avanzar, para no ciclar. */
 export const REACOMODOS_MAX = 3;
+/**
+ * Tiempo sin ningún avance (ni un byte enviado ni respuesta) tras el cual una petición de la
+ * subida se da por perdida y se reintenta; una parte de 16 MB avanza a cada instante, así que 10 s
+ * quietos no son lentitud sino una conexión muerta.
+ */
+export const INACTIVIDAD_PARTE_MS = 10_000;
+export const INACTIVIDAD_CONSULTA_MS = 10_000;
 const MIB = 1024 * 1024;
 
 /** La parte que sigue desde `offset`: `[inicio, fin)`, de `tamanoParte` bytes o menos al final. */
@@ -65,4 +73,16 @@ export function megas(bytes: number): string {
 /** "48.0 de 210.3 MB". */
 export function megasDe(enviados: number, total: number): string {
   return `${megas(enviados)} de ${megas(total)} MB`;
+}
+
+/**
+ * Corta con un error de red (status 0, que `reintentable` reintenta) si pasan `ms` sin que la
+ * petición emita nada; al cortar, desuscribe y el navegador aborta la petición. Sin esto, una
+ * conexión que se queda colgada deja la barra quieta para siempre y sin ningún aviso.
+ */
+export function sinAvance<T>(ms: number): MonoTypeOperatorFunction<T> {
+  return timeout({
+    each: ms,
+    with: () => throwError(() => new HttpErrorResponse({ status: 0, statusText: 'Sin avance' })),
+  });
 }
