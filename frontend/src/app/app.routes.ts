@@ -19,14 +19,13 @@ export const routes: Routes = [
     data: { consulta: true },
     title: 'Clave de acceso · SOPVID',
   },
-  // Búsqueda (pantalla 7, RF-36): vista de consulta que pide la clave de búsqueda. Muestra la
-  // barra principal (`menu`) para navegar a las demás pantallas; los enlaces a la vista de carga
-  // piden su propia clave.
+  // Búsqueda (pantalla 7, RF-36): vista de consulta, sin el menú de la vista de carga (app.html).
+  // Pide la clave de búsqueda.
   {
     path: 'buscar',
     loadComponent: () => import('./buscar/buscar').then((m) => m.Buscar),
     canActivate: [requiereVista],
-    data: { ancho: true, consulta: true, menu: true, vista: 'busqueda' },
+    data: { ancho: true, consulta: true, vista: 'busqueda' },
     title: 'Búsqueda · SOPVID',
   },
   // Destino de los QR del PDF (§11): el video en ese segundo, sin clave si el enlace trae su

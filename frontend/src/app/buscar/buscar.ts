@@ -49,8 +49,8 @@ interface Seleccion {
  * Filtros por SOP y por video (RF-37, `GET /buscar/opciones`) como chips sobre la caja; cada
  * burbuja muestra los suyos. El historial es de la sesión, en el navegador (`HistorialBusqueda`).
  *
- * Es la vista de consulta (RNF-11): no ofrece subir, editar ni publicar en la pantalla. Muestra la
- * barra principal para navegar; sus enlaces a la vista de carga piden su clave (ADR-027).
+ * Es la vista de consulta (RNF-11): no ofrece subir, editar ni publicar, ni enlaza a la vista de
+ * carga (`/nuevo`, `/videos`, `/sops`, el reporte, el editor ni `/v/`).
  */
 @Component({
   selector: 'app-buscar',

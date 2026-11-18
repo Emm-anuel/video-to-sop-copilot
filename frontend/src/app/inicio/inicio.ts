@@ -9,8 +9,8 @@ interface Tarjeta {
 }
 
 /**
- * Pantalla de inicio (`/`): un punto de partida con una tarjeta por pantalla de la aplicación.
- * Es estática (sin llamadas a la API) y vive en la vista de carga, así que pide su clave.
+ * Pantalla de inicio (`/`): un punto de partida con una tarjeta por pantalla de la vista de
+ * carga (la búsqueda es otra vista y no se ofrece aquí). Es estática (sin llamadas a la API) y vive en la vista de carga, así que pide su clave.
  */
 @Component({
   selector: 'app-inicio',
@@ -37,12 +37,6 @@ export class Inicio {
       titulo: 'Videos',
       descripcion: 'Los videos analizados con su estado, su reporte o su SOP, y la publicación.',
       accion: 'Ver los videos',
-    },
-    {
-      ruta: '/buscar',
-      titulo: 'Búsqueda',
-      descripcion: 'Encuentra una palabra o frase en los videos publicados y salta a ese segundo.',
-      accion: 'Buscar en los videos',
     },
   ];
 }

@@ -36,7 +36,6 @@ describe('App', () => {
           { path: 'ancha', component: Vacia, data: { ancho: true } },
           { path: 'normal', component: Vacia },
           { path: 'consulta', component: Vacia, data: { ancho: true, consulta: true } },
-          { path: 'consulta-menu', component: Vacia, data: { consulta: true, menu: true } },
         ]),
       ],
     });
@@ -54,7 +53,7 @@ describe('App', () => {
     expect((await main('/normal')).classList).not.toContain('ancho');
   });
 
-  it('el menú lleva a la biblioteca, a un nuevo análisis, a los videos y a la búsqueda', async () => {
+  it('el menú lleva a la biblioteca, a un nuevo análisis y a los videos (sin Búsqueda)', async () => {
     const fixture = TestBed.createComponent(App);
     await TestBed.inject(Router).navigateByUrl('/normal');
     fixture.detectChanges();
@@ -65,24 +64,15 @@ describe('App', () => {
       ['Biblioteca', '/sops'],
       ['Nuevo análisis', '/nuevo'],
       ['Videos', '/videos'],
-      ['Búsqueda', '/buscar'],
     ]);
     expect(enlaces.some((a) => a.getAttribute('aria-current') === 'page')).toBe(false);
   });
 
-  it('una consulta con data.menu muestra la barra principal (/buscar)', async () => {
-    const fixture = TestBed.createComponent(App);
-    await TestBed.inject(Router).navigateByUrl('/consulta-menu');
-    fixture.detectChanges();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('header.barra')).not.toBeNull();
-    expect(el.querySelector('main')?.classList).toContain('consulta');
-  });
-
-  it('/buscar activa la barra principal y el resto de la vista de consulta no', () => {
-    expect(ruta('buscar')?.data['menu']).toBe(true);
-    expect(ruta('v/:id')?.data['menu']).toBeUndefined();
-    expect(ruta('acceso')?.data['menu']).toBeUndefined();
+  it('/buscar, /v/:id y /acceso no llevan la barra principal (sin data.menu)', () => {
+    for (const path of ['buscar', 'v/:id', 'acceso']) {
+      expect(ruta(path)?.data['consulta'], path).toBe(true);
+      expect(ruta(path)?.data['menu'], path).toBeUndefined();
+    }
   });
 
   it('la vista de consulta no muestra la barra ni el menú de la vista de carga', async () => {
@@ -102,12 +92,7 @@ describe('App', () => {
 
   it('/videos y /buscar usan todo el ancho; solo /buscar es la vista de consulta', () => {
     expect(ruta('videos')?.data).toEqual({ ancho: true, vista: 'carga' });
-    expect(ruta('buscar')?.data).toEqual({
-      ancho: true,
-      consulta: true,
-      menu: true,
-      vista: 'busqueda',
-    });
+    expect(ruta('buscar')?.data).toEqual({ ancho: true, consulta: true, vista: 'busqueda' });
   });
 
   it('la biblioteca (/sops) usa todo el ancho y no choca con el editor (/sops/:id)', () => {

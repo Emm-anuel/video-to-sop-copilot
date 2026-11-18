@@ -1,4 +1,4 @@
-@if (barra()) {
+@if (!consulta()) {
   <header class="barra">
     <a routerLink="/" class="marca">SOPVID</a>
     <span class="lema">Validación de video contra SOP</span>
@@ -8,7 +8,6 @@
         >Nuevo análisis</a
       >
       <a routerLink="/videos" routerLinkActive="activo" ariaCurrentWhenActive="page">Videos</a>
-      <a routerLink="/buscar" routerLinkActive="activo" ariaCurrentWhenActive="page">Búsqueda</a>
       @if (conSesionDeCarga()) {
         <button type="button" class="salir" (click)="salir()">Salir</button>
       }
