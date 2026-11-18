@@ -6,8 +6,8 @@
 up:        ## Construye y levanta API + Postgres + frontend (http://localhost:4200) en segundo plano
 	docker compose up -d --build
 
-up-gpu:    ## Postgres, Ollama con la GPU NVIDIA (ADR-018) y frontend; la API corre en el host (docs/dev/api.md)
-	API_URL_WEB=http://host.docker.internal:8000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web
+up-gpu:    ## Postgres, Ollama con la GPU NVIDIA (ADR-018, y descarga de Gemma) y frontend; la API corre en el host (docs/dev/api.md)
+	API_URL_WEB=http://host.docker.internal:8000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama ollama-pull web
 
 down:      ## Detiene los servicios (conserva el volumen de datos)
 	docker compose down

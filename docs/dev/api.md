@@ -229,7 +229,7 @@ de compose.
 
    ```powershell
    make up-gpu                    # sin make: ver la línea siguiente
-   # $env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web; Remove-Item Env:API_URL_WEB
+   # $env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama ollama-pull web; Remove-Item Env:API_URL_WEB
    docker compose stop api        # si estaba arriba
    alembic upgrade head           # desde el venv; usa POSTGRES_HOST=localhost del .env
    ```

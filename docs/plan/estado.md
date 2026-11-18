@@ -1,6 +1,43 @@
-# Estado del proyecto · 16 nov 2026
+# Estado del proyecto · 17 nov 2026
 
 Resumen para el equipo y el asesor. El plan completo está en [plan.md](plan.md).
+
+## Ensayo de máquina limpia (17 nov, rama `chore/maquina-limpia`, issue #38)
+
+**Qué es y qué no.** La instalación desde cero siguiendo el README, en un clon aparte de la máquina de
+desarrollo (proyecto de compose `sopvid-limpia`). **No es una máquina limpia de verdad** (Docker, WSL2,
+el driver y las imágenes base ya estaban) y **no cierra la meta de S6**: la ✓ de "App completa" en
+`plan.md` sigue sin ponerse hasta que pase en otro equipo, con
+[`docs/demo/maquina-limpia.md`](../demo/maquina-limpia.md). Informe:
+[`docs/adr/datos/s7/maquina-limpia-20261117.md`](../adr/datos/s7/maquina-limpia-20261117.md).
+
+- **Tiempos (Docker, Whisper en CPU):** de `git clone` al primer reporte validado, **15 min 51 s** con
+  todas las descargas (imagen 3 min 07 s, Gemma 6.6 GB en 4 min 30 s, Whisper y MiniLM en el primer
+  video, que tardó 3 min 08 s). Con los modelos en caché A tarda 78 s (0.58× su duración) y E 144 s
+  (0.63×) en «Docker: Whisper CPU + Gemma GPU»; con la API en el host y GPU («Host: Whisper GPU + Gemma
+  GPU»), A tarda 35 s. En la primera, 10 min de video serían ~6 min: **no cumple RNF-01** (5 min); en la
+  segunda, sí. «Todo en CPU» (Whisper y Gemma) es otra configuración, ~21 min para 10 min
+  ([`rnf-s6.md`](../adr/datos/s6/rnf-s6.md)), y no se repitió en este ensayo.
+- **Resultado:** A ≥ 90 % sin *Falta* en 4 de 4 corridas (91.67 % una vez, 100 % tres); búsqueda 3, 4 y 2
+  coincidencias; PDF con 5 QR y token que abre el video sin clave; **el celular abrió el QR con el video
+  en el segundo 49**. E en modo generar sin imágenes: 13 pasos y, otra vez, la advertencia
+  `sin_traducir` (#32).
+- **Corregido** (12 hallazgos en el informe): el README llamaba "opcional" al LLM y decía "con GPU" con
+  solo `--profile llm` (sin `docker-compose.gpu.yml` corre en CPU); `make up-gpu` y sus equivalentes no
+  descargaban Gemma (faltaba `ollama-pull`); `levantar.ps1` es ahora el script único (crea `.env` con
+  claves, levanta, espera a `/health`, migra, espera a Gemma y la carga una vez); README §5 con
+  requisitos, material de la demo, opción D (API en el host con GPU) y QR con el celular;
+  `docs/demo/guion.md`.
+- **Sin probar:** `levantar.ps1` completo desde cero (solo su ruta idempotente), Docker Desktop, WSL2 y
+  driver desde cero, otra red, otra persona; y si hacía falta la regla de firewall del 4200.
+- **Puertos (18 nov, `fix(compose)`):** Postgres (5432) y la API (8000) ya solo escuchan en `127.0.0.1`
+  (Ollama ya lo hacía); el 4200 sigue abierto para el celular de los QR. Comprobado: `web` llega a la API,
+  `/health` responde desde el host, el QR abre y `http://<IP>:8000/health` no abre desde el celular.
+  **Efecto:** desde el host hay que usar `127.0.0.1` y no `localhost` (2-10 s por conexión);
+  `.env.example` ya lo trae, y un `.env` con `POSTGRES_HOST=localhost` hay que cambiarlo a mano.
+- **IP del Wi-Fi:** pasó de `192.168.50.15` a `.17` entre el ensayo y el día siguiente; el día de la demo
+  hay que actualizar `APP_URL_PUBLICA` y regenerar los PDF con QR.
+- **Para decidir:** el repo es público.
 
 ## Qué cambió esta semana
 

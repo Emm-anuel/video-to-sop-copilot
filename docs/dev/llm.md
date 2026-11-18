@@ -1,8 +1,8 @@
 # LLM local con Ollama (desarrollo)
 
 El LLM corre en local con [Ollama](https://ollama.com) dentro de Docker, bajo el profile `llm`
-de `docker-compose.yml`. Es opcional: la API y la base levantan igual sin él, y `GET /health`
-informa `"llm": "no_disponible"`. Decisión y benchmark: ADR-006. Cliente: `sopvid.lenguaje.llm`.
+de `docker-compose.yml`. Para levantar no es obligatorio (la API y la base arrancan sin él, y `GET /health`
+informa `"llm": "no_disponible"`), pero validar un video y generar un SOP lo necesitan. Decisión y benchmark: ADR-006. Cliente: `sopvid.lenguaje.llm`.
 
 | Pieza | Valor |
 |---|---|
