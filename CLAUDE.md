@@ -277,15 +277,19 @@ docs/
 >   (`COMPOSE_PROJECT_NAME=sopvid-limpia`), **no en una máquina limpia de verdad**: no cierra la
 >   meta de S6 ni autoriza la ✓ de "App completa" en `plan.md`; falta repetirlo en otro equipo con
 >   `docs/demo/maquina-limpia.md`. De `git clone` al primer reporte validado en Docker: 15 min 51 s
->   con descargas (imagen 3 min 07 s, Gemma 4 min 30 s, Whisper y MiniLM en el primer video). A
->   con Whisper en CPU dentro de Docker: 78 s (0.58×), ~6 min estimados para 10 min (no cumple
->   RNF-01); con la API en el host y GPU, 35 s. A ≥ 90 % sin *Falta*, búsqueda 3/4/2 y el QR abierto
+>   con descargas (imagen 3 min 07 s, Gemma 4 min 30 s, Whisper y MiniLM en el primer video). A en
+>   «Docker: Whisper CPU + Gemma GPU»: 78 s (0.58×), ~6 min estimados para 10 min (no cumple RNF-01);
+>   en «Host: Whisper GPU + Gemma GPU», 35 s; «todo en CPU» (Gemma incluida) es otra configuración,
+>   ~21 min (`rnf-s6.md`). A ≥ 90 % sin *Falta*, búsqueda 3/4/2 y el QR abierto
 >   desde un celular. `scripts/levantar.ps1` es el script único (crea `.env` con claves, levanta, espera a
 >   `/health`, migra, espera a Gemma y la carga una vez; solo se probó su ruta idempotente);
 >   `--profile llm` sin `docker-compose.gpu.yml` corre en CPU; el LLM no es opcional para validar ni
 >   generar; `up-gpu` ya incluye `ollama-pull`. Recorrido: `docs/demo/guion.md` (modo generar sin
->   imágenes). Pendiente: 5432 y 8000 publicados en todas las interfaces, pesos de Whisper y MiniLM
->   al levantar.
+>   imágenes). **Puertos (18 nov):** 5432, 8000 y 11434 solo en `127.0.0.1`; el 4200 en todas las
+>   interfaces (el celular de los QR entra por ahí). Desde el host, `POSTGRES_HOST=127.0.0.1` y no
+>   `localhost` (en Windows pierde 2-10 s por conexión; un `.env` viejo se cambia a mano). La IP del
+>   Wi-Fi cambió de `.15` a `.17`: el día de la demo, `APP_URL_PUBLICA` al día y PDF regenerados.
+>   Pendiente: pesos de Whisper y MiniLM al levantar.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.

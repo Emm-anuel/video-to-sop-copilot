@@ -160,11 +160,13 @@ Detalles del LLM en [docs/dev/llm.md](docs/dev/llm.md). Para ver dónde quedó G
 `Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en
 <http://localhost:8000/docs>.
 
-**Con la API en Docker, Whisper transcribe en CPU.** Medido con los modelos ya descargados: 78 s en
-total para un video de 2:15 (0.58× su duración, Whisper 47 s) y 144 s para uno de 3:47 (0.63×),
-contra 25–44 s por video con la API en el host y GPU. Extrapolado a 10 min son ~6 min: no cumple RNF-01
-(5 min). Sirve para una demo con videos de 2–4 min; para cumplir RNF-01, la
-[opción D](#opción-d-demo-con-gpu-api-en-el-host).
+**Con la API en Docker, Whisper transcribe en CPU, y Gemma en la GPU si hay** (configuración «Docker:
+Whisper CPU + Gemma GPU»). Medido con los modelos ya descargados: 78 s en total para un video de 2:15
+(0.58× su duración, Whisper 47 s) y 144 s para uno de 3:47 (0.63×), contra 25–44 s por video con la API
+en el host y GPU. Extrapolado a 10 min son ~6 min: no cumple RNF-01 (5 min). Sirve para una demo con
+videos de 2–4 min; para cumplir RNF-01, la [opción D](#opción-d-demo-con-gpu-api-en-el-host). **Sin
+GPU** (todo en CPU, Gemma incluida) es otra configuración y mucho más lenta: ~21 min para 10 min
+(`docs/adr/datos/s6/rnf-s6.md`).
 
 #### Material de la demo
 
@@ -193,6 +195,8 @@ queda abierta (desarrollo) y `/health` lo avisa en `avisos`. Los QR del PDF abre
 clave gracias al token; cambiar `SECRETO_ENLACES` invalida los ya impresos. Qué ruta pide qué
 clave: [docs/dev/api.md](docs/dev/api.md#claves-de-acceso).
 
+> **Puertos solo en el equipo.** La base (5432), la API (8000) y Ollama (11434) se publican en `127.0.0.1`: no se ven desde la red. Solo el frontend (4200) escucha en todas las interfaces, y por eso el celular de los QR entra por el 4200 y el frontend reenvía `/api`. Desde el host usa `127.0.0.1` y no `localhost` (en Windows `localhost` prueba `::1` y pierde 2-10 s por conexión): `.env.example` ya trae `POSTGRES_HOST=127.0.0.1`; si tu `.env` es anterior y dice `localhost`, cámbialo.
+>
 > **Puerto 5432.** La base se publica en `POSTGRES_PORT` (5432 por defecto). Si tienes otro Postgres local, apágalo antes o cambia `POSTGRES_PORT` en tu `.env`. Los datos viven en el volumen `sopvid_pgdata`: `docker compose down` los conserva y `docker compose down -v` los borra.
 
 ### Opción B: venv local (tests, lint y notebooks)
@@ -277,7 +281,9 @@ dirección tiene que ser alcanzable desde él:
 1. Celular y equipo en la misma red Wi-Fi (sin datos móviles ni VPN en el celular; algunas redes
    aíslan a los clientes entre sí).
 2. En `.env`: `APP_URL_PUBLICA=http://<IP del equipo>:4200` (`ipconfig`, la del Wi-Fi). Reinicia la
-   API y **genera el PDF de nuevo**: los ya generados conservan la dirección vieja.
+   API y **genera el PDF de nuevo**: los ya generados conservan la dirección vieja. La IP del
+   Wi-Fi puede cambiar al reiniciar el equipo o el router (el 18 nov pasó de `.15` a `.17`): un QR ya
+   impreso deja de abrir; reserva la IP en el router para una demo con PDF impreso.
 3. Windows Firewall: si el celular no abre `http://<IP>:4200`, permite el puerto 4200 en la red privada
    (PowerShell como administrador) y quítalo al terminar:
 

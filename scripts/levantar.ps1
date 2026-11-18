@@ -138,9 +138,14 @@ if ($SoloEnv) {
     exit 0
 }
 
-docker info --format "{{.ServerVersion}}" 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Docker no responde: abre Docker Desktop y vuelve a intentar."
+# Windows PowerShell 5.1 vuelve error terminante el stderr de un programa nativo bajo "Stop": con Docker
+# apagado saldría un NativeCommandError en lugar del mensaje de abajo.
+$ErrorActionPreference = "Continue"
+docker info --format "{{.ServerVersion}}" 2>&1 | Out-Null
+$dockerListo = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = "Stop"
+if (-not $dockerListo) {
+    Write-Error "Docker no responde: abre Docker Desktop, espera a que diga 'Engine running' y vuelve a intentar."
 }
 
 $archivos = @("-f", "docker-compose.yml")

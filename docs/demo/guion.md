@@ -20,6 +20,11 @@ NDA: los videos y el SOP en Word **no están en el repo**. Van en una carpeta fu
 - Con la API en Docker, Whisper transcribe en CPU: 0.58–0.63× la duración del video con los modelos
   ya descargados (A de 2:15: 78 s; E de 3:47: 144 s). **La primera vez** suma ~2 min de descarga de
   Whisper y MiniLM, y la primera conversión de SOP ~1.5 min de carga de Gemma. Calienta todo antes.
+  (Esa es la configuración «Docker: Whisper CPU + Gemma GPU»; sin GPU es «todo en CPU» y tarda mucho más.)
+- **El día de la demo, revisa la IP.** Si vas a escanear QR con un celular, `ipconfig` y compara con
+  `APP_URL_PUBLICA` de `.env`: la IP del Wi-Fi cambió de `192.168.50.15` a `192.168.50.17` entre el
+  ensayo y el día siguiente (reinicio del equipo) y los PDF generados antes ya no abrían. Si cambió:
+  actualiza `APP_URL_PUBLICA`, reinicia la API (`docker compose up -d api`) y **regenera los PDF**.
 
 Variables de PowerShell para los comandos de abajo (desde la raíz del repo):
 
@@ -66,8 +71,10 @@ Esperado: 4 páginas, tamaño carta, 5 QR (uno por hallazgo que no es un *Cumple
 `<APP_URL_PUBLICA>/v/<id>?t=<segundo>&k=<token>` y el mismo enlace escrito debajo. El token abre ese
 video y su miniatura **sin clave**; con el token de otro video, uno alterado o sin token, 401. Para
 escanear con un celular: `APP_URL_PUBLICA=http://<IP>:4200` en `.env`, reiniciar la API,
-**regenerar el PDF** y la regla de firewall del README ("QR del PDF con el celular"). Ensayo: el
-celular abrió `/v/<id>` con el video en el segundo 49.
+**regenerar el PDF** (también si la IP cambió desde la última vez: un QR con la IP vieja no abre) y la
+regla de firewall del README ("QR del PDF con el celular"). Ensayo: el celular abrió `/v/<id>` con el
+video en el segundo 49, sin pedir clave; `http://<IP>:8000/health` desde el celular no abre (la API solo
+escucha en `127.0.0.1`; el celular entra por el 4200).
 
 ## 4. Publicar y buscar (RF-32 a RF-37)
 

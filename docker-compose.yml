@@ -19,7 +19,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?Copia .env.example a .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copia .env.example a .env}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Solo en el host local: la contraseña es de desarrollo y la base no debe verse desde la red.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -60,7 +61,9 @@ services:
       - modelos:/app/models
       - media:/app/media
     ports:
-      - "${APP_PORT:-8000}:8000"
+      # Solo en el host local: desde la red (el celular del QR) se entra por el frontend (4200), que
+      # reenvía /api a la API por la red de compose.
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy

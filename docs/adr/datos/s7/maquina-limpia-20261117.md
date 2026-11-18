@@ -22,7 +22,22 @@ Sin material del cliente: solo pasos, segundos, porcentajes y estados.
 | Aislamiento | `COMPOSE_PROJECT_NAME=sopvid-limpia`: volúmenes `sopvid-limpia_*` (comprobado con `docker compose --profile llm config` antes del primer `up`); `sopvid` solo se paró (`stop`), nunca `down -v` |
 | Caché de Docker | python, node, pgvector y ollama **ya estaban**: su descarga no se midió |
 
-## Tiempos, paso a paso (Docker, API con Whisper en CPU)
+## Configuraciones medidas
+
+Cada tiempo de este informe lleva el nombre de su configuración. **No son intercambiables**: la
+GPU cambia dónde corre cada modelo, no cuál (ADR-018), y mueve el resultado de RNF-01.
+
+| Nombre | API | Whisper | Gemma | Dónde está |
+|---|---|---|---|---|
+| **Docker: Whisper CPU + Gemma GPU** | en Docker | CPU, int8 | GPU (Ollama con `docker-compose.gpu.yml`) | pasos 1–13 de abajo |
+| **Host: Whisper GPU + Gemma GPU** | en el host (venv) | GPU, float16 | GPU | pasos 14–20 |
+| **Todo en CPU** | en Docker o en el host | CPU, int8 | CPU (sin `docker-compose.gpu.yml` o `LLM_DISPOSITIVO=cpu`) | **no se midió en este ensayo**; de S5/S6: ~21 min para 10 min ([`rnf-s6.md`](../s6/rnf-s6.md), C el 12 nov: 422 s, factor 2.1) |
+
+Lo que separa a la primera de la tercera es Gemma: en "Docker: Whisper CPU + Gemma GPU" la ficha de
+contexto y la segmentación suman ~26 s para un video de 135 s; en "Todo en CPU" esas etapas son las
+que hacen pasar el factor de 0.6 a 1.5–2.1.
+
+## Tiempos, paso a paso (configuración «Docker: Whisper CPU + Gemma GPU»)
 
 | # | Paso | Tiempo | Resultado |
 |---|---|---|---|
@@ -47,7 +62,7 @@ midió de punta a punta**; solo sus piezas: A en 78 s (11), la conversión de SO
 (~25 s en otras mediciones, `docs/dev/llm.md`) y `up` + migrar (13 s) más 3 min de la imagen si hay
 que construirla.
 
-## Modo demo: API en el host con GPU
+## Modo demo (configuración «Host: Whisper GPU + Gemma GPU»)
 
 | # | Paso | Tiempo | Resultado |
 |---|---|---|---|
@@ -68,8 +83,9 @@ Prepararlo suma ~5 min de pip y ~5 min de la primera corrida.
 |---|---|---|---|
 | A validado | ≥ 90 % sin *Falta* | 91.67 %, 100 %, 100 %, 100 % (4 corridas), 0 *Falta* | cumple; varía entre corridas (Gemma no determinista) |
 | Búsqueda (solo A publicado) | «manometro» 3, «cartuchos» 4, «llave de paso» 2 | 3, 4 y 2, en 6–12 ms del servidor | **igual** |
-| A con GPU en el host | 25–44 s | 35 s | igual |
-| A con Whisper en CPU dentro de Docker | no medido | 78 s (0.58×); E 144 s (0.63×) | extrapolado a 10 min, ~6 min: **no cumple RNF-01** (5 min) con Whisper en CPU |
+| A en «Host: Whisper GPU + Gemma GPU» | 25–44 s | 35 s | igual |
+| A en «Docker: Whisper CPU + Gemma GPU» | no medido | 78 s (0.58×); E 144 s (0.63×) | extrapolado a 10 min, ~6 min: **no cumple RNF-01** (5 min) |
+| «Todo en CPU» (Whisper CPU + Gemma CPU) | ~21 min para 10 min (`rnf-s6.md`) | no medido | **no es la misma configuración que la de arriba** (~6 min); no se repitió |
 | QR | ±1 s (RNF-03) | segundo 49.2 en el PDF; el celular abrió `/v/<id>` con el video en el segundo 49 | cumple |
 
 ## QR, PDF y acceso
@@ -85,6 +101,20 @@ Prepararlo suma ~5 min de pip y ~5 min de la primera corrida.
   propia**.
 - Un falso positivo mío: el primer intento de validar el token falló (401) porque mi regex pegaba la
   línea siguiente del PDF al token; no es un fallo de la app.
+- **La IP cambió de `192.168.50.15` a `192.168.50.17`** entre el ensayo (17 nov) y el 18 nov, tras reiniciar
+  el equipo: el PDF del 17 nov ya no abría. Se actualizó `APP_URL_PUBLICA`, se regeneró el PDF y el celular
+  abrió el video en el segundo 49 sin pedir clave. **El día de la demo hay que revisar la IP, actualizar
+  `APP_URL_PUBLICA` y regenerar los PDF** (README y `docs/demo/guion.md`).
+- **Puertos solo en el equipo (18 nov, `fix(compose)`):** con `db` en `127.0.0.1:5432` y `api` en
+  `127.0.0.1:8000` (el 4200 sigue en todas las interfaces): `/health` desde el host 200; `web` sigue
+  llegando a la API por `/api`; desde la IP de la red el 4200 conecta y el 8000, el 5432 y el 11434 no
+  (`Test-NetConnection`); y desde el celular `http://192.168.50.17:8000/health` **no abre**, mientras el
+  QR sigue abriendo.
+- **Efecto del cambio, ya mitigado:** con la base solo en `127.0.0.1`, un cliente del host que use
+  `localhost` pierde tiempo en cada conexión (Windows prueba `::1` y lo rechaza: `psycopg` ~10 s, la
+  primera conexión de la app 5.2 s). `.env.example` ahora trae `POSTGRES_HOST=127.0.0.1`: 0.21 s y
+  `alembic current` en 1.4 s. Un `.env` que ya tenga `localhost` no falla, solo es lento: hay que
+  cambiarlo a mano.
 
 ## Hallazgos y correcciones
 
@@ -120,10 +150,9 @@ Prepararlo suma ~5 min de pip y ~5 min de la primera corrida.
 
 ## Para el siguiente
 
-- **Exposición a la red:** Docker publica el 8000 y el 5432 (contraseña de desarrollo) en `0.0.0.0`;
-  Ollama ya va a `127.0.0.1`. Habría que hacer lo mismo con el 5432 (`127.0.0.1:${POSTGRES_PORT}`) y
-  decidir si la API necesita estar en todas las interfaces. No se cambió. Se comprueba desde el celular
-  (`http://<IP>:8000/health`) en la lista de máquina limpia.
+- **Exposición a la red:** resuelta el 18 nov: el 5432 y el 8000 ya solo escuchan en `127.0.0.1`, como
+  Ollama (ver arriba). Queda comprobarlo en otro equipo (`docs/demo/maquina-limpia.md`) y avisar a
+  quien tenga un `.env` con `POSTGRES_HOST=localhost` que lo cambie a `127.0.0.1`.
 - **El repo es público** hoy (`gh repo view`), con el README y los prompts dentro: conviene confirmar
   con el patrocinador que eso es lo acordado (NDA cl. 3.1 y 3.2).
 - **Pesos de Whisper y MiniLM:** podrían bajarse al levantar, no al primer video (~2-3 min). Pide una

@@ -82,10 +82,15 @@ en `docs/plan/plan.md` solo cuentan si esta lista pasa en un equipo distinto.
       README ("QR del PDF con el celular") trae el comando y el que la quita.
 - [ ] **Perfil de red Público.** El ensayo fue en una red *Privada*; la regla del README es para
       Privada. En una red Pública tendría que ir con `-Profile Public`, decisión de quien lo instale.
-- [ ] **Exposición a la red:** Docker publica el 8000 (API) y el 5432 (Postgres, contraseña de
-      desarrollo) en todas las interfaces. Desde el celular, abre `http://<IP>:8000/health` y
-      `http://<IP>:5432`: si responden, esos puertos son alcanzables desde la red y la API solo
-      depende de las claves. No abras esos puertos en el firewall de una red que no sea de confianza.
+- [ ] **Exposición a la red:** el compose publica el 5432 (Postgres, contraseña de desarrollo), el 8000
+      (API) y el 11434 (Ollama) solo en `127.0.0.1`; el 4200 (frontend) en todas las interfaces. Desde
+      el celular, `http://<IP>:8000/health` **no debe abrir** (en el ensayo no abrió) y
+      `http://<IP>:4200` sí. Si el 8000 abre, el compose no es el de `main`.
+- [ ] **`POSTGRES_HOST=127.0.0.1` en `.env`** (lo trae `.env.example`). Con `localhost`, en Windows cada
+      conexión nueva desde el host (`alembic`, `pytest`, la API del host) pierde 2-10 s.
+- [ ] **La IP del equipo cambió de `.15` a `.17`** entre el ensayo y el día siguiente: antes de la demo,
+      `ipconfig`, `APP_URL_PUBLICA` al día, reiniciar la API y **regenerar los PDF** con QR. Un PDF
+      impreso con la IP vieja no abre.
 
 ## Al terminar
 
