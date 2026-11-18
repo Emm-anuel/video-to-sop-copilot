@@ -16,6 +16,7 @@ import {
   SopDetalle,
   SopResumen,
   VideoCreado,
+  VideoEliminado,
 } from './tipos';
 import { VideoResumen } from './video-resumen';
 
@@ -221,6 +222,14 @@ export class ApiService {
   /** `POST /videos/{id}/publicar` (RF-32): lo indexa en la búsqueda exacta; 409 si no está listo. */
   publicar(id: number): Observable<EstadoPublicacion> {
     return this.http.post<EstadoPublicacion>(`${API}/videos/${id}/publicar`, null);
+  }
+
+  /**
+   * `DELETE /videos/{id}`: borra el video con su reporte, su índice y sus archivos, y el SOP
+   * generado desde él si nadie más lo usa. 409 si está en cola o procesando.
+   */
+  borrarVideo(id: number): Observable<VideoEliminado> {
+    return this.http.delete<VideoEliminado>(`${API}/videos/${id}`);
   }
 
   /** `DELETE /videos/{id}/publicar`: lo quita de la búsqueda (en cualquier estado). */

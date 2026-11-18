@@ -31,7 +31,7 @@ function conMayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-/** Lo que pasó al publicar o quitar: `conflicto` (409, ámbar) explica por qué no se pudo. */
+/** Lo que pasó al publicar, quitar o eliminar: `conflicto` (409, ámbar) explica por qué no se pudo. */
 interface AvisoFila {
   texto: string;
   tipo: 'hecho' | 'conflicto' | 'error';
@@ -87,6 +87,11 @@ export class Videos implements OnInit {
   );
 
   protected readonly publicando = signal<ReadonlySet<number>>(new Set());
+  /** El video que espera confirmación para eliminarse y el que se está eliminando. */
+  protected readonly confirmando = signal<number | null>(null);
+  protected readonly borrando = signal<number | null>(null);
+  /** Lo que pasó al eliminar el último video (la fila ya no está para mostrarlo). */
+  protected readonly resultadoBorrado = signal<string | null>(null);
   protected readonly avisos = signal<Readonly<Record<number, AvisoFila>>>({});
 
   protected readonly etiquetaSemaforo = ETIQUETA_SEMAFORO;
@@ -186,6 +191,46 @@ export class Videos implements OnInit {
         }
       },
     });
+  }
+
+  protected pedirConfirmacion(id: number): void {
+    this.confirmando.set(id);
+    this.resultadoBorrado.set(null);
+    this.quitarAviso(id);
+  }
+
+  /** Elimina el video y, si nadie más lo usa, su SOP generado (`DELETE /videos/{id}`). */
+  protected eliminar(video: VideoResumen): void {
+    this.confirmando.set(null);
+    this.borrando.set(video.id);
+    this.api
+      .borrarVideo(video.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => {
+          this.borrando.set(null);
+          this.videos.update((lista) => (lista ?? []).filter((v) => v.id !== video.id));
+          const sop = r.sop_eliminado
+            ? ` También se eliminó el SOP ${r.sop_eliminado.codigo}.`
+            : '';
+          this.resultadoBorrado.set(
+            `«${video.titulo}» eliminado.${sop} ${r.sop_conservado ?? ''}`.trim(),
+          );
+        },
+        error: (e: unknown) => {
+          this.borrando.set(null);
+          const conflicto = e instanceof HttpErrorResponse && e.status === 409;
+          this.ponerAviso(video.id, {
+            texto: conflicto
+              ? conMayuscula(mensajeDeError(e))
+              : `No se pudo eliminar. ${mensajeDeError(e)}`,
+            tipo: conflicto ? 'conflicto' : 'error',
+          });
+          if (conflicto) {
+            this.recargar();
+          }
+        },
+      });
   }
 
   /** La etiqueta del estado de un video en la lista. */

@@ -1,4 +1,4 @@
-"""Biblioteca de SOP (RF-05): `GET /sops` y `DELETE /sops/{id}`.
+"""Biblioteca de SOP (RF-05): `GET /sops` y `DELETE /sops/{id}`, y `DELETE /videos/{id}`.
 
 Usan la base de conftest.py (`db_session`, revertida al final) con SOP inventados (`SOP_PRUEBA` de
 tests/dobles.py). La base de desarrollo puede traer otros SOP: las pruebas miran solo los suyos.
@@ -10,10 +10,11 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dobles import SOP_PRUEBA, Entorno, guardar_sop
-from sopvid.plataforma.modelos import Reporte, Sop, Video
+from sopvid.plataforma.modelos import Palabra, Reporte, Sop, Video
 from sopvid.plataforma.procesamiento import carpeta_sop
 
 
@@ -238,3 +239,137 @@ def test_409_mientras_se_convierte(client: TestClient, entorno: Entorno, estado:
 def test_guardar_sop_de_dobles_entra_a_la_lista(client: TestClient, entorno: Entorno) -> None:
     # El SOP que usan las demás pruebas de la API (cargado, listo) sale en la biblioteca.
     assert guardar_sop(entorno.session).id in _listados(client)
+
+
+# ── DELETE /videos/{id} ──────────────────────────────────────────────────────────────────────
+
+
+def _carpeta_video(entorno: Entorno, video: Video) -> Path:
+    carpeta = entorno.settings.media_path / "videos" / str(video.id)
+    carpeta.mkdir(parents=True)
+    (carpeta / "video.mp4").write_bytes(b"inventado")
+    return carpeta
+
+
+def test_borra_un_video_con_reporte_palabras_y_carpeta(
+    client: TestClient, entorno: Entorno
+) -> None:
+    s = entorno.session
+    sop = _sop(s)
+    video = _video(s, sop)
+    video.proceso = "listo"
+    _reporte(s, video, sop)
+    s.add(
+        Palabra(
+            video_id=video.id,
+            palabra_normalizada="hola",
+            palabra_original="Hola",
+            t_inicio=0.0,
+            t_fin=0.5,
+            posicion=0,
+        )
+    )
+    s.commit()
+    carpeta = _carpeta_video(entorno, video)
+    video_id, sop_id = video.id, sop.id
+
+    r = client.delete(f"/videos/{video_id}")
+
+    assert r.status_code == 200
+    assert r.json() == {"id": video_id, "sop_eliminado": None, "sop_conservado": None}
+    s.expire_all()
+    assert s.get(Video, video_id) is None
+    assert (
+        s.scalar(select(func.count()).select_from(Reporte).where(Reporte.video_id == video_id)) == 0
+    )
+    assert (
+        s.scalar(select(func.count()).select_from(Palabra).where(Palabra.video_id == video_id)) == 0
+    )
+    assert not carpeta.exists()
+    # Un SOP cargado es de la biblioteca: no se va con el video.
+    assert s.get(Sop, sop_id) is not None
+    assert client.get(f"/videos/{video_id}").status_code == 404
+
+
+def test_borra_el_sop_generado_junto_con_el_video(client: TestClient, entorno: Entorno) -> None:
+    s = entorno.session
+    sop = _sop(s, "Generado", origen="generado", en_biblioteca=False)
+    video = _video(s, sop, modo="generar")
+    video.proceso = "listo"
+    s.commit()
+    carpeta_v = _carpeta_video(entorno, video)
+    carpeta_s = carpeta_sop(entorno.settings.media_path, sop.id)
+    carpeta_s.mkdir(parents=True)
+    video_id, sop_id, codigo = video.id, sop.id, sop.codigo
+
+    r = client.delete(f"/videos/{video_id}")
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "id": video_id,
+        "sop_eliminado": {"id": sop_id, "codigo": codigo, "titulo": "Generado"},
+        "sop_conservado": None,
+    }
+    s.expire_all()
+    assert s.get(Video, video_id) is None and s.get(Sop, sop_id) is None
+    assert not carpeta_v.exists() and not carpeta_s.exists()
+
+
+def test_conserva_el_sop_generado_si_otro_video_lo_usa(
+    client: TestClient, entorno: Entorno
+) -> None:
+    # Se guardó en la biblioteca y otro video se validó con él: se va el video, no el SOP.
+    s = entorno.session
+    sop = _sop(s, origen="generado")
+    origen = _video(s, sop, modo="generar")
+    origen.proceso = "listo"
+    otro = _video(s, sop)
+    _reporte(s, otro, sop)
+    origen_id, sop_id, otro_id = origen.id, sop.id, otro.id
+
+    r = client.delete(f"/videos/{origen_id}")
+
+    assert r.status_code == 200
+    detalle = r.json()
+    assert detalle["sop_eliminado"] is None
+    assert "se conserva" in detalle["sop_conservado"]
+    s.expire_all()
+    assert s.get(Video, origen_id) is None
+    assert s.get(Sop, sop_id) is not None and s.get(Video, otro_id) is not None
+
+
+def test_borra_un_video_sin_sop_todavia(client: TestClient, entorno: Entorno) -> None:
+    # Modo generar que falló antes de crear el SOP.
+    video = _video(entorno.session, None, modo="generar")
+    video.proceso = "error"
+    entorno.session.commit()
+    video_id = video.id
+
+    r = client.delete(f"/videos/{video_id}")
+
+    assert r.status_code == 200
+    assert r.json() == {"id": video_id, "sop_eliminado": None, "sop_conservado": None}
+
+
+@pytest.mark.parametrize("proceso", ["en_cola", "procesando"])
+def test_409_si_el_video_esta_en_proceso(
+    client: TestClient, entorno: Entorno, proceso: str
+) -> None:
+    s = entorno.session
+    sop = _sop(s, origen="generado", en_biblioteca=False)
+    video = _video(s, sop, modo="generar")
+    video.proceso = proceso
+    s.commit()
+    carpeta = _carpeta_video(entorno, video)
+
+    r = client.delete(f"/videos/{video.id}")
+
+    assert r.status_code == 409
+    assert r.json()["detail"]["proceso"] == proceso
+    s.expire_all()
+    assert s.get(Video, video.id) is not None and s.get(Sop, sop.id) is not None
+    assert carpeta.exists()
+
+
+def test_borrar_video_404(client: TestClient) -> None:
+    assert client.delete("/videos/999999").status_code == 404

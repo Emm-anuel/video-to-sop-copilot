@@ -3,6 +3,10 @@
   <a class="boton principal" routerLink="/nuevo">Nuevo análisis</a>
 </div>
 
+@if (resultadoBorrado(); as r) {
+  <p class="aviso hecho" role="status">{{ r }}</p>
+}
+
 @if (errorCarga(); as e) {
   <div class="error" role="alert">
     <p>{{ e }}</p>
@@ -150,6 +154,29 @@
                   {{ v.publicado ? 'Quitar de la búsqueda' : 'Publicar' }}
                 }
               </button>
+            }
+            @if (v.proceso !== 'en_cola' && v.proceso !== 'procesando') {
+              @if (confirmando() === v.id) {
+                <span class="confirmar">
+                  <span>
+                    ¿Eliminar «{{ v.titulo }}»? Se borran el video, su reporte y su índice de
+                    búsqueda{{
+                      v.modo === 'generar' ? ', y el SOP generado si nadie más lo usa' : ''
+                    }}. No se puede deshacer.
+                  </span>
+                  <button type="button" class="peligro" (click)="eliminar(v)">Sí, eliminar</button>
+                  <button type="button" (click)="confirmando.set(null)">Cancelar</button>
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  [disabled]="borrando() === v.id"
+                  (click)="pedirConfirmacion(v.id)"
+                  [attr.aria-label]="'Eliminar ' + v.titulo"
+                >
+                  {{ borrando() === v.id ? 'Eliminando…' : 'Eliminar' }}
+                </button>
+              }
             }
           </span>
           @if (avisos()[v.id]; as a) {

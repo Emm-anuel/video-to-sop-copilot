@@ -41,7 +41,9 @@ Lista y publicación (pantalla 6, RF-32): `GET /videos` lista los videos del má
 antiguo (`VideoResumen`), con filtros opcionales. `POST /videos/{id}/publicar` arma el índice de
 la búsqueda exacta (`lenguaje/busqueda.py`) con el análisis terminado (409 si no) y lo reemplaza
 si se repite; `DELETE /videos/{id}/publicar` lo quita (extensión nuestra: §11 solo define
-publicar). Los dos responden `EstadoPublicacion`.
+publicar). Los dos responden `EstadoPublicacion`. `DELETE /videos/{id}` borra el video con su
+reporte, su índice y sus archivos, y el SOP generado desde él si nadie más lo usa (409 si el
+video está en cola o procesando).
 
 Descargas (RF-31): `GET /videos/{id}/download/{tipo}` entrega la transcripción guardada como
 adjunto en TXT (`[mm:ss]`, completo), SRT o JSON (el `Analisis`), con el título como nombre del
@@ -75,6 +77,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from sopvid.contrato import (
@@ -165,6 +168,22 @@ class VideoCreado(BaseModel):
     id: int
     proceso: str
     sop_id: int | None = None
+
+
+class SopEliminado(BaseModel):
+    id: int
+    codigo: str
+    titulo: str | None = None
+
+
+class VideoEliminado(BaseModel):
+    """Respuesta de `DELETE /videos/{id}`: `sop_eliminado` es el SOP generado que se fue con el
+    video; `sop_conservado`, el porqué no se borró (otro video o reporte lo usa). Los dos son
+    None si el video no tenía un SOP generado (modo validar o generación sin terminar)."""
+
+    id: int
+    sop_eliminado: SopEliminado | None = None
+    sop_conservado: str | None = None
 
 
 class EstadoVideo(BaseModel):
@@ -598,6 +617,71 @@ def despublicar_video(
     session.commit()
     logger.info("Video %d quitado de la búsqueda", video_id)
     return estado
+
+
+@router.delete("/videos/{video_id}", response_model=VideoEliminado)
+def borrar_video(
+    video_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> VideoEliminado:
+    """Borra el video con su reporte, su índice de búsqueda y sus archivos de `media/`, y también
+    el SOP que se generó desde él (modo generar) si nadie más lo usa. 409 si está en cola o
+    procesando (el trabajador todavía lo usa); nunca borra un SOP cargado ni uno que otro video
+    o reporte use (queda en `sop_conservado`, con el porqué)."""
+    video = _buscar(session, video_id, para_actualizar=True)
+    if video.proceso in (EN_COLA, PROCESANDO):
+        raise HTTPException(
+            409,
+            {
+                "mensaje": "el video está en proceso: espera a que termine para eliminarlo",
+                "proceso": video.proceso,
+            },
+        )
+    sop = session.get(Sop, video.sop_id) if video.sop_id is not None else None
+    generado = (
+        sop if sop is not None and video.modo == "generar" and sop.origen == "generado" else None
+    )
+    try:
+        session.delete(video)
+        session.flush()  # el reporte y las palabras se van en cascada
+        borrado, conservado = _borrar_sop_generado(session, generado)
+        session.commit()
+    except IntegrityError:
+        # Otro video tomó el SOP entre la revisión y el borrado: el RESTRICT de la base manda.
+        session.rollback()
+        raise HTTPException(
+            409, {"mensaje": "el SOP del video está en uso: vuelve a intentarlo"}
+        ) from None
+    shutil.rmtree(settings.media_path / "videos" / str(video_id), ignore_errors=True)
+    if borrado is not None:
+        shutil.rmtree(carpeta_sop(settings.media_path, borrado.id), ignore_errors=True)
+    logger.info(
+        "Video %d eliminado%s", video_id, f" con su SOP {borrado.codigo}" if borrado else ""
+    )
+    return VideoEliminado(
+        id=video_id,
+        sop_eliminado=borrado,
+        sop_conservado=conservado,
+    )
+
+
+def _borrar_sop_generado(
+    session: Session, sop: Sop | None
+) -> tuple[SopEliminado | None, str | None]:
+    """Borra el SOP generado si ya nadie lo usa (el video ya salió de la transacción). Devuelve
+    `(borrado, None)`, `(None, motivo)` si otro video o reporte lo usa, o `(None, None)` sin SOP."""
+    if sop is None:
+        return None, None
+    en_uso = session.scalar(select(Video.id).where(Video.sop_id == sop.id).limit(1))
+    con_reporte = session.scalar(select(Reporte.id).where(Reporte.sop_id == sop.id).limit(1))
+    if en_uso is not None or con_reporte is not None:
+        return None, (
+            f"El SOP {sop.codigo} se conserva: otro video o reporte lo usa como referencia."
+        )
+    borrado = SopEliminado(id=sop.id, codigo=sop.codigo, titulo=sop.titulo)
+    session.delete(sop)
+    return borrado, None
 
 
 @router.get("/videos/estimacion", response_model=EstimacionImagenes)

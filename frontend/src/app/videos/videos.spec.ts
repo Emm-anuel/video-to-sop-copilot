@@ -243,6 +243,76 @@ describe('Videos', () => {
     expect(filas()[0].querySelector('button.publicar')).toBeNull();
   });
 
+  describe('eliminar', () => {
+    const eliminar = (fila: HTMLElement) =>
+      fila.querySelector<HTMLButtonElement>('button[aria-label^="Eliminar"]');
+    const boton = (selector: string) => pantalla().querySelector<HTMLButtonElement>(selector)!;
+    const confirmar = () =>
+      Array.from(pantalla().querySelectorAll<HTMLButtonElement>('button.peligro'))[0];
+
+    it('pide confirmación, elimina el video y dice que también se fue su SOP', async () => {
+      await llega([VALIDADO, GENERADO]);
+      eliminar(filas()[1])!.click();
+      fixture.detectChanges();
+      expect(filas()[1].querySelector('.confirmar')?.textContent).toContain(
+        'y el SOP generado si nadie más lo usa',
+      );
+      http.expectNone('/api/videos/8'); // todavía no se pidió nada
+
+      confirmar().click();
+      fixture.detectChanges();
+      const pedido = http.expectOne('/api/videos/8');
+      expect(pedido.request.method).toBe('DELETE');
+      pedido.flush({
+        id: 8,
+        sop_eliminado: { id: 9, codigo: 'SOP-0009', titulo: 'Arranque de la bomba' },
+        sop_conservado: null,
+      });
+      fixture.detectChanges();
+
+      expect(titulos()).toEqual(['Limpieza del filtro de agua']);
+      const aviso = pantalla().querySelector('.aviso.hecho')!.textContent;
+      expect(aviso).toContain('«Arranque de la bomba» eliminado.');
+      expect(aviso).toContain('También se eliminó el SOP SOP-0009.');
+    });
+
+    it('cancelar no pide nada; un video en proceso no ofrece eliminar', async () => {
+      await llega([VALIDADO, PROCESANDO]);
+      expect(eliminar(filas()[1])).toBeNull();
+      eliminar(filas()[0])!.click();
+      fixture.detectChanges();
+      Array.from(pantalla().querySelectorAll<HTMLButtonElement>('.confirmar button'))
+        .find((b) => b.textContent?.trim() === 'Cancelar')!
+        .click();
+      fixture.detectChanges();
+      expect(eliminar(filas()[0])).not.toBeNull();
+      expect(pantalla().querySelector('.confirmar')).toBeNull();
+      expect(boton('li.video')).toBeTruthy();
+    });
+
+    it('un 409 se muestra en ámbar, conserva la fila y vuelve a pedir la lista', async () => {
+      await llega([VALIDADO]);
+      eliminar(filas()[0])!.click();
+      fixture.detectChanges();
+      confirmar().click();
+      http.expectOne('/api/videos/7').flush(
+        {
+          detail: {
+            mensaje: 'el video está en proceso: espera a que termine para eliminarlo',
+            proceso: 'procesando',
+          },
+        },
+        { status: 409, statusText: 'Conflict' },
+      );
+      fixture.detectChanges();
+
+      const aviso = filas()[0].querySelector('.aviso')!;
+      expect(aviso.classList).toContain('conflicto');
+      await llega([{ ...VALIDADO, proceso: 'procesando' }]);
+      expect(eliminar(filas()[0])).toBeNull();
+    });
+  });
+
   it('descargas con el PDF solo con el video listo', async () => {
     await llega([VALIDADO, GENERADO, AFINIDAD, ERROR]);
     const opciones = (fila: HTMLElement) =>

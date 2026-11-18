@@ -71,6 +71,17 @@ export interface VideoCreado {
 }
 
 /**
+ * `DELETE /videos/{id}` → 200. `sop_eliminado`: el SOP generado que se fue con el video;
+ * `sop_conservado`: el porqué no se borró (otro video o reporte lo usa). Ambos null si el video
+ * no tenía un SOP generado.
+ */
+export interface VideoEliminado {
+  id: number;
+  sop_eliminado?: { id: number; codigo: string; titulo?: string | null } | null;
+  sop_conservado?: string | null;
+}
+
+/**
  * Subida por partes (RF-06): `POST /uploads` (201), `PUT /uploads/{id}?offset=N` y
  * `GET /uploads/{id}`. `recibidos` es desde dónde sigue la subida.
  */
