@@ -272,6 +272,20 @@ docs/
 >     `main`. También a S7: juicios guardados (#31), #20, valor sin traducir de E (#32), afinidad
 >     estable, #12, #14 (juez con el par equivocado en SOP-9299), #16 a #19, `SEG_IMAGEN_*`, remux
 >     de AVI, límite de intentos en `/acceso` (#30) y otro narrador para ADR-026 (#33).
+> - **Ensayo de máquina limpia (17 nov, rama `chore/maquina-limpia`, #38, informe en
+>   `docs/adr/datos/s7/maquina-limpia-20261117.md`):** en un clon aparte de la misma máquina
+>   (`COMPOSE_PROJECT_NAME=sopvid-limpia`), **no en una máquina limpia de verdad**: no cierra la
+>   meta de S6 ni autoriza la ✓ de "App completa" en `plan.md`; falta repetirlo en otro equipo con
+>   `docs/demo/maquina-limpia.md`. De `git clone` al primer reporte validado en Docker: 15 min 51 s
+>   con descargas (imagen 3 min 07 s, Gemma 4 min 30 s, Whisper y MiniLM en el primer video). A
+>   con Whisper en CPU dentro de Docker: 78 s (0.58×), ~6 min estimados para 10 min (no cumple
+>   RNF-01); con la API en el host y GPU, 35 s. A ≥ 90 % sin *Falta*, búsqueda 3/4/2 y el QR abierto
+>   desde un celular. `scripts/levantar.ps1` es el script único (crea `.env` con claves, levanta, espera a
+>   `/health`, migra, espera a Gemma y la carga una vez; solo se probó su ruta idempotente);
+>   `--profile llm` sin `docker-compose.gpu.yml` corre en CPU; el LLM no es opcional para validar ni
+>   generar; `up-gpu` ya incluye `ollama-pull`. Recorrido: `docs/demo/guion.md` (modo generar sin
+>   imágenes). Pendiente: 5432 y 8000 publicados en todas las interfaces, pesos de Whisper y MiniLM
+>   al levantar.
 > - **Modelo:** `gemma4:e4b` sobre-segmenta; se mitiga fusionando pasos consecutivos antes de emparejar
 >   (ADR-013). `qwen3.5:9b` segmenta mejor pero no es Gemma 4 (NDA cl. 1): solo como comparación en
 >   experimentos, nunca como valor por defecto sin aprobación escrita.
@@ -284,7 +298,7 @@ docs/
 | Levantar con el LLM, GPU si hay (recomendado) | — | `.\scripts\levantar.ps1 -Build` (`-Plan` solo muestra qué haría; `-Cpu` fuerza CPU) |
 | Levantar con el LLM (CPU, cualquier equipo) | — | `docker compose --profile llm up -d --build` |
 | Levantar con el LLM en GPU NVIDIA (ADR-018) | — | `docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build` |
-| Postgres, Ollama en GPU y frontend, API en el host (demo y mediciones, `docs/dev/api.md`) | `make up-gpu` | `$env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web; Remove-Item Env:API_URL_WEB` |
+| Postgres, Ollama en GPU y frontend, API en el host (demo y mediciones, `docs/dev/api.md`) | `make up-gpu` | `$env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama ollama-pull web; Remove-Item Env:API_URL_WEB` |
 | Detener (conserva datos) | `make down` | `docker compose down` |
 | Detener también el LLM (conserva modelos) | — | `docker compose --profile llm down` |
 | Logs | `make logs` | `docker compose logs -f` |

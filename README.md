@@ -107,36 +107,72 @@ Lo que sigue: fotogramas y subida por partes, editor del SOP generado (RF-26), P
 
 ## 5. Cómo levantar el proyecto
 
-Requisitos: Docker Desktop (con Compose v2) y Git. Para desarrollo y notebooks, además Python 3.11.
+Requisitos para la demo (opción A): Git y Docker Desktop con Compose v2 (en Windows, con el backend
+WSL2). Con una GPU NVIDIA, además un driver reciente: Docker Desktop ya trae el runtime, no se instala
+CUDA. Sin GPU todo funciona igual, más lento (ADR-018). Espacio libre: unos 25 GB (imágenes 13.6 GB,
+Gemma 6.6 GB, pesos de Whisper y MiniLM 2.1 GB). Puertos libres: 8000, 4200, 5432 y 11434; los tres
+primeros se cambian en `.env` (`APP_PORT`, `WEB_PORT`, `POSTGRES_PORT`), el 11434 de Ollama está fijo
+en `docker-compose.yml`. Para desarrollo y notebooks, además Python 3.11 (opciones B y C).
 
-### Opción A: Docker (API + base + frontend)
+### Opción A: Docker (API + base + frontend + LLM)
 
-```bash
-git clone <URL-del-repo>
-cd video-to-sop-copilot
-cp .env.example .env                     # PowerShell: Copy-Item .env.example .env
-docker compose up -d --build             # levanta Postgres, la API y el frontend (la API espera a que la base esté sana)
-docker compose exec api alembic upgrade head   # migraciones (habilita pgvector)
-curl http://localhost:8000/health        # {"status":"ok","db":"ok","llm":"no_disponible"}
-```
-
-LLM local opcional (Ollama con GPU NVIDIA): `docker compose --profile llm up -d`; con él arriba,
-`/health` informa `"llm":"ok"`. Detalles en [docs/dev/llm.md](docs/dev/llm.md). La validación
-necesita el LLM: sin Ollama, el video termina en `error` con "LLM no disponible".
-
-En Windows, `scripts/levantar.ps1` hace lo mismo y decide solo si usa la GPU (ADR-018): si hay GPU
-NVIDIA y Docker tiene el runtime `nvidia`, suma `docker-compose.gpu.yml` y Gemma corre en la GPU; si
-no, todo corre en CPU, con el mismo resultado pero más lento. La API dentro de Docker sigue en CPU.
+**Windows, un solo script.** Desde la carpeta donde quieras el proyecto:
 
 ```powershell
-.\scripts\levantar.ps1              # api + base + frontend + Ollama, con GPU si hay
+git clone <URL-del-repo> ; cd video-to-sop-copilot
+.\scripts\levantar.ps1
+```
+
+El script crea `.env` con claves de acceso nuevas (te las muestra; quedan en `.env`), usa la GPU si
+hay (GPU NVIDIA y runtime `nvidia` en Docker: suma `docker-compose.gpu.yml`; si no, Gemma corre en
+CPU), levanta todo, espera a la API, aplica las migraciones, espera a que Gemma termine de bajar
+(`/health` con `"llm":"ok"`) y la carga una vez. Al final imprime las direcciones. Con 25 MB/s de
+descarga: unos 9 min hasta `llm: ok` (construir la imagen 3 min, Gemma 4.5 min). La primera vez que
+subas un video, la API descarga además Whisper (~1.6 GB) y MiniLM (~0.5 GB): unos 2-3 min más, una
+sola vez.
+
+```powershell
 .\scripts\levantar.ps1 -Build       # reconstruye la imagen de la api
-.\scripts\levantar.ps1 -SinLLM      # api + base + frontend, sin Ollama
-.\scripts\levantar.ps1 -Plan        # dice qué haría, sin levantar nada
+.\scripts\levantar.ps1 -Cpu         # Ollama en CPU aunque haya GPU (para medir)
+.\scripts\levantar.ps1 -SinLLM      # api + base + frontend, sin Ollama (no valida ni genera)
+.\scripts\levantar.ps1 -SoloEnv     # crea .env y sale, para editarlo (puertos, claves) antes de levantar
+.\scripts\levantar.ps1 -Plan        # dice qué haría, sin escribir ni levantar nada
 .\scripts\levantar.ps1 -Detener     # detiene todo, conserva datos y modelos
 ```
 
-En PowerShell, la comprobación equivalente es `Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en <http://localhost:8000/docs>.
+**Sin PowerShell (Linux o macOS), a mano:**
+
+```bash
+git clone <URL-del-repo> && cd video-to-sop-copilot
+cp .env.example .env     # llena CLAVE_CARGA, CLAVE_BUSQUEDA y SECRETO_ENLACES (ver "Claves de acceso")
+# El LLM no es opcional: sin él, validar y generar terminan en error ("LLM no disponible").
+docker compose --profile llm up -d --build            # Gemma en CPU
+# Con GPU NVIDIA hay que sumar docker-compose.gpu.yml: --profile llm solo NO usa la GPU.
+# docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build
+docker compose exec api alembic upgrade head          # migraciones (habilita pgvector)
+docker compose logs -f ollama-pull                    # descarga de Gemma (~6.6 GB); termina solo
+curl http://localhost:8000/health                     # "llm":"ok" cuando Gemma ya está descargada
+```
+
+`/health` dice `"llm":"no_disponible"` hasta que Ollama responde **y** tiene `LLM_MODEL` descargado.
+Detalles del LLM en [docs/dev/llm.md](docs/dev/llm.md). Para ver dónde quedó Gemma:
+`docker compose exec ollama ollama ps` (columna PROCESSOR). En PowerShell, la comprobación de salud es
+`Invoke-RestMethod http://localhost:8000/health`. La documentación interactiva de la API queda en
+<http://localhost:8000/docs>.
+
+**Con la API en Docker, Whisper transcribe en CPU.** Medido con los modelos ya descargados: 78 s en
+total para un video de 2:15 (0.58× su duración, Whisper 47 s) y 144 s para uno de 3:47 (0.63×),
+contra 25–44 s por video con la API en el host y GPU. Extrapolado a 10 min son ~6 min: no cumple RNF-01
+(5 min). Sirve para una demo con videos de 2–4 min; para cumplir RNF-01, la
+[opción D](#opción-d-demo-con-gpu-api-en-el-host).
+
+#### Material de la demo
+
+Los videos y el SOP en Word de la demo **no vienen en el repo** (NDA: nada del cliente entra a Git). En
+el repo solo está el SOP del filtro de agua en Markdown (`tests/fixtures/sop_filtro_agua.md`). El video
+y el SOP en Word los entrega el equipo por el almacenamiento aprobado; guárdalos **fuera del repo**
+(por ejemplo `..\sopvid-material\`) y súbelos desde `/nuevo` o con curl. El recorrido, con lo que debe
+salir en cada paso: [docs/demo/guion.md](docs/demo/guion.md).
 
 El frontend (Angular con `ng serve`, servicio `web`) queda en <http://localhost:4200> y se recarga solo al guardar un archivo de `frontend/`: no hace falta otra terminal ni Node instalado. El primer arranque tarda unos minutos (`npm ci`); los siguientes solo reinstalan si cambia `package-lock.json`. Los errores de compilación se ven con `docker compose logs -f web`. Detalles en [frontend/README.md](frontend/README.md).
 
@@ -149,10 +185,10 @@ en el código ni en Git (`.env.example` las trae vacías):
 ```dotenv
 CLAVE_CARGA=…        # corta, fácil de escribir en la demo
 CLAVE_BUSQUEDA=…     # otra distinta (si son iguales, la API no arranca)
-SECRETO_ENLACES=…    # larga, firma los QR del PDF: python -c "import secrets; print(secrets.token_urlsafe(32))"
+SECRETO_ENLACES=…    # larga, firma los QR del PDF (el script la genera; a mano: openssl rand -base64 32)
 ```
 
-Reinicia la API al cambiarlas (`docker compose up -d api`, o la API del host). Vacía, una vista
+`levantar.ps1` las llena solo cuando crea el `.env`. Reinicia la API al cambiarlas (`docker compose up -d api`, o la API del host). Vacía, una vista
 queda abierta (desarrollo) y `/health` lo avisa en `avisos`. Los QR del PDF abren su video sin
 clave gracias al token; cambiar `SECRETO_ENLACES` invalida los ya impresos. Qué ruta pide qué
 clave: [docs/dev/api.md](docs/dev/api.md#claves-de-acceso).
@@ -206,6 +242,53 @@ página pasa al reporte, que muestra el avance cada 3 s hasta que está listo. L
 generan desde `docs/contrato/reporte.schema.json` con `npm run tipos`. Detalle en
 [frontend/README.md](frontend/README.md).
 
+### Opción D: demo con GPU (API en el host)
+
+Para cumplir RNF-01 (10 min de video en menos de 5 min) Whisper tiene que correr en la GPU, y la imagen
+de Docker no la ve (ADR-014): la API corre en el host (Windows, GPU NVIDIA) y en Docker quedan la base,
+Ollama (con GPU) y el frontend. Medido con A (2:15): 35 s con los modelos en caché, 4 min 54 s la
+primera vez (se descargan Whisper y MiniLM a `models/` del repo). Todo desde la raíz del clon, en
+PowerShell:
+
+```powershell
+.\scripts\levantar.ps1 -SoloEnv                          # crea .env con claves (si no existe)
+py -3.11 -m venv .venv ; .\.venv\Scripts\Activate.ps1
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[gpu]"                                  # añade "dev" si vas a correr pytest (~5 min en total)
+winget install Gyan.FFmpeg                               # solo si ffmpeg no está en el PATH
+$env:API_URL_WEB = "http://host.docker.internal:8000"    # el frontend reenvía /api a la API del host
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama ollama-pull web
+Remove-Item Env:API_URL_WEB
+docker compose logs -f ollama-pull                       # Gemma (~6.6 GB) la primera vez; termina sola
+alembic upgrade head
+# En .env: WHISPER_DISPOSITIVO=cuda y WHISPER_COMPUTE_TYPE=float16 (con "auto" se elige solo; así falla en voz alta)
+uvicorn sopvid.plataforma.api.main:app --host 127.0.0.1 --port 8000    # un solo proceso, sin --reload
+```
+
+Criterio: `Invoke-RestMethod http://127.0.0.1:8000/health` con `db` y `llm` en `ok` y la GPU en
+`dispositivos`. La API de Docker no debe estar arriba (ocupa el 8000): `docker compose stop api`.
+Detalle y comprobaciones de GPU: [docs/dev/api.md](docs/dev/api.md#api-en-el-host-con-la-gpu-así-corre-la-demo).
+
+### QR del PDF con el celular
+
+Los QR del PDF llevan la dirección de `APP_URL_PUBLICA`. Para escanearlos desde un celular, esa
+dirección tiene que ser alcanzable desde él:
+
+1. Celular y equipo en la misma red Wi-Fi (sin datos móviles ni VPN en el celular; algunas redes
+   aíslan a los clientes entre sí).
+2. En `.env`: `APP_URL_PUBLICA=http://<IP del equipo>:4200` (`ipconfig`, la del Wi-Fi). Reinicia la
+   API y **genera el PDF de nuevo**: los ya generados conservan la dirección vieja.
+3. Windows Firewall: si el celular no abre `http://<IP>:4200`, permite el puerto 4200 en la red privada
+   (PowerShell como administrador) y quítalo al terminar:
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "sopvid web 4200" -Direction Inbound -Protocol TCP -LocalPort 4200 -Action Allow -Profile Private
+   Remove-NetFirewallRule -DisplayName "sopvid web 4200"
+   ```
+
+El celular solo necesita el 4200: el frontend reenvía `/api` a la API, así que el 8000 no hace falta
+abrirlo. El QR lleva su propio token (`k`): abre ese video sin pedir clave.
+
 ### Whisper en CPU o GPU
 
 Whisper usa `large-v3-turbo` en CPU y en GPU (ADR-018, `WHISPER_MODELO_CPU`); otro modelo deja el
@@ -250,7 +333,7 @@ El archivo se lee en UTF-8. Las advertencias (numeración, claves desconocidas, 
 | `make` | PowerShell (desde la raíz, con el `.venv` activo para test/lint) |
 |---|---|
 | `make up` | `docker compose up -d --build` |
-| `make up-gpu` | `$env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama web; Remove-Item Env:API_URL_WEB` (la API en el host con la GPU, `docs/dev/api.md`) |
+| `make up-gpu` | `$env:API_URL_WEB="http://host.docker.internal:8000"; docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d db ollama ollama-pull web; Remove-Item Env:API_URL_WEB` (la API en el host con la GPU, `docs/dev/api.md`) |
 | `make down` | `docker compose down` |
 | `make logs` | `docker compose logs -f` |
 | `make migrate` | `docker compose exec api alembic upgrade head` |
@@ -258,7 +341,7 @@ El archivo se lee en UTF-8. Las advertencias (numeración, claves desconocidas, 
 | `make lint` | `ruff check . ; ruff format --check .` |
 | `make format` | `ruff check --fix . ; ruff format .` |
 
-Objetivo de reproducibilidad: clonar y ejecutar un solo script debe reproducir la demo en ≤ 30 minutos en una máquina limpia.
+Objetivo de reproducibilidad: clonar y ejecutar un solo script (`scripts/levantar.ps1`) debe reproducir la demo en ≤ 30 minutos en una máquina limpia. Ensayo del 17 nov en un clon aparte de esta misma máquina (no sustituye a un equipo limpio de verdad): de `git clone` al primer reporte validado, unos 16 min con todas las descargas, con los mismos pasos que hoy automatiza el script (el script completo desde cero aún no se ha corrido en una máquina nueva); `docs/demo/maquina-limpia.md` es la lista para repetirlo en otro equipo y `docs/adr/datos/s7/` guarda el informe.
 
 ## 6. Datos y privacidad
 
