@@ -80,6 +80,8 @@ export const routes: Routes = [
         path: 'videos/:id/sop',
         component: SopGenerado,
         canDeactivate: [sinGuardar],
+        // Resumen a la izquierda y pasos a la derecha en escritorio (sop-editor.scss).
+        data: { ancho: true },
         title: 'SOP generado · SOPVID',
       },
       // SOP de referencia convertido (RF-04): el mismo editor; `?video=N` para revalidar.
@@ -87,6 +89,7 @@ export const routes: Routes = [
         path: 'sops/:id',
         component: SopEditor,
         canDeactivate: [sinGuardar],
+        data: { ancho: true },
         title: 'Revisar el SOP · SOPVID',
       },
     ],

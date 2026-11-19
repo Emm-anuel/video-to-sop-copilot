@@ -7,6 +7,12 @@
   min-width: 0;
 }
 
+// Las rejillas internas se abren según el ancho de su sección y no el de la ventana: en la
+// columna izquierda del escritorio la sección es angosta aunque la ventana sea ancha.
+section {
+  container-type: inline-size;
+}
+
 section,
 .encabezado {
   min-width: 0;
@@ -69,7 +75,7 @@ h3 {
   grid-template-columns: 1fr;
   gap: 0 1rem;
 
-  @media (min-width: 40rem) {
+  @container (min-width: 36rem) {
     grid-template-columns: 1fr 1fr;
 
     .ancho {
@@ -280,7 +286,7 @@ h3 {
   gap: 0.75rem;
   grid-template-columns: 1fr;
 
-  @media (min-width: 40rem) {
+  @container (min-width: 36rem) {
     grid-template-columns: 10rem 1fr;
   }
 }
@@ -342,7 +348,9 @@ h3 {
     min-width: 0;
   }
 
-  @media (min-width: 48rem) {
+  // Entre 48 y 72 rem va a lo ancho de la página; desde 72 rem queda en la columna izquierda,
+  // angosta, y se apila.
+  @media (min-width: 48rem) and (max-width: 71.99rem) {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -384,5 +392,35 @@ h3 {
     max-height: 70vh;
     margin-bottom: 0.5rem;
     background: #000;
+  }
+}
+
+// Escritorio: el resumen y las claves a la izquierda y los pasos, que son lo largo, a la derecha,
+// para no recorrer una sola columna angosta con un SOP grande. En pantallas angostas (RNF-13) se
+// apilan como siempre.
+.cuerpo {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+
+  @media (min-width: 72rem) {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+
+    .seccion-resumen {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .seccion-pasos {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+
+    .claves {
+      grid-column: 1;
+      grid-row: 2;
+    }
   }
 }
